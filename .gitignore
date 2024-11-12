@@ -21,3 +21,10 @@ Cargo.lock
 #.idea/
 
 .gdb_history
+
+# Generated during preliminary testing
+kernel-qemu
+sbi-qemu
+sdcard.img
+output.log
+results.json
