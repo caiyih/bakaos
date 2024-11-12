@@ -60,11 +60,15 @@ jobs:
       - name: Install cargo-binutils
         run: cargo install cargo-binutils
 
+      - name: Build kernel
+        run: make build LOG=TRACE
+
       - name: Install Qemu
         run: |
           sudo apt update
           sudo apt install -y qemu-system-misc
           qemu-system-riscv64 --version
 
-      - name: Build kernel
-        run: make build LOG=TRACE
+      - name: Run
+        run: make run LOG=TRACE
+
