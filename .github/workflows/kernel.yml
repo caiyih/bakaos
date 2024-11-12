@@ -23,13 +23,14 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly-2024-02-03
-          target: riscv64gc-unknown-none-elf
-          override: true
-          components: llvm-tools
+        env: 
+            TOOLCHAIN_VERSION: nightly-2024-02-03
+        run: |
+          rustup toolchain install $TOOLCHAIN_VERSION --profile minimal
+          rustup default $TOOLCHAIN_VERSION
+          rustup override set $TOOLCHAIN_VERSION
+          rustup target add riscv64gc-unknown-none-elf
+          rustup component add llvm-tools
 
       - uses: taiki-e/cache-cargo-install-action@v2
         with:
@@ -50,13 +51,14 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly-2024-02-03
-          target: riscv64gc-unknown-none-elf
-          override: true
-          components: llvm-tools
+        env: 
+            TOOLCHAIN_VERSION: nightly-2024-02-03
+        run: |
+          rustup toolchain install $TOOLCHAIN_VERSION --profile minimal
+          rustup default $TOOLCHAIN_VERSION
+          rustup override set $TOOLCHAIN_VERSION
+          rustup target add riscv64gc-unknown-none-elf
+          rustup component add llvm-tools
 
       - uses: taiki-e/cache-cargo-install-action@v2
         with:
