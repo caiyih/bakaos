@@ -46,4 +46,4 @@ parse:
 
 clean:
 	@echo "Warn: This only cleans files generated for contest submission."
-	@rm -f KERNEL_ELF SBI_OUTPUT sdcard.img output.log results.json
+	@rm -f KERNEL_ELF SBI_OUTPUT sdcard.img output.log results.json || exit 0
