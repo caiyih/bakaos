@@ -9,6 +9,9 @@ on:
       - 'crates/**'
   workflow_dispatch:
 
+env:
+  CARGO_TERM_COLOR: 'always'
+
 jobs:
   test:
     name: Run Tests
