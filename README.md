@@ -18,6 +18,12 @@
 
 - [T202410145994289/oskernel2024-9](https://gitlab.eduxiji.net/T202410145994289/oskernel2024-9)
 
+## GitHub repository
+
+- [caiyih/bakaos](https://github.com/caiyih/bakaos)
+
+The GitHub repository is the real repository where the development happens. The GitLab repository is only used for the contest.
+
 ## Repo introduction
 
 **IMPORTANT: For detailed documentations, please refer to the `docs` directory.**
