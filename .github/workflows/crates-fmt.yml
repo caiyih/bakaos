@@ -1,4 +1,4 @@
-name: Rust Crates Code Quality
+name: Crates Code Quality
 
 on:
   push:

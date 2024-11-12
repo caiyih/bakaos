@@ -1,4 +1,4 @@
-name: Rust Crates Tests
+name: Crates Tests
 
 on:
   push:
