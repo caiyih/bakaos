@@ -41,6 +41,7 @@ pub fn init() {
     log::set_logger(&LOGGER_INSTANCE).unwrap();
 
     let level = match option_env!("LOG") {
+        Some("OFF") => LevelFilter::Off,
         Some("ERROR") => LevelFilter::Error,
         Some("WARN") => LevelFilter::Warn,
         Some("INFO") => LevelFilter::Info,

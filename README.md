@@ -102,16 +102,19 @@ This runs the kernel with log level set to `TRACE`.
 
 Please note that the log level is hard coded at compile time. But you don't have to worry as `run` command will rebuild the kernel with the specified log level.
 
-There are 5 log levels in total:
+There are 6 log levels in total:
 - `ERROR`
 - `WARN`
 - `INFO`
 - `DEBUG`
 - `TRACE`
+- `OFF`
 
 Level `ERROR` is the highest level, and `TRACE` is the lowest level.
 
 The default log level is `INFO`.
+
+Please note that `OFF` will disable all logging from the `log` crate, but the kernel may still print some messages to the console. But that should not be a thing to worry about.
 
 ### `crates`
 
