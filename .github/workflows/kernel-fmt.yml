@@ -1,0 +1,60 @@
+name: Kernel Code Quality
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+    paths:
+      - 'kernel/**'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: 'always'
+
+jobs:
+  lint:
+    name: Code Lint
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./kernel
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly-2024-02-03
+          target: riscv64gc-unknown-none-elf
+          override: true
+          components: clippy
+
+      - name: Run clippy
+        run: cargo clippy -- -D warnings
+
+  fmt:
+    name: Code Format
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./kernel
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly-2024-02-03
+          target: riscv64gc-unknown-none-elf
+          override: true
+          components: rustfmt
+
+      - name: Check formatting
+        run: cargo fmt -- --check
