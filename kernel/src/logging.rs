@@ -40,19 +40,17 @@ pub fn init() {
 
     log::set_logger(&LOGGER_INSTANCE).unwrap();
 
-    let level;
-
-    match option_env!("LOG") {
-        Some("ERROR") => level = LevelFilter::Error,
-        Some("WARN") => level = LevelFilter::Warn,
-        Some("INFO") => level = LevelFilter::Info,
-        Some("DEBUG") => level = LevelFilter::Debug,
-        Some("TRACE") => level = LevelFilter::Trace,
+    let level = match option_env!("LOG") {
+        Some("ERROR") => LevelFilter::Error,
+        Some("WARN") => LevelFilter::Warn,
+        Some("INFO") => LevelFilter::Info,
+        Some("DEBUG") => LevelFilter::Debug,
+        Some("TRACE") => LevelFilter::Trace,
         _ => {
             legacy_println!("BAKA! You forgot to input the log level. Defaulting to WARN.");
-            level = LevelFilter::Info;
+            LevelFilter::Info
         }
-    }
+    };
 
     log::set_max_level(level);
 

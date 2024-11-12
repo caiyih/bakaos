@@ -9,6 +9,7 @@ fn set_kernel_trap_handler() {
     unsafe { stvec::write(__on_kernel_trap as usize, stvec::TrapMode::Direct) };
 }
 
+#[allow(unused)]
 fn set_user_trap_handler() {
     unsafe { stvec::write(__on_user_trap as usize, stvec::TrapMode::Direct) };
 }
