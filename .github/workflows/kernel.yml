@@ -1,0 +1,70 @@
+name: Kernel CI
+
+on:
+  push:
+    branches:
+      - "**"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: 'always'
+  IS_CI_ENVIRONMENT: true
+
+jobs:
+  build-only:
+    name: Build Only
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./kernel
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly-2024-02-03
+          target: riscv64gc-unknown-none-elf
+          override: true
+          components: llvm-tools
+
+      - name: Install cargo-binutils
+        run: cargo install cargo-binutils
+
+      - name: Build kernel
+        run: make build LOG=TRACE
+
+  run:
+    name: Run
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./kernel
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly-2024-02-03
+          target: riscv64gc-unknown-none-elf
+          override: true
+          components: llvm-tools
+
+      - name: Install cargo-binutils
+        run: cargo install cargo-binutils
+
+      - name: Install Qemu
+        run: |
+          sudo apt update
+          sudo apt install -y qemu-system-misc
+          qemu-system-riscv64 --version
+
+      - name: Build kernel
+        run: make build LOG=TRACE
