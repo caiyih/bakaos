@@ -27,33 +27,33 @@ pub const SEPARATOR: char = '/';
 // dot character
 pub const DOT: char = '.';
 
-///! Combine two paths
+/// Combine two paths
 pub fn combine(path1: &str, path2: &str) -> Option<String> {
     combine_internal(path1, path2)
 }
 
-///! Determine if a character is a separator 
+/// Determine if a character is a separator
 pub fn is_separator(c: char) -> bool {
     c == SEPARATOR
 }
 
-///! Determine if a path is fully qualified
+/// Determine if a path is fully qualified
 pub fn is_path_rooted(path: &str) -> bool {
     starts_with_separator(path)
 }
 
-///! Determine if path ends with separator
+/// Determine if path ends with separator
 pub fn ends_in_separator(path: &str) -> bool {
     !path.is_empty() && path.chars().last().unwrap() == SEPARATOR
 }
 
-///! Determine if path starts with separator
+/// Determine if path starts with separator
 pub fn starts_with_separator(path: &str) -> bool {
     !path.is_empty() && path.chars().next().unwrap() == SEPARATOR
 }
 
-///! Remove the trailing separator of a path
-///! Returns a slice of previous &str
+/// Remove the trailing separator of a path
+/// Returns a slice of previous &str
 pub fn trim_end_separator(path: &str) -> &str {
     match ends_in_separator(path) && !is_root_internal(path) {
         true => &path[..path.len() - 1],
@@ -61,20 +61,19 @@ pub fn trim_end_separator(path: &str) -> &str {
     }
 }
 
-///! Determine if a path is root
-///! This method doesn't handle non-simplified paths
+/// Determine if a path is root
+/// This method doesn't handle non-simplified paths
 pub fn is_root(path: &str) -> bool {
     !path.is_empty() && is_root_internal(path)
 }
 
-///! Determine if a path is fully qualified
+/// Determine if a path is fully qualified
 pub fn is_path_fully_qualified(path: &str) -> bool {
     !is_partially_qualified(path)
 }
 
-
-///! Determine if a path has extension
-///! Directory or empty paths are considered false
+/// Determine if a path has extension
+/// Directory or empty paths are considered false
 pub fn has_extension(path: &str) -> bool {
     path.chars()
         .rev()
@@ -82,9 +81,9 @@ pub fn has_extension(path: &str) -> bool {
         .any(|c| c == DOT)
 }
 
-///! Get the extensions of a path
-///! Returns None if the path does not have a extension
-///! or if the path is empty or a directory
+/// Get the extensions of a path
+/// Returns None if the path does not have a extension
+/// or if the path is empty or a directory
 pub fn get_extension(path: &str) -> Option<&str> {
     let mut iter = path.chars().rev().take_while(|c| !is_separator(*c));
     let dot = iter.position(|c| c == DOT);
@@ -95,8 +94,8 @@ pub fn get_extension(path: &str) -> Option<&str> {
     }
 }
 
-///! Get the last component of the path, may be file name or the last directory's name
-///! Returns the full path if not found
+/// Get the last component of the path, may be file name or the last directory's name
+/// Returns the full path if not found
 pub fn get_filename(path: &str) -> &str {
     match index_of_filename(path) {
         ..=0 => path,
@@ -104,7 +103,7 @@ pub fn get_filename(path: &str) -> &str {
     }
 }
 
-///! Get the file name without extension
+/// Get the file name without extension
 pub fn get_filename_without_extension(path: &str) -> &str {
     let filename = get_filename(path);
 
@@ -114,8 +113,8 @@ pub fn get_filename_without_extension(path: &str) -> &str {
     }
 }
 
-///! Change the file name of the path, keeps the directory part
-///! Will return None if the path is empty.
+/// Change the file name of the path, keeps the directory part
+/// Will return None if the path is empty.
 pub fn change_extension(path: &str, extension: &str) -> Option<String> {
     if path.is_empty() {
         return None;
@@ -135,7 +134,7 @@ pub fn change_extension(path: &str, extension: &str) -> Option<String> {
     }
 }
 
-///! Returns "/" if the path is not empty
+/// Returns "/" if the path is not empty
 pub fn get_path_root(path: &str) -> Option<&str> {
     match path.is_empty() || !is_path_rooted(path) {
         true => None,
@@ -143,8 +142,8 @@ pub fn get_path_root(path: &str) -> Option<&str> {
     }
 }
 
-///! Get the parent directory of a path
-///! Returns None for "/" or empty path
+/// Get the parent directory of a path
+/// Returns None for "/" or empty path
 pub fn get_directory_name(path: &str) -> Option<&str> {
     match path.is_empty() {
         true => None,
@@ -160,9 +159,9 @@ pub fn get_directory_name(path: &str) -> Option<&str> {
     }
 }
 
-///! Calculate relative form of the second path relative to the first path
-///! Replace the relative segaments with "." or ".."
-///! Returns None if the two paths are both empty or partially qualified.
+/// Calculate relative form of the second path relative to the first path
+/// Replace the relative segaments with "." or ".."
+/// Returns None if the two paths are both empty or partially qualified.
 pub fn get_relative_path(relative_to: &str, path: &str) -> Option<String> {
     match relative_to.is_empty()
         || path.is_empty()
@@ -174,9 +173,9 @@ pub fn get_relative_path(relative_to: &str, path: &str) -> Option<String> {
     }
 }
 
-///! Get the path of the first directory relative to the second directory
-///! Returns None if the two paths are both empty or partially qualified.
-///! Like combine or remove_relative_segments depending on if the path is rooted or not
+/// Get the path of the first directory relative to the second directory
+/// Returns None if the two paths are both empty or partially qualified.
+/// Like combine or remove_relative_segments depending on if the path is rooted or not
 pub fn get_full_path(path: &str, cwd: Option<&str>) -> Option<String> {
     match path.is_empty() {
         true => cwd.map(|c| c.to_string()),
@@ -184,7 +183,7 @@ pub fn get_full_path(path: &str, cwd: Option<&str>) -> Option<String> {
     }
 }
 
-///! Remove as many relative segaments as possible of a path
+/// Remove as many relative segaments as possible of a path
 pub fn remove_relative_segments(path: &str) -> String {
     match remove_relative_segments_internal(path) {
         Some(p) => p,
@@ -193,7 +192,7 @@ pub fn remove_relative_segments(path: &str) -> String {
     }
 }
 
-///! Get relative to root form of the path
+/// Get relative to root form of the path
 pub fn relative_to_root(path: &str) -> &str {
     match is_path_fully_qualified(path) {
         false => path,
@@ -325,7 +324,7 @@ fn remove_relative_segments_internal(path: &str) -> Option<String> {
     Some(sb)
 }
 
-///! Remove alternate directory separator('//' or '\\')
+/// Remove alternate directory separator('//' or '\\')
 pub fn normalize_path(path: &str) -> Option<String> {
     if path.is_empty() {
         return None;
@@ -715,7 +714,10 @@ mod tests {
             Some("home/user/docs/file.txt".to_string())
         );
         assert_eq!(get_relative_path("/", "/"), Some(".".to_string()));
-        assert_eq!(get_relative_path("/home/user", "/docs/file.txt"), Some("../../docs/file.txt".to_string()));
+        assert_eq!(
+            get_relative_path("/home/user", "/docs/file.txt"),
+            Some("../../docs/file.txt".to_string())
+        );
     }
 
     #[test]

@@ -53,7 +53,7 @@ where
 {
     let mut future = unsafe { Pin::new_unchecked(future) };
     let waker = Waker::noop();
-    let mut context = Context::from_waker(&waker);
+    let mut context = Context::from_waker(waker);
 
     loop {
         match future.as_mut().poll(&mut context) {
