@@ -28,3 +28,4 @@ sbi-qemu
 sdcard.img
 output.log
 results.json
+__pycache__
