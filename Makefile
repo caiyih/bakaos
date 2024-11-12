@@ -4,6 +4,7 @@
 
 KERNEL_ELF := kernel-qemu
 SBI_OUTPUT := sbi-qemu
+ARCH := riscv64gc-unknown-none-elf
 
 all: _warn build
 
@@ -19,8 +20,8 @@ _build_internal:
 
 _prepare_image:
 	@echo "Preparing image..."
-	@cp kernel/target/release/bakaos KERNEL_ELF
-	@cp kernel/binary/opensbi SBI_OUTPUT
+	@cp kernel/target/${ARCH}/release/bakaos ${KERNEL_ELF}
+	@cp kernel/binary/opensbi.bin ${SBI_OUTPUT}
 
 test: build _prepare_sdcard _test_internal
 
@@ -46,4 +47,4 @@ parse:
 
 clean:
 	@echo "Warn: This only cleans files generated for contest submission."
-	@rm -f KERNEL_ELF SBI_OUTPUT sdcard.img output.log results.json || exit 0
+	@rm -f ${KERNEL_ELF} ${SBI_OUTPUT} sdcard.img output.log results.json || exit 0
