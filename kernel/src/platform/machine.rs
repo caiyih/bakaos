@@ -29,11 +29,11 @@ pub trait IMachine {
     }
 
     fn tick_to_ms(&self, tick: usize) -> u64 {
-        (tick as u64) * 1000 / (self.clock_freq() as u64)
+        (tick as u64) * 1000 / self.clock_freq()
     }
 
     fn tick_to_timestamp(&self, tick: u64) -> u64 {
-        tick / self.clock_freq() as u64
+        tick / self.clock_freq()
     }
 
     #[inline(always)]

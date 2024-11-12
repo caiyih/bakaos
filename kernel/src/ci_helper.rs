@@ -83,10 +83,10 @@ const VIRT_TEST: u64 = 0x100000;
 pub const QEMU_EXIT_HANDLE: Rv64ExitHandle = Rv64ExitHandle::new(VIRT_TEST);
 
 pub fn is_ci_environment() -> bool {
-    match option_env!("CI_ENVIRONMENT") {
-        Some("TRUE") | Some("True") | Some("true") | Some("1") => true,
-        _ => false,
-    }
+    matches!(
+        option_env!("CI_ENVIRONMENT"),
+        Some("TRUE") | Some("True") | Some("true") | Some("1")
+    )
 }
 
 pub fn exit_qemu_failure() -> ! {

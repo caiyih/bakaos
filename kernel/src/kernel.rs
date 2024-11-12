@@ -52,7 +52,7 @@ impl Kernel {
         let machine = platform::get_machine_interface();
 
         Self {
-            machine: machine,
+            machine,
             bootup_tick: machine.current_timestamp(),
             statistics: KernelStatistics::new(),
         }
