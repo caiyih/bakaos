@@ -11,15 +11,11 @@ _warn:
 	@echo "This Makefile is only used for the contest submission or simulate a contest environment."
 	@echo "The all target will only build the kernel and prepare the image for submission."
 
-build: _build_internal _strip _prepare_image
+build: _build_internal _prepare_image
 
 _build_internal:
 	@echo "Building..."
 	@cd kernel && cargo build --release
-
-_strip: 
-	@echo "Stripping..."
-	@cd kernel && make strip
 
 _prepare_image:
 	@echo "Preparing image..."
