@@ -23,7 +23,7 @@ _prepare_image:
 	@cp kernel/target/${ARCH}/release/bakaos ${KERNEL_ELF}
 	@cp kernel/binary/opensbi.bin ${SBI_OUTPUT}
 
-test: build _prepare_sdcard _test_internal
+test: build _prepare_sdcard _test_internal parse
 
 _prepare_sdcard:
 	@echo "Preparing sdcard..."
