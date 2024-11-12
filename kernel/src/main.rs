@@ -8,17 +8,17 @@
 #![feature(inline_const)]
 #![feature(alloc_error_handler)]
 
-mod logging;
-mod panic_handling;
-mod serial;
-mod platform;
-mod firmwares;
-mod timing;
-mod kernel;
 mod ci_helper;
-mod system;
+mod firmwares;
+mod kernel;
+mod logging;
 mod memory;
+mod panic_handling;
+mod platform;
+mod serial;
 mod statistics;
+mod system;
+mod timing;
 mod trap;
 
 use core::{arch::asm, sync::atomic::AtomicBool};
@@ -27,9 +27,7 @@ use sbi_spec::base::impl_id;
 
 #[no_mangle]
 #[allow(unused_assignments)]
-fn main() {
-
-}
+fn main() {}
 
 #[naked]
 #[no_mangle]
@@ -51,7 +49,7 @@ static mut BOOTED: AtomicBool = AtomicBool::new(false);
 
 #[no_mangle]
 #[allow(named_asm_labels)]
-unsafe extern "C" fn  __kernel_init() {
+unsafe extern "C" fn __kernel_init() {
     if BOOTED.load(core::sync::atomic::Ordering::Relaxed) {
         // TODO: non-main harts should wait for main hart to finish booting
         // Setup non-main hart's temporary stack

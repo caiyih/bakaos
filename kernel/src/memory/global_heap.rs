@@ -12,11 +12,13 @@ pub fn init() {
         let start = KERNEL_HEAP_START.as_ptr() as usize;
         let len = constants::KERNEL_HEAP_SIZE;
 
-        debug!("Initializing kernel heap: {:#010x} - {:#010x}", start, start + len);
+        debug!(
+            "Initializing kernel heap: {:#010x} - {:#010x}",
+            start,
+            start + len
+        );
 
-        GLOBAL_ALLOCATOR
-            .lock()
-            .init(start, len);
+        GLOBAL_ALLOCATOR.lock().init(start, len);
     }
 }
 

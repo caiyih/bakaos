@@ -1,2 +1,1 @@
-pub trait ITimer {
-}
+pub trait ITimer {}
