@@ -1,0 +1,9 @@
+[workspace]
+
+members = [
+    "template",
+    "address",
+    "path",
+    "threading",
+    "constants",
+]
