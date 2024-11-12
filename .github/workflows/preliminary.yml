@@ -1,0 +1,44 @@
+name: Preliminary test
+
+on:
+  push:
+    branches:
+      - "**"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: 'always'
+  IS_CI_ENVIRONMENT: true
+
+jobs:
+  run:
+    name: Grading
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        env: 
+            TOOLCHAIN_VERSION: nightly-2024-02-03
+        run: |
+          rustup toolchain install $TOOLCHAIN_VERSION --profile minimal
+          rustup default $TOOLCHAIN_VERSION
+          rustup override set $TOOLCHAIN_VERSION
+          rustup target add riscv64gc-unknown-none-elf
+          rustup component add llvm-tools
+
+      - uses: taiki-e/cache-cargo-install-action@v2
+        with:
+          tool: cargo-binutils
+
+      - name: Install Qemu
+        run: |
+          sudo apt update
+          sudo apt install -y qemu-system-misc
+          qemu-system-riscv64 --version
+
+      - name: Run
+        timeout-minutes: 5
+        run: make test
+
