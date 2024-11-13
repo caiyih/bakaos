@@ -36,6 +36,7 @@ unsafe extern "C" fn _start() -> ! {
         // Read the device tree address
         "mv gp, a1",
         // Setup virtual memory
+        // See comments below for details
         "la t0, {page_table}",
         "srli t0, t0, 12", // get the physical page number of PageTabe
         "li t1, 8 << 60",
@@ -71,6 +72,21 @@ unsafe extern "C" fn _start_virtualized() -> ! {
     )
 }
 
+// This basically includes two parts
+//   1. Identity mapping of [0x40000000, 0x80000000) and [0x80000000, 0xc0000000)]
+//   2. High half kernel mapping of
+//      [ VIRTUAL_ADDRESS_OFFSET | 0x00000000, VIRTUAL_ADDRESS_OFFSET | 0x40000000)
+//           to [0x00000000, 0x40000000)
+//
+//      [ VIRTUAL_ADDRESS_OFFSET | 0x40000000, VIRTUAL_ADDRESS_OFFSET | 0x80000000)
+//           to [0x40000000, 0x80000000)
+//
+//      [ VIRTUAL_ADDRESS_OFFSET | 0x80000000, VIRTUAL_ADDRESS_OFFSET | 0xc0000000)
+//           to [0x80000000, 0xc0000000)
+//
+// The first part is essential as the pc is still at the low half
+// since satp is write until jump to virtualized entry
+// But the two pages is not needed after the kernel entered the _start_virtualized
 #[link_section = ".data.prepage"]
 static mut PAGE_TABLE: [usize; 512] = {
     let mut arr: [usize; 512] = [0; 512];
