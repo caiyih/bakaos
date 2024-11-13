@@ -7,6 +7,7 @@
 #![feature(panic_can_unwind)]
 #![feature(inline_const)]
 #![feature(alloc_error_handler)]
+#![feature(asm_const)]
 
 mod ci_helper;
 mod firmwares;
@@ -25,10 +26,6 @@ use core::{arch::asm, sync::atomic::AtomicBool};
 use firmwares::console::IConsole;
 use sbi_spec::base::impl_id;
 
-#[no_mangle]
-#[allow(unused_assignments)]
-fn main() {}
-
 #[naked]
 #[no_mangle]
 #[link_section = ".text.entry"]
@@ -38,12 +35,56 @@ unsafe extern "C" fn _start() -> ! {
         "mv tp, a0",
         // Read the device tree address
         "mv gp, a1",
-        "xor fp, fp, fp",
-        "la sp, __tmp_stack_top",
-        "j __kernel_start_main",
+        // Setup virtual memory
+        "la t0, {page_table}",
+        "srli t0, t0, 12", // get the physical page number of PageTabe
+        "li t1, 8 << 60",
+        "or t0, t0, t1", // ppn | 8 << 60
+        "csrw satp, t0",
+        "sfence.vma",
+        // jump to virtualized entry
+        "li t1, {virt_addr_offset}",
+        "la t0, {entry}",
+        "or t0, t0, t1",
+        "jalr t0",
+        page_table = sym PAGE_TABLE,
+        virt_addr_offset = const constants::VIRT_ADDR_OFFSET,
+        entry = sym _start_virtualized,
         options(noreturn)
     )
 }
+
+#[naked]
+#[no_mangle]
+#[link_section = ".text.entry"]
+unsafe extern "C" fn _start_virtualized() -> ! {
+    asm!(
+        // Don't come back!
+        "xor ra, ra, ra",
+        "xor fp, fp, fp",
+        "la sp, __tmp_stack_top",
+        "li t0, {virt_addr_offset}",
+        "or sp, t0, sp",
+        "j __kernel_start_main",
+        virt_addr_offset = const constants::VIRT_ADDR_OFFSET,
+        options(noreturn)
+    )
+}
+
+#[link_section = ".data.prepage"]
+static mut PAGE_TABLE: [usize; 512] = {
+    let mut arr: [usize; 512] = [0; 512];
+    arr[1] = (0x40000 << 10) | 0xcf;
+    arr[2] = (0x80000 << 10) | 0xcf;
+    arr[0x100] = (0x00000 << 10) | 0xcf;
+    arr[0x101] = (0x40000 << 10) | 0xcf;
+    arr[0x102] = (0x80000 << 10) | 0xcf;
+    arr
+};
+
+#[no_mangle]
+#[allow(unused_assignments)]
+fn main() {}
 
 static mut BOOTED: AtomicBool = AtomicBool::new(false);
 

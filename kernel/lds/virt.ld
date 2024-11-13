@@ -1,5 +1,7 @@
 OUTPUT_ARCH(riscv64gc)
+ENTRY(_start)
 BASE_ADDRESS = 0x80200000;
+VIRTUAL_BASE_ADDRESS = 0xffffffc080200000;
 
 SECTIONS
 {
@@ -28,6 +30,9 @@ SECTIONS
     erodata = .;
     sdata = .;
     .data : {
+        . = ALIGN(4K);
+        *(.data.prepage .data.prepage.*)
+        . = ALIGN(4K);
         *(.data .data.*)
         *(.sdata .sdata.*)
     }
