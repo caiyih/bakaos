@@ -47,7 +47,12 @@ strip:
 run: build strip
 	$(QEMU) $(QEMU_ARGS)
 
-debug: build
+build-symbol:
+	@echo "[!] Building symbol file"
+	@RUSTFLAGS="-Clink-arg=-Tlds/symbol.ld -Cforce-frame-pointers=yes" $(CARGO) build 
+	@mv $(KERNEL_ELF) $(KERNEL_ELF).sym
+
+debug: build-symbol build
 	pkill qemu || echo '[!] Previous Qemu killed'
 	@echo '[!] Waiting for debugger'
 	@$(QEMU) $(QEMU_ARGS) -s -S
@@ -55,7 +60,7 @@ debug: build
 gdb: connect
 
 connect:
-	@$(GDB) -ex 'add-symbol-file $(KERNEL_ELF) 0xffffffc80200000' \
+	@$(GDB) -ex 'file $(KERNEL_ELF).sym' \
 		-ex 'set arch riscv:rv64' \
 		-ex 'target remote localhost:1234' \
 		-ex 'layout src'
