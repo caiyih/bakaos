@@ -32,7 +32,8 @@ KERNEL_ENTRY_PA := 0x80200000
 QEMU_ARGS := -machine virt \
 			 -nographic \
 			 -bios $(BOOTLOADER) \
-			 -device loader,file=$(KERNEL_ELF),addr=$(KERNEL_ENTRY_PA)
+			 -kernel $(KERNEL_ELF) \
+			 -m 128M
 # End Region // Board
 
 all: build
