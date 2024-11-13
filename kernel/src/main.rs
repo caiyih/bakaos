@@ -76,7 +76,9 @@ static mut PAGE_TABLE: [usize; 512] = {
     let mut arr: [usize; 512] = [0; 512];
     arr[1] = (0x40000 << 10) | 0xcf;
     arr[2] = (0x80000 << 10) | 0xcf;
-    arr[0x100] = (0x00000 << 10) | 0xcf;
+    // Should be '(0x00000 << 10) | 0xcf' for clarifity
+    // But Cargo clippy complains about this line, so i just write 0xcf here
+    arr[0x100] = 0xcf;
     arr[0x101] = (0x40000 << 10) | 0xcf;
     arr[0x102] = (0x80000 << 10) | 0xcf;
     arr
