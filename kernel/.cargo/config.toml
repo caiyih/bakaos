@@ -2,6 +2,7 @@
 target = "riscv64gc-unknown-none-elf"
 
 [target.riscv64gc-unknown-none-elf]
+linker = "rust-lld"
 rustflags = [
     "-Clink-arg=-Tlds/virt.ld", "-Cforce-frame-pointers=yes"
 ]

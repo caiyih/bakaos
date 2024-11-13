@@ -34,7 +34,7 @@ pub fn shutdown_failure() -> ! {
         if ci_helper::is_ci_environment() {
             ci_helper::exit_qemu_failure();
         } else {
-            ci_helper::QEMU_EXIT_HANDLE.exit_failure();
+            ci_helper::QEMU_EXIT_HANDLE.exit_success();
         }
     }
 

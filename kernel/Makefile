@@ -32,7 +32,8 @@ KERNEL_ENTRY_PA := 0x80200000
 QEMU_ARGS := -machine virt \
 			 -nographic \
 			 -bios $(BOOTLOADER) \
-			 -device loader,file=$(KERNEL_ELF),addr=$(KERNEL_ENTRY_PA)
+			 -kernel $(KERNEL_ELF) \
+			 -m 128M
 # End Region // Board
 
 all: build
@@ -54,7 +55,7 @@ debug: build
 gdb: connect
 
 connect:
-	@$(GDB) -ex 'file $(KERNEL_ELF)' \
+	@$(GDB) -ex 'add-symbol-file $(KERNEL_ELF) 0xffffffc80200000' \
 		-ex 'set arch riscv:rv64' \
 		-ex 'target remote localhost:1234' \
 		-ex 'layout src'

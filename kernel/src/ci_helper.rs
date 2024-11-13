@@ -78,7 +78,7 @@ impl IQemuExitHandle for Rv64ExitHandle {
     }
 }
 
-const VIRT_TEST: u64 = 0x100000;
+const VIRT_TEST: u64 = 0x100000 | (constants::VIRT_ADDR_OFFSET as u64);
 
 pub const QEMU_EXIT_HANDLE: Rv64ExitHandle = Rv64ExitHandle::new(VIRT_TEST);
 
