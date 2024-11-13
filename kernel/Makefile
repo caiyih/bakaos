@@ -55,7 +55,7 @@ debug: build
 gdb: connect
 
 connect:
-	@$(GDB) -ex 'file $(KERNEL_ELF)' \
+	@$(GDB) -ex 'add-symbol-file $(KERNEL_ELF) 0xffffffc80200000' \
 		-ex 'set arch riscv:rv64' \
 		-ex 'target remote localhost:1234' \
 		-ex 'layout src'
