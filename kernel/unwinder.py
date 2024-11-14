@@ -85,70 +85,74 @@ if len(pc_list) == 0 and SILENT_MODE:
 # 反汇编文件路径
 disasm_file = '.disassembled'
 
-# 读取反汇编文件
-with open(disasm_file, 'r') as f:
-    lines = f.readlines()
+try:
+    # 读取反汇编文件
+    with open(disasm_file, 'r') as f:
+        lines = f.readlines()
 
-# 存储每个pc地址对应的信息
-pc_info = {}
+    # 存储每个pc地址对应的信息
+    pc_info = {}
 
-# 预处理反汇编内容，建立地址到行号的映射
-address_line_map = {}
-for idx, line in enumerate(lines):
-    match = re.match(r'^([0-9a-f]+) <.*>', line)
-    if match:
-        address = int(match.group(1), 16)
-        address_line_map[address] = idx
+    # 预处理反汇编内容，建立地址到行号的映射
+    address_line_map = {}
+    for idx, line in enumerate(lines):
+        match = re.match(r'^([0-9a-f]+) <.*>', line)
+        if match:
+            address = int(match.group(1), 16)
+            address_line_map[address] = idx
 
-print_color("Unwinding stack trace:", 'purple')
+    print_color("Unwinding stack trace:", 'purple')
 
-# 遍历pc数组，获取详细信息
-for pc in pc_list:
-    function_name = None
-    source_file = None
-    source_line = None
-    start_idx_of_the_line = -1
+    # 遍历pc数组，获取详细信息
+    for pc in pc_list:
+        function_name = None
+        source_file = None
+        source_line = None
+        start_idx_of_the_line = -1
 
-    if pc in address_line_map:
-        idx = address_line_map[pc]
-        # 向上查找函数名、源文件和行号
-        for i in range(idx - 1, -1, -1):
-            line = lines[i].strip()
-            # 查找函数名
-            if function_name is None and line.endswith(':'):
-                function_name = line[:-1] # Remove the trailing semicolon
-                break
-            # 查找源文件和行号
-            if source_file is None:
-                source_match = re.match(r'^(.*):(\d+)', line)
-                if source_match:
-                    source_file = source_match.group(1)
-                    source_line = source_match.group(2)
-                    start_idx_of_the_line = i + 1
-                continue
+        if pc in address_line_map:
+            idx = address_line_map[pc]
+            # 向上查找函数名、源文件和行号
+            for i in range(idx - 1, -1, -1):
+                line = lines[i].strip()
+                # 查找函数名
+                if function_name is None and line.endswith(':'):
+                    function_name = line[:-1] # Remove the trailing semicolon
+                    break
+                # 查找源文件和行号
+                if source_file is None:
+                    source_match = re.match(r'^(.*):(\d+)', line)
+                    if source_match:
+                        source_file = source_match.group(1)
+                        source_line = source_match.group(2)
+                        start_idx_of_the_line = i + 1
+                    continue
 
-    print_color(f"  pc: {hex(pc)}", 'green')
+        print_color(f"  pc: {hex(pc)}", 'green')
 
-    if start_idx_of_the_line != -1:
-        if '()' not in function_name:
-            function_name += '()'
+        if start_idx_of_the_line != -1:
+            if '()' not in function_name:
+                function_name += '()'
 
-        print_color(f"    at: {function_name} in {source_file}:{source_line}", 'yellow')
-        print_color(f"    disassembly of the line:", 'blue')
+            print_color(f"    at: {function_name} in {source_file}:{source_line}", 'yellow')
+            print_color(f"    disassembly of the line:", 'blue')
 
-        target_pc_idx = address_line_map[pc]
-        i = start_idx_of_the_line
-        while True:
-            line = lines[i].strip()
-            if line.endswith(':') or re.match(r'^(.*):(\d+)', line):
-                break
+            target_pc_idx = address_line_map[pc]
+            i = start_idx_of_the_line
+            while True:
+                line = lines[i].strip()
+                if line.endswith(':') or re.match(r'^(.*):(\d+)', line):
+                    break
 
-            if i == target_pc_idx:
-                print_color(f"      {line}", 'red')
-            else:
-                print_color(f"      {line}", 'white')
-            i += 1
+                if i == target_pc_idx:
+                    print_color(f"      {line}", 'red')
+                else:
+                    print_color(f"      {line}", 'white')
+                i += 1
 
-        continue
+            continue
 
-    print_color('     Unwind info unavaliable', 'yellow')
+        print_color('     Unwind info unavaliable', 'yellow')
+finally:
+    # Mark the CI as failed if there is any panic
+    sys.exit(1)
