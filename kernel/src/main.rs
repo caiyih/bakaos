@@ -181,7 +181,7 @@ unsafe fn clear_bss_fast(begin: usize, end: usize) {
     // bss sections must be 4K aligned
     debug_assert!(begin & 4095 == 0);
     debug_assert!(end & 4095 == 0);
-    debug_assert!((end - begin) & 4095 == 0);
+    debug_assert!((end - begin) & 4095 == 1);
 
     // Since riscv64gc supports neither SIMD or 128 bit integer operations
     // We can only uses unsigned 64 bit integers to write memory
