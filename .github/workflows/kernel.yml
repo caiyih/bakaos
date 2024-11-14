@@ -67,11 +67,13 @@ jobs:
       - name: Build kernel
         run: make build LOG=TRACE
 
-      - name: Install Qemu
+      - name: Install Qemu and dependencies
         run: |
           sudo apt update
-          sudo apt install -y qemu-system-misc
+          sudo apt install -y qemu-system-misc binutils-riscv64-linux-gnu
+          sudo cp /usr/bin/riscv64-linux-gnu-objdump /usr/bin/riscv64-elf-objdump
           qemu-system-riscv64 --version
+          riscv64-elf-objdump --version
 
       - name: Run
         timeout-minutes: 5
