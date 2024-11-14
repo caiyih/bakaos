@@ -46,13 +46,13 @@ strip:
 
 run: build symboltable
 	$(QEMU) $(QEMU_ARGS) 2>&1 | tee qemu_output.log
-	@python3 unwinder.py --silent < qemu_output.log
+	@python3 unwinder.py --silent --file qemu_output.log
 
 debug: build symboltable
 	pkill qemu || echo '[!] Previous Qemu killed'
 	@echo '[!] Waiting for debugger'
 	@$(QEMU) $(QEMU_ARGS) -s -S 2>&1 | tee qemu_output.log
-	@python3 unwinder.py < qemu_output.log
+	@python3 unwinder.py --silent --file qemu_output.log
 
 stacktrace: symboltable
 	@python3 unwinder.py
