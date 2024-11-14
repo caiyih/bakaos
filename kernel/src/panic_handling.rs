@@ -99,7 +99,5 @@ unsafe fn __kernel_panic(info: &PanicInfo) -> ! {
         stack_trace();
     }
 
-    legacy_println!("[BAKA-OS] Hanging the system...");
-
     system::shutdown_failure();
 }
