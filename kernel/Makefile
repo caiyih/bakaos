@@ -44,13 +44,28 @@ build:
 strip:
 	@$(OBJCOPY) --strip-all $(KERNEL_ELF) $(KERNEL_ELF)
 
-run: build strip
+run: build
 	$(QEMU) $(QEMU_ARGS)
 
 debug: build
 	pkill qemu || echo '[!] Previous Qemu killed'
 	@echo '[!] Waiting for debugger'
 	@$(QEMU) $(QEMU_ARGS) -s -S
+
+stacktrace: symboltable
+	@python3 unwinder.py
+
+symboltable:
+	@echo "Building symbol table of current elf file"
+	@riscv64-elf-objdump \
+		--line-numbers \
+		--demangle=rust \
+		--prefix-addresses \
+		--show-all-symbols \
+		--start-address=0xffffffc080200000 \
+		--disassemble \
+		--section=.text \
+		target/riscv64gc-unknown-none-elf/debug/bakaos > .disassembled
 
 gdb: connect
 
