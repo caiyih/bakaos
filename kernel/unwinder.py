@@ -22,9 +22,12 @@ def read_pc_list():
     pc_list = []
 
     print_color('Now, please provide stack trace info from the panicked kernel.', 'cyan')
-    print_color('Only the lines between `Stack trace:` and `Note:` are needed.', 'cyan')
+    print_color('The lines between `Stack trace:` and `Note:` are needed. Include the two lines.', 'cyan')
+    print_color('Lines not between the two lines will be ignored.', 'cyan')
 
     # Read from stdin and parse the PCs
+
+    began = False
 
     while True:
         line = input()
@@ -32,10 +35,14 @@ def read_pc_list():
             break
 
         if "Stack trace:" in line:
+            began = True
             continue
 
         if "Note:" in line:
             break
+
+        if not began:
+            continue
 
         # Matching `at: 0x...`
         match = re.search(r'at:\s(0x[0-9a-fA-F]+)', line)
