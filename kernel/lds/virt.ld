@@ -5,11 +5,11 @@ VIRTUAL_BASE_ADDRESS = 0xffffffc080200000;
 
 SECTIONS
 {
-    . = BASE_ADDRESS;
+    . = VIRTUAL_BASE_ADDRESS;
     skernel = .;
 
     stext = .;
-    .text : {
+    .text ALIGN(4K) : AT(BASE_ADDRESS) {
         *(.text.entry)
         . = ALIGN(4K);
         strampoline = .;
@@ -21,7 +21,7 @@ SECTIONS
     . = ALIGN(4K);
     etext = .;
     srodata = .;
-    .rodata : {
+    .rodata ALIGN(4K) : {
         *(.rodata .rodata.*)
         *(.srodata .srodata.*)
     }
@@ -29,7 +29,7 @@ SECTIONS
     . = ALIGN(4K);
     erodata = .;
     sdata = .;
-    .data : {
+    .data ALIGN(4K) : {
         . = ALIGN(4K);
         *(.data.prepage .data.prepage.*)
         . = ALIGN(4K);

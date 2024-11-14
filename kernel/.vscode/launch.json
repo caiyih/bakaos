@@ -5,7 +5,7 @@
             "name": "(gdb) Qemu",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/target/riscv64gc-unknown-none-elf/debug/bakaos.sym",
+            "program": "${workspaceFolder}/target/riscv64gc-unknown-none-elf/debug/bakaos",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
