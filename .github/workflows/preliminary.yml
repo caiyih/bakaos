@@ -38,7 +38,10 @@ jobs:
           sudo apt install -y qemu-system-misc
           qemu-system-riscv64 --version
 
-      - name: Run
+      - name: Run tests
         timeout-minutes: 5
         run: make test
+
+      - name: Visualizing grading result
+        run: make parse
 

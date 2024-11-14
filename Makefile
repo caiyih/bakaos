@@ -17,13 +17,13 @@ build: _build_internal _prepare_image
 _build_internal:
 	@echo "Building..."
 	@cd kernel && cargo build --release
-
+            
 _prepare_image:
 	@echo "Preparing image..."
 	@cp kernel/target/${ARCH}/release/bakaos ${KERNEL_ELF}
 	@cp kernel/binary/opensbi.bin ${SBI_OUTPUT}
 
-test: build _prepare_sdcard _test_internal parse
+test: build _prepare_sdcard _test_internal
 
 _prepare_sdcard:
 	@echo "Preparing sdcard..."
