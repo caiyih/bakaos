@@ -1,3 +1,4 @@
+import sys
 import re
 
 def print_color(str, color):
@@ -21,9 +22,10 @@ def print_color(str, color):
 def read_pc_list():
     pc_list = []
 
-    print_color('Now, please provide stack trace info from the panicked kernel.', 'cyan')
-    print_color('The lines between `Stack trace:` and `Note:` are needed. Include the two lines.', 'cyan')
-    print_color('Lines not between the two lines will be ignored.', 'cyan')
+    if not SILENT_MODE:
+        print_color('Now, please provide stack trace info from the panicked kernel.', 'cyan')
+        print_color('The lines between `Stack trace:` and `Note:` are needed. Include the two lines.', 'cyan')
+        print_color('Lines not between the two lines will be ignored.', 'cyan')
 
     # Read from stdin and parse the PCs
 
@@ -49,12 +51,24 @@ def read_pc_list():
         if match:
             pc = int(match.group(1), 16)
             pc_list.append(pc)
-        else:
+        elif not SILENT_MODE:
             print_color(f"Invalid line: {line}", 'yellow')
     
     return pc_list
 
+# read argument list to detect if has -slient or --silent
+
+SILENT_MODE = False
+if len(sys.argv) > 1:
+    for arg in sys.argv:
+        if arg == '-silent' or arg == '--silent':
+            SILENT_MODE = True
+            break
+
 pc_list = read_pc_list()
+
+if len(pc_list) == 0 and SILENT_MODE:
+    sys.exit(0)
 
 # 反汇编文件路径
 disasm_file = '.disassembled'
@@ -101,11 +115,12 @@ for pc in pc_list:
                     start_idx_of_the_line = i + 1
                 continue
 
+    print_color(f"  pc: {hex(pc)}", 'green')
+
     if start_idx_of_the_line != -1:
         if '()' not in function_name:
             function_name += '()'
 
-        print_color(f"  pc: {hex(pc)}", 'green')
         print_color(f"    at: {function_name} in {source_file}:{source_line}", 'yellow')
         print_color(f"    disassembly of the line:", 'blue')
 
@@ -124,5 +139,4 @@ for pc in pc_list:
 
         continue
 
-    print(f"  pc: {hex(pc)}")
-    print("     at: Unavaliable")
+    print_color('     Unwind info unavaliable', 'yellow')
