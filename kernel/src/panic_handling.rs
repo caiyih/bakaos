@@ -10,7 +10,6 @@ pub fn sp() -> usize {
     ptr
 }
 
-
 pub fn fp() -> usize {
     let ptr;
     unsafe {
@@ -37,13 +36,20 @@ fn stack_trace() {
     let mut pc = lr();
     let mut fp = fp();
     let mut depth = 0;
-    
-    legacy_println!("[BAKA-OS]     Tmp stack top: {:#018x}", __tmp_stack_top as usize);
+
+    legacy_println!(
+        "[BAKA-OS]     Tmp stack top: {:#018x}",
+        __tmp_stack_top as usize
+    );
     legacy_println!("[BAKA-OS]     Stack pointer: {:#018x}", sp());
     legacy_println!("[BAKA-OS]     Stack trace:");
     // TODO: fp should be lower than __tmp_stack_top
     // But the kernel may have mutiple stacks
-    while pc >= stext as usize && pc <= etext as usize && fp as usize >= stext as usize && fp < __tmp_stack_top as usize {
+    while pc >= stext as usize
+        && pc <= etext as usize
+        && fp >= stext as usize
+        && fp < __tmp_stack_top as usize
+    {
         legacy_println!(
             "[BAKA-OS]     {:4} at: {:#018x} Frame pointer: {:#018x}",
             depth,
@@ -51,7 +57,7 @@ fn stack_trace() {
             fp
         );
 
-        depth = depth + 1;
+        depth += 1;
 
         fp = unsafe { *(fp as *const usize).offset(-2) };
         pc = unsafe { *(fp as *const usize).offset(-1) };
