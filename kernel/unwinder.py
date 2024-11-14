@@ -19,7 +19,7 @@ def print_color(str, color):
     else:
         print(str)
 
-def read_pc_list():
+def read_pc_list(read_line):
     pc_list = []
 
     if not SILENT_MODE:
@@ -33,7 +33,7 @@ def read_pc_list():
 
     while True:
         try:
-            line = input()
+            line = read_line()
         except EOFError:
             break
 
@@ -63,13 +63,21 @@ def read_pc_list():
 # read argument list to detect if has -slient or --silent
 
 SILENT_MODE = False
+FILE = None
+
 if len(sys.argv) > 1:
     for arg in sys.argv:
         if arg == '-silent' or arg == '--silent':
             SILENT_MODE = True
-            break
+        elif arg == '-f' or arg == '--file':
+            FILE = sys.argv[sys.argv.index(arg) + 1]
 
-pc_list = read_pc_list()
+if FILE is None:
+    pc_list = read_pc_list(input)
+else:
+    # Read from file
+    with open(FILE, 'r') as f:
+        pc_list = read_pc_list(f.readline)
 
 if len(pc_list) == 0 and SILENT_MODE:
     sys.exit(0)
