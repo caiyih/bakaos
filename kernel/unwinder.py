@@ -32,7 +32,11 @@ def read_pc_list():
     began = False
 
     while True:
-        line = input()
+        try:
+            line = input()
+        except EOFError:
+            break
+
         if line == '':
             break
 
