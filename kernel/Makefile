@@ -63,7 +63,6 @@ symboltable:
 		--line-numbers \
 		--demangle=rust \
 		--prefix-addresses \
-		--show-all-symbols \
 		--start-address=0xffffffc080200000 \
 		--disassemble \
 		--section=.text \
