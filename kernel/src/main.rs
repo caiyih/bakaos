@@ -47,7 +47,8 @@ unsafe extern "C" fn _start() -> ! {
         "li t1, {virt_addr_offset}",
         "la t0, {entry}",
         "or t0, t0, t1",
-        "jalr t0",
+        // Do not save the return address to ra
+        "jr t0",
         page_table = sym PAGE_TABLE,
         virt_addr_offset = const constants::VIRT_ADDR_OFFSET,
         entry = sym _start_virtualized,
@@ -60,9 +61,15 @@ unsafe extern "C" fn _start() -> ! {
 #[link_section = ".text.entry"]
 unsafe extern "C" fn _start_virtualized() -> ! {
     asm!(
-        // Don't come back!
+        // Naver come back!
         "xor ra, ra, ra",
+        // Clear fp so that unwind knows where to stop
         "xor fp, fp, fp",
+        // Load the stack pointer after we entered the high half
+        // The symbols are loaded with a fixed offset to PC
+        // If we load the stack pointer before we entered the high half
+        // The stack pointer will be in the low half, which is not what we want
+        // But I still `or` the stack pointer with the offset to make the code more readable
         "la sp, __tmp_stack_top",
         "li t0, {virt_addr_offset}",
         "or sp, t0, sp",
