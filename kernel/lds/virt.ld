@@ -57,6 +57,12 @@ SECTIONS
     ebss = .;
     ekernel = .;
 
+    . = ALIGN(8);
+
+    .debug_line : {
+        KEEP(*(.debug_line))
+    }
+
     /*
         /DISCARD/ : {
             *(.eh_frame)
@@ -65,7 +71,7 @@ SECTIONS
 
     /* Inserting these two lines */
     . = ALIGN(8);
-    PROVIDE(__eh_frame = .);
+    /* PROVIDE(__eh_frame = .); */
     /* before .eh_frame rule */
     .eh_frame : { KEEP (*(.eh_frame)) *(.eh_frame.*) }
 }
