@@ -1,4 +1,4 @@
-use core::{arch::asm, mem::size_of, panic::PanicInfo};
+use core::{arch::asm, panic::PanicInfo};
 
 use crate::{legacy_println, system};
 
