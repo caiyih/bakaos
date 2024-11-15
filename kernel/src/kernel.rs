@@ -41,8 +41,6 @@ pub fn init() {
 
 pub struct Kernel {
     machine: &'static dyn machine::IMachine,
-    bootup_tick: u64,
-    // TODO: Use RwLock for multi-core
     statistics: KernelStatistics,
 }
 
@@ -53,7 +51,6 @@ impl Kernel {
 
         Self {
             machine,
-            bootup_tick: machine.current_timestamp(),
             statistics: KernelStatistics::new(),
         }
     }
@@ -62,15 +59,11 @@ impl Kernel {
         self.machine
     }
 
-    pub fn bootup_tick(&self) -> u64 {
-        self.bootup_tick
-    }
-
     pub fn stat(&self) -> &KernelStatistics {
         &self.statistics
     }
 
     pub fn up_time(&self) -> u64 {
-        self.machine.current_timestamp() - self.bootup_tick
+        self.machine.current_timestamp()
     }
 }
