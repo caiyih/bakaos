@@ -48,12 +48,15 @@ fn stack_trace() {
     while pc >= stext as usize
         && pc <= etext as usize
         && fp >= stext as usize
+        && fp != 0
         && fp < __tmp_stack_top as usize
     {
         legacy_println!(
             "[BAKA-OS]     {:4} at: {:#018x} Frame pointer: {:#018x}",
             depth,
-            pc - size_of::<usize>(),
+            // PC implies the next instruction of function call
+            // So we need to subtract 4 to get the real pc
+            pc - 4,
             fp
         );
 
