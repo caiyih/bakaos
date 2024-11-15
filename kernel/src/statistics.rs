@@ -24,32 +24,32 @@ impl KernelStatistics {
         }
     }
 
-    pub fn on_external_interrupt(&mut self) -> usize {
+    pub fn on_external_interrupt(&self) -> usize {
         self.external_interrupts
             .fetch_add(1, core::sync::atomic::Ordering::Relaxed)
     }
 
-    pub fn on_timer_interrupt(&mut self) -> usize {
+    pub fn on_timer_interrupt(&self) -> usize {
         self.timer_interrupts
             .fetch_add(1, core::sync::atomic::Ordering::Relaxed)
     }
 
-    pub fn on_software_interrupt(&mut self) -> usize {
+    pub fn on_software_interrupt(&self) -> usize {
         self.software_interrupts
             .fetch_add(1, core::sync::atomic::Ordering::Relaxed)
     }
 
-    pub fn on_kernel_exception(&mut self) -> usize {
+    pub fn on_kernel_exception(&self) -> usize {
         self.kernel_exceptions
             .fetch_add(1, core::sync::atomic::Ordering::Relaxed)
     }
 
-    pub fn on_user_exception(&mut self) -> usize {
+    pub fn on_user_exception(&self) -> usize {
         self.user_exceptions
             .fetch_add(1, core::sync::atomic::Ordering::Relaxed)
     }
 
-    pub fn on_syscall(&mut self) -> usize {
+    pub fn on_syscall(&self) -> usize {
         self.syscall_count
             .fetch_add(1, core::sync::atomic::Ordering::Relaxed)
     }
