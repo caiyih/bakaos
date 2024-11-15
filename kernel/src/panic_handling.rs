@@ -2,6 +2,7 @@ use core::{arch::asm, panic::PanicInfo};
 
 use crate::{legacy_println, system};
 
+#[inline(always)]
 pub fn sp() -> usize {
     let ptr;
     unsafe {
@@ -10,6 +11,7 @@ pub fn sp() -> usize {
     ptr
 }
 
+#[inline(always)]
 pub fn fp() -> usize {
     let ptr;
     unsafe {
@@ -18,6 +20,7 @@ pub fn fp() -> usize {
     ptr
 }
 
+#[inline(always)]
 pub fn lr() -> usize {
     let ptr;
     unsafe {
