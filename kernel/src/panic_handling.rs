@@ -46,13 +46,11 @@ fn stack_trace() {
     );
     legacy_println!("[BAKA-OS]     Stack pointer: {:#018x}", sp());
     legacy_println!("[BAKA-OS]     Stack trace:");
-    // TODO: fp should be lower than __tmp_stack_top
-    // But the kernel may have mutiple stacks
-    while pc >= stext as usize
-        && pc <= etext as usize
-        && fp >= stext as usize
-        && fp != 0
-        && fp < __tmp_stack_top as usize
+    while pc >= stext as usize && pc <= etext as usize && fp >= stext as usize && fp != 0
+    // // TODO: fp should be lower than __tmp_stack_top
+    // // But the kernel may have mutiple stacks
+    // Unnecessary check. The two lines comment above seems to be wrong. But leave it here for now.
+    // && fp < __tmp_stack_top as usize
     {
         legacy_println!(
             "[BAKA-OS]     {:4} at: {:#018x} Frame pointer: {:#018x}",
