@@ -28,7 +28,7 @@ jobs:
 
       - name: Get current branch name
         id: vars
-        run: echo "BRANCH_NAME=${GITHUB_REF##*/}" >> $GITHUB_ENV
+        run: echo "BRANCH_NAME=$(git rev-parse --abbrev-ref HEAD)" >> $GITHUB_ENV
 
       - name: Configure Git
         run: |
