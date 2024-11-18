@@ -323,7 +323,7 @@ impl core::ops::SubAssign for TimeVal {
 
     TimeSpan represents a duration of time.  A TimeSpan can be negative
     or positive.
-    
+
     TimeSpan is internally represented as a number of ticks. A tick is equal
     to 100 nanoseconds. While this maps well into units of time such as hours
     and days, any periods longer than that aren't representable in a nice fashion.
@@ -331,14 +331,13 @@ impl core::ops::SubAssign for TimeVal {
     can contain 365 or 366 days.  A decade can have between 1 and 3 leapyears,
     depending on when you map the TimeSpan into the calendar.  This is why
     we do not provide Years() or Months().
-    
+
     Note: System.TimeSpan needs to interop with the WinRT structure
     type Windows::Foundation:TimeSpan. These types are currently binary-compatible in
     memory so no custom marshalling is required. If at any point the implementation
     details of this type should change, or new fields added, we need to remember to add
     an appropriate custom ILMarshaler to keep WInRT interop scenarios enabled.
 */
-
 
 // Ticks for TimeSpan per microsecond
 // 10
@@ -429,7 +428,7 @@ impl TimeSpan {
             + microseconds as i64;
 
         // FIXME: This panics the kernel!
-        if total_microseconds > MAX_MICROSECONDS || total_microseconds < MIN_MICROSECONDS {
+        if !(MIN_MICROSECONDS..=MAX_MICROSECONDS).contains(&total_microseconds) {
             panic!("Overflow or underflow");
         }
 
