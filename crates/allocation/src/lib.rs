@@ -7,7 +7,7 @@ extern crate alloc;
 
 pub mod frame;
 
-pub use frame::{alloc_frame, alloc_frames};
+pub use frame::{alloc_frame, alloc_frames, dealloc_frame_unchecked};
 use log::debug;
 
 pub fn init(memory_end: usize) {

@@ -124,6 +124,10 @@ pub fn alloc_frames(count: usize) -> Option<Vec<TrackedFrame>> {
     unsafe { FRAME_ALLOCATOR.alloc_frames(count) }
 }
 
+pub unsafe fn dealloc_frame_unchecked(frame: PhysicalPageNum) {
+    drop(TrackedFrame(frame))
+}
+
 fn dealloc_frame(frame: &TrackedFrame) {
     unsafe {
         FRAME_ALLOCATOR.dealloc(frame);
