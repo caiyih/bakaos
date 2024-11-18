@@ -181,6 +181,10 @@ pub fn alloc_contiguous(count: usize) -> Option<TrackedFrameRange> {
     unsafe { FRAME_ALLOCATOR.alloc_contiguous(count) }
 }
 
+/// # Safety
+/// This function is unsafe because we should we TrackedFrame or TrackedFrameRange to deallocate frames
+/// But if you are using forget, you can use this function to deallocate frames
+/// Still, you should not use this function unless you know what you are doing
 pub unsafe fn dealloc_frame_unchecked(frame: PhysicalPageNum) {
     drop(TrackedFrame(frame))
 }
