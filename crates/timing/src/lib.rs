@@ -23,6 +23,13 @@ impl TimeSpec {
         }
     }
 
+    pub fn zero() -> TimeSpec {
+        TimeSpec {
+            tv_sec: 0,
+            tv_nsec: 0,
+        }
+    }
+
     pub fn from_ticks(ticks: i64, freq: u64) -> TimeSpec {
         let sec = ticks / freq as i64;
         let nsec = (ticks % freq as i64) * NSEC_PER_SEC / freq as i64;
@@ -234,6 +241,13 @@ impl TimeVal {
         TimeVal {
             tv_sec: sec,
             tv_msec: msec,
+        }
+    }
+
+    pub fn zero() -> TimeVal {
+        TimeVal {
+            tv_msec: 0,
+            tv_sec: 0,
         }
     }
 
