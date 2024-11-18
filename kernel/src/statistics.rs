@@ -1,83 +1,98 @@
+use core::sync::atomic::AtomicUsize;
+
 pub struct KernelStatistics {
-    external_interrupts: u64,
-    timer_interrupts: u64,
-    software_interrupts: u64,
-    kernel_exceptions: u64,
-    user_exceptions: u64,
+    external_interrupts: AtomicUsize,
+    timer_interrupts: AtomicUsize,
+    software_interrupts: AtomicUsize,
+    kernel_exceptions: AtomicUsize,
+    user_exceptions: AtomicUsize,
     // TODO: Should implemented in hashmap
-    syscall_count: u64,
+    //       but we have to use a mutex then
+    syscall_count: AtomicUsize,
 }
 
 #[allow(unused)]
 impl KernelStatistics {
     pub fn new() -> Self {
         Self {
-            external_interrupts: 0,
-            timer_interrupts: 0,
-            software_interrupts: 0,
-            kernel_exceptions: 0,
-            user_exceptions: 0,
-            syscall_count: 0,
+            external_interrupts: AtomicUsize::new(0),
+            timer_interrupts: AtomicUsize::new(0),
+            software_interrupts: AtomicUsize::new(0),
+            kernel_exceptions: AtomicUsize::new(0),
+            user_exceptions: AtomicUsize::new(0),
+            syscall_count: AtomicUsize::new(0),
         }
     }
 
-    pub fn on_external_interrupt(&mut self) {
-        self.external_interrupts += 1;
-    }
-
-    pub fn on_timer_interrupt(&mut self) {
-        self.timer_interrupts += 1;
-    }
-
-    pub fn on_software_interrupt(&mut self) {
-        self.software_interrupts += 1;
-    }
-
-    pub fn on_kernel_exception(&mut self) {
-        self.kernel_exceptions += 1;
-    }
-
-    pub fn on_user_exception(&mut self) {
-        self.user_exceptions += 1;
-    }
-
-    pub fn on_syscall(&mut self) {
-        self.syscall_count += 1;
-    }
-
-    pub fn external_interrupts(&self) -> u64 {
+    pub fn on_external_interrupt(&self) -> usize {
         self.external_interrupts
+            .fetch_add(1, core::sync::atomic::Ordering::Relaxed)
     }
 
-    pub fn timer_interrupts(&self) -> u64 {
+    pub fn on_timer_interrupt(&self) -> usize {
         self.timer_interrupts
+            .fetch_add(1, core::sync::atomic::Ordering::Relaxed)
     }
 
-    pub fn software_interrupts(&self) -> u64 {
+    pub fn on_software_interrupt(&self) -> usize {
         self.software_interrupts
+            .fetch_add(1, core::sync::atomic::Ordering::Relaxed)
     }
 
-    pub fn kernel_exceptions(&self) -> u64 {
+    pub fn on_kernel_exception(&self) -> usize {
         self.kernel_exceptions
+            .fetch_add(1, core::sync::atomic::Ordering::Relaxed)
     }
 
-    pub fn user_exceptions(&self) -> u64 {
+    pub fn on_user_exception(&self) -> usize {
         self.user_exceptions
+            .fetch_add(1, core::sync::atomic::Ordering::Relaxed)
     }
 
-    pub fn syscall_count(&self) -> u64 {
+    pub fn on_syscall(&self) -> usize {
         self.syscall_count
+            .fetch_add(1, core::sync::atomic::Ordering::Relaxed)
     }
 
-    pub fn total_interrupts(&self) -> u64 {
-        self.external_interrupts + self.timer_interrupts + self.software_interrupts
+    pub fn external_interrupts(&self) -> usize {
+        self.external_interrupts
+            .load(core::sync::atomic::Ordering::Relaxed)
     }
 
-    pub fn total_exceptions(&self) -> u64 {
-        self.kernel_exceptions + self.user_exceptions
+    pub fn timer_interrupts(&self) -> usize {
+        self.timer_interrupts
+            .load(core::sync::atomic::Ordering::Relaxed)
     }
 
-    pub fn total_events(&self) -> u64 {
+    pub fn software_interrupts(&self) -> usize {
+        self.software_interrupts
+            .load(core::sync::atomic::Ordering::Relaxed)
+    }
+
+    pub fn kernel_exceptions(&self) -> usize {
+        self.kernel_exceptions
+            .load(core::sync::atomic::Ordering::Relaxed)
+    }
+
+    pub fn user_exceptions(&self) -> usize {
+        self.user_exceptions
+            .load(core::sync::atomic::Ordering::Relaxed)
+    }
+
+    pub fn syscall_count(&self) -> usize {
+        self.syscall_count
+            .load(core::sync::atomic::Ordering::Relaxed)
+    }
+
+    pub fn total_interrupts(&self) -> usize {
+        self.external_interrupts() + self.timer_interrupts() + self.software_interrupts()
+    }
+
+    pub fn total_exceptions(&self) -> usize {
+        self.kernel_exceptions() + self.user_exceptions()
+    }
+
+    pub fn total_events(&self) -> usize {
         self.total_interrupts() + self.total_exceptions()
     }
 }

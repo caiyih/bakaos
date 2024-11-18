@@ -10,4 +10,5 @@ members = [
     "path",
     "threading",
     "constants",
+    "allocation",
 ]
