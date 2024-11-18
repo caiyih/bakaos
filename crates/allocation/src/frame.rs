@@ -77,10 +77,10 @@ impl IFrameAllocator for FrameAllocator {
     fn alloc_frames(&mut self, count: usize) -> Option<Vec<TrackedFrame>> {
         let mut frames = Vec::with_capacity(count);
 
-        let count = self.recycled.len() + (self.top - self.bottom).as_usize();
+        let avaliable = self.recycled.len() + (self.top - self.bottom).as_usize();
 
         match count {
-            count if count >= count => {
+            count if count <= avaliable => {
                 for _ in 0..count {
                     match self.alloc_frame() {
                         Some(frame) => frames.push(frame),
@@ -126,7 +126,7 @@ pub fn alloc_frames(count: usize) -> Option<Vec<TrackedFrame>> {
 
 fn dealloc_frame(frame: &TrackedFrame) {
     unsafe {
-        FRAME_ALLOCATOR.dealloc(&frame);
+        FRAME_ALLOCATOR.dealloc(frame);
     }
 }
 
