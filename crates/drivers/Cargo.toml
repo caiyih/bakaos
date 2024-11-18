@@ -7,6 +7,9 @@ edition = "2021"
 
 [dependencies]
 virtio-drivers = "0.7.5"
+allocation = { path = "../allocation" }
+constants = { path = "../constants" }
+address = { path = "../address" }
 
 [features]
 default = ["std"]
