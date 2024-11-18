@@ -438,6 +438,7 @@ impl IInode for FatDirectory {
         stat.block_size = 512;
         stat.block_count = 0;
         stat.rdev = 0;
+        // TODO: implement access time, modify time and create time
         Ok(())
     }
 }
