@@ -21,9 +21,38 @@ impl Drop for TrackedFrame {
     }
 }
 
+pub struct TrackedFrameRange {
+    start: PhysicalPageNum,
+    count: usize,
+}
+
+impl TrackedFrameRange {
+    pub fn new(start: PhysicalPageNum, count: usize) -> Self {
+        TrackedFrameRange { start, count }
+    }
+
+    pub fn to_range(&self) -> core::ops::Range<usize> {
+        self.start.as_usize()..(self.start + self.count).as_usize()
+    }
+}
+
+impl Drop for TrackedFrameRange {
+    fn drop(&mut self) {
+        for i in 0..self.count {
+            unsafe {
+                dealloc_frame_unchecked(self.start + i);
+            }
+        }
+    }
+}
+
 trait IFrameAllocator {
     fn alloc_frame(&mut self) -> Option<TrackedFrame>;
+    // Allocates `count` frames and returns them as a vector, no guarantee that the frames are contiguous
     fn alloc_frames(&mut self, count: usize) -> Option<Vec<TrackedFrame>>;
+    // Allocates `count` frames and returns them as a range, guaranteeing that the frames are contiguous
+    fn alloc_contiguous(&mut self, count: usize) -> Option<TrackedFrameRange>;
+
     fn dealloc(&mut self, frame: &TrackedFrame);
 
     fn dealloc_multiple(&mut self, frames: impl Iterator<Item = TrackedFrame>) {
@@ -38,6 +67,7 @@ static mut FRAME_ALLOCATOR: Lazy<FrameAllocator> = Lazy::new(FrameAllocator::new
 struct FrameAllocator {
     top: PhysicalPageNum,
     bottom: PhysicalPageNum,
+    // current should always point to the last frame that can be allocated
     current: PhysicalPageNum,
     recycled: Vec<PhysicalPageNum>,
 }
@@ -106,12 +136,32 @@ impl IFrameAllocator for FrameAllocator {
 
         match ppn.cmp(&self.current) {
             std::cmp::Ordering::Equal => unreachable!("Should panic at the debug build"),
-            std::cmp::Ordering::Greater => self.recycled.push(ppn),
-            std::cmp::Ordering::Less => {
-                let previous = self.current;
+            std::cmp::Ordering::Less => self.recycled.push(ppn),
+            std::cmp::Ordering::Greater => {
+                let old_current = self.current;
+
+                // Marks the frames between the <old current> and <new current, the given ppn> as available
+                for i in old_current.as_usize()..ppn.as_usize() {
+                    self.recycled.push(PhysicalPageNum::from_usize(i));
+                }
+
                 self.current = ppn;
-                self.recycled.push(previous);
             }
+        }
+    }
+
+    fn alloc_contiguous(&mut self, count: usize) -> Option<TrackedFrameRange> {
+        let avaliable = self.recycled.len() + (self.top - self.bottom).as_usize();
+
+        match count {
+            count if count <= avaliable => {
+                let start = self.current;
+                self.current += count;
+
+                Some(TrackedFrameRange { start, count })
+            }
+            // Prevent dealloc if we don't have enough frames
+            _ => None,
         }
     }
 }
@@ -120,8 +170,15 @@ pub fn alloc_frame() -> Option<TrackedFrame> {
     unsafe { FRAME_ALLOCATOR.alloc_frame() }
 }
 
+// Allocates `count` frames and returns them as a vector
+// No guarantee that the frames are contiguous
 pub fn alloc_frames(count: usize) -> Option<Vec<TrackedFrame>> {
     unsafe { FRAME_ALLOCATOR.alloc_frames(count) }
+}
+
+// Similar to alloc_frames, but guarantees that the frames are contiguous
+pub fn alloc_contiguous(count: usize) -> Option<TrackedFrameRange> {
+    unsafe { FRAME_ALLOCATOR.alloc_contiguous(count) }
 }
 
 pub unsafe fn dealloc_frame_unchecked(frame: PhysicalPageNum) {
