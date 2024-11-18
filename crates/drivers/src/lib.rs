@@ -4,7 +4,7 @@
 extern crate std;
 
 pub mod virt;
-pub use virt::*;
+pub use virt::VirtioDiskDriver;
 
 pub trait IDiskDevice: Sync + Send {
     fn read_blocks(&mut self, buf: &mut [u8]);

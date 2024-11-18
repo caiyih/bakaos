@@ -6,6 +6,8 @@ use crate::IDiskDevice;
 
 pub const SECTOR_SIZE: usize = 512;
 
+pub type VirtioDiskDriver = VirtioDisk<VirtHal>;
+
 pub struct VirtioDisk<THal>
 where
     THal: virtio_drivers::Hal,
