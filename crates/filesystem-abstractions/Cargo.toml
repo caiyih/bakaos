@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 bitflags = "2.6.0"
 downcast-rs = "1.2.1"
+timing = { path = "../timing" }
 
 [features]
 default = ["std"]

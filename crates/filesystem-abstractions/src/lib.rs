@@ -3,6 +3,7 @@
 use alloc::sync::Arc;
 use bitflags::bitflags;
 use downcast_rs::{impl_downcast, DowncastSync};
+use timing::TimeSpec;
 
 #[cfg(feature = "std")]
 extern crate std;
@@ -72,9 +73,9 @@ pub struct FileStatistics {
     pub block_size: u32, // block size
     pub __pad2: u32,
     pub block_count: u64, // blocks used count
-                          // pub atime: TimeSpec, // last access time
-                          // pub mtime: TimeSpec, // last modify time
-                          // pub ctime: TimeSpec, // create time
+    pub atime: TimeSpec,  // last access time
+    pub mtime: TimeSpec,  // last modify time
+    pub ctime: TimeSpec,  // create time
 }
 
 pub trait IInode: DowncastSync + Send + Sync {
