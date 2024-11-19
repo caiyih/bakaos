@@ -70,7 +70,7 @@ symboltable:
 		--start-address=0xffffffc080200000 \
 		--disassemble \
 		--section=.text \
-		target/riscv64gc-unknown-none-elf/debug/bakaos > .disassembled
+		$(KERNEL_ELF) > .disassembled
 
 gdb: connect
 
