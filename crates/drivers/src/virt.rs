@@ -68,14 +68,16 @@ unsafe impl virtio_drivers::Hal for VirtHal {
         _direction: virtio_drivers::BufferDirection,
     ) -> (virtio_drivers::PhysAddr, core::ptr::NonNull<u8>) {
         let frames = allocation::alloc_contiguous(pages)
-            .expect("Failed to allocate contiguous frames for Virt DMA")
-            .to_range();
+            .expect("Failed to allocate contiguous frames for Virt DMA");
+        let frame_range = frames.to_range();
+        forget(frames); // Prevent deallocation
 
-        let paddr = frames.start().start_addr::<PhysicalAddress>().as_usize();
+        let paddr = frame_range
+            .start()
+            .start_addr::<PhysicalAddress>()
+            .as_usize();
         let vaddr =
             unsafe { NonNull::new_unchecked((paddr | constants::VIRT_ADDR_OFFSET) as *mut u8) };
-
-        forget(frames); // Prevent deallocation
 
         (paddr, vaddr)
     }
