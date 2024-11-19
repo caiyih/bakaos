@@ -85,9 +85,9 @@ impl FrameAllocator {
             top: PhysicalPageNum::from_usize(usize::MAX),
             bottom: PhysicalPageNum::from_usize(usize::MAX),
             current: PhysicalPageNum::from_usize(usize::MAX),
-            // Previous from_raw_parts(null, 0, 0) was resulted this function highly optimized and inlined.
-            // The compiler make this method inlined and with no ret instruction.
-            // But it DID generate a unimp instruction at the end of the function
+            // Previous from_raw_parts(null, 0, 0) resulted this function highly optimized and inlined.
+            // The compiler make this method inlined with no ret instruction. (I think was during monomorphization)
+            // Instead, it generated an unimp instruction at the end of the function
             // which caused the kernel to panic when the function was called.
             // So we need to initialize the vector with some capacity to prevent this.
             recycled: Vec::new(),
