@@ -1,4 +1,7 @@
 use core::usize;
+use core::ops::Drop;
+use core::iter::Iterator;
+use alloc::vec::Vec;
 
 use address::{IPageNumBase, PhysicalPageNum};
 use hermit_sync::Lazy;

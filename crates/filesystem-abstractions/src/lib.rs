@@ -1,6 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use alloc::sync::Arc;
+use alloc::{string::String, sync::Arc, vec::Vec};
 use bitflags::bitflags;
 use downcast_rs::{impl_downcast, DowncastSync};
 use timing::TimeSpec;
