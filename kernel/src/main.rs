@@ -26,6 +26,8 @@ use core::{arch::asm, sync::atomic::AtomicBool};
 use firmwares::console::IConsole;
 use sbi_spec::base::impl_id;
 
+extern crate alloc;
+
 #[naked]
 #[no_mangle]
 #[link_section = ".text.entry"]
@@ -109,7 +111,11 @@ static mut PAGE_TABLE: [usize; 512] = {
 
 #[no_mangle]
 #[allow(unused_assignments)]
-fn main() {}
+fn main() {
+    let machine = kernel::get().machine();
+
+    let _ = machine.create_fat32_filesystem_at_bus(0);
+}
 
 static mut BOOTED: AtomicBool = AtomicBool::new(false);
 
@@ -128,6 +134,7 @@ unsafe extern "C" fn __kernel_init() {
     kernel::init();
 
     memory::init();
+    allocation::init(kernel::get().machine().memory_end());
 
     BOOTED.store(true, core::sync::atomic::Ordering::Relaxed);
 }

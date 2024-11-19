@@ -1,3 +1,4 @@
+use filesystem::Fat32FileSystem;
 use riscv::register::time;
 
 pub trait IMachine {
@@ -45,4 +46,6 @@ pub trait IMachine {
     fn currrent_time_ms(&self) -> u64 {
         self.tick_to_ms(self.get_board_tick())
     }
+
+    fn create_fat32_filesystem_at_bus(&self, device_id: usize) -> Fat32FileSystem;
 }

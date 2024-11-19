@@ -19,6 +19,7 @@ sbi-rt = "0.0.3"
 sbi-spec = "0.0.7"
 riscv = "0.12.1"
 buddy_system_allocator = { git = "https://github.com/neuq-rcore/buddy_system_allocator" }
+virtio-drivers = "0.7.5"
 
 [features]
 default = ["virt"]
