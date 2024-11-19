@@ -6,7 +6,7 @@ use core::usize;
 use address::{
     IAddressBase, IPageNum, IPageNumBase, PhysicalAddress, PhysicalPageNum, PhysicalPageNumRange,
 };
-use hermit_sync::Lazy;
+use hermit_sync::{Lazy, SpinMutex};
 use log::debug;
 
 pub struct TrackedFrame(PhysicalPageNum);
@@ -68,7 +68,7 @@ trait IFrameAllocator {
     }
 }
 
-static mut FRAME_ALLOCATOR: Lazy<FrameAllocator> = Lazy::new(FrameAllocator::new);
+static mut FRAME_ALLOCATOR: SpinMutex<Lazy<FrameAllocator>> = SpinMutex::new(Lazy::new(FrameAllocator::new));
 
 struct FrameAllocator {
     top: PhysicalPageNum,
@@ -84,7 +84,12 @@ impl FrameAllocator {
             top: PhysicalPageNum::from_usize(usize::MAX),
             bottom: PhysicalPageNum::from_usize(usize::MAX),
             current: PhysicalPageNum::from_usize(usize::MAX),
-            recycled: unsafe { Vec::from_raw_parts(core::ptr::null_mut(), 0, 0) },
+            // Previous from_raw_parts(null, 0, 0) was resulted this function highly optimized and inlined.
+            // The compiler make this method inlined and with no ret instruction.
+            // But it DID generate a unimp instruction at the end of the function
+            // which caused the kernel to panic when the function was called.
+            // So we need to initialize the vector with some capacity to prevent this.
+            recycled: Vec::new(),
         }
     }
 
@@ -92,7 +97,6 @@ impl FrameAllocator {
         self.bottom = bottom;
         self.top = top;
         self.current = bottom;
-        self.recycled = Vec::new();
     }
 }
 
@@ -187,18 +191,18 @@ impl IFrameAllocator for FrameAllocator {
 }
 
 pub fn alloc_frame() -> Option<TrackedFrame> {
-    unsafe { FRAME_ALLOCATOR.alloc_frame() }
+    unsafe { FRAME_ALLOCATOR.lock().alloc_frame() }
 }
 
 // Allocates `count` frames and returns them as a vector
 // No guarantee that the frames are contiguous
 pub fn alloc_frames(count: usize) -> Option<Vec<TrackedFrame>> {
-    unsafe { FRAME_ALLOCATOR.alloc_frames(count) }
+    unsafe { FRAME_ALLOCATOR.lock().alloc_frames(count) }
 }
 
 // Similar to alloc_frames, but guarantees that the frames are contiguous
 pub fn alloc_contiguous(count: usize) -> Option<TrackedFrameRange> {
-    unsafe { FRAME_ALLOCATOR.alloc_contiguous(count) }
+    unsafe { FRAME_ALLOCATOR.lock().alloc_contiguous(count) }
 }
 
 /// # Safety
@@ -211,7 +215,7 @@ pub unsafe fn dealloc_frame_unchecked(frame: PhysicalPageNum) {
 
 fn dealloc_frame(frame: &TrackedFrame) {
     unsafe {
-        FRAME_ALLOCATOR.dealloc(frame);
+        FRAME_ALLOCATOR.lock().dealloc(frame);
     }
 }
 
@@ -228,7 +232,7 @@ pub fn init_frame_allocator(memory_end: usize) {
     );
 
     unsafe {
-        FRAME_ALLOCATOR.init(
+        FRAME_ALLOCATOR.lock().init(
             PhysicalPageNum::from_addr_ceil(PhysicalAddress::from_usize(bottom)),
             PhysicalPageNum::from_addr_floor(PhysicalAddress::from_usize(memory_end)),
         );
