@@ -21,6 +21,7 @@ _build_internal:
 _prepare_image:
 	@echo "Preparing image..."
 	@cp kernel/target/${ARCH}/release/bakaos ${KERNEL_ELF}
+	@rust-objcopy ${KERNEL_ELF} --strip-all -O binary ${KERNEL_ELF}
 	@cp kernel/binary/opensbi.bin ${SBI_OUTPUT}
 
 test: build _prepare_sdcard _test_internal
