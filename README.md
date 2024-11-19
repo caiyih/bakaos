@@ -136,6 +136,8 @@ For now, the following crates are derived from other projects:
 
 - `path`: derived from [.NET standard library](https://github.com/dotnet/runtime) and licensed to .NET Foundation under MIT license.
 
+- `TimeSpan` struct from `time`: Partially derived from [.NET standard library](https://github.com/dotnet/runtime) and licensed to .NET Foundation under MIT license.
+
 ## Funky!
 
 ![9](docs/assets/9.gif)
