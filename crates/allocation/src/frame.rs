@@ -3,7 +3,7 @@ use core::iter::Iterator;
 use core::ops::Drop;
 use core::usize;
 
-use address::{IAddressBase, IPageNum, IPageNumBase, PhysicalAddress, PhysicalPageNum};
+use address::{IAddressBase, IPageNum, IPageNumBase, PhysicalAddress, PhysicalPageNum, PhysicalPageNumRange};
 use hermit_sync::Lazy;
 use log::debug;
 
@@ -35,8 +35,8 @@ impl TrackedFrameRange {
         TrackedFrameRange { start, count }
     }
 
-    pub fn to_range(&self) -> core::ops::Range<usize> {
-        self.start.as_usize()..(self.start + self.count).as_usize()
+    pub fn to_range(&self) -> PhysicalPageNumRange {
+        PhysicalPageNumRange::from_start_count(self.start, self.count)
     }
 }
 
