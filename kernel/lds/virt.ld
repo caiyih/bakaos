@@ -55,7 +55,6 @@ SECTIONS
 
     . = ALIGN(4K);
     ebss = .;
-    ekernel = .;
 
     . = ALIGN(8);
 
@@ -74,4 +73,6 @@ SECTIONS
     /* PROVIDE(__eh_frame = .); */
     /* before .eh_frame rule */
     .eh_frame : { KEEP (*(.eh_frame)) *(.eh_frame.*) }
+
+    ekernel = .;
 }
