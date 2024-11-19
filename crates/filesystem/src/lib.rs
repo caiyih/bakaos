@@ -22,5 +22,9 @@ pub fn setup_root_filesystem(fs: RootFileSystemType) {
 }
 
 pub fn root_filesystem() -> &'static RootFileSystemType {
-    unsafe { ROOT_FILESYSTEM.as_ref().expect("Root filesystem not initialized") }
+    unsafe {
+        ROOT_FILESYSTEM
+            .as_ref()
+            .expect("Root filesystem not initialized")
+    }
 }

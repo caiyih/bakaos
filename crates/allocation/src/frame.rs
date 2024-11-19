@@ -68,7 +68,8 @@ trait IFrameAllocator {
     }
 }
 
-static mut FRAME_ALLOCATOR: SpinMutex<Lazy<FrameAllocator>> = SpinMutex::new(Lazy::new(FrameAllocator::new));
+static mut FRAME_ALLOCATOR: SpinMutex<Lazy<FrameAllocator>> =
+    SpinMutex::new(Lazy::new(FrameAllocator::new));
 
 struct FrameAllocator {
     top: PhysicalPageNum,
