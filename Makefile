@@ -24,7 +24,9 @@ _prepare_image:
 	@rust-objcopy ${KERNEL_ELF} --strip-all -O binary ${KERNEL_ELF}
 	@cp kernel/binary/opensbi.bin ${SBI_OUTPUT}
 
-test: build _prepare_sdcard _test_internal
+test: test-only parse
+
+test-only: build _prepare_sdcard _test_internal
 
 _prepare_sdcard:
 	@echo "Preparing sdcard..."
