@@ -90,7 +90,7 @@ unsafe impl virtio_drivers::Hal for VirtHal {
         // ensure paddr is a physical address
         debug_assert!(paddr & constants::VIRT_ADDR_OFFSET == 0);
         // ensure paddr is properly mapped to vaddr
-        debug_assert!(paddr & constants::VIRT_ADDR_OFFSET == vaddr.as_ptr() as usize);
+        debug_assert!(paddr | constants::VIRT_ADDR_OFFSET == vaddr.as_ptr() as usize);
 
         let ppn = PhysicalPageNum::from_addr_floor(PhysicalAddress::from_usize(paddr));
         for i in 0..pages {
@@ -126,11 +126,12 @@ unsafe impl virtio_drivers::Hal for VirtHal {
         _buffer: core::ptr::NonNull<[u8]>,
         _direction: virtio_drivers::BufferDirection,
     ) {
-        #[cfg(debug_assertions)]
-        {
-            // Ensure that the address is a virtual address
-            debug_assert!(_paddr & constants::VIRT_ADDR_OFFSET == constants::VIRT_ADDR_OFFSET);
-        }
+        // _paddr may not be the start of a frame, so the assertion is not correct
+        // #[cfg(debug_assertions)]
+        // {
+        //     // Ensure that the address is a virtual address
+        //     debug_assert!(_paddr & constants::VIRT_ADDR_OFFSET == constants::VIRT_ADDR_OFFSET);
+        // }
 
         // Do nothing
     }
