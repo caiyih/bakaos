@@ -1,4 +1,9 @@
-use alloc::{boxed::Box, string::{String, ToString}, sync::Arc, vec::Vec};
+use alloc::{
+    boxed::Box,
+    string::{String, ToString},
+    sync::Arc,
+    vec::Vec,
+};
 use core::ops::Deref;
 
 use drivers::IDiskDevice;

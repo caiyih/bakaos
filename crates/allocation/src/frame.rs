@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
+use core::iter::Iterator;
 use core::ops::Drop;
 use core::usize;
-use core::iter::Iterator;
 
 use address::{
     IAddressBase, IPageNum, IPageNumBase, PhysicalAddress, PhysicalPageNum, PhysicalPageNumRange,
@@ -144,7 +144,7 @@ impl IFrameAllocator for FrameAllocator {
 
         self.recycled.push(ppn);
         self.recycled.sort();
-        
+
         // try gc self.current before push to recycled
         // Check if the recycled or ppn can be contiguous
         match self.recycled.last() {
@@ -166,7 +166,7 @@ impl IFrameAllocator for FrameAllocator {
 
                 self.current = new_current;
             }
-            _ => ()
+            _ => (),
         }
     }
 
