@@ -134,18 +134,31 @@ impl IFrameAllocator for FrameAllocator {
 
         let ppn = frame.ppn();
 
-        match ppn.cmp(&self.current) {
-            core::cmp::Ordering::Equal => unreachable!("Should panic at the debug build"),
-            core::cmp::Ordering::Less => self.recycled.push(ppn),
-            core::cmp::Ordering::Greater => {
-                let old_current = self.current;
+        debug_assert!(ppn < self.current);
 
-                // Marks the frames between the <old current> and <new current, the given ppn> as available
-                for i in old_current.as_usize()..ppn.as_usize() {
-                    self.recycled.push(PhysicalPageNum::from_usize(i));
-                }
+        // try gc self.current before push to recycled
+        let mut current = self.current - 1;
+        while current > ppn || self.recycled.iter().any(|ppn| *ppn == current - 1) {
+            current -= 1;
+        }
 
-                self.current = ppn;
+        let old_current = self.current;
+        if old_current == current {
+            self.recycled.push(ppn);
+            self.recycled.sort(); // keep recycled sorted
+        } else {
+            self.current = current;
+            let cutoff_at = self
+                .recycled
+                .iter()
+                .enumerate()
+                .find(|f| f.1 > &current)
+                .map(|f| f.0);
+
+            debug_assert!(cutoff_at.is_some());
+
+            if let Some(cutoff_at) = cutoff_at {
+                self.recycled.truncate(cutoff_at);
             }
         }
     }
