@@ -1,9 +1,11 @@
 use alloc::vec::Vec;
-use core::iter::Iterator;
 use core::ops::Drop;
 use core::usize;
+use core::iter::Iterator;
 
-use address::{IAddressBase, IPageNum, IPageNumBase, PhysicalAddress, PhysicalPageNum, PhysicalPageNumRange};
+use address::{
+    IAddressBase, IPageNum, IPageNumBase, PhysicalAddress, PhysicalPageNum, PhysicalPageNumRange,
+};
 use hermit_sync::Lazy;
 use log::debug;
 
@@ -140,30 +142,31 @@ impl IFrameAllocator for FrameAllocator {
 
         debug_assert!(ppn < self.current);
 
+        self.recycled.push(ppn);
+        self.recycled.sort();
+        
         // try gc self.current before push to recycled
-        let mut current = self.current - 1;
-        while current > ppn || self.recycled.iter().any(|ppn| *ppn == current - 1) {
-            current -= 1;
-        }
+        // Check if the recycled or ppn can be contiguous
+        match self.recycled.last() {
+            Some(last) if *last + 1 == self.current => {
+                let mut new_current = self.current;
 
-        let old_current = self.current;
-        if old_current == current {
-            self.recycled.push(ppn);
-            self.recycled.sort(); // keep recycled sorted
-        } else {
-            self.current = current;
-            let cutoff_at = self
-                .recycled
-                .iter()
-                .enumerate()
-                .find(|f| f.1 > &current)
-                .map(|f| f.0);
+                loop {
+                    match self.recycled.pop() {
+                        Some(ppn) if ppn + 1 == new_current => {
+                            new_current = ppn;
+                        }
+                        Some(ppn) => {
+                            self.recycled.push(ppn);
+                            break;
+                        }
+                        None => break,
+                    }
+                }
 
-            debug_assert!(cutoff_at.is_some());
-
-            if let Some(cutoff_at) = cutoff_at {
-                self.recycled.truncate(cutoff_at);
+                self.current = new_current;
             }
+            _ => ()
         }
     }
 
@@ -221,8 +224,7 @@ pub fn init_frame_allocator(memory_end: usize) {
 
     debug!(
         "Initializing frame allocator at {:#018x}..{:#018x}",
-        bottom,
-        memory_end
+        bottom, memory_end
     );
 
     unsafe {
