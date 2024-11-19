@@ -1,10 +1,11 @@
-use core::usize;
-use core::ops::Drop;
-use core::iter::Iterator;
 use alloc::vec::Vec;
+use core::iter::Iterator;
+use core::ops::Drop;
+use core::usize;
 
-use address::{IPageNumBase, PhysicalPageNum};
+use address::{IAddressBase, IPageNum, IPageNumBase, PhysicalAddress, PhysicalPageNum};
 use hermit_sync::Lazy;
+use log::debug;
 
 pub struct TrackedFrame(PhysicalPageNum);
 
@@ -167,7 +168,7 @@ impl IFrameAllocator for FrameAllocator {
     }
 
     fn alloc_contiguous(&mut self, count: usize) -> Option<TrackedFrameRange> {
-        let avaliable = self.recycled.len() + (self.top - self.bottom).as_usize();
+        let avaliable = (self.top - self.current).as_usize();
 
         match count {
             count if count <= avaliable => {
@@ -216,10 +217,18 @@ pub fn init_frame_allocator(memory_end: usize) {
         fn ekernel();
     }
 
+    let bottom = ekernel as usize & constants::PHYS_ADDR_MASK;
+
+    debug!(
+        "Initializing frame allocator at {:#018x}..{:#018x}",
+        bottom,
+        memory_end
+    );
+
     unsafe {
         FRAME_ALLOCATOR.init(
-            PhysicalPageNum::from_usize(ekernel as usize),
-            PhysicalPageNum::from_usize(memory_end),
+            PhysicalPageNum::from_addr_ceil(PhysicalAddress::from_usize(bottom)),
+            PhysicalPageNum::from_addr_floor(PhysicalAddress::from_usize(memory_end)),
         );
     }
 }
