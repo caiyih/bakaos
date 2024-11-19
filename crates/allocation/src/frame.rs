@@ -78,7 +78,7 @@ impl FrameAllocator {
             top: PhysicalPageNum::from_usize(usize::MAX),
             bottom: PhysicalPageNum::from_usize(usize::MAX),
             current: PhysicalPageNum::from_usize(usize::MAX),
-            recycled: unsafe { Vec::from_raw_parts(std::ptr::null_mut(), 0, 0) },
+            recycled: unsafe { Vec::from_raw_parts(core::ptr::null_mut(), 0, 0) },
         }
     }
 
@@ -135,9 +135,9 @@ impl IFrameAllocator for FrameAllocator {
         let ppn = frame.ppn();
 
         match ppn.cmp(&self.current) {
-            std::cmp::Ordering::Equal => unreachable!("Should panic at the debug build"),
-            std::cmp::Ordering::Less => self.recycled.push(ppn),
-            std::cmp::Ordering::Greater => {
+            core::cmp::Ordering::Equal => unreachable!("Should panic at the debug build"),
+            core::cmp::Ordering::Less => self.recycled.push(ppn),
+            core::cmp::Ordering::Greater => {
                 let old_current = self.current;
 
                 // Marks the frames between the <old current> and <new current, the given ppn> as available
