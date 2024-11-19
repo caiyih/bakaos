@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 log = "0.4.22"
 hermit-sync = "0.1.6"
-address = { path = "../address" }
+address = { path = "../address", default-features = false }
 constants = { path = "../constants" }
 
 [features]
