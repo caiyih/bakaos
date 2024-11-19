@@ -111,11 +111,7 @@ static mut PAGE_TABLE: [usize; 512] = {
 
 #[no_mangle]
 #[allow(unused_assignments)]
-fn main() {
-    let machine = kernel::get().machine();
-
-    let _ = machine.create_fat32_filesystem_at_bus(0);
-}
+fn main() {}
 
 static mut BOOTED: AtomicBool = AtomicBool::new(false);
 
@@ -135,6 +131,9 @@ unsafe extern "C" fn __kernel_init() {
 
     memory::init();
     allocation::init(kernel::get().machine().memory_end());
+
+    let machine = kernel::get().machine();
+    filesystem::setup_root_filesystem(machine.create_fat32_filesystem_at_bus(0));
 
     BOOTED.store(true, core::sync::atomic::Ordering::Relaxed);
 }
