@@ -10,6 +10,7 @@ extern crate std;
 
 extern crate alloc;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FileSystemError {
     Unimplemented,
     Unknown,
