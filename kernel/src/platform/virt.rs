@@ -1,3 +1,12 @@
+use alloc::boxed::Box;
+use core::ptr::NonNull;
+use drivers::virt::{VirtHal, VirtioDisk};
+use filesystem::Fat32FileSystem;
+use virtio_drivers::{
+    device::blk::VirtIOBlk,
+    transport::mmio::{MmioTransport, VirtIOHeader},
+};
+
 use super::machine::IMachine;
 
 #[derive(Clone, Copy)]
@@ -31,5 +40,20 @@ impl IMachine for VirtBoard {
 
     fn bus_width(&self) -> usize {
         0x1000
+    }
+
+    fn create_fat32_filesystem_at_bus(&self, device_id: usize) -> filesystem::Fat32FileSystem {
+        let mmio_pa = self.mmc_driver(device_id);
+        let mmio_va = mmio_pa | constants::VIRT_ADDR_OFFSET;
+
+        let ptr = unsafe { NonNull::new_unchecked(mmio_va as *mut VirtIOHeader) };
+        let mmio_transport =
+            unsafe { MmioTransport::new(ptr).expect("Failed to initialize virtio mmio transport") };
+        let virt_blk = VirtIOBlk::<VirtHal, _>::new(mmio_transport)
+            .expect("Failed to initialize virtio block device");
+        let virt_disk = VirtioDisk::new(virt_blk);
+
+        Fat32FileSystem::new(Box::new(virt_disk))
+            .expect("Failed to initialize FAT32 filesystem on VirtIOBlk")
     }
 }

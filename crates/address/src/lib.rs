@@ -3,6 +3,8 @@
 #[cfg(feature = "std")]
 extern crate std;
 
+extern crate alloc;
+
 mod address;
 mod address_range;
 mod page_num;

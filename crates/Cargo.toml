@@ -2,8 +2,13 @@
 resolver = "2"
 members = [
     "template",
+    "drivers",
+    "filesystem",
+    "filesystem-abstractions",
+    "timing",
     "address",
     "path",
     "threading",
     "constants",
+    "allocation",
 ]
