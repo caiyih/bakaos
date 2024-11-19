@@ -10,6 +10,7 @@ virtio-drivers = "0.7.5"
 allocation = { path = "../allocation", default-features = false }
 constants = { path = "../constants", default-features = false }
 address = { path = "../address", default-features = false }
+log = "0.4.22"
 
 [features]
 default = ["std"]
