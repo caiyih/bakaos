@@ -31,7 +31,7 @@ pub enum FileSystemError {
 
 pub type FileSystemResult<T> = Result<T, FileSystemError>;
 
-pub trait FileSystem: Send + Sync {
+pub trait IFileSystem: Send + Sync {
     fn root_dir(&'static self) -> Arc<dyn IInode>;
     fn name(&self) -> &str;
     fn flush(&self) -> FileSystemResult<()> {

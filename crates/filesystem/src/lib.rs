@@ -8,7 +8,7 @@ extern crate alloc;
 mod fatfs_impl;
 
 pub use fatfs_impl::*;
-use filesystem_abstractions::FileSystem;
+use filesystem_abstractions::IFileSystem;
 use log::debug;
 
 pub type RootFileSystemType = fatfs_impl::Fat32FileSystem;

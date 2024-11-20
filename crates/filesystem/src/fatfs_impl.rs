@@ -9,7 +9,7 @@ use core::{ops::Deref, str};
 use drivers::IDiskDevice;
 use fatfs::{Dir, Error, File, LossyOemCpConverter, NullTimeProvider, Read, Seek, SeekFrom, Write};
 use filesystem_abstractions::{
-    FileStatistics, FileStatisticsMode, FileSystem, FileSystemError, FileSystemResult, IInode,
+    FileStatistics, FileStatisticsMode, IFileSystem, FileSystemError, FileSystemResult, IInode,
 };
 use hermit_sync::SpinMutex;
 use log::warn;
@@ -38,7 +38,7 @@ impl Deref for Fat32Disk {
     }
 }
 
-impl FileSystem for Fat32FileSystem {
+impl IFileSystem for Fat32FileSystem {
     fn root_dir(&'static self) -> alloc::sync::Arc<dyn filesystem_abstractions::IInode> {
         Arc::new(FatDirectory {
             // Since the "/" is used as separator in the path module and is ignored by the iterator
