@@ -180,35 +180,70 @@ unsafe fn clear_bss() {
         fn ebss();
     }
 
-    clear_bss_fast(sbss as usize, ebss as usize);
+    // After benchmarking, we got results below:
+    // clear_bss_for_loop:
+    //    ~160 ticks            iter 0
+    //    ~40 ticks             iter 1 to 20
+    // clear_bss_fast:
+    //    ~203 ticks            iter 0
+    //    ~2 ticks              iter 1 to 20
+    // clear_bss_slice_fill:
+    //    ~470 ticks            iter 0
+    //    ~9 ticks              iter 1 to 20
+    // We can see that clear_bss_for_loop is the fastest at the first iteration
+    // Although clear_bss_fast is MUCH FASTER at the following iterations than it
+    // Since We only have to clear bss once, we choose clear_bss_for_loop
+    // This may be related to the CPU cache and branch prediction
+    // because only the first iteration is affected the most
+    // Also, we use u64 to write memory, which is faster than u8
+    // And the compiler will actually unroll the loop by 2 times
+    // So the actual loop writes 128 bits at a time
+    clear_bss_for_loop(sbss as usize, ebss as usize);
 }
 
-unsafe fn clear_bss_fast(begin: usize, end: usize) {
-    // bss sections must be 4K aligned
-    debug_assert!(begin & 4095 == 0);
-    debug_assert!(end & 4095 == 0);
-    debug_assert!((end - begin) & 4095 == 0);
-
-    // Since riscv64gc supports neither SIMD or 128 bit integer operations
-    // We can only uses unsigned 64 bit integers to write memory
-    // u64 writes 64 bits at a time，still faster than u8 writes
+unsafe fn clear_bss_for_loop(begin: usize, end: usize) {
     let mut ptr = begin as *mut u64;
 
-    // 8 times loop unrolling
-    // since the bss section is 4K aligned, we can safely write 512 bits at a time
+    // The compiler unrolls the loop by 2 times, generating asm like below
+    // while ptr < end {
+    //     sd x0, 0(ptr)
+    //     sd x0, 8(ptr)
+    //     addi ptr, ptr, 16
+    // }
     while (ptr as usize) < end {
-        asm!(
-            "sd x0, 0({0})",
-            "sd x0, 8({0})",
-            "sd x0, 16({0})",
-            "sd x0, 24({0})",
-            "sd x0, 32({0})",
-            "sd x0, 40({0})",
-            "sd x0, 48({0})",
-            "sd x0, 56({0})",
-            in(reg) ptr
-        );
-
-        ptr = ptr.add(8);
+        ptr.write_volatile(0);
+        ptr = ptr.add(1);
     }
 }
+
+// This method is no longer used
+// See comments in clear_bss for details
+// unsafe fn clear_bss_fast(mut begin: usize, end: usize) {
+//     // bss sections must be 4K aligned
+//     debug_assert!(begin & 4095 == 0);
+//     debug_assert!(end & 4095 == 0);
+//     debug_assert!((end - begin) & 4095 == 0);
+
+//     // Since riscv64gc supports neither SIMD or 128 bit integer operations
+//     // We can only uses unsigned 64 bit integers to write memory
+//     // u64 writes 64 bits at a time，still faster than u8 writes
+//     // let mut ptr = begin as *mut u64;
+
+//     // 8 times loop unrolling
+//     // since the bss section is 4K aligned, we can safely write 512 bits at a time
+//     while begin < end {
+//         asm!(
+//             "sd x0, 0({0})",
+//             "sd x0, 8({0})",
+//             "sd x0, 16({0})",
+//             "sd x0, 24({0})",
+//             "sd x0, 32({0})",
+//             "sd x0, 40({0})",
+//             "sd x0, 48({0})",
+//             "sd x0, 56({0})",
+//             in(reg) begin
+//         );
+
+//         begin += 16;
+//     }
+// }
