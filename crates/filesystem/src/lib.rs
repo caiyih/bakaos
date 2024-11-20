@@ -10,6 +10,8 @@ mod fatfs_impl;
 use alloc::{sync::Arc, vec::Vec};
 pub use fatfs_impl::*;
 use filesystem_abstractions::{IFileSystem, IInode};
+use hermit_sync::{RawSpinMutex, SpinMutex};
+use lock_api::{MappedMutexGuard, MutexGuard};
 use log::debug;
 
 pub type RootFileSystemType = fatfs_impl::Fat32FileSystem;
@@ -30,7 +32,7 @@ pub fn root_filesystem() -> &'static dyn IFileSystem {
     }
 }
 
-static mut INODE_CACHE: Vec<Arc<dyn IInode>> = Vec::new();
+static mut INODE_CACHE: SpinMutex<Vec<Arc<dyn IInode>>> = SpinMutex::new(Vec::new());
 
 pub trait ICacheableInode: IInode {
     fn cache_as_arc_accessor(self: &Arc<Self>) -> Arc<InodeCacheAccessor>;
@@ -55,8 +57,9 @@ pub struct InodeCacheAccessor {
 impl InodeCacheAccessor {
     pub fn new(inode: Arc<dyn IInode>) -> Self {
         let inode_id = unsafe {
-            let inode_id = INODE_CACHE.len();
-            INODE_CACHE.push(inode);
+            let mut caches = INODE_CACHE.lock();
+            let inode_id = caches.len();
+            caches.push(inode);
             inode_id
         };
 
@@ -64,7 +67,10 @@ impl InodeCacheAccessor {
     }
 
     pub fn access(&self) -> Arc<dyn IInode> {
-        unsafe { INODE_CACHE[self.inode_id].clone() }
+        let caches = unsafe { INODE_CACHE.lock() };
+        let inode = caches[self.inode_id].clone();
+        drop(caches); // prevent deadlock
+        inode
     }
 
     pub fn inode_id(&self) -> usize {
@@ -75,15 +81,16 @@ impl InodeCacheAccessor {
     /// # Safety
     /// I made this method unsafe because you can change the value of the inode cache table.
     /// This can be a dangerous operation, so you need to be very careful when using this method.
-    pub unsafe fn as_mut(&mut self) -> &mut Arc<dyn IInode> {
-        &mut INODE_CACHE[self.inode_id]
+    pub unsafe fn as_mut(&mut self) -> MappedMutexGuard<'static, RawSpinMutex, Arc<dyn IInode>> {
+        let caches = INODE_CACHE.lock();
+        MutexGuard::map(caches, |caches| &mut caches[self.inode_id])
     }
 }
 
 impl Drop for InodeCacheAccessor {
     fn drop(&mut self) {
         unsafe {
-            INODE_CACHE.swap_remove(self.inode_id);
+            INODE_CACHE.lock().swap_remove(self.inode_id);
         }
     }
 }
