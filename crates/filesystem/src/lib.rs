@@ -47,6 +47,7 @@ impl ICacheableInode for dyn IInode {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct InodeCacheAccessor {
     inode_id: usize,
 }
