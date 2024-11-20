@@ -81,7 +81,27 @@ impl InodeCacheAccessor {
     /// # Safety
     /// I made this method unsafe because you can change the value of the inode cache table.
     /// This can be a dangerous operation, so you need to be very careful when using this method.
-    pub unsafe fn as_mut(&mut self) -> MappedMutexGuard<'static, RawSpinMutex, Arc<dyn IInode>> {
+    ///
+    /// # Example
+    /// ```no_run
+    /// use crate::filesystem::ICacheableInode;
+    /// 
+    /// let text_cache = filesystem::root_filesystem()
+    ///    .lookup("/text.txt")
+    ///    .expect("text.txt not found")
+    ///    .cache_as_accessor();
+    ///
+    /// let mut pInode = unsafe { text_cache.as_mut() };
+    ///
+    /// // Update the inode cache with another inode
+    ///  *pInode = filesystem::root_filesystem()
+    ///     .lookup("/new_text.txt")
+    ///     .expect("new_text.txt not found");
+    ///
+    /// // The cache accessor returns the new inode
+    /// let new_text = text_cache.access();
+    /// ```
+    pub unsafe fn as_mut(&self) -> MappedMutexGuard<'static, RawSpinMutex, Arc<dyn IInode>> {
         let caches = INODE_CACHE.lock();
         MutexGuard::map(caches, |caches| &mut caches[self.inode_id])
     }
