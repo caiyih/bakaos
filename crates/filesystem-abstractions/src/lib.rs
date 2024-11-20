@@ -1,5 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use core::{cmp::Ordering, slice};
+
 use alloc::{string::String, sync::Arc, vec::Vec};
 use bitflags::bitflags;
 use downcast_rs::{impl_downcast, DowncastSync};
@@ -86,6 +88,46 @@ pub struct FileStatistics {
 pub trait IInode: DowncastSync + Send + Sync {
     fn metadata(&self) -> FileSystemResult<Metadata> {
         Err(FileSystemError::Unimplemented)
+    }
+
+    fn raedall_at(&self, offset: usize) -> FileSystemResult<Vec<u8>> {
+        self.readvec_at(offset, usize::MAX)
+    }
+
+    fn readvec_at(&self, offset: usize, max_length: usize) -> FileSystemResult<Vec<u8>> {
+        let mut read_total: usize = 0;
+        let mut tmp = [0u8; 512];
+        let mut buf: Vec<u8> = Vec::with_capacity(512);
+
+        loop {
+            let read = self.readat(read_total + offset, &mut tmp)?;
+
+            if read == 0 {
+                break;
+            }
+
+            if buf.capacity() < read_total + read {
+                buf.reserve(read);
+
+                debug_assert!(buf.capacity() >= read_total + read);
+            }
+
+            unsafe {
+                slice::from_raw_parts_mut(buf.as_mut_ptr().add(read_total), read)
+                    .copy_from_slice(&tmp[..read]);
+            }
+
+            read_total += read;
+
+            unsafe { buf.set_len(read_total) };
+
+            match (read.cmp(&512), read_total.cmp(&max_length)) {
+                (Ordering::Less, _) | (_, Ordering::Equal) | (_, Ordering::Greater) => break,
+                _ => (),
+            }
+        }
+
+        Ok(buf)
     }
 
     fn readat(&self, _offset: usize, _buffer: &mut [u8]) -> FileSystemResult<usize> {
