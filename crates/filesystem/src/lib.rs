@@ -85,7 +85,7 @@ impl InodeCacheAccessor {
     /// # Example
     /// ```no_run
     /// use crate::filesystem::ICacheableInode;
-    /// 
+    ///
     /// let text_cache = filesystem::root_filesystem()
     ///    .lookup("/text.txt")
     ///    .expect("text.txt not found")
