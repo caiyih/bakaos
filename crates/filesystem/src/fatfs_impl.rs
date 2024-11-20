@@ -9,7 +9,7 @@ use core::{ops::Deref, str};
 use drivers::IDiskDevice;
 use fatfs::{Dir, Error, File, LossyOemCpConverter, NullTimeProvider, Read, Seek, SeekFrom, Write};
 use filesystem_abstractions::{
-    FileStatistics, FileStatisticsMode, IFileSystem, FileSystemError, FileSystemResult, IInode,
+    FileStatistics, FileStatisticsMode, FileSystemError, FileSystemResult, IFileSystem, IInode,
 };
 use hermit_sync::SpinMutex;
 use log::warn;
