@@ -70,6 +70,14 @@ impl InodeCacheAccessor {
     pub fn inode_id(&self) -> usize {
         self.inode_id
     }
+
+    /// Access the mutable element of the inode cache table.
+    /// # Safety
+    /// I made this method unsafe because you can change the value of the inode cache table.
+    /// This can be a dangerous operation, so you need to be very careful when using this method.
+    pub unsafe fn as_mut(&mut self) -> &mut Arc<dyn IInode> {
+        &mut INODE_CACHE[self.inode_id]
+    }
 }
 
 impl Drop for InodeCacheAccessor {
