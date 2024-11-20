@@ -37,6 +37,10 @@ pub trait FileSystem: Send + Sync {
     fn flush(&self) -> FileSystemResult<()> {
         Err(FileSystemError::Unimplemented)
     }
+    fn lookup(&'static self, path: &str) -> FileSystemResult<Arc<dyn IInode>> {
+        let path = path.trim_start_matches(path::SEPARATOR);
+        self.root_dir().lookup_recursive(path)
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -113,6 +117,10 @@ pub trait IInode: DowncastSync + Send + Sync {
     }
 
     fn lookup(&self, _name: &str) -> FileSystemResult<Arc<dyn IInode>> {
+        Err(FileSystemError::NotADirectory)
+    }
+
+    fn lookup_recursive(&self, _path: &str) -> FileSystemResult<Arc<dyn IInode>> {
         Err(FileSystemError::NotADirectory)
     }
 
