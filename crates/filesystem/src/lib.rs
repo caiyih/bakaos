@@ -21,7 +21,7 @@ pub fn setup_root_filesystem(fs: RootFileSystemType) {
     unsafe { ROOT_FILESYSTEM = Some(fs) };
 }
 
-pub fn root_filesystem() -> &'static RootFileSystemType {
+pub fn root_filesystem() -> &'static dyn IFileSystem {
     unsafe {
         ROOT_FILESYSTEM
             .as_ref()
