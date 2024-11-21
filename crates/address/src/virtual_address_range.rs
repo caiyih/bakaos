@@ -1,3 +1,5 @@
+use abstractions::IUsizeAlias;
+
 use crate::*;
 
 pub type VirtualAddressRange = AddressRange<VirtualAddress>;
@@ -7,6 +9,14 @@ impl_range_display!(VirtualAddressRange);
 impl VirtualAddressRange {
     pub fn to_physical(&self) -> PhysicalAddressRange {
         PhysicalAddressRange::from_start_end(self.start().to_physical(), self.end().to_physical())
+    }
+}
+
+impl VirtualAddressRange {
+    pub fn from_slice<T>(slice: &[T]) -> Self {
+        let start = VirtualAddress::from_usize(slice.as_ptr() as usize);
+        let end = VirtualAddress::from_usize(start.as_usize() + slice.len() * core::mem::size_of::<T>());
+        VirtualAddressRange::from_start_end(start, end)
     }
 }
 
