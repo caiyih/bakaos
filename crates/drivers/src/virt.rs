@@ -1,4 +1,5 @@
-use address::{IAddressBase, IPageNum, PhysicalAddress, PhysicalPageNum};
+use abstractions::IUsizeAlias;
+use address::{IPageNum, PhysicalAddress, PhysicalPageNum};
 use core::{mem::forget, ptr::NonNull};
 use virtio_drivers::{device::blk::VirtIOBlk, transport::mmio::MmioTransport};
 
