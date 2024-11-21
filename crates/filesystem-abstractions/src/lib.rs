@@ -95,39 +95,55 @@ pub trait IInode: DowncastSync + Send + Sync {
     }
 
     fn readvec_at(&self, offset: usize, max_length: usize) -> FileSystemResult<Vec<u8>> {
-        let mut read_total: usize = 0;
-        let mut tmp = [0u8; 512];
-        let mut buf: Vec<u8> = Vec::with_capacity(512);
+        match self.metadata() {
+            Ok(metadata) => {
+                let len = Ord::min(metadata.size - offset, max_length);
+                let mut buf = Vec::<u8>::with_capacity(len);
+                unsafe { buf.set_len(len) };
 
-        loop {
-            let read = self.readat(read_total + offset, &mut tmp)?;
-
-            if read == 0 {
-                break;
+                self.readat(offset, &mut buf)?;
+                Ok(buf)
             }
+            // Fall back path to read 512 bytes at a time until EOF
+            // Not recommended for potential reallocation overhead
+            Err(_) => {
+                let mut read_total: usize = 0;
+                let mut tmp = [0u8; 512];
+                let mut buf: Vec<u8> = Vec::with_capacity(512);
 
-            if buf.capacity() < read_total + read {
-                buf.reserve(read);
+                loop {
+                    let read = self.readat(read_total + offset, &mut tmp)?;
 
-                debug_assert!(buf.capacity() >= read_total + read);
-            }
+                    if read == 0 {
+                        break;
+                    }
 
-            unsafe {
-                slice::from_raw_parts_mut(buf.as_mut_ptr().add(read_total), read)
-                    .copy_from_slice(&tmp[..read]);
-            }
+                    if buf.capacity() < read_total + read {
+                        buf.reserve(read);
 
-            read_total += read;
+                        debug_assert!(buf.capacity() >= read_total + read);
+                    }
 
-            unsafe { buf.set_len(read_total) };
+                    unsafe {
+                        slice::from_raw_parts_mut(buf.as_mut_ptr().add(read_total), read)
+                            .copy_from_slice(&tmp[..read]);
+                    }
 
-            match (read.cmp(&512), read_total.cmp(&max_length)) {
-                (Ordering::Less, _) | (_, Ordering::Equal) | (_, Ordering::Greater) => break,
-                _ => (),
+                    read_total += read;
+
+                    unsafe { buf.set_len(read_total) };
+
+                    match (read.cmp(&512), read_total.cmp(&max_length)) {
+                        (Ordering::Less, _) | (_, Ordering::Equal) | (_, Ordering::Greater) => {
+                            break
+                        }
+                        _ => (),
+                    }
+                }
+
+                Ok(buf)
             }
         }
-
-        Ok(buf)
     }
 
     fn readat(&self, _offset: usize, _buffer: &mut [u8]) -> FileSystemResult<usize> {
