@@ -2,7 +2,7 @@ use crate::*;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct PhysicalAddress(usize);
+pub struct PhysicalAddress(pub usize);
 
 impl_IAddress!(PhysicalAddress);
 

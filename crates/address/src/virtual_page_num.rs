@@ -2,7 +2,7 @@ use crate::*;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct VirtualPageNum(usize);
+pub struct VirtualPageNum(pub usize);
 
 impl_IPageNum!(VirtualPageNum);
 
