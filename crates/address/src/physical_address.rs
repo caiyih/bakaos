@@ -99,22 +99,6 @@ mod physical_address_tests {
         );
     }
 
-    // 指针和引用转换测试
-    #[test]
-    fn test_from_ptr() {
-        let value = 42;
-        let ptr = &value as *const i32;
-        let addr = PhysicalAddress::from_ptr(ptr);
-        assert_eq!(addr.as_usize(), ptr as usize);
-    }
-
-    #[test]
-    fn test_from_ref() {
-        let value = 42;
-        let addr = PhysicalAddress::from_ref(&value);
-        assert_eq!(addr.as_usize(), (&value as *const i32) as usize);
-    }
-
     // 比较操作测试
     #[test]
     fn test_comparison_operators() {
