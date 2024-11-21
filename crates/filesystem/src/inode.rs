@@ -4,6 +4,7 @@ use hermit_sync::{RawSpinMutex, SpinMutex};
 use lock_api::{MappedMutexGuard, MutexGuard};
 
 static mut INODE_CACHE: SpinMutex<Vec<Arc<dyn IInode>>> = SpinMutex::new(Vec::new());
+static mut INODE_CACHE_AVALIABLES: SpinMutex<Vec<usize>> = SpinMutex::new(Vec::new());
 
 pub trait ICacheableInode: IInode {
     fn cache_as_arc_accessor(self: &Arc<Self>) -> Arc<InodeCacheAccessor>;
@@ -27,12 +28,18 @@ pub struct InodeCacheAccessor {
 
 impl InodeCacheAccessor {
     pub fn new(inode: Arc<dyn IInode>) -> Self {
-        let inode_id = unsafe {
-            let mut caches = INODE_CACHE.lock();
-            let inode_id = caches.len();
-            caches.push(inode);
-            inode_id
+        let mut caches = unsafe { INODE_CACHE.lock() };
+
+        let inode_id = match unsafe { INODE_CACHE_AVALIABLES.lock().pop() } {
+            Some(id) => id,
+            None => {
+                let id = caches.len();
+                unsafe { caches.set_len(id + 1) };
+                id
+            }
         };
+
+        caches[inode_id] = inode;
 
         InodeCacheAccessor { inode_id }
     }
@@ -81,7 +88,7 @@ impl InodeCacheAccessor {
 impl Drop for InodeCacheAccessor {
     fn drop(&mut self) {
         unsafe {
-            INODE_CACHE.lock().swap_remove(self.inode_id);
+            INODE_CACHE_AVALIABLES.lock().push(self.inode_id);
         }
     }
 }
