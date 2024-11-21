@@ -9,6 +9,7 @@ edition = "2021"
 log = "0.4.22"
 hermit-sync = "0.1.6"
 address = { path = "../address", default-features = false }
+abstractions = { path = "../abstractions", default-features = false }
 constants = { path = "../constants" }
 
 [features]

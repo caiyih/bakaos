@@ -1,11 +1,10 @@
+use abstractions::IUsizeAlias;
 use alloc::vec::Vec;
 use core::iter::Iterator;
 use core::ops::Drop;
 use core::usize;
 
-use address::{
-    IAddressBase, IPageNum, IPageNumBase, PhysicalAddress, PhysicalPageNum, PhysicalPageNumRange,
-};
+use address::{IPageNum, PhysicalAddress, PhysicalPageNum, PhysicalPageNumRange};
 use hermit_sync::{Lazy, SpinMutex};
 use log::debug;
 
