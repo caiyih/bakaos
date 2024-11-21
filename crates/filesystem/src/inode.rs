@@ -11,10 +11,15 @@ pub trait ICacheableInode: IInode {
 }
 
 impl ICacheableInode for dyn IInode {
+    /// Cache the inode in the kernel's inode table and returns an accessor to the inode.
+    /// The accessor wraps the index of the inode in the inode table and is the only way to access the inode.
+    /// The inode will be removed from the inode table when the accessor is dropped.
     fn cache_as_accessor(self: &Arc<Self>) -> InodeCacheAccessor {
         InodeCacheAccessor::new(self.clone())
     }
 
+    /// Similar to `cache_as_accessor`, but returns an Arc of the accessor.
+    /// See `cache_as_accessor` for more information.
     fn cache_as_arc_accessor(self: &Arc<Self>) -> Arc<InodeCacheAccessor> {
         Arc::new(self.cache_as_accessor())
     }
@@ -45,6 +50,7 @@ impl InodeCacheAccessor {
         InodeCacheAccessor { inode_id }
     }
 
+    // Access the inode from the inode cache table provided by the accessor.
     pub fn access(&self) -> Arc<dyn IInode> {
         let caches = unsafe { INODE_CACHE.lock() };
         let inode = caches[self.inode_id].clone();
@@ -88,6 +94,7 @@ impl InodeCacheAccessor {
 }
 
 impl Drop for InodeCacheAccessor {
+    // Remove the inode from the inode cache table when the accessor is dropped.
     fn drop(&mut self) {
         unsafe {
             INODE_CACHE.lock()[self.inode_id] = None;
