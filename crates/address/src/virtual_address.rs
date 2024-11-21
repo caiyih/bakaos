@@ -21,18 +21,26 @@ impl VirtualAddress {
         VirtualAddress::from_usize(p as usize)
     }
 
+    /// # Safety
+    /// The caller must ensure that the pointer is valid.
     pub unsafe fn as_ref<T>(&self) -> &'static T {
         &*(self.as_usize() as *const T)
     }
 
+    /// # Safety
+    /// The caller must ensure that the pointer is valid.
     pub unsafe fn as_mut<T>(&self) -> &'static mut T {
         &mut *(self.as_usize() as *mut T)
     }
 
+    /// # Safety
+    /// The caller must ensure that the pointer is valid.
     pub unsafe fn as_ptr<T>(&self) -> *const T {
         self.as_usize() as *const T
     }
 
+    /// # Safety
+    /// The caller must ensure that the pointer is valid.
     pub unsafe fn as_mut_ptr<T>(&self) -> *mut T {
         self.as_usize() as *mut T
     }
