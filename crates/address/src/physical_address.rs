@@ -14,45 +14,6 @@ impl PhysicalAddress {
     }
 }
 
-// Only implement `as_ref` and `as_mut` for `PhysicalAddress`
-// as virtual address may not be identity mapped.
-
-impl PhysicalAddress {
-    pub fn from_ptr<T>(ptr: *const T) -> Self {
-        Self::from_usize(ptr as usize)
-    }
-
-    pub fn from_ref<T>(r: &T) -> Self {
-        Self::from_ptr(r as *const T)
-    }
-
-    pub fn as_ptr<T>(self) -> *const T {
-        self.as_usize() as *const T
-    }
-
-    pub fn as_mut_ptr<T>(self) -> *mut T {
-        self.as_usize() as *mut T
-    }
-
-    // Supress warning: warning: method `as_ref` can be confused for the standard trait method `std::convert::AsRef::as_ref`
-    #[allow(clippy::should_implement_trait)]
-    pub fn as_ref<T>(self) -> &'static T {
-        unsafe { &*(self.as_usize() as *const T) }
-    }
-
-    pub fn as_mut<T>(self) -> &'static mut T {
-        unsafe { &mut *(self.as_usize() as *mut T) }
-    }
-
-    pub fn as_slice<T>(self, len: usize) -> &'static [T] {
-        unsafe { core::slice::from_raw_parts(self.as_usize() as *const T, len) }
-    }
-
-    pub fn as_mut_slice<T>(self, len: usize) -> &'static mut [T] {
-        unsafe { core::slice::from_raw_parts_mut(self.as_usize() as *mut T, len) }
-    }
-}
-
 #[cfg(test)]
 mod physical_address_tests {
     use super::*;
