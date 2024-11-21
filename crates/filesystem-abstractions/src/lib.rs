@@ -1,6 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use core::{cmp::Ordering, slice};
+use core::{cmp::Ordering, mem::MaybeUninit, slice};
 
 use alloc::{string::String, sync::Arc, vec::Vec};
 use bitflags::bitflags;
@@ -98,11 +98,16 @@ pub trait IInode: DowncastSync + Send + Sync {
         match self.metadata() {
             Ok(metadata) => {
                 let len = Ord::min(metadata.size - offset, max_length);
-                let mut buf = Vec::<u8>::with_capacity(len);
+                let mut buf = Vec::<MaybeUninit<u8>>::with_capacity(len);
                 unsafe { buf.set_len(len) };
 
-                self.readat(offset, &mut buf)?;
-                Ok(buf)
+                // Cast &mut [MaybeUninit<u8>] to &mut [u8] to shut up the clippy
+                let slice =
+                    unsafe { core::mem::transmute::<&mut [MaybeUninit<u8>], &mut [u8]>(&mut buf) };
+                self.readat(offset, slice)?;
+
+                // Cast back to Vec<u8>
+                Ok(unsafe { core::mem::transmute::<Vec<MaybeUninit<u8>>, Vec<u8>>(buf) })
             }
             // Fall back path to read 512 bytes at a time until EOF
             // Not recommended for potential reallocation overhead
