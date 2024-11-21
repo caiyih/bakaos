@@ -136,8 +136,8 @@ macro_rules! impl_range_display {
                     f,
                     "{}({:#x}..{:#x})",
                     stringify!($type),
-                    self.start().as_usize(),
-                    self.end().as_usize()
+                    abstractions::IUsizeAlias::as_usize(&self.start()),
+                    abstractions::IUsizeAlias::as_usize(&self.end())
                 )
             }
         }

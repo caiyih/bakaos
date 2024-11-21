@@ -1,91 +1,12 @@
-use core::{
-    fmt::Display,
-    ops::{Add, AddAssign, Sub, SubAssign},
-};
+use core::fmt::Display;
+
+use abstractions::{IArithOps, IBitwiseOps, IUsizeAlias};
 
 use crate::*;
 
-pub trait IPageNumBase: Copy + Clone + PartialEq + PartialOrd + Eq + Ord {
-    fn from_usize(value: usize) -> Self;
+pub trait IPageNumBase: IUsizeAlias + Copy + Clone + PartialEq + PartialOrd + Eq + Ord {}
 
-    fn as_usize(self) -> usize;
-}
-
-pub trait IPageNumOps:
-    IPageNumBase
-    + Add<Self>
-    + Sub<Self>
-    + AddAssign<Self>
-    + SubAssign<Self>
-    + Add<usize>
-    + Sub<usize>
-    + AddAssign<usize>
-    + SubAssign<usize>
-{
-}
-
-#[macro_export]
-macro_rules! impl_page_num_ops {
-    ($type:ty) => {
-        impl IPageNumOps for $type {}
-
-        // 与 usize 的运算符实现
-        impl core::ops::Add<usize> for $type {
-            type Output = Self;
-            fn add(self, rhs: usize) -> Self::Output {
-                Self::from_usize(self.as_usize() + rhs)
-            }
-        }
-
-        impl core::ops::Sub<usize> for $type {
-            type Output = Self;
-            fn sub(self, rhs: usize) -> Self::Output {
-                Self::from_usize(self.as_usize() - rhs)
-            }
-        }
-
-        impl core::ops::AddAssign<usize> for $type {
-            fn add_assign(&mut self, rhs: usize) {
-                *self = Self::from_usize(self.as_usize() + rhs);
-            }
-        }
-
-        impl core::ops::SubAssign<usize> for $type {
-            fn sub_assign(&mut self, rhs: usize) {
-                *self = Self::from_usize(self.as_usize() - rhs);
-            }
-        }
-
-        // 相同类型之间的运算符实现
-        impl core::ops::Add for $type {
-            type Output = Self;
-            fn add(self, rhs: Self) -> Self::Output {
-                Self::from_usize(self.as_usize() + rhs.as_usize())
-            }
-        }
-
-        impl core::ops::Sub for $type {
-            type Output = Self;
-            fn sub(self, rhs: Self) -> Self::Output {
-                Self::from_usize(self.as_usize() - rhs.as_usize())
-            }
-        }
-
-        impl core::ops::AddAssign for $type {
-            fn add_assign(&mut self, rhs: Self) {
-                *self = Self::from_usize(self.as_usize() + rhs.as_usize());
-            }
-        }
-
-        impl core::ops::SubAssign for $type {
-            fn sub_assign(&mut self, rhs: Self) {
-                *self = Self::from_usize(self.as_usize() - rhs.as_usize());
-            }
-        }
-    };
-}
-
-pub trait IPageNum: IPageNumBase + IPageNumOps + Display {
+pub trait IPageNum: IPageNumBase + IBitwiseOps + IArithOps + Display {
     fn step(&mut self) {
         self.step_by(1);
     }
@@ -146,22 +67,25 @@ pub trait IPageNum: IPageNumBase + IPageNumOps + Display {
 #[macro_export]
 macro_rules! impl_IPageNum {
     ($type:ty) => {
-        impl IPageNumBase for $type {
+        impl abstractions::IUsizeAlias for $type {
             #[inline(always)]
             fn from_usize(value: usize) -> Self {
                 Self(value)
             }
 
             #[inline(always)]
-            fn as_usize(self) -> usize {
+            fn as_usize(&self) -> usize {
                 self.0
             }
         }
 
-        impl_page_num_ops!($type);
+        impl IPageNumBase for $type {}
+
+        abstractions::impl_arith_ops!($type);
+        abstractions::impl_bitwise_ops!($type);
 
         impl IPageNum for $type {}
 
-        impl_usize_display!($type);
+        abstractions::impl_usize_display!($type);
     };
 }

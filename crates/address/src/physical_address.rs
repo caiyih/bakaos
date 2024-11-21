@@ -1,3 +1,5 @@
+use abstractions::IUsizeAlias;
+
 use crate::*;
 
 #[repr(C)]

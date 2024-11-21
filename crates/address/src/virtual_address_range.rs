@@ -15,6 +15,8 @@ impl VirtualAddressRange {
 
 #[cfg(test)]
 mod virtual_address_range_tests {
+    use abstractions::IUsizeAlias;
+
     use super::*;
 
     // 基本构造和操作测试

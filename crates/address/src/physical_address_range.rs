@@ -1,5 +1,7 @@
 use core::mem::size_of;
 
+use abstractions::IUsizeAlias;
+
 use crate::*;
 
 pub type PhysicalAddressRange = AddressRange<PhysicalAddress>;
@@ -51,7 +53,7 @@ impl PhysicalAddressRange {
 mod physical_address_range_tests {
     use core::mem::size_of;
 
-    use crate::IAddressBase;
+    use abstractions::IUsizeAlias;
 
     use super::PhysicalAddressRange;
 

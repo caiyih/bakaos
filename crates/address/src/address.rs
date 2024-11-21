@@ -1,179 +1,8 @@
-use core::{
-    fmt::Display,
-    mem::size_of,
-    ops::{
-        Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Sub,
-        SubAssign,
-    },
-};
+use core::{fmt::Display, mem::size_of};
 
-pub trait IAddressBase: Copy + Clone + PartialEq + PartialOrd + Eq + Ord {
-    fn as_usize(self) -> usize;
+use abstractions::{IArithOps, IBitwiseOps, IUsizeAlias};
 
-    fn from_usize(value: usize) -> Self;
-}
-
-pub trait IAddressOps:
-    IAddressBase
-    + Add<usize>
-    + Add<Self>
-    + Sub<usize>
-    + Sub<Self>
-    + AddAssign<usize>
-    + AddAssign<Self>
-    + SubAssign<usize>
-    + SubAssign<Self>
-    + BitAnd<usize>
-    + BitAnd<Self>
-    + BitOr<usize>
-    + BitOr<Self>
-    + BitXor<usize>
-    + BitXor<Self>
-    + BitAndAssign<usize>
-    + BitAndAssign<Self>
-    + BitOrAssign<usize>
-    + BitOrAssign<Self>
-    + BitXorAssign<usize>
-    + BitXorAssign<Self>
-{
-}
-
-#[macro_export]
-macro_rules! impl_address_ops {
-    ($type:ty) => {
-        impl IAddressOps for $type {}
-
-        impl core::ops::Add<usize> for $type {
-            type Output = Self;
-            fn add(self, rhs: usize) -> Self::Output {
-                Self::from_usize(self.as_usize() + rhs)
-            }
-        }
-
-        impl core::ops::Sub<usize> for $type {
-            type Output = Self;
-            fn sub(self, rhs: usize) -> Self::Output {
-                Self::from_usize(self.as_usize() - rhs)
-            }
-        }
-
-        impl core::ops::AddAssign<usize> for $type {
-            fn add_assign(&mut self, rhs: usize) {
-                *self = Self::from_usize(self.as_usize() + rhs);
-            }
-        }
-
-        impl core::ops::SubAssign<usize> for $type {
-            fn sub_assign(&mut self, rhs: usize) {
-                *self = Self::from_usize(self.as_usize() - rhs);
-            }
-        }
-
-        impl core::ops::Add for $type {
-            type Output = Self;
-            fn add(self, rhs: Self) -> Self::Output {
-                Self::from_usize(self.as_usize() + rhs.as_usize())
-            }
-        }
-
-        impl core::ops::Sub for $type {
-            type Output = Self;
-            fn sub(self, rhs: Self) -> Self::Output {
-                Self::from_usize(self.as_usize() - rhs.as_usize())
-            }
-        }
-
-        impl core::ops::AddAssign for $type {
-            fn add_assign(&mut self, rhs: Self) {
-                *self = Self::from_usize(self.as_usize() + rhs.as_usize());
-            }
-        }
-
-        impl core::ops::SubAssign for $type {
-            fn sub_assign(&mut self, rhs: Self) {
-                *self = Self::from_usize(self.as_usize() - rhs.as_usize());
-            }
-        }
-
-        impl core::ops::BitAnd for $type {
-            type Output = Self;
-            fn bitand(self, rhs: Self) -> Self::Output {
-                Self::from_usize(self.as_usize() & rhs.as_usize())
-            }
-        }
-
-        impl core::ops::BitOr for $type {
-            type Output = Self;
-            fn bitor(self, rhs: Self) -> Self::Output {
-                Self::from_usize(self.as_usize() | rhs.as_usize())
-            }
-        }
-
-        impl core::ops::BitXor for $type {
-            type Output = Self;
-            fn bitxor(self, rhs: Self) -> Self::Output {
-                Self::from_usize(self.as_usize() ^ rhs.as_usize())
-            }
-        }
-
-        impl core::ops::BitAndAssign for $type {
-            fn bitand_assign(&mut self, rhs: Self) {
-                *self = Self::from_usize(self.as_usize() & rhs.as_usize());
-            }
-        }
-
-        impl core::ops::BitOrAssign for $type {
-            fn bitor_assign(&mut self, rhs: Self) {
-                *self = Self::from_usize(self.as_usize() | rhs.as_usize());
-            }
-        }
-
-        impl core::ops::BitXorAssign for $type {
-            fn bitxor_assign(&mut self, rhs: Self) {
-                *self = Self::from_usize(self.as_usize() ^ rhs.as_usize());
-            }
-        }
-
-        impl core::ops::BitAnd<usize> for $type {
-            type Output = Self;
-            fn bitand(self, rhs: usize) -> Self::Output {
-                Self::from_usize(self.as_usize() & rhs)
-            }
-        }
-
-        impl core::ops::BitOr<usize> for $type {
-            type Output = Self;
-            fn bitor(self, rhs: usize) -> Self::Output {
-                Self::from_usize(self.as_usize() | rhs)
-            }
-        }
-
-        impl core::ops::BitXor<usize> for $type {
-            type Output = Self;
-            fn bitxor(self, rhs: usize) -> Self::Output {
-                Self::from_usize(self.as_usize() ^ rhs)
-            }
-        }
-
-        impl core::ops::BitAndAssign<usize> for $type {
-            fn bitand_assign(&mut self, rhs: usize) {
-                *self = Self::from_usize(self.as_usize() & rhs);
-            }
-        }
-
-        impl core::ops::BitOrAssign<usize> for $type {
-            fn bitor_assign(&mut self, rhs: usize) {
-                *self = Self::from_usize(self.as_usize() | rhs);
-            }
-        }
-
-        impl core::ops::BitXorAssign<usize> for $type {
-            fn bitxor_assign(&mut self, rhs: usize) {
-                *self = Self::from_usize(self.as_usize() ^ rhs);
-            }
-        }
-    };
-}
+pub trait IAddressBase: IUsizeAlias + Copy + Clone + PartialEq + PartialOrd + Eq + Ord {}
 
 pub trait IAlignableAddress: IAddressBase {
     fn is_aligned(self, align: usize) -> bool {
@@ -217,7 +46,7 @@ pub trait IAlignableAddress: IAddressBase {
     }
 }
 
-pub trait IAddress: IAddressBase + IAlignableAddress + IAddressOps + Display {
+pub trait IAddress: IAddressBase + IAlignableAddress + IArithOps + IBitwiseOps + Display {
     fn add_n<T>(self, n: usize) -> Self {
         self.add_by(size_of::<T>() * n)
     }
@@ -282,9 +111,9 @@ pub trait IAddress: IAddressBase + IAlignableAddress + IAddressOps + Display {
 #[macro_export]
 macro_rules! impl_IAddress {
     ($type:ty) => {
-        impl IAddressBase for $type {
+        impl abstractions::IUsizeAlias for $type {
             #[inline(always)]
-            fn as_usize(self) -> usize {
+            fn as_usize(&self) -> usize {
                 self.0
             }
 
@@ -294,23 +123,15 @@ macro_rules! impl_IAddress {
             }
         }
 
+        impl IAddressBase for $type {}
+
+        abstractions::impl_arith_ops!($type);
+        abstractions::impl_bitwise_ops!($type);
+
         impl IAlignableAddress for $type {}
 
-        impl_usize_display!($type);
-        impl_address_ops!($type);
-
+        abstractions::impl_usize_display!($type);
         impl IAddress for $type {}
-    };
-}
-
-#[macro_export]
-macro_rules! impl_usize_display {
-    ($type:ty) => {
-        impl core::fmt::Display for $type {
-            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-                write!(f, "{}({:#x})", stringify!($type), self.as_usize())
-            }
-        }
     };
 }
 
