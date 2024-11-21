@@ -12,6 +12,30 @@ impl VirtualAddress {
     pub fn to_physical(self) -> PhysicalAddress {
         PhysicalAddress::from_usize(self.as_usize() & constants::PHYS_ADDR_MASK)
     }
+
+    pub fn from_ref<T>(r: &T) -> VirtualAddress {
+        VirtualAddress::from_ptr(r as *const T)
+    }
+
+    pub fn from_ptr<T>(p: *const T) -> VirtualAddress {
+        VirtualAddress::from_usize(p as usize)
+    }
+
+    pub unsafe fn as_ref<T>(&self) -> &'static T {
+        &*(self.as_usize() as *const T)
+    }
+
+    pub unsafe fn as_mut<T>(&self) -> &'static mut T {
+        &mut *(self.as_usize() as *mut T)
+    }
+
+    pub unsafe fn as_ptr<T>(&self) -> *const T {
+        self.as_usize() as *const T
+    }
+
+    pub unsafe fn as_mut_ptr<T>(&self) -> *mut T {
+        self.as_usize() as *mut T
+    }
 }
 
 #[cfg(test)]
