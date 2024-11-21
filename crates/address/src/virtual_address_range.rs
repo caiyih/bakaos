@@ -15,7 +15,7 @@ impl VirtualAddressRange {
 impl VirtualAddressRange {
     pub fn from_slice<T>(slice: &[T]) -> Self {
         let start = VirtualAddress::from_usize(slice.as_ptr() as usize);
-        let end = VirtualAddress::from_usize(start.as_usize() + slice.len() * core::mem::size_of::<T>());
+        let end = VirtualAddress::from_usize(start.as_usize() + core::mem::size_of_val(slice));
         VirtualAddressRange::from_start_end(start, end)
     }
 }
