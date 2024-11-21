@@ -3,8 +3,7 @@ use filesystem_abstractions::IInode;
 use hermit_sync::{RawSpinMutex, SpinMutex};
 use lock_api::{MappedMutexGuard, MutexGuard};
 
-static mut INODE_CACHE: SpinMutex<Vec<Arc<dyn IInode>>> = SpinMutex::new(Vec::new());
-static mut INODE_CACHE_AVALIABLES: SpinMutex<Vec<usize>> = SpinMutex::new(Vec::new());
+static mut INODE_CACHE: SpinMutex<Vec<Option<Arc<dyn IInode>>>> = SpinMutex::new(Vec::new());
 
 pub trait ICacheableInode: IInode {
     fn cache_as_arc_accessor(self: &Arc<Self>) -> Arc<InodeCacheAccessor>;
@@ -30,16 +29,18 @@ impl InodeCacheAccessor {
     pub fn new(inode: Arc<dyn IInode>) -> Self {
         let mut caches = unsafe { INODE_CACHE.lock() };
 
-        let inode_id = match unsafe { INODE_CACHE_AVALIABLES.lock().pop() } {
-            Some(id) => id,
+        let inode_id = match caches.iter().enumerate().find(|x| x.1.is_none()) {
+            // Reuse the index of the first None element
+            Some((index, _)) => {
+                caches[index] = Some(inode);
+                index
+            }
+            // Add a new element to the end of the vector
             None => {
-                let id = caches.len();
-                unsafe { caches.set_len(id + 1) };
-                id
+                caches.push(Some(inode));
+                caches.len() - 1
             }
         };
-
-        caches[inode_id] = inode;
 
         InodeCacheAccessor { inode_id }
     }
@@ -48,7 +49,8 @@ impl InodeCacheAccessor {
         let caches = unsafe { INODE_CACHE.lock() };
         let inode = caches[self.inode_id].clone();
         drop(caches); // prevent deadlock
-        inode
+        inode.unwrap() // unwrap is safe because as long as the accessor exists, the inode will exist
+                       // Same appies to the unwrap call in the as_mut method
     }
 
     pub fn inode_id(&self) -> usize {
@@ -81,14 +83,14 @@ impl InodeCacheAccessor {
     /// ```
     pub unsafe fn as_mut(&self) -> MappedMutexGuard<'static, RawSpinMutex, Arc<dyn IInode>> {
         let caches = INODE_CACHE.lock();
-        MutexGuard::map(caches, |caches| &mut caches[self.inode_id])
+        MutexGuard::map(caches, |caches| caches[self.inode_id].as_mut().unwrap())
     }
 }
 
 impl Drop for InodeCacheAccessor {
     fn drop(&mut self) {
         unsafe {
-            INODE_CACHE_AVALIABLES.lock().push(self.inode_id);
+            INODE_CACHE.lock()[self.inode_id] = None;
         }
     }
 }
