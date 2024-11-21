@@ -90,7 +90,7 @@ pub trait IInode: DowncastSync + Send + Sync {
         Err(FileSystemError::Unimplemented)
     }
 
-    fn raedall_at(&self, offset: usize) -> FileSystemResult<Vec<u8>> {
+    fn readall_at(&self, offset: usize) -> FileSystemResult<Vec<u8>> {
         self.readvec_at(offset, usize::MAX)
     }
 
