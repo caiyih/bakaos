@@ -38,6 +38,8 @@ impl VirtualAddress {
     }
 }
 
+impl IToPageNum<VirtualPageNum> for VirtualAddress {}
+
 #[cfg(test)]
 mod virtual_address_tests {
     use super::*;

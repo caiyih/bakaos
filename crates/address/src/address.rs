@@ -2,7 +2,22 @@ use core::{fmt::Display, mem::size_of};
 
 use abstractions::{IArithOps, IBitwiseOps, IUsizeAlias};
 
+use crate::IPageNum;
+
 pub trait IAddressBase: IUsizeAlias + Copy + Clone + PartialEq + PartialOrd + Eq + Ord {}
+
+pub trait IToPageNum<T>: IAddress
+where
+    T: IPageNum,
+{
+    fn to_floor_page_num(self) -> T {
+        T::from_usize(self.as_usize() / constants::PAGE_SIZE)
+    }
+
+    fn to_ceil_page_num(self) -> T {
+        T::from_usize((self.as_usize() + constants::PAGE_SIZE - 1) / constants::PAGE_SIZE)
+    }
+}
 
 pub trait IAlignableAddress: IAddressBase {
     fn is_aligned(self, align: usize) -> bool {

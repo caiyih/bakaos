@@ -14,6 +14,8 @@ impl PhysicalAddress {
     }
 }
 
+impl IToPageNum<PhysicalPageNum> for PhysicalAddress {}
+
 #[cfg(test)]
 mod physical_address_tests {
     use super::*;
