@@ -8,12 +8,6 @@ pub struct PhysicalPageNum(pub usize);
 
 impl_IPageNum!(PhysicalPageNum);
 
-impl PhysicalPageNum {
-    pub fn identity_mapped(self) -> VirtualPageNum {
-        VirtualPageNum::from_usize(self.as_usize())
-    }
-}
-
 #[cfg(test)]
 mod physical_page_num_tests {
     use super::*;
@@ -23,14 +17,6 @@ mod physical_page_num_tests {
     fn test_basic_construction() {
         let page_num = PhysicalPageNum::from_usize(5);
         assert_eq!(page_num.as_usize(), 5);
-    }
-
-    // Identity mapping 测试
-    #[test]
-    fn test_identity_mapped() {
-        let phys_page = PhysicalPageNum::from_usize(0x1000);
-        let virt_page = phys_page.identity_mapped();
-        assert_eq!(phys_page.as_usize(), virt_page.as_usize());
     }
 
     // 运算符测试
