@@ -5,17 +5,15 @@ pub type VirtualAddressRange = AddressRange<VirtualAddress>;
 impl_range_display!(VirtualAddressRange);
 
 impl VirtualAddressRange {
-    pub fn identity_mapped(&self) -> PhysicalAddressRange {
-        PhysicalAddressRange::from_start_end(
-            self.start().identity_mapped(),
-            self.end().identity_mapped(),
-        )
+    pub fn to_physical(&self) -> PhysicalAddressRange {
+        PhysicalAddressRange::from_start_end(self.start().to_physical(), self.end().to_physical())
     }
 }
 
 #[cfg(test)]
 mod virtual_address_range_tests {
     use abstractions::IUsizeAlias;
+    use constants::VIRT_ADDR_OFFSET;
 
     use super::*;
 
@@ -41,10 +39,10 @@ mod virtual_address_range_tests {
     // Identity mapping 测试
     #[test]
     fn test_identity_mapped() {
-        let start = VirtualAddress::from_usize(0x1000);
-        let end = VirtualAddress::from_usize(0x2000);
+        let start = VirtualAddress::from_usize(0x1000 | constants::VIRT_ADDR_OFFSET);
+        let end = VirtualAddress::from_usize(0x2000 | VIRT_ADDR_OFFSET);
         let range = VirtualAddressRange::from_start_end(start, end);
-        let phys_range = range.identity_mapped();
+        let phys_range = range.to_physical();
         assert_eq!(phys_range.start().as_usize(), 0x1000);
         assert_eq!(phys_range.end().as_usize(), 0x2000);
     }

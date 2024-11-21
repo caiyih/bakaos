@@ -9,8 +9,8 @@ pub struct PhysicalAddress(pub usize);
 impl_IAddress!(PhysicalAddress);
 
 impl PhysicalAddress {
-    pub fn identity_mapped(self) -> VirtualAddress {
-        VirtualAddress::from_usize(self.as_usize())
+    pub fn to_virtual(self) -> VirtualAddress {
+        VirtualAddress::from_usize(self.as_usize() | constants::VIRT_ADDR_OFFSET)
     }
 }
 
@@ -127,12 +127,15 @@ mod physical_address_tests {
         assert_eq!(addr.as_usize(), usize::MAX);
     }
 
-    // Identity mapping 测试
+    // tovirtual address测试
     #[test]
-    fn test_identity_mapped() {
+    fn test_to_virtual() {
         let phys_addr = PhysicalAddress::from_usize(0x1000);
-        let virt_addr = phys_addr.identity_mapped();
-        assert_eq!(phys_addr.as_usize(), virt_addr.as_usize());
+        let virt_addr = phys_addr.to_virtual();
+        assert_eq!(
+            phys_addr.as_usize() | constants::VIRT_ADDR_OFFSET,
+            virt_addr.as_usize()
+        );
     }
 
     // 指针和引用转换测试
