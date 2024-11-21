@@ -11,4 +11,5 @@ members = [
     "threading",
     "constants",
     "allocation",
+    "abstractions",
 ]
