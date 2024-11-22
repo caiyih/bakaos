@@ -44,14 +44,6 @@ pub trait IAlignableAddress: IAddressBase {
         Self::from_usize(aligned)
     }
 
-    fn align_page_up(self) -> Self {
-        self.align_up(constants::PAGE_SIZE)
-    }
-
-    fn align_page_down(self) -> Self {
-        self.align_down(constants::PAGE_SIZE)
-    }
-
     fn page_down(self) -> Self {
         self.align_down(constants::PAGE_SIZE)
     }
