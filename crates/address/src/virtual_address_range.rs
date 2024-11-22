@@ -8,7 +8,10 @@ impl_range_display!(VirtualAddressRange);
 
 impl VirtualAddressRange {
     pub fn to_low_physical(&self) -> PhysicalAddressRange {
-        PhysicalAddressRange::from_start_end(self.start().to_low_physical(), self.end().to_low_physical())
+        PhysicalAddressRange::from_start_end(
+            self.start().to_low_physical(),
+            self.end().to_low_physical(),
+        )
     }
 }
 
