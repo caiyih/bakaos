@@ -9,7 +9,7 @@ pub struct PhysicalAddress(pub usize);
 impl_IAddress!(PhysicalAddress);
 
 impl PhysicalAddress {
-    pub fn to_virtual(self) -> VirtualAddress {
+    pub fn to_high_virtual(self) -> VirtualAddress {
         VirtualAddress::from_usize(self.as_usize() | constants::VIRT_ADDR_OFFSET)
     }
 }
@@ -94,7 +94,7 @@ mod physical_address_tests {
     #[test]
     fn test_to_virtual() {
         let phys_addr = PhysicalAddress::from_usize(0x1000);
-        let virt_addr = phys_addr.to_virtual();
+        let virt_addr = phys_addr.to_high_virtual();
         assert_eq!(
             phys_addr.as_usize() | constants::VIRT_ADDR_OFFSET,
             virt_addr.as_usize()

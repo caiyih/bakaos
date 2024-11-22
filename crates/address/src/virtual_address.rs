@@ -9,7 +9,7 @@ pub struct VirtualAddress(pub usize);
 impl_IAddress!(VirtualAddress);
 
 impl VirtualAddress {
-    pub fn to_physical(self) -> PhysicalAddress {
+    pub fn to_low_physical(self) -> PhysicalAddress {
         PhysicalAddress::from_usize(self.as_usize() & constants::PHYS_ADDR_MASK)
     }
 

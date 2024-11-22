@@ -7,8 +7,8 @@ pub type VirtualAddressRange = AddressRange<VirtualAddress>;
 impl_range_display!(VirtualAddressRange);
 
 impl VirtualAddressRange {
-    pub fn to_physical(&self) -> PhysicalAddressRange {
-        PhysicalAddressRange::from_start_end(self.start().to_physical(), self.end().to_physical())
+    pub fn to_low_physical(&self) -> PhysicalAddressRange {
+        PhysicalAddressRange::from_start_end(self.start().to_low_physical(), self.end().to_low_physical())
     }
 }
 
@@ -52,7 +52,7 @@ mod virtual_address_range_tests {
         let start = VirtualAddress::from_usize(0x1000 | constants::VIRT_ADDR_OFFSET);
         let end = VirtualAddress::from_usize(0x2000 | VIRT_ADDR_OFFSET);
         let range = VirtualAddressRange::from_start_end(start, end);
-        let phys_range = range.to_physical();
+        let phys_range = range.to_low_physical();
         assert_eq!(phys_range.start().as_usize(), 0x1000);
         assert_eq!(phys_range.end().as_usize(), 0x2000);
     }
