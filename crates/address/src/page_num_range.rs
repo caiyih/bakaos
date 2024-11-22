@@ -76,7 +76,7 @@ where
 
     pub fn iter(&self) -> PageNumRangeIter<T> {
         PageNumRangeIter {
-            range: self.clone(),
+            range: *self,
             current: self.start,
         }
     }
