@@ -7,7 +7,10 @@ extern crate alloc;
 
 pub mod frame;
 
-pub use frame::{alloc_contiguous, alloc_frame, alloc_frames, dealloc_frame_unchecked, TrackedFrame, TrackedFrameRange};
+pub use frame::{
+    alloc_contiguous, alloc_frame, alloc_frames, dealloc_frame_unchecked, TrackedFrame,
+    TrackedFrameRange,
+};
 
 pub fn init(memory_end: usize) {
     frame::init_frame_allocator(memory_end);
