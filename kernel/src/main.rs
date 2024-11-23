@@ -24,6 +24,7 @@ mod trap;
 
 use core::{arch::asm, sync::atomic::AtomicBool};
 use firmwares::console::IConsole;
+use paging::PageTable;
 use sbi_spec::base::impl_id;
 
 extern crate alloc;
@@ -131,6 +132,8 @@ unsafe extern "C" fn __kernel_init() {
 
     memory::init();
     allocation::init(kernel::get().machine().memory_end());
+
+    paging::init(PageTable::borrow_current());
 
     let machine = kernel::get().machine();
     filesystem::setup_root_filesystem(machine.create_fat32_filesystem_at_bus(0));

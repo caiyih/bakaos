@@ -14,6 +14,7 @@ timing = { path = "../crates/timing", default-features = false }
 drivers = { path = "../crates/drivers", default-features = false }
 filesystem-abstractions = { path = "../crates/filesystem-abstractions", default-features = false }
 filesystem = { path = "../crates/filesystem", default-features = false }
+paging = { path = "../crates/paging", default-features = false }
 log = "0.4.22"
 sbi-rt = "0.0.3"
 sbi-spec = "0.0.7"
