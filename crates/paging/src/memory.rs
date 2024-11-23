@@ -485,7 +485,10 @@ impl MemorySpaceBuilder {
             VirtualPageNumRange::from_start_count(max_end_vpn, stack_page_count),
             AreaType::UserStack,
             MapType::Framed,
-            PageTableEntryFlags::Valid | PageTableEntryFlags::Writable | PageTableEntryFlags::User,
+            PageTableEntryFlags::Valid
+                | PageTableEntryFlags::Writable
+                | PageTableEntryFlags::Readable
+                | PageTableEntryFlags::User,
         ));
         memory_space.stack_range = VirtualAddressRange::from_start_len(
             max_end_vpn.start_addr::<VirtualAddress>(),
