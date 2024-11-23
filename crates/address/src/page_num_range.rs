@@ -42,7 +42,7 @@ where
         PageNumRange { start, end }
     }
 
-    pub fn form_single(num: T) -> Self {
+    pub fn from_single(num: T) -> Self {
         PageNumRange {
             start: num,
             end: T::from_usize(num.as_usize() + 1),

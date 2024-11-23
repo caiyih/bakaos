@@ -395,7 +395,7 @@ impl MemorySpaceBuilder {
         max_end_vpn += 1;
         debug!("Stack guard base: {:?}", max_end_vpn);
         memory_space.map_area(MappingArea::new(
-            VirtualPageNumRange::form_single(max_end_vpn),
+            VirtualPageNumRange::from_single(max_end_vpn),
             AreaType::UserStackGuardBase,
             MapType::Framed,
             PageTableEntryFlags::empty(),
@@ -419,7 +419,7 @@ impl MemorySpaceBuilder {
         let stack_top = max_end_vpn.start_addr::<VirtualAddress>();
         debug!("Stack guard top: {:?}", max_end_vpn);
         memory_space.map_area(MappingArea::new(
-            VirtualPageNumRange::form_single(max_end_vpn),
+            VirtualPageNumRange::from_single(max_end_vpn),
             AreaType::UserStackGuardTop,
             MapType::Framed,
             PageTableEntryFlags::empty(),
