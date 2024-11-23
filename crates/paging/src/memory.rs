@@ -447,7 +447,7 @@ impl MemorySpaceBuilder {
             let data = &elf_data[ph.offset() as usize..(ph.offset() + ph.file_size()) as usize];
 
             let copied =
-                current_page_table.copy_data_to_other(&memory_space.page_table, start, data);
+                current_page_table.activated_copy_data_to_other(&memory_space.page_table, start, data);
 
             debug_assert!(copied == data.len());
         }

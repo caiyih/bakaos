@@ -342,7 +342,7 @@ impl PageTable {
 
 impl PageTable {
     /// Copy data to the memory space. The data must be in the current memory space.
-    pub fn copy_data_to_other(
+    pub fn activated_copy_data_to_other(
         &self,
         dst: &PageTable,
         offset: VirtualAddress,
@@ -362,7 +362,7 @@ impl PageTable {
             let chunk = usize::min(data.len() - copied, (end - va).as_usize());
 
             unsafe {
-                self.copy_data_to(va, &data[copied..copied + chunk]);
+                self.activated_copy_data_to(va, &data[copied..copied + chunk]);
             }
 
             copied += chunk;
@@ -376,7 +376,7 @@ impl PageTable {
     /// This function is unsafe because it directly writes to the memory space.
     /// You have to make sure that the memory space is active, which means that
     /// the satp register is set to the page table of this memory space.
-    pub unsafe fn copy_data_to(&self, offset: VirtualAddress, data: &[u8]) -> usize {
+    pub unsafe fn activated_copy_data_to(&self, offset: VirtualAddress, data: &[u8]) -> usize {
         debug_assert!(self.is_activated());
 
         let slice = unsafe { slice::from_raw_parts_mut(offset.as_mut_ptr::<u8>(), data.len()) };
@@ -438,14 +438,14 @@ impl PageTable {
         copied
     }
 
-    pub fn copy_val_to<T>(&self, offset: VirtualAddress, data: &T) -> usize {
+    pub fn activated_copy_val_to<T>(&self, offset: VirtualAddress, data: &T) -> usize {
         debug_assert!(self.is_activated());
 
         let data = unsafe {
             slice::from_raw_parts(data as *const _ as *const u8, core::mem::size_of::<T>())
         };
 
-        unsafe { self.copy_data_to(offset, data) }
+        unsafe { self.activated_copy_data_to(offset, data) }
     }
 
     pub fn copy_slice_to<T>(&self, offset: VirtualAddress, data: &[T]) -> usize {
@@ -455,10 +455,10 @@ impl PageTable {
             slice::from_raw_parts(data as *const _ as *const u8, core::mem::size_of::<T>())
         };
 
-        unsafe { self.copy_data_to(offset, data) }
+        unsafe { self.activated_copy_data_to(offset, data) }
     }
 
-    pub fn copy_val_to_other<T>(
+    pub fn activated_copy_val_to_other<T>(
         &self,
         offset: VirtualAddress,
         data_space: &PageTable,
@@ -470,7 +470,7 @@ impl PageTable {
 
         // fast path for destnation spaces that are activated
         if data_space.is_activated() {
-            return data_space.copy_data_to_other(self, offset, data);
+            return data_space.activated_copy_data_to_other(self, offset, data);
         }
 
         PageTable::copy_across_spaces(self, data, data_space, offset)
@@ -488,7 +488,7 @@ impl PageTable {
 
         // fast path for destnation spaces that are activated
         if data_space.is_activated() {
-            return data_space.copy_data_to_other(self, offset, data);
+            return data_space.activated_copy_data_to_other(self, offset, data);
         }
 
         PageTable::copy_across_spaces(self, data, data_space, offset)
