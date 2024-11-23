@@ -2,19 +2,15 @@
 
 ## Continuous Integration
 
-[![Sync to GitLab](https://github.com/caiyih/bakaos/actions/workflows/sync.yml/badge.svg)](https://github.com/caiyih/bakaos/actions/workflows/sync.yml)
-
-[![Vendor Dependencies for GitLab](https://github.com/caiyih/bakaos/actions/workflows/vendor.yml/badge.svg)](https://github.com/caiyih/bakaos/actions/workflows/vendor.yml)
-
-[![Crates Code Quality](https://github.com/caiyih/bakaos/actions/workflows/crates-fmt.yml/badge.svg)](https://github.com/caiyih/bakaos/actions/workflows/crates-fmt.yml)
-
-[![Crates Tests](https://github.com/caiyih/bakaos/actions/workflows/crates-tests.yml/badge.svg)](https://github.com/caiyih/bakaos/actions/workflows/crates-tests.yml)
-
-[![Kernel Code Quality](https://github.com/caiyih/bakaos/actions/workflows/kernel-fmt.yml/badge.svg)](https://github.com/caiyih/bakaos/actions/workflows/kernel-fmt.yml)
-
-[![Kernel CI](https://github.com/caiyih/bakaos/actions/workflows/kernel.yml/badge.svg)](https://github.com/caiyih/bakaos/actions/workflows/kernel.yml)
-
-[![Preliminary test](https://github.com/caiyih/bakaos/actions/workflows/preliminary.yml/badge.svg)](https://github.com/caiyih/bakaos/actions/workflows/preliminary.yml)
+| Workflow | Status |
+|:---------|:-------|
+| Sync to GitLab | [![Sync to GitLab](https://github.com/caiyih/bakaos/actions/workflows/sync.yml/badge.svg)](https://github.com/caiyih/bakaos/actions/workflows/sync.yml) |
+| Vendor Dependencies | [![Vendor Dependencies for GitLab](https://github.com/caiyih/bakaos/actions/workflows/vendor.yml/badge.svg)](https://github.com/caiyih/bakaos/actions/workflows/vendor.yml) |
+| Crates Code Quality | [![Crates Code Quality](https://github.com/caiyih/bakaos/actions/workflows/crates-fmt.yml/badge.svg)](https://github.com/caiyih/bakaos/actions/workflows/crates-fmt.yml) |
+| Crates Tests | [![Crates Tests](https://github.com/caiyih/bakaos/actions/workflows/crates-tests.yml/badge.svg)](https://github.com/caiyih/bakaos/actions/workflows/crates-tests.yml) |
+| Kernel Code Quality | [![Kernel Code Quality](https://github.com/caiyih/bakaos/actions/workflows/kernel-fmt.yml/badge.svg)](https://github.com/caiyih/bakaos/actions/workflows/kernel-fmt.yml) |
+| Kernel Tests | [![Kernel CI](https://github.com/caiyih/bakaos/actions/workflows/kernel.yml/badge.svg)](https://github.com/caiyih/bakaos/actions/workflows/kernel.yml) |
+| Preliminary Grading | [![Preliminary test](https://github.com/caiyih/bakaos/actions/workflows/preliminary.yml/badge.svg)](https://github.com/caiyih/bakaos/actions/workflows/preliminary.yml) |
 
 ## GitLab repository of the contest
 
