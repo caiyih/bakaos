@@ -495,6 +495,28 @@ impl PageTable {
     }
 }
 
+impl PageTable {
+    pub fn temporary_switch_to(&self, other: &PageTable) -> TemporarySwitchGuard {
+        unsafe {
+            other.activate();
+        }
+
+        TemporarySwitchGuard { page_table: self }
+    }
+}
+
+pub struct TemporarySwitchGuard<'a> {
+    page_table: &'a PageTable,
+}
+
+impl Drop for TemporarySwitchGuard<'_> {
+    fn drop(&mut self) {
+        unsafe {
+            self.page_table.activate();
+        }
+    }
+}
+
 pub struct TemporaryModificationGuard<'a> {
     page_table: &'a PageTable,
 }
