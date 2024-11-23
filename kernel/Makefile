@@ -48,17 +48,17 @@ build:
 strip:
 	@$(OBJCOPY) --strip-all $(KERNEL_ELF) $(KERNEL_ELF)
 
-run: build symboltable
+run: build
 	$(QEMU) $(QEMU_ARGS) 2>&1 | tee qemu_output.log
 	@python3 unwinder.py --silent --file qemu_output.log
 
-debug: build symboltable
+debug: build
 	pkill qemu || echo '[!] Previous Qemu killed'
 	@echo '[!] Waiting for debugger'
 	@$(QEMU) $(QEMU_ARGS) -s -S 2>&1 | tee qemu_output.log
 	@python3 unwinder.py --silent --file qemu_output.log
 
-stacktrace: symboltable
+stacktrace:
 	@python3 unwinder.py
 
 symboltable:
