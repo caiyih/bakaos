@@ -4,7 +4,8 @@ use abstractions::IUsizeAlias;
 use alloc::{collections::BTreeMap, vec::Vec};
 
 use address::{
-    IPageNum, IToPageNum, PhysicalPageNum, VirtualAddress, VirtualPageNum, VirtualPageNumRange,
+    IPageNum, IToPageNum, PhysicalPageNum, VirtualAddress, VirtualAddressRange, VirtualPageNum,
+    VirtualPageNumRange,
 };
 use allocation::{alloc_frame, TrackedFrame};
 use log::debug;
@@ -165,6 +166,11 @@ pub struct MemorySpace {
     page_table: PageTable,
     mapping_areas: Vec<MappingArea>,
     brk_area_idx: usize,
+    brk_start: VirtualAddress,
+    stack_guard_base: VirtualAddressRange,
+    stack_range: VirtualAddressRange,
+    stack_gurad_top: VirtualAddressRange,
+    elf_area: VirtualAddressRange,
 }
 
 impl MemorySpace {
@@ -267,6 +273,23 @@ impl MemorySpace {
             page_table: PageTable::allocate(),
             mapping_areas: Vec::new(),
             brk_area_idx: usize::MAX,
+            brk_start: VirtualAddress::from_usize(usize::MAX),
+            stack_guard_base: VirtualAddressRange::from_start_len(
+                VirtualAddress::from_usize(usize::MAX),
+                0,
+            ),
+            stack_range: VirtualAddressRange::from_start_len(
+                VirtualAddress::from_usize(usize::MAX),
+                0,
+            ),
+            stack_gurad_top: VirtualAddressRange::from_start_len(
+                VirtualAddress::from_usize(usize::MAX),
+                0,
+            ),
+            elf_area: VirtualAddressRange::from_start_len(
+                VirtualAddress::from_usize(usize::MAX),
+                0,
+            ),
         }
     }
 
@@ -379,6 +402,7 @@ impl MemorySpaceBuilder {
         // '\x7fELF' in ASCII
         // const ELF_MAGIC: [u8; 4] = [0x7f, 0x45, 0x4c, 0x46];
 
+        let mut min_start_vpn = VirtualPageNum::from_usize(usize::MAX);
         let mut max_end_vpn = VirtualPageNum::from_usize(0);
 
         for ph in elf_info
@@ -391,6 +415,7 @@ impl MemorySpaceBuilder {
             let start = VirtualAddress::from_usize(ph.virtual_addr() as usize);
             let end = start + ph.mem_size() as usize;
 
+            min_start_vpn = min_start_vpn.min(start.to_floor_page_num());
             max_end_vpn = max_end_vpn.max(end.to_floor_page_num());
 
             let mut segment_permissions = PageTableEntryFlags::Valid | PageTableEntryFlags::User;
@@ -427,6 +452,13 @@ impl MemorySpaceBuilder {
             debug_assert!(copied == data.len());
         }
 
+        debug_assert!(min_start_vpn > VirtualPageNum::from_usize(0));
+
+        memory_space.elf_area = VirtualAddressRange::from_start_end(
+            min_start_vpn.start_addr::<VirtualAddress>(),
+            max_end_vpn.start_addr::<VirtualAddress>(),
+        );
+
         log::debug!("Elf segments loaded, max_end_vpn: {:?}", max_end_vpn);
 
         max_end_vpn += 1;
@@ -437,6 +469,10 @@ impl MemorySpaceBuilder {
             MapType::Framed,
             PageTableEntryFlags::empty(),
         ));
+        memory_space.stack_guard_base = VirtualAddressRange::from_start_len(
+            max_end_vpn.start_addr::<VirtualAddress>(),
+            constants::USER_STACK_SIZE,
+        );
 
         let stack_page_count = constants::USER_STACK_SIZE / constants::PAGE_SIZE;
         max_end_vpn += 1;
@@ -451,6 +487,10 @@ impl MemorySpaceBuilder {
             MapType::Framed,
             PageTableEntryFlags::Valid | PageTableEntryFlags::Writable | PageTableEntryFlags::User,
         ));
+        memory_space.stack_range = VirtualAddressRange::from_start_len(
+            max_end_vpn.start_addr::<VirtualAddress>(),
+            constants::USER_STACK_SIZE,
+        );
 
         max_end_vpn += stack_page_count;
         let stack_top = max_end_vpn.start_addr::<VirtualAddress>();
@@ -461,6 +501,10 @@ impl MemorySpaceBuilder {
             MapType::Framed,
             PageTableEntryFlags::empty(),
         ));
+        memory_space.stack_gurad_top = VirtualAddressRange::from_start_len(
+            max_end_vpn.start_addr::<VirtualAddress>(),
+            constants::PAGE_SIZE,
+        );
 
         max_end_vpn += 1;
         debug!("Brk at: {:?}", max_end_vpn);
@@ -477,6 +521,7 @@ impl MemorySpaceBuilder {
             .find(|(_, area)| area.area_type == AreaType::UserBrk)
             .expect("UserBrk area not found")
             .0;
+        memory_space.brk_start = max_end_vpn.start_addr::<VirtualAddress>();
 
         let entry_pc = VirtualAddress::from_usize(elf_info.header.pt2.entry_point() as usize);
 
