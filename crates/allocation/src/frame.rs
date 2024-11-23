@@ -89,7 +89,7 @@ impl FrameAllocator {
             // Instead, it generated an unimp instruction at the end of the function
             // which caused the kernel to panic when the function was called.
             // So we need to initialize the vector with some capacity to prevent this.
-            recycled: Vec::new(),
+            recycled: Vec::new_in(alloc::alloc::Global), // lazy allocation, only when push is called
         }
     }
 

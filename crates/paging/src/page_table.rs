@@ -149,9 +149,10 @@ pub fn borrow_current_page_table() -> PageTable {
 
         PageTable {
             root: root_ppn,
-            table_frames: unsafe {
-                Vec::from_raw_parts(core::ptr::null_mut::<TrackedFrame>(), 0, 0)
-            },
+            // lazy allocation, no allocation when created
+            // Not using `from_raw_parts(null, 0, 0` for compiler optimization generates no `ret` instruction
+            // See frame.rs at allocation for more info
+            table_frames: Vec::new_in(alloc::alloc::Global),
             temporary_modified_pages: UnsafeCell::new(BTreeMap::new()), // This does not involves memory allocation
         }
     }
