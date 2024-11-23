@@ -134,19 +134,8 @@ pub fn get_kernel_page_table() -> &'static PageTable {
     }
 }
 
-pub fn borrow_current_page_table() -> PageTable {
-    #[cfg(not(target_arch = "riscv64"))]
-    panic!("Unsupported architecture");
-
-    #[cfg(target_arch = "riscv64")]
-    {
-        let satp: usize;
-        unsafe {
-            core::arch::asm!("csrr {}, satp", out(reg) satp);
-        }
-
-        let root_ppn = PhysicalPageNum::from_usize(satp & 0x7FFFFFFFFFFFFFFF);
-
+impl PageTable {
+    pub fn borrow_from_root(root_ppn: PhysicalPageNum) -> PageTable {
         PageTable {
             root: root_ppn,
             // lazy allocation, no allocation when created
@@ -154,6 +143,23 @@ pub fn borrow_current_page_table() -> PageTable {
             // See frame.rs at allocation for more info
             table_frames: Vec::new_in(alloc::alloc::Global),
             temporary_modified_pages: UnsafeCell::new(BTreeMap::new()), // This does not involves memory allocation
+        }
+    }
+
+    pub fn borrow_current() -> PageTable {
+        #[cfg(not(target_arch = "riscv64"))]
+        panic!("Unsupported architecture");
+
+        #[cfg(target_arch = "riscv64")]
+        {
+            let satp: usize;
+            unsafe {
+                core::arch::asm!("csrr {}, satp", out(reg) satp);
+            }
+
+            let root_ppn = PhysicalPageNum::from_usize(satp & 0x7FFFFFFFFFFFFFFF);
+
+            PageTable::borrow_from_root(root_ppn)
         }
     }
 }

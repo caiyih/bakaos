@@ -11,9 +11,8 @@ pub mod page_table;
 
 pub use memory::*;
 pub use page_table::{
-    borrow_current_page_table, IRawPageTable, IWithPageGuardBuilder, MustHavePageGuard,
-    PageGuardBuilder, PageTable, PageTableEntry, PageTableEntryFlags, TemporaryModificationGuard,
-    WithPageGuard,
+    IRawPageTable, IWithPageGuardBuilder, MustHavePageGuard, PageGuardBuilder, PageTable,
+    PageTableEntry, PageTableEntryFlags, TemporaryModificationGuard, WithPageGuard,
 };
 
 pub fn init(kernel_table: PageTable) {

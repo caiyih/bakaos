@@ -11,9 +11,7 @@ use allocation::{alloc_frame, TrackedFrame};
 use log::debug;
 use xmas_elf::ElfFile;
 
-use crate::{
-    borrow_current_page_table, IRawPageTable, PageTable, PageTableEntry, PageTableEntryFlags,
-};
+use crate::{IRawPageTable, PageTable, PageTableEntry, PageTableEntryFlags};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MapType {
@@ -391,7 +389,7 @@ pub struct MemorySpaceBuilder {
 
 impl MemorySpaceBuilder {
     pub fn from_elf(elf_data: &[u8]) -> Result<Self, &str> {
-        let current_page_table = borrow_current_page_table();
+        let current_page_table = PageTable::borrow_current();
         let mut memory_space = MemorySpace::empty();
         memory_space.register_kernel_area();
 
