@@ -29,6 +29,7 @@ pub fn lr() -> usize {
     ptr
 }
 
+#[no_mangle]
 fn stack_trace() {
     extern "C" {
         fn __tmp_stack_top();
