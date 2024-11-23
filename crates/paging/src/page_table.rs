@@ -257,8 +257,6 @@ impl PageTable {
             .get_entry_of(vpn)
             .expect("Attempted to unmap an unmapped page");
         *entry = PageTableEntry::empty();
-        let ppn = entry.ppn();
-        self.table_frames.retain(|frame| frame.ppn() != ppn);
     }
 }
 
