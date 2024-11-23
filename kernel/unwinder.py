@@ -1,3 +1,4 @@
+import os
 import sys
 import re
 
@@ -60,6 +61,9 @@ def read_pc_list(read_line):
     
     return pc_list
 
+def build_symbol_table():
+    os.system('make -C ../kernel symboltable')
+
 # read argument list to detect if has -slient or --silent
 
 SILENT_MODE = False
@@ -81,6 +85,8 @@ else:
 
 if len(pc_list) == 0 and SILENT_MODE:
     sys.exit(0)
+
+build_symbol_table()
 
 # 反汇编文件路径
 disasm_file = '.disassembled'
