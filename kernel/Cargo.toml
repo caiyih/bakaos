@@ -15,12 +15,15 @@ drivers = { path = "../crates/drivers", default-features = false }
 filesystem-abstractions = { path = "../crates/filesystem-abstractions", default-features = false }
 filesystem = { path = "../crates/filesystem", default-features = false }
 paging = { path = "../crates/paging", default-features = false }
+tasks = { path = "../crates/tasks", default-features = false }
+threading = { path = "../crates/threading", default-features = false }
 log = "0.4.22"
 sbi-rt = "0.0.3"
 sbi-spec = "0.0.7"
 riscv = "0.12.1"
 buddy_system_allocator = { git = "https://github.com/neuq-rcore/buddy_system_allocator" }
 virtio-drivers = "0.7.5"
+async-task = { version = "4.7.1", default-features = false }
 
 [features]
 default = ["virt"]
