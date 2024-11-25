@@ -105,7 +105,6 @@ impl SyscallContext<'_> {
 }
 
 pub trait ISyscallHandler {
-    // TODO: Asynchronous syscalls
     fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult;
 
     fn name(&self) -> &str;
