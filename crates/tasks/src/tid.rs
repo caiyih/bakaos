@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use hermit_sync::{Lazy, SpinMutex};
 
 pub struct TrackedTaskId(usize, bool);

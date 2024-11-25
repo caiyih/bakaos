@@ -17,7 +17,7 @@
             "miDebuggerServerAddress": "localhost:1234",
             "hardwareBreakpoints": {
                 "require": true,
-                "limit": 4
+                "limit": 40
             },
             "setupCommands": [
                 {

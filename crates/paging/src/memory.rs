@@ -367,8 +367,7 @@ impl MemorySpace {
             | PageTableEntryFlags::Writable
             | PageTableEntryFlags::Executable
             | PageTableEntryFlags::Accessed
-            | PageTableEntryFlags::Dirty
-            | PageTableEntryFlags::User;
+            | PageTableEntryFlags::Dirty;
 
         root_entries[0x100] =
             PageTableEntry::new(PhysicalPageNum::from_usize(0x00000), kernel_permissions);
@@ -386,6 +385,10 @@ pub struct MemorySpaceBuilder {
     pub stack_top: VirtualAddress,
     // reserved for auxiliary vector
 }
+
+// Fix that `TaskControlBlock::from(memory_space_builder)` complains `Arc<MemorySpaceBuilder>` is not `Send` and `Sync`
+unsafe impl Sync for MemorySpaceBuilder {}
+unsafe impl Send for MemorySpaceBuilder {}
 
 impl MemorySpaceBuilder {
     pub fn from_elf(elf_data: &[u8]) -> Result<Self, &str> {
@@ -534,5 +537,9 @@ impl MemorySpaceBuilder {
             entry_pc,
             stack_top,
         })
+    }
+
+    pub fn init_stack(&mut self, _args: &[&str], _envp: &[&str]) {
+        self.stack_top -= 8;
     }
 }

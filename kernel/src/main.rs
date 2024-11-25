@@ -16,16 +16,21 @@ mod logging;
 mod memory;
 mod panic_handling;
 mod platform;
+mod processor;
+mod scheduling;
 mod serial;
 mod statistics;
+mod syscalls;
 mod system;
 mod timing;
 mod trap;
 
 use core::{arch::asm, sync::atomic::AtomicBool};
 use firmwares::console::IConsole;
-use paging::PageTable;
+use paging::{MemorySpaceBuilder, PageTable};
 use sbi_spec::base::impl_id;
+use scheduling::spawn_task;
+use tasks::TaskControlBlock;
 
 extern crate alloc;
 
@@ -112,7 +117,19 @@ static mut PAGE_TABLE: [usize; 512] = {
 
 #[no_mangle]
 #[allow(unused_assignments)]
-fn main() {}
+fn main() {
+    let write = filesystem::root_filesystem()
+        .lookup("/write")
+        .expect("Failed to open write.txt")
+        .readall()
+        .expect("Failed to read write.txt");
+
+    let mut memspace = MemorySpaceBuilder::from_elf(&write).unwrap();
+    memspace.init_stack(&[], &[]);
+    let task = TaskControlBlock::new(memspace);
+    spawn_task(task);
+    threading::run_tasks();
+}
 
 static mut BOOTED: AtomicBool = AtomicBool::new(false);
 
@@ -131,12 +148,16 @@ unsafe extern "C" fn __kernel_init() {
     kernel::init();
 
     memory::init();
-    allocation::init(kernel::get().machine().memory_end());
-
-    paging::init(PageTable::borrow_current());
 
     let machine = kernel::get().machine();
+    allocation::init(machine.memory_end());
+
+    // Must be called after allocation::init because it depends on frame allocator
+    paging::init(PageTable::borrow_current());
+
     filesystem::setup_root_filesystem(machine.create_fat32_filesystem_at_bus(0));
+
+    processor::init_processor_pool();
 
     BOOTED.store(true, core::sync::atomic::Ordering::Relaxed);
 }
