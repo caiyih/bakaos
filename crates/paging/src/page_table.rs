@@ -732,7 +732,7 @@ impl<'a, T> PageGuardBuilder<'a, T> {
     fn with_internal(self, flags: PageTableEntryFlags) -> Option<WithPageGuard<'a, T>> {
         // Bypass `get_entry_of` as it's unable to handle giant page
         if self.vpn_range.start().as_usize() >= 0xffff_ffc0_0000_0000 / constants::PAGE_SIZE {
-            return Some(WithPageGuard { builder: self})
+            return Some(WithPageGuard { builder: self });
         }
 
         let mut modified = false;
