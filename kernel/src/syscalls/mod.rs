@@ -26,7 +26,7 @@ impl ISyscallResult for SyscallResult {
 pub struct SyscallDispatcher;
 
 impl SyscallDispatcher {
-    fn translate_id(id: usize) -> Option<&'static dyn ISyscallHandler> {
+    fn translate_id(id: usize) -> Option<&'static dyn ISyncSyscallHandler> {
         match id {
             SYSCALL_ID_WRITE => Some(&WriteSyscall),
             SYSCALL_ID_EXIT => Some(&ExitSyscall),
@@ -37,7 +37,7 @@ impl SyscallDispatcher {
     pub fn dispatch(
         tcb: &Arc<TaskControlBlock>,
         syscall_id: usize,
-    ) -> Option<(SyscallContext, &'static dyn ISyscallHandler)> {
+    ) -> Option<(SyscallContext, &'static dyn ISyncSyscallHandler)> {
         let handler = Self::translate_id(syscall_id)?;
 
         Some((SyscallContext::new(tcb), handler))
@@ -104,7 +104,7 @@ impl SyscallContext<'_> {
     }
 }
 
-pub trait ISyscallHandler {
+pub trait ISyncSyscallHandler {
     fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult;
 
     fn name(&self) -> &str;
@@ -112,7 +112,7 @@ pub trait ISyscallHandler {
 
 struct ExitSyscall;
 
-impl ISyscallHandler for ExitSyscall {
+impl ISyncSyscallHandler for ExitSyscall {
     fn handle(&self, ctx: &mut SyscallContext<'_>) -> SyscallResult {
         let code = ctx.arg0::<isize>();
 
