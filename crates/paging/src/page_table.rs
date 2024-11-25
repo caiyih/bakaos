@@ -1,5 +1,10 @@
 use alloc::{collections::BTreeMap, vec::Vec};
-use core::{cell::UnsafeCell, marker::PhantomData, ops::{Deref, DerefMut}, slice};
+use core::{
+    cell::UnsafeCell,
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+    slice,
+};
 use log::debug;
 
 use abstractions::{impl_arith_ops, impl_bitwise_ops, impl_bitwise_ops_with, IUsizeAlias};
