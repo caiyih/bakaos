@@ -1,5 +1,5 @@
 use alloc::{collections::BTreeMap, vec::Vec};
-use core::{cell::UnsafeCell, marker::PhantomData, ops::Deref, slice};
+use core::{cell::UnsafeCell, marker::PhantomData, ops::{Deref, DerefMut}, slice};
 use log::debug;
 
 use abstractions::{impl_arith_ops, impl_bitwise_ops, impl_bitwise_ops_with, IUsizeAlias};
@@ -887,9 +887,9 @@ impl<'a, T> Deref for WithPageGuard<'a, &'static T> {
     }
 }
 
-impl<'a, T> AsMut<[T]> for WithPageGuard<'a, &'static [T]> {
-    fn as_mut(&mut self) -> &mut [T] {
-        unsafe { slice::from_raw_parts_mut(self.ptr() as *mut T, self.len()) }
+impl<'a, T> DerefMut for WithPageGuard<'a, &'static T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { &mut *(self.ptr() as *mut T) }
     }
 }
 
@@ -898,5 +898,11 @@ impl<'a, T> Deref for WithPageGuard<'a, &'static [T]> {
 
     fn deref(&self) -> &Self::Target {
         unsafe { slice::from_raw_parts(self.ptr() as *const T, self.len()) }
+    }
+}
+
+impl<'a, T> DerefMut for WithPageGuard<'a, &'static [T]> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { slice::from_raw_parts_mut(self.ptr() as *mut T, self.len()) }
     }
 }
