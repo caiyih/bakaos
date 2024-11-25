@@ -1,12 +1,14 @@
 use alloc::sync::Arc;
 use file::WriteSyscall;
 use log::debug;
+use paging::{IWithPageGuardBuilder, PageTableEntryFlags};
 use tasks::{TaskControlBlock, TaskStatus};
 
 mod file;
 
 const SYSCALL_ID_WRITE: usize = 64;
 const SYSCALL_ID_EXIT: usize = 93;
+const SYSCALL_ID_UNAME: usize = 160;
 
 pub trait ISyscallResult {
     fn to_ret(self) -> isize;
@@ -30,6 +32,7 @@ impl SyscallDispatcher {
         match id {
             SYSCALL_ID_WRITE => Some(&WriteSyscall),
             SYSCALL_ID_EXIT => Some(&ExitSyscall),
+            SYSCALL_ID_UNAME => Some(&UnameSyscall),
             _ => None,
         }
     }
@@ -127,5 +130,69 @@ impl ISyncSyscallHandler for ExitSyscall {
 
     fn name(&self) -> &str {
         "sys_exit"
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+struct UtsName {
+    sysname: [u8; 65],
+    nodename: [u8; 65],
+    release: [u8; 65],
+    version: [u8; 65],
+    machine: [u8; 65],
+    domainname: [u8; 65],
+}
+
+impl UtsName {
+    fn write_to(&mut self, field: usize, text: &str) {
+        let p_buf = unsafe { core::mem::transmute::<_, &mut [[u8; 65]; 6]>(self) };
+
+        if field >= p_buf.len() {
+            return;
+        }
+
+        let p_field = &mut p_buf[field];
+        p_field.fill(0);
+
+        let text = text.as_bytes();
+        let len = core::cmp::min(
+            text.len(),
+            p_field.len() - 1, // reserved for null-terminated
+        );
+
+        p_field[..len].copy_from_slice(&text[..len]);
+    }
+}
+
+struct UnameSyscall;
+
+impl ISyncSyscallHandler for UnameSyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        let p_utsname = ctx.arg0::<*mut UtsName>();
+
+        let memory_space = ctx.tcb.memory_space.lock();
+        match memory_space
+            .page_table()
+            .guard_ptr(p_utsname)
+            .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
+            .with(PageTableEntryFlags::Writable)
+        {
+            Some(mut guard) => {
+                guard.write_to(0, "Linux");
+                guard.write_to(1, "BakaOS");
+                guard.write_to(2, "9.9.9");
+                guard.write_to(3, "#9");
+                guard.write_to(4, "RISC-IX");
+                guard.write_to(5, "The most intelligent and strongest Cirno");
+
+                Ok(0)
+            }
+            None => Err(-1),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "sys_uname"
     }
 }
