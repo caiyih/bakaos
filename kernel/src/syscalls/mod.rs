@@ -1,7 +1,11 @@
 use alloc::sync::Arc;
+use file::WriteSyscall;
 use log::debug;
 use tasks::{TaskControlBlock, TaskStatus};
 
+mod file;
+
+const SYSCALL_ID_WRITE: usize = 64;
 const SYSCALL_ID_EXIT: usize = 93;
 
 pub struct SyscallDispatcher;
@@ -9,6 +13,7 @@ pub struct SyscallDispatcher;
 impl SyscallDispatcher {
     fn translate_id(id: usize) -> Option<&'static dyn ISyscallHandler> {
         match id {
+            SYSCALL_ID_WRITE => Some(&WriteSyscall),
             SYSCALL_ID_EXIT => Some(&ExitSyscall),
             _ => None,
         }
