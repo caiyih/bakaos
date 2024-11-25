@@ -1,12 +1,12 @@
 use crate::legacy_print;
 
-use super::{ISyscallHandler, SyscallContext};
+use super::{ISyscallHandler, SyscallContext, SyscallResult};
 
 pub struct WriteSyscall;
 
 impl ISyscallHandler for WriteSyscall {
     // FIXME: should use the file descriptor to write to the correct file
-    fn handle(&self, ctx: &mut SyscallContext<'_>) -> Result<isize, isize> {
+    fn handle(&self, ctx: &mut SyscallContext<'_>) -> SyscallResult {
         let _fd = ctx.arg0::<i32>();
         let buf = ctx.arg1::<*const u8>();
         let len = ctx.arg2::<usize>();

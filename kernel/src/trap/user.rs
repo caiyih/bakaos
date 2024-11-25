@@ -235,19 +235,14 @@ pub async fn user_trap_handler(tcb: &Arc<TaskControlBlock>) {
             let trap_ctx = tcb.mut_trap_ctx();
             let syscall_id = trap_ctx.regs.a7;
 
-            match SyscallDispatcher::dispatch(tcb, syscall_id) {
+            let ret = match SyscallDispatcher::dispatch(tcb, syscall_id) {
                 Some((mut ctx, handler)) => {
                     debug!(
                         "[User trap] [Exception::Syscall] name: {}({})",
                         handler.name(),
                         syscall_id,
                     );
-                    let ret = handler.handle(&mut ctx);
-                    trap_ctx.regs.a0 = match ret {
-                        Ok(ok) => ok as usize,
-                        Err(err) => err as usize,
-                    };
-                    trap_ctx.sepc += 4; // skip `ecall` instruction`
+                    handler.handle(&mut ctx).to_ret()
                 }
                 None => {
                     debug!(
@@ -256,7 +251,10 @@ pub async fn user_trap_handler(tcb: &Arc<TaskControlBlock>) {
                     );
                     *tcb.task_status.lock() = TaskStatus::Exited;
                 }
-            }
+                },
+            };
+            trap_ctx.regs.a0 = ret as usize;
+            trap_ctx.sepc += 4; // skip `ecall` instruction
         }
         Trap::Exception(e) => {
             // Trap::Exception(Exception::InstructionMisaligned) => (),

@@ -8,6 +8,21 @@ mod file;
 const SYSCALL_ID_WRITE: usize = 64;
 const SYSCALL_ID_EXIT: usize = 93;
 
+pub trait ISyscallResult {
+    fn to_ret(self) -> isize;
+}
+
+pub type SyscallResult = Result<isize, isize>;
+
+impl ISyscallResult for SyscallResult {
+    fn to_ret(self) -> isize {
+        match self {
+            Ok(val) => val,
+            Err(err) => err,
+        }
+    }
+}
+
 pub struct SyscallDispatcher;
 
 impl SyscallDispatcher {
@@ -78,7 +93,7 @@ impl SyscallContext<'_> {
 
 pub trait ISyscallHandler {
     // TODO: Asynchronous syscalls
-    fn handle(&self, ctx: &mut SyscallContext) -> Result<isize, isize>;
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult;
 
     fn name(&self) -> &str;
 }
@@ -86,7 +101,7 @@ pub trait ISyscallHandler {
 struct ExitSyscall;
 
 impl ISyscallHandler for ExitSyscall {
-    fn handle(&self, ctx: &mut SyscallContext<'_>) -> Result<isize, isize> {
+    fn handle(&self, ctx: &mut SyscallContext<'_>) -> SyscallResult {
         let code = ctx.arg0::<isize>();
 
         *ctx.tcb.task_status.lock() = TaskStatus::Exited;
