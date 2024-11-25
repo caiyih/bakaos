@@ -1,4 +1,4 @@
-use alloc::{rc::Weak, str, sync::Arc, vec::Vec};
+use alloc::{rc::Weak, sync::Arc, vec::Vec};
 use core::{cell::UnsafeCell, mem::MaybeUninit, sync::atomic::AtomicI32, task::Waker};
 
 use address::VirtualAddress;
