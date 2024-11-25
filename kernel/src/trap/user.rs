@@ -238,13 +238,13 @@ pub async fn user_trap_handler(tcb: &Arc<TaskControlBlock>) {
             let handler = SyscallDispatcher::dispatch(tcb, syscall_id);
 
             match handler {
-                Some(mut ctx) => {
+                Some((mut ctx, handler)) => {
                     debug!(
                         "[User trap] [Exception::Syscall] name: {}({})",
-                        ctx.handler.name(),
+                        handler.name(),
                         syscall_id,
                     );
-                    let ret = ctx.handler.handle(&mut ctx);
+                    let ret = handler.handle(&mut ctx);
                     trap_ctx.regs.a0 = ret as usize;
                     trap_ctx.sepc += 4; // skip `ecall` instruction`
                 }

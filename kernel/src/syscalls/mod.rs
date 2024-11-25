@@ -19,17 +19,19 @@ impl SyscallDispatcher {
         }
     }
 
-    pub fn dispatch(tcb: &Arc<TaskControlBlock>, syscall_id: usize) -> Option<SyscallContext> {
+    pub fn dispatch(
+        tcb: &Arc<TaskControlBlock>,
+        syscall_id: usize,
+    ) -> Option<(SyscallContext, &'static dyn ISyscallHandler)> {
         let handler = Self::translate_id(syscall_id)?;
 
         let args = unsafe { &*(&tcb.mut_trap_ctx().regs.a0 as *const usize as *const [usize; 6]) };
-        Some(SyscallContext { tcb, handler, args })
+        Some((SyscallContext { tcb, args }, handler))
     }
 }
 
 pub struct SyscallContext<'a> {
     pub tcb: &'a Arc<TaskControlBlock>,
-    pub handler: &'static dyn ISyscallHandler,
     pub args: &'a [usize; 6],
 }
 
