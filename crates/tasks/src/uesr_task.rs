@@ -123,6 +123,12 @@ impl TaskControlBlock {
 }
 
 impl TaskControlBlock {
+    pub fn mut_trap_ctx(&self) -> &'static mut TaskTrapContext {
+        unsafe { &mut *self.trap_context.get() }
+    }
+}
+
+impl TaskControlBlock {
     pub fn is_uninitialized(&self) -> bool {
         *self.task_status.lock() == TaskStatus::Uninitialized
     }
