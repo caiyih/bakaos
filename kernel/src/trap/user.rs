@@ -235,9 +235,7 @@ pub async fn user_trap_handler(tcb: &Arc<TaskControlBlock>) {
             let trap_ctx = tcb.mut_trap_ctx();
             let syscall_id = trap_ctx.regs.a7;
 
-            let handler = SyscallDispatcher::dispatch(tcb, syscall_id);
-
-            match handler {
+            match SyscallDispatcher::dispatch(tcb, syscall_id) {
                 Some((mut ctx, handler)) => {
                     debug!(
                         "[User trap] [Exception::Syscall] name: {}({})",
