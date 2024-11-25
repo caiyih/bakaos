@@ -11,7 +11,7 @@ use riscv::{
 };
 use tasks::{TaskControlBlock, TaskStatus, TaskTrapContext};
 
-use crate::syscalls::SyscallDispatcher;
+use crate::syscalls::{ISyscallResult, SyscallDispatcher};
 
 use super::set_kernel_trap_handler;
 
@@ -238,19 +238,22 @@ pub async fn user_trap_handler(tcb: &Arc<TaskControlBlock>) {
             let ret = match SyscallDispatcher::dispatch(tcb, syscall_id) {
                 Some((mut ctx, handler)) => {
                     debug!(
-                        "[User trap] [Exception::Syscall] name: {}({})",
+                        "[User trap] [Exception::Syscall] Sync handler name: {}({})",
                         handler.name(),
                         syscall_id,
                     );
                     handler.handle(&mut ctx).to_ret()
                 }
-                None => {
-                    debug!(
-                        "[User trap] [Exception::Syscall] Handler for id: {} not found. Kernel Killed it",
-                        syscall_id
-                    );
-                    *tcb.task_status.lock() = TaskStatus::Exited;
-                }
+                None => match SyscallDispatcher::dispatch_async(tcb, syscall_id).await {
+                    Some(res) => res.to_ret(),
+                    None => {
+                        debug!(
+                            "[User trap] [Exception::Syscall] Handler for id: {} not found. Kernel Killed it",
+                            syscall_id
+                        );
+                        *tcb.task_status.lock() = TaskStatus::Exited;
+                        return;
+                    }
                 },
             };
             trap_ctx.regs.a0 = ret as usize;

@@ -43,6 +43,15 @@ impl SyscallDispatcher {
         let args = unsafe { &*(&tcb.mut_trap_ctx().regs.a0 as *const usize as *const [usize; 6]) };
         Some((SyscallContext { tcb, args }, handler))
     }
+
+    pub async fn dispatch_async(
+        _tcb: &Arc<TaskControlBlock>,
+        syscall_id: usize,
+    ) -> Option<SyscallResult> {
+        match syscall_id {
+            _ => None,
+        }
+    }
 }
 
 pub struct SyscallContext<'a> {
