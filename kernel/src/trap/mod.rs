@@ -1,47 +1,14 @@
-use core::arch::asm;
-use riscv::register::stvec;
+use kernel::set_kernel_trap_handler;
 
 mod interrupts;
 mod kernel;
 mod user;
 
-fn set_kernel_trap_handler() {
-    unsafe { stvec::write(__on_kernel_trap as usize, stvec::TrapMode::Direct) };
-}
-
-#[allow(unused)]
-fn set_user_trap_handler() {
-    unsafe { stvec::write(__on_user_trap as usize, stvec::TrapMode::Direct) };
-}
+use riscv::register::sstatus;
+pub use user::{return_to_user, user_trap_handler};
 
 pub fn init() {
+    unsafe { sstatus::set_sum() };
+
     set_kernel_trap_handler();
-}
-
-#[naked]
-#[no_mangle]
-#[link_section = ".text.trampoline"]
-unsafe extern "C" fn __on_user_trap() -> ! {
-    asm!("unimp", options(noreturn));
-}
-
-#[naked]
-#[no_mangle]
-#[link_section = ".text.trampoline"]
-unsafe extern "C" fn __return_from_user_trap() -> ! {
-    asm!("unimp", options(noreturn));
-}
-
-#[naked]
-#[no_mangle]
-#[link_section = ".text.trampoline"]
-unsafe extern "C" fn __on_kernel_trap() -> ! {
-    asm!("unimp", options(noreturn));
-}
-
-#[naked]
-#[no_mangle]
-#[link_section = ".text.trampoline"]
-unsafe extern "C" fn __return_from_kernel_trap() -> ! {
-    asm!("unimp", options(noreturn));
 }
