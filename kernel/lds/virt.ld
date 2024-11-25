@@ -13,7 +13,9 @@ SECTIONS
         *(.text.entry)
         . = ALIGN(4K);
         strampoline = .;
-        *(.text.trampoline);
+        *(.text.trampoline_user);
+        . = ALIGN(4K);
+        *(.text.trampoline_kernel);
         . = ALIGN(4K);
         *(.text .text.*)
     }

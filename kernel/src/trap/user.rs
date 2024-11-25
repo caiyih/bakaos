@@ -17,12 +17,13 @@ use super::set_kernel_trap_handler;
 
 #[allow(unused)]
 fn set_user_trap_handler() {
+    trace!("Set trap handler to user");
     unsafe { stvec::write(__on_user_trap as usize, stvec::TrapMode::Direct) };
 }
 
 #[naked]
 #[no_mangle]
-#[link_section = ".text.trampoline"]
+#[link_section = ".text.trampoline_user"]
 unsafe extern "C" fn __on_user_trap() {
     asm!(
         // Exchange sp with sscratch
@@ -94,7 +95,7 @@ unsafe extern "C" fn __on_user_trap() {
 
 #[naked]
 #[no_mangle]
-#[link_section = ".text.trampoline"]
+#[link_section = ".text.trampoline_user"]
 unsafe extern "C" fn __return_from_user_trap(p_ctx: *mut TaskTrapContext) {
     // Layout of TaskTrapContext, see src/tasks/user_task.rs for details:
     // +---------+
