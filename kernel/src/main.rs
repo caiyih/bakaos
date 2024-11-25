@@ -16,6 +16,8 @@ mod logging;
 mod memory;
 mod panic_handling;
 mod platform;
+mod processor;
+mod scheduling;
 mod serial;
 mod statistics;
 mod system;
@@ -24,8 +26,10 @@ mod trap;
 
 use core::{arch::asm, sync::atomic::AtomicBool};
 use firmwares::console::IConsole;
-use paging::PageTable;
+use paging::{MemorySpaceBuilder, PageTable};
 use sbi_spec::base::impl_id;
+use scheduling::spawn_task;
+use tasks::TaskControlBlock;
 
 extern crate alloc;
 
@@ -112,7 +116,19 @@ static mut PAGE_TABLE: [usize; 512] = {
 
 #[no_mangle]
 #[allow(unused_assignments)]
-fn main() {}
+fn main() {
+    let write = filesystem::root_filesystem()
+        .lookup("/write")
+        .expect("Failed to open write.txt")
+        .readall()
+        .expect("Failed to read write.txt");
+
+    let mut memspace = MemorySpaceBuilder::from_elf(&write).unwrap();
+    memspace.init_stack(&[], &[]);
+    let task = TaskControlBlock::new(memspace);
+    spawn_task(task);
+    threading::run_tasks();
+}
 
 static mut BOOTED: AtomicBool = AtomicBool::new(false);
 
