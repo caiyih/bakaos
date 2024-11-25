@@ -1,4 +1,4 @@
-use alloc::{collections::BTreeMap, vec::Vec};
+use alloc::{collections::BTreeMap, vec, vec::Vec};
 use core::{cell::UnsafeCell, marker::PhantomData, ops::Deref, slice};
 use log::debug;
 
@@ -193,9 +193,8 @@ impl PageTable {
         debug!("Allocating page table at: {}", root);
         frame.zero();
 
-        // vec![] triggers page fault
-        let mut table_frames = Vec::with_capacity(1);
-        table_frames.push(frame);
+        // inlined vec![] triggers page fault
+        let table_frames = vec![frame];
 
         Self {
             root,
