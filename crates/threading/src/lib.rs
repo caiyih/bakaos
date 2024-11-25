@@ -5,8 +5,12 @@
 #[cfg(feature = "std")]
 extern crate std;
 
+extern crate alloc;
+
+mod executor;
 mod futures;
 
+pub use executor::{has_task, run_tasks, spawn};
 pub use futures::*;
 
 #[cfg(test)]
