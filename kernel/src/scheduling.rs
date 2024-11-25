@@ -49,7 +49,7 @@ async fn task_loop(tcb: Arc<TaskControlBlock>) {
     }
 
     debug!(
-        "task {} exited with code: {}",
+        "Task {} has completed its lifecycle with code: {}, cleaning up...",
         tcb.task_id.id(),
         tcb.exit_code.load(Ordering::Relaxed)
     );
