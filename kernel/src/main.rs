@@ -118,14 +118,18 @@ static mut PAGE_TABLE: [usize; 512] = {
 #[no_mangle]
 #[allow(unused_assignments)]
 fn main() {
-    let write = filesystem::root_filesystem()
-        .lookup("/write")
-        .expect("Failed to open write.txt")
-        .readall()
-        .expect("Failed to read write.txt");
+    preliminary_test("/write", None, None);
+}
 
-    let mut memspace = MemorySpaceBuilder::from_elf(&write).unwrap();
-    memspace.init_stack(&[], &[]);
+fn preliminary_test(path: &str, args: Option<&[&str]>, envp: Option<&[&str]>) {
+    let elf = filesystem::root_filesystem()
+        .lookup(path)
+        .expect("Failed to open path")
+        .readall()
+        .expect("Failed to read file");
+
+    let mut memspace = MemorySpaceBuilder::from_elf(&elf).unwrap();
+    memspace.init_stack(args.unwrap_or(&[]), envp.unwrap_or(&[]));
     let task = TaskControlBlock::new(memspace);
     spawn_task(task);
     threading::run_tasks();
