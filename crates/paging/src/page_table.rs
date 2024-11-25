@@ -703,6 +703,18 @@ impl PageTable {
         guard.len = 1; // Not needed actually
         unsafe { core::mem::transmute::<_, PageGuardBuilder<'a, &T>>(guard) }
     }
+
+    pub fn guard_ptr<'a, T>(&'a self, value: *const T) -> PageGuardBuilder<'a, &'static T> {
+        let address = VirtualAddress::from_usize(value as usize);
+        let mut guard = self.guard_vpn_range(VirtualPageNumRange::from_start_end(
+            address.to_floor_page_num(),
+            (address + core::mem::size_of::<T>()).to_ceil_page_num(),
+        ));
+
+        guard.ptr = value as usize;
+        guard.len = 1; // Not needed actually
+        unsafe { core::mem::transmute::<_, PageGuardBuilder<'a, &T>>(guard) }
+    }
 }
 
 #[allow(unused)]
