@@ -1,5 +1,6 @@
-use alloc::{collections::BTreeMap, vec, vec::Vec};
+use alloc::{collections::BTreeMap, vec::Vec};
 use core::{cell::UnsafeCell, marker::PhantomData, ops::Deref, slice};
+use log::debug;
 
 use abstractions::{impl_arith_ops, impl_bitwise_ops, impl_bitwise_ops_with, IUsizeAlias};
 use address::{
@@ -184,12 +185,21 @@ pub struct PageTable {
 // Consturctor and Properties
 impl PageTable {
     pub fn allocate() -> Self {
-        let root =
+        let frame =
             allocation::alloc_frame().expect("Failed to allocate a frame for the root page table");
 
+        let root = frame.ppn();
+
+        debug!("Allocating page table at: {}", root);
+        frame.zero();
+
+        // vec![] triggers page fault
+        let mut table_frames = Vec::with_capacity(1);
+        table_frames.push(frame);
+
         Self {
-            root: root.ppn(),
-            table_frames: vec![root],
+            root,
+            table_frames,
             temporary_modified_pages: UnsafeCell::new(BTreeMap::new()),
         }
     }
@@ -309,6 +319,7 @@ impl PageTable {
             if !entry.is_valid() {
                 let frame = allocation::alloc_frame()
                     .expect("Failed to allocate a frame for the page table");
+                frame.zero();
                 *entry = PageTableEntry::new(frame.ppn(), PageTableEntryFlags::Valid);
                 self.table_frames.push(frame);
             }

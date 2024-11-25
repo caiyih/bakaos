@@ -18,6 +18,16 @@ impl TrackedFrame {
     pub fn ppn(&self) -> PhysicalPageNum {
         self.0
     }
+
+    pub fn zero(&self) {
+        let va = self.ppn().start_addr::<PhysicalAddress>().to_high_virtual();
+
+        let ptr = unsafe { va.as_mut_ptr::<u8>() };
+
+        for i in 0..constants::PAGE_SIZE {
+            unsafe { ptr.add(i).write_volatile(0) };
+        }
+    }
 }
 
 impl Drop for TrackedFrame {
