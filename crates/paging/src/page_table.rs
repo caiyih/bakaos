@@ -699,6 +699,7 @@ impl PageTable {
             (address + core::mem::size_of::<T>()).to_ceil_page_num(),
         ));
 
+        guard.ptr = value as *const T as usize;
         guard.len = 1; // Not needed actually
         unsafe { core::mem::transmute::<_, PageGuardBuilder<'a, &T>>(guard) }
     }
