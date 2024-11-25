@@ -131,11 +131,13 @@ unsafe extern "C" fn __kernel_init() {
     kernel::init();
 
     memory::init();
-    allocation::init(kernel::get().machine().memory_end());
-
-    paging::init(PageTable::borrow_current());
 
     let machine = kernel::get().machine();
+    allocation::init(machine.memory_end());
+
+    // Must be called after allocation::init because it depends on frame allocator
+    paging::init(PageTable::borrow_current());
+
     filesystem::setup_root_filesystem(machine.create_fat32_filesystem_at_bus(0));
 
     processor::init_processor_pool();
