@@ -70,8 +70,8 @@ static mut PROCESSOR_POOL: MaybeUninit<[ProcessorUnit; PROCESSOR_COUNT]> = Maybe
 
 pub fn init_processor_pool() {
     let pool = unsafe { PROCESSOR_POOL.assume_init_mut() };
-    for i in 0..PROCESSOR_COUNT {
-        pool[i] = ProcessorUnit::new(i);
+    for (i, cpu) in pool.iter_mut().enumerate().take(PROCESSOR_COUNT) {
+        *cpu = ProcessorUnit::new(i);
     }
 }
 

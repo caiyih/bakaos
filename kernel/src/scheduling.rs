@@ -10,7 +10,10 @@ use alloc::sync::Arc;
 use log::debug;
 use tasks::{TaskControlBlock, TaskStatus};
 
-use crate::{processor::ProcessorUnit, trap::{return_to_user, user_trap_handler}};
+use crate::{
+    processor::ProcessorUnit,
+    trap::{return_to_user, user_trap_handler},
+};
 
 struct ExposeWakerFuture;
 

@@ -386,6 +386,10 @@ pub struct MemorySpaceBuilder {
     // reserved for auxiliary vector
 }
 
+// Fix that `TaskControlBlock::from(memory_space_builder)` complains `Arc<MemorySpaceBuilder>` is not `Send` and `Sync`
+unsafe impl Sync for MemorySpaceBuilder {}
+unsafe impl Send for MemorySpaceBuilder {}
+
 impl MemorySpaceBuilder {
     pub fn from_elf(elf_data: &[u8]) -> Result<Self, &str> {
         let current_page_table = PageTable::borrow_current();
