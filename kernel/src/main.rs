@@ -138,6 +138,8 @@ unsafe extern "C" fn __kernel_init() {
     let machine = kernel::get().machine();
     filesystem::setup_root_filesystem(machine.create_fat32_filesystem_at_bus(0));
 
+    processor::init_processor_pool();
+
     BOOTED.store(true, core::sync::atomic::Ordering::Relaxed);
 }
 
