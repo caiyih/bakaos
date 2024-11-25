@@ -32,7 +32,7 @@ pub trait IAlignableAddress: IAddressBase {
         debug_assert!(align.is_power_of_two());
 
         let mask = align - 1;
-        let aligned = (self.as_usize() + mask) & !mask;
+        let aligned = (self.as_usize() + align) & !mask;
         Self::from_usize(aligned)
     }
 
