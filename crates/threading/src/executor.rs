@@ -51,11 +51,6 @@ pub fn run_tasks() {
     while let Some(task) = unsafe { TASK_SCHEDULER.fetch_next() } {
         task.run();
     }
-
-    // Although all page tables are mapped with kernel's area.
-    // Somehow there's always a bug that causes page fault when back to kernel's control flow.
-    // So re-activate kernel's page table here. It just works somehow.
-    unsafe { paging::page_table::get_kernel_page_table().activate() };
 }
 
 pub fn has_task() -> bool {

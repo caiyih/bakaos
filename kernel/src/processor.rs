@@ -40,8 +40,16 @@ impl ProcessorUnit {
     }
 
     pub fn pop_staged_task(&mut self) -> Option<Arc<TaskControlBlock>> {
-        self.staged_task.take()
-        // stop timer
+        let tcb = self.staged_task.take();
+        // TODO: stop timer
+
+        // When popping the staged task and the task has exited, the tcb will soon be dropped.
+        // which means the page table will be dropped as well. So we need to use another page table.
+        // Since it's hard to determine whether there will be new tasks staged in the future,
+        // or whether the old page table will be used again, we just use the kernel's page table.
+        unsafe { paging::page_table::get_kernel_page_table().activate() };
+
+        tcb
     }
 
     pub fn is_idle(&self) -> bool {
