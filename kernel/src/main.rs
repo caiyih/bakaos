@@ -118,6 +118,7 @@ static mut PAGE_TABLE: [usize; 512] = {
 #[no_mangle]
 #[allow(unused_assignments)]
 fn main() {
+    preliminary_test("/uname", None, None);
     preliminary_test("/write", None, None);
 }
 
