@@ -1,4 +1,4 @@
-use alloc::{collections::BTreeMap, vec, vec::Vec};
+use alloc::{collections::BTreeMap, vec::Vec};
 use core::{cell::UnsafeCell, marker::PhantomData, ops::Deref, slice};
 use log::debug;
 
@@ -184,6 +184,7 @@ pub struct PageTable {
 
 // Consturctor and Properties
 impl PageTable {
+    #[allow(clippy::vec_init_then_push)] // see comments below
     pub fn allocate() -> Self {
         let frame =
             allocation::alloc_frame().expect("Failed to allocate a frame for the root page table");
@@ -193,8 +194,9 @@ impl PageTable {
         debug!("Allocating page table at: {}", root);
         frame.zero();
 
-        // inlined vec![] triggers page fault
-        let table_frames = vec![frame];
+        // vec![] triggers page fault, so uses manual allocation
+        let mut table_frames = Vec::with_capacity(1);
+        table_frames.push(frame);
 
         Self {
             root,
