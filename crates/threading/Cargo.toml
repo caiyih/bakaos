@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+paging = { path = "../paging", default-features = false }
 tasks = { path = "../tasks", default-features = false }
 async-task = { version = "4.7.1", default-features = false }
 hermit-sync = "0.1.6"
