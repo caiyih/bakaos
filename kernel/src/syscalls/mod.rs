@@ -46,11 +46,9 @@ impl SyscallDispatcher {
 
     pub async fn dispatch_async(
         _tcb: &Arc<TaskControlBlock>,
-        syscall_id: usize,
+        _syscall_id: usize,
     ) -> Option<SyscallResult> {
-        match syscall_id {
-            _ => None,
-        }
+        None
     }
 }
 
