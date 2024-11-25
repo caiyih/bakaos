@@ -20,6 +20,7 @@ mod processor;
 mod scheduling;
 mod serial;
 mod statistics;
+mod syscalls;
 mod system;
 mod timing;
 mod trap;

@@ -1,9 +1,17 @@
-use core::arch::asm;
+use core::{arch::asm, panic, usize};
 
 use alloc::sync::Arc;
-use log::trace;
-use riscv::register::{sstatus, stvec};
-use tasks::{TaskControlBlock, TaskTrapContext};
+use log::{debug, trace};
+use riscv::{
+    interrupt::{
+        supervisor::{Exception, Interrupt},
+        Trap,
+    },
+    register::{sstatus, stvec},
+};
+use tasks::{TaskControlBlock, TaskStatus, TaskTrapContext};
+
+use crate::syscalls::SyscallDispatcher;
 
 use super::set_kernel_trap_handler;
 
@@ -204,12 +212,64 @@ pub fn return_to_user(tcb: &Arc<TaskControlBlock>) {
 }
 
 #[no_mangle]
-pub async fn user_trap_handler(_tcb: &Arc<TaskControlBlock>) {
+pub async fn user_trap_handler(tcb: &Arc<TaskControlBlock>) {
     let scause = riscv::register::scause::read().cause();
     let stval = riscv::register::stval::read();
 
-    trace!("User trap: scause: {:?}, stval: {:#x}", scause, stval);
+    trace!("[User trap] scause: {:?}, stval: {:#x}", scause, stval);
 
-    // TODO: Handle the trap
-    panic!("unimplemented: user_trap_handler");
+    let scause = unsafe { core::mem::transmute::<_, Trap<Interrupt, Exception>>(scause) };
+    match scause {
+        Trap::Interrupt(Interrupt::SupervisorTimer) => {
+            panic!("[User trap] [Interrupt::SupervisorTimer] Unimplemented")
+        }
+        Trap::Interrupt(i) => panic!("[User trap] [Interrupt] Unimplementd: {:?}", i),
+        Trap::Exception(Exception::Breakpoint) => {
+            #[cfg(debug_assertions)]
+            debug!("[User trap] [Exception::Breakpoint]")
+        }
+        Trap::Exception(Exception::SupervisorEnvCall) => {
+            panic!("[User trap] [Exception::SupervisorEnvCall]")
+        }
+        Trap::Exception(Exception::UserEnvCall) => {
+            let trap_ctx = tcb.mut_trap_ctx();
+            let syscall_id = trap_ctx.regs.a7;
+
+            let handler = SyscallDispatcher::dispatch(tcb, syscall_id);
+
+            match handler {
+                Some(mut ctx) => {
+                    debug!(
+                        "[User trap] [Exception::Syscall] name: {}({})",
+                        ctx.handler.name(),
+                        syscall_id,
+                    );
+                    let ret = ctx.handler.handle(&mut ctx);
+                    trap_ctx.regs.a0 = ret as usize;
+                    trap_ctx.sepc += 4; // skip `ecall` instruction`
+                }
+                None => {
+                    debug!(
+                        "[User trap] [Exception::Syscall] Handler for id: {} not found. Kernel Killed it",
+                        syscall_id
+                    );
+                    *tcb.task_status.lock() = TaskStatus::Exited;
+                }
+            }
+        }
+        Trap::Exception(e) => {
+            // Trap::Exception(Exception::InstructionMisaligned) => (),
+            // Trap::Exception(Exception::InstructionFault) => (),
+            // Trap::Exception(Exception::IllegalInstruction) => (),
+            // Trap::Exception(Exception::LoadMisaligned) => (),
+            // Trap::Exception(Exception::LoadFault) => (),
+            // Trap::Exception(Exception::StoreMisaligned) => (),
+            // Trap::Exception(Exception::StoreFault) => (),
+            // Trap::Exception(Exception::InstructionPageFault) => (),
+            // Trap::Exception(Exception::LoadPageFault) => (),
+            // Trap::Exception(Exception::StorePageFault) => (),
+            debug!("[User Trap] [{:?}] Not supported! Kernel killed it", e);
+            *tcb.task_status.lock() = TaskStatus::Exited;
+        }
+    }
 }
