@@ -5,7 +5,7 @@ mod kernel;
 mod user;
 
 use riscv::register::sstatus;
-pub use user::{return_to_user, user_trap_handler};
+pub use user::{return_to_user, user_trap_handler_async};
 
 pub fn init() {
     unsafe { sstatus::set_sum() };

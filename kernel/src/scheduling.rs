@@ -12,7 +12,7 @@ use tasks::{TaskControlBlock, TaskStatus};
 
 use crate::{
     processor::ProcessorUnit,
-    trap::{return_to_user, user_trap_handler},
+    trap::{return_to_user, user_trap_handler_async},
 };
 
 struct ExposeWakerFuture;
@@ -45,7 +45,7 @@ async fn task_loop(tcb: Arc<TaskControlBlock>) {
 
         debug_assert!(tcb.is_running(), "task should be running");
 
-        user_trap_handler(&tcb).await;
+        user_trap_handler_async(&tcb).await;
     }
 
     debug!(

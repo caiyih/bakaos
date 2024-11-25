@@ -212,7 +212,7 @@ pub fn return_to_user(tcb: &Arc<TaskControlBlock>) {
 }
 
 #[no_mangle]
-pub async fn user_trap_handler(tcb: &Arc<TaskControlBlock>) {
+pub async fn user_trap_handler_async(tcb: &Arc<TaskControlBlock>) {
     let scause = riscv::register::scause::read().cause();
     let stval = riscv::register::stval::read();
 
