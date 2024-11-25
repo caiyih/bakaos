@@ -6,7 +6,7 @@ pub struct WriteSyscall;
 
 impl ISyscallHandler for WriteSyscall {
     // FIXME: should use the file descriptor to write to the correct file
-    fn handle(&self, ctx: &mut SyscallContext<'_>) -> isize {
+    fn handle(&self, ctx: &mut SyscallContext<'_>) -> Result<isize, isize> {
         let _fd = ctx.arg0::<i32>();
         let buf = ctx.arg1::<*const u8>();
         let len = ctx.arg2::<usize>();
@@ -16,7 +16,7 @@ impl ISyscallHandler for WriteSyscall {
             legacy_print!("{}", c as char);
         }
 
-        len as isize
+        Ok(len as isize)
     }
 
     fn name(&self) -> &str {

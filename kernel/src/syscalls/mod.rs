@@ -78,7 +78,7 @@ impl SyscallContext<'_> {
 
 pub trait ISyscallHandler {
     // TODO: Asynchronous syscalls
-    fn handle(&self, ctx: &mut SyscallContext) -> isize;
+    fn handle(&self, ctx: &mut SyscallContext) -> Result<isize, isize>;
 
     fn name(&self) -> &str;
 }
@@ -86,7 +86,7 @@ pub trait ISyscallHandler {
 struct ExitSyscall;
 
 impl ISyscallHandler for ExitSyscall {
-    fn handle(&self, ctx: &mut SyscallContext<'_>) -> isize {
+    fn handle(&self, ctx: &mut SyscallContext<'_>) -> Result<isize, isize> {
         let code = ctx.arg0::<isize>();
 
         *ctx.tcb.task_status.lock() = TaskStatus::Exited;
@@ -95,7 +95,7 @@ impl ISyscallHandler for ExitSyscall {
             .store(code as i32, core::sync::atomic::Ordering::Relaxed);
 
         debug!("Task {} exited with code {}", ctx.tcb.task_id.id(), code);
-        0
+        Ok(0)
     }
 
     fn name(&self) -> &str {

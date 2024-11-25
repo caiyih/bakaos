@@ -245,7 +245,10 @@ pub async fn user_trap_handler(tcb: &Arc<TaskControlBlock>) {
                         syscall_id,
                     );
                     let ret = handler.handle(&mut ctx);
-                    trap_ctx.regs.a0 = ret as usize;
+                    trap_ctx.regs.a0 = match ret {
+                        Ok(ok) => ok as usize,
+                        Err(err) => err as usize,
+                    };
                     trap_ctx.sepc += 4; // skip `ecall` instruction`
                 }
                 None => {
