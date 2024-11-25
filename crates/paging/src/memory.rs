@@ -4,14 +4,14 @@ use abstractions::IUsizeAlias;
 use alloc::{collections::BTreeMap, vec::Vec};
 
 use address::{
-    IPageNum, IToPageNum, PhysicalPageNum, VirtualAddress, VirtualAddressRange, VirtualPageNum,
-    VirtualPageNumRange,
+    IPageNum, IToPageNum, PhysicalAddress, PhysicalPageNum, VirtualAddress, VirtualAddressRange,
+    VirtualPageNum, VirtualPageNumRange,
 };
 use allocation::{alloc_frame, TrackedFrame};
 use log::debug;
 use xmas_elf::ElfFile;
 
-use crate::{IRawPageTable, PageTable, PageTableEntryFlags};
+use crate::{PageTable, PageTableEntryFlags};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MapType {
@@ -353,9 +353,12 @@ impl MemorySpace {
     // Map the whole kernel area to the memory space
     // See virtual memory layout in `main.rs` of the kernel for more details
     pub fn register_kernel_area(&mut self) {
-        let root_entries = unsafe {
-            core::mem::transmute::<_, &mut [usize]>(self.page_table.root_ppn().as_entries())
-        };
+        let table_va = self
+            .page_table
+            .root_ppn()
+            .start_addr::<PhysicalAddress>()
+            .to_high_virtual();
+        let p_table = unsafe { &mut *table_va.as_mut_ptr::<[usize; 512]>() };
 
         // layout
         // root[0x100] = (0x00000 << 10) | 0xcf;
@@ -365,9 +368,11 @@ impl MemorySpace {
 
         // PageTableEntryFlags's BitOr operation functions triggers fetch instruction page fault
         // So we uses bare instructions
-        root_entries[0x100] = 0xcf;
-        root_entries[0x101] = (0x40000 << 10) | 0xcf;
-        root_entries[0x102] = (0x80000 << 10) | 0xcf;
+        p_table[0x100] = 0xcf;
+        p_table[0x101] = (0x40000 << 10) | 0xcf;
+        p_table[0x102] = (0x80000 << 10) | 0xcf;
+
+        debug!("Kernel area registered for {:}", self.page_table.root_ppn());
     }
 }
 
