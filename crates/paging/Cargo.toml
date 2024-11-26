@@ -13,6 +13,7 @@ abstractions = { path = "../abstractions", default-features = false }
 bitflags = "2.6.0"
 xmas-elf = "0.9.1"
 log = "0.4.22"
+hermit-sync = "0.1.6"
 
 [features]
 default = ["std"]

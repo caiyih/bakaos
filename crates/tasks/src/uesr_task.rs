@@ -6,11 +6,12 @@ use core::{
     sync::atomic::{AtomicI32, AtomicUsize},
     task::Waker,
 };
+use lock_api::MappedMutexGuard;
 use timing::{TimeSpan, TimeSpec};
 
 use address::VirtualAddress;
-use hermit_sync::SpinMutex;
-use paging::{MemorySpace, MemorySpaceBuilder};
+use hermit_sync::{RawSpinMutex, SpinMutex, SpinMutexGuard};
+use paging::{MemorySpace, MemorySpaceBuilder, PageTable};
 use riscv::register::sstatus::{self, Sstatus, FS, SPP};
 
 use crate::{
@@ -266,6 +267,11 @@ impl TaskControlBlock {
 
     pub fn init(&self) {
         *self.task_status.lock() = TaskStatus::Ready;
+    }
+
+    pub fn borrow_page_table(&self) -> MappedMutexGuard<RawSpinMutex, PageTable> {
+        let memsapce = unsafe { self.memory_space.make_guard_unchecked() };
+        SpinMutexGuard::map(memsapce, |m| m.page_table_mut())
     }
 }
 
