@@ -126,6 +126,7 @@ fn main() {
     preliminary_test("/getpid", None, None);
     preliminary_test("/getppid", None, None);
     preliminary_test("/getcwd", None, None);
+    preliminary_test("/sleep", None, None);
 }
 
 fn preliminary_test(path: &str, args: Option<&[&str]>, envp: Option<&[&str]>) {
