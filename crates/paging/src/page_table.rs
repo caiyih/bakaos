@@ -798,6 +798,11 @@ pub struct PageGuardBuilder<'a, T> {
 
 impl<'a, T> PageGuardBuilder<'a, T> {
     pub fn must_have(self, mut flags: PageTableEntryFlags) -> Option<MustHavePageGuard<'a, T>> {
+        // Fast path for rejecting null pointer
+        if self.vpn_range.start().as_usize() == 0 {
+            return None;
+        }
+        
         flags |= PageTableEntryFlags::Valid;
         for page in self.vpn_range.iter() {
             let entry = self.page_table.get_entry_of(page)?;
