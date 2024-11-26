@@ -1,5 +1,5 @@
 use tasks::UserTaskTimer;
-use timing::{TimeSpan, TimeSpec};
+use timing::{TimeSpan, TimeSpec, TimeVal};
 
 use crate::kernel;
 
@@ -16,6 +16,13 @@ pub fn current_timespec() -> TimeSpec {
     let ticks = machine.get_board_tick() as i64;
     let freq = machine.clock_freq();
     TimeSpec::from_ticks(ticks, freq)
+}
+
+pub fn current_timeval() -> TimeVal {
+    let machine = kernel::get().machine();
+    let ticks = machine.get_board_tick() as i64;
+    let freq = machine.clock_freq();
+    TimeVal::from_ticks(ticks, freq)
 }
 
 impl ITimer for UserTaskTimer {
