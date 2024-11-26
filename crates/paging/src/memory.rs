@@ -204,6 +204,14 @@ impl MemorySpace {
 }
 
 impl MemorySpace {
+    pub fn brk_start(&self) -> VirtualAddress {
+        self.brk_start
+    }
+
+    pub fn brk_page_range(&self) -> VirtualPageNumRange {
+        self.mapping_areas[self.brk_area_idx].vpn_range()
+    }
+
     pub fn increase_brk(&mut self, new_end_vpn: VirtualPageNum) -> Result<(), &str> {
         let brk_area = &mut self.mapping_areas[self.brk_area_idx];
 
