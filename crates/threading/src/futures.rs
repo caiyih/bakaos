@@ -6,7 +6,15 @@ use core::{
 
 pub struct FromResult<T>(T);
 
-pub type CompletedFuture = FromResult<()>;
+#[allow(non_upper_case_globals)]
+pub const CompletedFuture: FromResult<()>  = FromResult(());
+
+impl<T> FromResult<T> 
+{
+    pub fn new(value: T) -> Self {
+        FromResult(value)
+    }
+}
 
 impl<T> Future for FromResult<T>
 where
