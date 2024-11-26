@@ -1,7 +1,10 @@
 use alloc::sync::Arc;
 use file::WriteSyscall;
 use paging::{IWithPageGuardBuilder, PageTableEntryFlags};
-use task::{ExitSyscall, GetCwdSyscall, GetParentPidSyscall, GetPidSyscall, GetTimeOfDaySyscall, TimesSyscall};
+use task::{
+    ExitSyscall, GetCwdSyscall, GetParentPidSyscall, GetPidSyscall, GetTimeOfDaySyscall,
+    TimesSyscall,
+};
 use tasks::TaskControlBlock;
 
 mod file;
