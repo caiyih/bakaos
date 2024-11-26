@@ -259,6 +259,8 @@ pub async fn user_trap_handler_async(tcb: &Arc<TaskControlBlock>) {
             };
             trap_ctx.regs.a0 = ret as usize;
             trap_ctx.sepc += 4; // skip `ecall` instruction
+
+            tcb.memory_space.lock().page_table().restore_temporary_modified_pages();
         }
         Trap::Exception(e) => {
             // Trap::Exception(Exception::InstructionMisaligned) => (),

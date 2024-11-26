@@ -594,8 +594,9 @@ impl PageTable {
 
     // You don't have to call this method manually as long as you created the guard
     pub fn restore_temporary_modified_pages(&self) {
+        debug!("Restoring temporary modified pages");
         match &self.tracker {
-            None => (),
+            None => debug!("Ignoring for borrowed page table"),
             Some(tracker) => {
                 let modified_pages =
                     unsafe { &mut tracker.get().as_mut().unwrap().temporary_modified_pages };
@@ -606,6 +607,7 @@ impl PageTable {
                 }
 
                 for modification in modified_pages.iter() {
+                    debug!("Restoring page: {} to {:?}, current: {:?}", modification.0, modification.1.previous, modification.1.now);
                     let entry = self.get_entry_of(*modification.0).unwrap();
                     *entry = PageTableEntry::new(entry.ppn(), modification.1.previous);
                 }
