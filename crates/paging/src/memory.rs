@@ -221,13 +221,13 @@ impl MemorySpace {
         let increased_range =
             VirtualPageNumRange::from_start_count(old_end_vpn, page_count as usize);
 
-        let brk_area = self.mapping_areas.get_mut(self.brk_area_idx).unwrap();
-
         for vpn in increased_range.iter() {
             brk_area.apply_mapping_single(vpn, None, &mut |vpn, ppn, flags| {
                 self.page_table.map_single(vpn, ppn, flags);
             });
         }
+
+        brk_area.range = VirtualPageNumRange::from_start_end(brk_area.range.start(), new_end_vpn);
 
         Ok(())
     }
@@ -253,13 +253,13 @@ impl MemorySpace {
         let decreased_range =
             VirtualPageNumRange::from_start_count(new_end_vpn, page_count as usize);
 
-        let brk_area = self.mapping_areas.get_mut(self.brk_area_idx).unwrap();
-
         for vpn in decreased_range.iter() {
             brk_area.revoke_mapping_single(vpn, &mut |vpn| {
                 self.page_table.unmap_single(vpn);
             });
         }
+
+        brk_area.range = VirtualPageNumRange::from_start_end(brk_area.range.start(), new_end_vpn);
 
         Ok(())
     }
