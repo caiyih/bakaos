@@ -140,6 +140,32 @@ pub fn get_kernel_page_table() -> &'static PageTable {
     }
 }
 
+impl Drop for PageTable {
+    fn drop(&mut self) {
+        match self.tracker {
+            Some(_) => {
+                let activated = self.is_activated();
+                debug!("Droping owned page table: {}, activated: {}", self.root_ppn(), activated);
+
+                if activated {
+                    debug!("Activating kernel page table for the activated page table is being dropped");
+                    unsafe {
+                        // Lazy switch to kernel page table mechanism implementation:
+                        // When we are executing a task, or process in what are used to, we are using the page table of that task.
+                        // But when the task/process has ended its life cycle, the task control block is dropped, and the page table is also dropped.
+                        // If the page table's frame is rewritten, the page table will be invalid, and the kernel will panic.
+                        // So we have to switch to another valid page table before dropping the current page table.
+                        // The most reliable way is to switch to the kernel page table, which is always valid.
+                        // We only do this when we are dropping a page table that actually owns the page table frames and when the page table is activated.
+                        get_kernel_page_table().activate();
+                    }
+                }
+            },
+            None => debug!("Droping borrowed page table: {}", self.root_ppn()),
+        }
+    }
+}
+
 impl PageTable {
     pub fn borrow_from_root(root_ppn: PhysicalPageNum) -> PageTable {
         PageTable {
