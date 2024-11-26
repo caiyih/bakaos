@@ -255,6 +255,8 @@ impl PageTable {
 
         #[cfg(target_arch = "riscv64")]
         {
+            debug!("Activating page table: {}", self.root_ppn());
+
             let satp = self.satp();
 
             unsafe {
