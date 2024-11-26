@@ -1,6 +1,7 @@
-use crate::legacy_print;
+use paging::{IWithPageGuardBuilder, PageTableEntryFlags};
 
 use super::{ISyncSyscallHandler, SyscallContext, SyscallResult};
+use crate::legacy_print;
 
 pub struct WriteSyscall;
 
@@ -8,15 +9,27 @@ impl ISyncSyscallHandler for WriteSyscall {
     // FIXME: should use the file descriptor to write to the correct file
     fn handle(&self, ctx: &mut SyscallContext<'_>) -> SyscallResult {
         let _fd = ctx.arg0::<i32>();
-        let buf = ctx.arg1::<*const u8>();
+        let p_buf = ctx.arg1::<*const u8>();
         let len = ctx.arg2::<usize>();
 
-        for i in 0..len {
-            let c = unsafe { buf.add(i).read() };
-            legacy_print!("{}", c as char);
-        }
+        let buf = unsafe { core::slice::from_raw_parts(p_buf, len) };
 
-        Ok(len as isize)
+        let memory_space = ctx.tcb.memory_space.lock();
+        match memory_space
+            .page_table()
+            .guard_slice(buf)
+            .must_have(PageTableEntryFlags::User)
+            .with(PageTableEntryFlags::Readable)
+        {
+            Some(guard) => {
+                for c in guard.iter() {
+                    legacy_print!("{}", *c as char);
+                }
+
+                Ok(guard.len() as isize)
+            }
+            None => Err(-1),
+        }
     }
 
     fn name(&self) -> &str {
