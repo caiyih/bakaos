@@ -607,7 +607,10 @@ impl PageTable {
                 }
 
                 for modification in modified_pages.iter() {
-                    debug!("Restoring page: {} to {:?}, current: {:?}", modification.0, modification.1.previous, modification.1.now);
+                    debug!(
+                        "Restoring page: {} to {:?}, current: {:?}",
+                        modification.0, modification.1.previous, modification.1.now
+                    );
                     let entry = self.get_entry_of(*modification.0).unwrap();
                     *entry = PageTableEntry::new(entry.ppn(), modification.1.previous);
                 }
@@ -802,7 +805,7 @@ impl<'a, T> PageGuardBuilder<'a, T> {
         if self.vpn_range.start().as_usize() == 0 {
             return None;
         }
-        
+
         flags |= PageTableEntryFlags::Valid;
         for page in self.vpn_range.iter() {
             let entry = self.page_table.get_entry_of(page)?;
