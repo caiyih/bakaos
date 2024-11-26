@@ -54,7 +54,7 @@ impl ISyncSyscallHandler for TimesSyscall {
         {
             Some(mut guard) => {
                 let user_timer = ctx.tcb.timer.lock().clone();
-                let kernel_timer: tasks::UserTaskTimer = ctx.tcb.kernel_timer.lock().clone();
+                let kernel_timer = ctx.tcb.kernel_timer.lock().clone();
 
                 guard.tms_utime = user_timer.elapsed().total_microseconds() as i64;
                 guard.tms_stime = kernel_timer.elapsed().total_microseconds() as i64;
