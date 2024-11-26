@@ -262,6 +262,12 @@ impl PageTable {
 
         #[cfg(target_arch = "riscv64")]
         {
+            // This avoids losing CPU cache if the page table is already activated
+            // But the scheduler still have to do something else to avoid calling this method multiple times
+            if self.is_activated() {
+                return;
+            }
+
             debug!("Activating page table: {}", self.root_ppn());
 
             let satp = self.satp();
