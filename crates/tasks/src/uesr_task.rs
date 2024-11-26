@@ -1,6 +1,6 @@
 use alloc::{rc::Weak, sync::Arc, vec::Vec};
-use timing::{TimeSpan, TimeSpec};
 use core::{cell::UnsafeCell, mem::MaybeUninit, sync::atomic::AtomicI32, task::Waker};
+use timing::{TimeSpan, TimeSpec};
 
 use address::VirtualAddress;
 use hermit_sync::SpinMutex;
@@ -246,10 +246,10 @@ impl TaskControlBlock {
             children: SpinMutex::new(Vec::new()),
             trap_context: UnsafeCell::new(trap_context),
             waker: UnsafeCell::new(MaybeUninit::uninit()),
-            stats: SpinMutex::new(UserTaskStatistics::new()),
+            stats: SpinMutex::new(UserTaskStatistics::default()),
             start_time: UnsafeCell::new(MaybeUninit::uninit()),
-            timer: SpinMutex::new(UserTaskTimer::new()),
-            kernel_timer: SpinMutex::new(UserTaskTimer::new()),
+            timer: SpinMutex::new(UserTaskTimer::default()),
+            kernel_timer: SpinMutex::new(UserTaskTimer::default()),
         })
     }
 
@@ -282,7 +282,7 @@ impl TaskControlBlock {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct UserTaskStatistics {
     pub external_interrupts: usize,
     pub timer_interrupts: usize,
@@ -291,26 +291,14 @@ pub struct UserTaskStatistics {
     pub syscalls: usize,
 }
 
-impl UserTaskStatistics {
-    pub fn new() -> Self {
-        UserTaskStatistics {
-            external_interrupts: 0,
-            timer_interrupts: 0,
-            software_interrupts: 0,
-            exceptions: 0,
-            syscalls: 0,
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct UserTaskTimer {
     pub total: TimeSpan,
     pub start: Option<TimeSpec>,
 }
 
-impl UserTaskTimer {
-    pub fn new() -> Self {
+impl Default for UserTaskTimer {
+    fn default() -> Self {
         UserTaskTimer {
             total: TimeSpan::zero(),
             start: None,

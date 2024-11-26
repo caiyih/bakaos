@@ -83,12 +83,6 @@ fn kernel_trap_handler() {
             Interrupt::SupervisorTimer => kstat.on_timer_interrupt(),
             Interrupt::SupervisorExternal => kstat.on_external_interrupt(),
         },
-        Trap::Exception(_) => {
-            let kexception = kstat.on_kernel_exception();
-
-            // Handle exceptions
-
-            kexception
-        }
+        Trap::Exception(_) => kstat.on_kernel_exception(),
     };
 }
