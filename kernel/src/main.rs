@@ -121,6 +121,7 @@ fn main() {
     preliminary_test("/uname", None, None);
     preliminary_test("/write", None, None);
     preliminary_test("/times", None, None);
+    preliminary_test("/brk", None, None);
 }
 
 fn preliminary_test(path: &str, args: Option<&[&str]>, envp: Option<&[&str]>) {
