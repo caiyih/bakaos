@@ -845,7 +845,7 @@ impl<'a, T> PageGuardBuilder<'a, T> {
 
             let existing_flags = entry.flags();
 
-            if existing_flags != flags {
+            if !existing_flags.contains(flags) {
                 modified = true;
                 *entry |= flags;
 
