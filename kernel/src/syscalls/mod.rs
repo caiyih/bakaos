@@ -140,6 +140,8 @@ pub trait ISyncSyscallHandler {
     fn name(&self) -> &str;
 }
 
+// This is not recommended compare to async_syscall! macro
+// It brokes debug line info, so better not use except for really simple syscall
 #[macro_export]
 macro_rules! sync_syscall {
     ($struct:ident, $syscall_name:expr, $param:ident, $body:block) => {
