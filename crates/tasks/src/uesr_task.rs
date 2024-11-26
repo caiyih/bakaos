@@ -1,5 +1,6 @@
+use abstractions::operations::IUsizeAlias;
 use alloc::{rc::Weak, sync::Arc, vec::Vec};
-use core::{cell::UnsafeCell, mem::MaybeUninit, sync::atomic::AtomicI32, task::Waker};
+use core::{cell::UnsafeCell, mem::MaybeUninit, sync::atomic::{AtomicI32, AtomicUsize}, task::Waker};
 use timing::{TimeSpan, TimeSpec};
 
 use address::VirtualAddress;
@@ -229,6 +230,7 @@ pub struct TaskControlBlock {
     pub start_time: UnsafeCell<MaybeUninit<TimeSpec>>,
     pub timer: SpinMutex<UserTaskTimer>,
     pub kernel_timer: SpinMutex<UserTaskTimer>,
+    pub brk_pos: AtomicUsize,
 }
 
 unsafe impl Sync for TaskControlBlock {}
@@ -237,6 +239,7 @@ unsafe impl Send for TaskControlBlock {}
 impl TaskControlBlock {
     pub fn new(memory_space_builder: MemorySpaceBuilder) -> Arc<TaskControlBlock> {
         let trap_context = TaskTrapContext::new(&memory_space_builder);
+        let brk_pos = memory_space_builder.memory_space.brk_start().as_usize();
         Arc::new(TaskControlBlock {
             task_id: tid::allocate_tid(),
             task_status: SpinMutex::new(TaskStatus::Uninitialized),
@@ -250,6 +253,7 @@ impl TaskControlBlock {
             start_time: UnsafeCell::new(MaybeUninit::uninit()),
             timer: SpinMutex::new(UserTaskTimer::default()),
             kernel_timer: SpinMutex::new(UserTaskTimer::default()),
+            brk_pos: AtomicUsize::new(brk_pos),
         })
     }
 
