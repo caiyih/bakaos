@@ -1,12 +1,13 @@
 use alloc::sync::Arc;
 use file::WriteSyscall;
 use paging::{IWithPageGuardBuilder, PageTableEntryFlags};
-use task::{ExitSyscall, GetParentPidSyscall, GetPidSyscall, GetTimeOfDaySyscall, TimesSyscall};
+use task::{ExitSyscall, GetCwdSyscall, GetParentPidSyscall, GetPidSyscall, GetTimeOfDaySyscall, TimesSyscall};
 use tasks::TaskControlBlock;
 
 mod file;
 mod task;
 
+const SYSCALL_ID_GETCWD: usize = 17;
 const SYSCALL_ID_WRITE: usize = 64;
 const SYSCALL_ID_EXIT: usize = 93;
 const SYSCALL_ID_TIMES: usize = 153;
@@ -36,6 +37,7 @@ pub struct SyscallDispatcher;
 impl SyscallDispatcher {
     fn translate_id(id: usize) -> Option<&'static dyn ISyncSyscallHandler> {
         match id {
+            SYSCALL_ID_GETCWD => Some(&GetCwdSyscall),
             SYSCALL_ID_WRITE => Some(&WriteSyscall),
             SYSCALL_ID_EXIT => Some(&ExitSyscall),
             SYSCALL_ID_TIMES => Some(&TimesSyscall),

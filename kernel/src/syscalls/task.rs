@@ -168,3 +168,42 @@ impl ISyncSyscallHandler for GetParentPidSyscall {
         "sys_getppid"
     }
 }
+
+pub struct GetCwdSyscall;
+
+impl ISyncSyscallHandler for GetCwdSyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        let buf = ctx.arg0::<*mut u8>();
+        let size = ctx.arg1::<usize>();
+
+        let cwd = unsafe { ctx.tcb.cwd.get().as_ref().unwrap().as_bytes() };
+        let len = cwd.len();
+
+        debug_assert!(len > 0, "cwd remains uninitialized");
+
+        if size < len {
+            return Err(-1);
+        }
+
+        let dst_slice = unsafe { core::slice::from_raw_parts_mut(buf, len) };
+
+        let memory_space = ctx.tcb.memory_space.lock();
+        match memory_space
+            .page_table()
+            .guard_slice(dst_slice)
+            .must_have(PageTableEntryFlags::User)
+            .with(PageTableEntryFlags::Writable)
+        {
+            Some(mut guard) => {
+                let len = core::cmp::min(cwd.len(), size);
+                guard.copy_from_slice(&cwd[..len]);
+                Ok(len as isize)
+            }
+            None => Err(-1),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "sys_getcwd"
+    }
+}
