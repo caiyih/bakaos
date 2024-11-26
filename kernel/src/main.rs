@@ -125,6 +125,7 @@ fn main() {
     preliminary_test("/gettimeofday", None, None);
     preliminary_test("/getpid", None, None);
     preliminary_test("/getppid", None, None);
+    preliminary_test("/getcwd", None, None);
 }
 
 fn preliminary_test(path: &str, args: Option<&[&str]>, envp: Option<&[&str]>) {
@@ -137,6 +138,7 @@ fn preliminary_test(path: &str, args: Option<&[&str]>, envp: Option<&[&str]>) {
     let mut memspace = MemorySpaceBuilder::from_elf(&elf).unwrap();
     memspace.init_stack(args.unwrap_or(&[]), envp.unwrap_or(&[]));
     let task = TaskControlBlock::new(memspace);
+    unsafe { task.cwd.get().as_mut().unwrap().push('/'); }; // SD card is mounted at root
     spawn_task(task);
     threading::run_tasks();
 }
