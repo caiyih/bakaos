@@ -7,7 +7,10 @@ use riscv::{
         supervisor::{Exception, Interrupt},
         Trap,
     },
-    register::{sstatus, stvec},
+    register::{
+        sstatus::{self, Sstatus},
+        stvec,
+    },
 };
 use tasks::{TaskControlBlock, TaskStatus, TaskTrapContext};
 
@@ -194,6 +197,8 @@ pub fn return_to_user(tcb: &Arc<TaskControlBlock>) {
     set_user_trap_handler();
 
     let ctx = tcb.trap_context.get();
+    let m_ctx = unsafe { ctx.as_mut().unwrap() };
+    m_ctx.fregs.activate_restore(); // TODO: Should let the scheduler activate it
     unsafe { sstatus::set_fs(sstatus::FS::Clean) };
 
     // TODO: Start stopwatch
@@ -206,7 +211,9 @@ pub fn return_to_user(tcb: &Arc<TaskControlBlock>) {
 
     set_kernel_trap_handler();
     unsafe { sstatus::set_sum() };
-
+    let sstatus = unsafe { core::mem::transmute::<usize, Sstatus>(ctx.as_ref().unwrap().sstatus) };
+    m_ctx.fregs.on_trap(sstatus);
+    m_ctx.fregs.deactivate(); // TODO: Should let the scheduler deactivate it
     trace!("Returned from task: {}", tcb.task_id.id());
 
     // return to task_loop, and then to user_trap_handler immediately

@@ -4,7 +4,7 @@ use core::{cell::UnsafeCell, mem::MaybeUninit, sync::atomic::AtomicI32, task::Wa
 use address::VirtualAddress;
 use hermit_sync::SpinMutex;
 use paging::{MemorySpace, MemorySpaceBuilder};
-use riscv::register::sstatus::{self, Sstatus, SPP};
+use riscv::register::sstatus::{self, Sstatus, FS, SPP};
 
 use crate::{
     tid::{self, TrackedTaskId},
@@ -48,6 +48,133 @@ pub struct GeneralRegisterContext {
     pub t6: usize,
 }
 
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct FloatRegisterContext {
+    pub f: [f64; 32], // 0 - 31
+    pub fcsr: u32,
+    pub dirty: bool,
+    pub activated: bool,
+}
+
+impl FloatRegisterContext {
+    pub fn snapshot(&mut self) {
+        #[cfg(not(target_arch = "riscv64"))]
+        panic!("Only riscv64 is supported");
+
+        #[cfg(target_arch = "riscv64")]
+        if self.dirty {
+            self.dirty = false;
+
+            unsafe {
+                core::arch::asm!(
+                    "fsd    f0,     0*8(a0)",
+                    "fsd    f1,     1*8(a0)",
+                    "fsd    f2,     2*8(a0)",
+                    "fsd    f3,     3*8(a0)",
+                    "fsd    f4,     4*8(a0)",
+                    "fsd    f5,     5*8(a0)",
+                    "fsd    f6,     6*8(a0)",
+                    "fsd    f7,     7*8(a0)",
+                    "fsd    f8,     8*8(a0)",
+                    "fsd    f9,     9*8(a0)",
+                    "fsd    f10,   10*8(a0)",
+                    "fsd    f11,   11*8(a0)",
+                    "fsd    f12,   12*8(a0)",
+                    "fsd    f13,   13*8(a0)",
+                    "fsd    f14,   14*8(a0)",
+                    "fsd    f15,   15*8(a0)",
+                    "fsd    f16,   16*8(a0)",
+                    "fsd    f17,   17*8(a0)",
+                    "fsd    f18,   18*8(a0)",
+                    "fsd    f19,   19*8(a0)",
+                    "fsd    f20,   20*8(a0)",
+                    "fsd    f21,   21*8(a0)",
+                    "fsd    f22,   22*8(a0)",
+                    "fsd    f23,   23*8(a0)",
+                    "fsd    f24,   24*8(a0)",
+                    "fsd    f25,   25*8(a0)",
+                    "fsd    f26,   26*8(a0)",
+                    "fsd    f27,   27*8(a0)",
+                    "fsd    f28,   28*8(a0)",
+                    "fsd    f29,   29*8(a0)",
+                    "fsd    f30,   30*8(a0)",
+                    "fsd    f31,   31*8(a0)",
+                    "csrr   fcsr,  t0",
+                    "sw     t0,    31*8(a0)",
+                    in("a0") self,
+                    options(nostack, nomem)
+                );
+            }
+        }
+    }
+
+    pub fn restore(&mut self) {
+        #[cfg(not(target_arch = "riscv64"))]
+        panic!("Only riscv64 is supported");
+
+        #[cfg(target_arch = "riscv64")]
+        if !self.activated {
+            self.activated = true;
+
+            unsafe {
+                core::arch::asm!(
+                    "fld    f0,     0*8(a0)",
+                    "fld    f1,     1*8(a0)",
+                    "fld    f2,     2*8(a0)",
+                    "fld    f3,     3*8(a0)",
+                    "fld    f4,     4*8(a0)",
+                    "fld    f5,     5*8(a0)",
+                    "fld    f6,     6*8(a0)",
+                    "fld    f7,     7*8(a0)",
+                    "fld    f8,     8*8(a0)",
+                    "fld    f9,     9*8(a0)",
+                    "fld    f10,   10*8(a0)",
+                    "fld    f11,   11*8(a0)",
+                    "fld    f12,   12*8(a0)",
+                    "fld    f13,   13*8(a0)",
+                    "fld    f14,   14*8(a0)",
+                    "fld    f15,   15*8(a0)",
+                    "fld    f16,   16*8(a0)",
+                    "fld    f17,   17*8(a0)",
+                    "fld    f18,   18*8(a0)",
+                    "fld    f19,   19*8(a0)",
+                    "fld    f20,   20*8(a0)",
+                    "fld    f21,   21*8(a0)",
+                    "fld    f22,   22*8(a0)",
+                    "fld    f23,   23*8(a0)",
+                    "fld    f24,   24*8(a0)",
+                    "fld    f25,   25*8(a0)",
+                    "fld    f26,   26*8(a0)",
+                    "fld    f27,   27*8(a0)",
+                    "fld    f28,   28*8(a0)",
+                    "fld    f29,   29*8(a0)",
+                    "fld    f30,   30*8(a0)",
+                    "fld    f31,   31*8(a0)",
+                    "lw     t0,    32*8(a0)",
+                    "csrw   fcsr,  t0",
+                    in("a0") self,
+                    options(nostack, nomem)
+                );
+            }
+        }
+    }
+
+    pub fn on_trap(&mut self, sstatus: Sstatus) {
+        self.dirty |= sstatus.fs() == FS::Dirty;
+    }
+
+    pub fn activate_restore(&mut self) {
+        self.activated = true;
+        self.restore();
+    }
+
+    pub fn deactivate(&mut self) {
+        self.snapshot();
+        self.activated = false;
+    }
+}
+
 // Saved context for coroutine
 // Following calling convention that only caller-saved registers are saved
 #[repr(C)]
@@ -66,7 +193,7 @@ pub struct TaskTrapContext {
     pub kra: VirtualAddress,          // kernel return address, 34
     pub ktp: usize,                   // kernel tp, 35
     pub kregs: CoroutineSavedContext, // 36 - 47
-                                      // reserved for float point registers
+    pub fregs: FloatRegisterContext,
 }
 
 impl TaskTrapContext {
