@@ -100,7 +100,7 @@ impl FloatRegisterContext {
                     "fsd    f29,   29*8(a0)",
                     "fsd    f30,   30*8(a0)",
                     "fsd    f31,   31*8(a0)",
-                    "csrr   fcsr,  t0",
+                    "csrr   t0,    fcsr",
                     "sw     t0,    31*8(a0)",
                     in("a0") self,
                     options(nostack, nomem)
