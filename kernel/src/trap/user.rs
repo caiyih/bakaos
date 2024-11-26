@@ -277,10 +277,8 @@ pub async fn user_trap_handler_async(tcb: &Arc<TaskControlBlock>) {
             trap_ctx.regs.a0 = ret as usize;
             trap_ctx.sepc += 4; // skip `ecall` instruction
 
-            tcb.memory_space
-                .lock()
-                .page_table()
-                .restore_temporary_modified_pages();
+            // tracker is locked, so we can borrow the page table
+            tcb.borrow_page_table().restore_temporary_modified_pages();
         }
         Trap::Exception(e) => {
             kstat.on_user_exception();
