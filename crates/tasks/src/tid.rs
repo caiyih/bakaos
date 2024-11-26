@@ -46,7 +46,8 @@ struct TaskIdAllocator {
 impl TaskIdAllocator {
     fn new() -> Self {
         TaskIdAllocator {
-            current: 1,
+            // reserve first 2000 TIDs
+            current: 2000,
             recycled: Vec::new(),
         }
     }
