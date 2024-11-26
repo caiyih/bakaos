@@ -1,13 +1,15 @@
 use alloc::sync::Arc;
 use file::WriteSyscall;
-use log::debug;
 use paging::{IWithPageGuardBuilder, PageTableEntryFlags};
-use tasks::{TaskControlBlock, TaskStatus};
+use task::{ExitSyscall, TimesSyscall};
+use tasks::TaskControlBlock;
 
 mod file;
+mod task;
 
 const SYSCALL_ID_WRITE: usize = 64;
 const SYSCALL_ID_EXIT: usize = 93;
+const SYSCALL_ID_TIMES: usize = 153;
 const SYSCALL_ID_UNAME: usize = 160;
 
 pub trait ISyscallResult {
@@ -32,6 +34,7 @@ impl SyscallDispatcher {
         match id {
             SYSCALL_ID_WRITE => Some(&WriteSyscall),
             SYSCALL_ID_EXIT => Some(&ExitSyscall),
+            SYSCALL_ID_TIMES => Some(&TimesSyscall),
             SYSCALL_ID_UNAME => Some(&UnameSyscall),
             _ => None,
         }
@@ -111,26 +114,6 @@ pub trait ISyncSyscallHandler {
     fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult;
 
     fn name(&self) -> &str;
-}
-
-struct ExitSyscall;
-
-impl ISyncSyscallHandler for ExitSyscall {
-    fn handle(&self, ctx: &mut SyscallContext<'_>) -> SyscallResult {
-        let code = ctx.arg0::<isize>();
-
-        *ctx.tcb.task_status.lock() = TaskStatus::Exited;
-        ctx.tcb
-            .exit_code
-            .store(code as i32, core::sync::atomic::Ordering::Relaxed);
-
-        debug!("Task {} exited with code {}", ctx.tcb.task_id.id(), code);
-        Ok(0)
-    }
-
-    fn name(&self) -> &str {
-        "sys_exit"
-    }
 }
 
 #[repr(C)]
