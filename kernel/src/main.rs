@@ -124,6 +124,7 @@ fn main() {
     preliminary_test("/brk", None, None);
     preliminary_test("/gettimeofday", None, None);
     preliminary_test("/getpid", None, None);
+    preliminary_test("/getppid", None, None);
 }
 
 fn preliminary_test(path: &str, args: Option<&[&str]>, envp: Option<&[&str]>) {
