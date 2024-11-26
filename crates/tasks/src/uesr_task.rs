@@ -1,6 +1,11 @@
 use abstractions::operations::IUsizeAlias;
 use alloc::{rc::Weak, sync::Arc, vec::Vec};
-use core::{cell::UnsafeCell, mem::MaybeUninit, sync::atomic::{AtomicI32, AtomicUsize}, task::Waker};
+use core::{
+    cell::UnsafeCell,
+    mem::MaybeUninit,
+    sync::atomic::{AtomicI32, AtomicUsize},
+    task::Waker,
+};
 use timing::{TimeSpan, TimeSpec};
 
 use address::VirtualAddress;
