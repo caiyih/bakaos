@@ -145,7 +145,7 @@ macro_rules! sync_syscall {
     ($struct:ident, $syscall_name:expr, $param:ident, $body:block) => {
         pub struct $struct;
 
-        impl crate::syscalls::ISyncSyscallHandler for $struct {
+        impl $crate::syscalls::ISyncSyscallHandler for $struct {
             fn handle(&self, $param: &mut SyscallContext) -> SyscallResult {
                 $body
             }
@@ -164,7 +164,11 @@ macro_rules! async_syscall {
             // It's hard to find the syscall id constants with macro
             // So we just read the syscall id from the register
             let sys_id = $param.tcb.mut_trap_ctx().regs.a7;
-            log::debug!("[User trap] [Exception::Syscall] Async handler name: {}({})", stringify!($name), sys_id);
+            log::debug!(
+                "[User trap] [Exception::Syscall] Async handler name: {}({})",
+                stringify!($name),
+                sys_id
+            );
             $body
         }
     };
