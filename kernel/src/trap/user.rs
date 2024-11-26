@@ -17,6 +17,7 @@ use tasks::{TaskControlBlock, TaskStatus, TaskTrapContext};
 use crate::{
     kernel,
     syscalls::{ISyscallResult, SyscallDispatcher},
+    timing::ITimer,
 };
 
 use super::set_kernel_trap_handler;
@@ -204,13 +205,13 @@ pub fn return_to_user(tcb: &Arc<TaskControlBlock>) {
     m_ctx.fregs.activate_restore(); // TODO: Should let the scheduler activate it
     unsafe { sstatus::set_fs(sstatus::FS::Clean) };
 
-    // TODO: Start stopwatch
+    tcb.kernel_timer.lock().set();
 
     unsafe {
         __return_from_user_trap(ctx);
     }
 
-    // TODO: Stop stopwatch and record the time
+    tcb.kernel_timer.lock().start();
 
     set_kernel_trap_handler();
     unsafe { sstatus::set_sum() };
@@ -233,6 +234,7 @@ pub async fn user_trap_handler_async(tcb: &Arc<TaskControlBlock>) {
     let scause = unsafe { core::mem::transmute::<_, Trap<Interrupt, Exception>>(scause) };
     match scause {
         Trap::Interrupt(Interrupt::SupervisorTimer) => {
+            tcb.stats.lock().timer_interrupts += 1;
             panic!("[User trap] [Interrupt::SupervisorTimer] Unimplemented")
         }
         Trap::Interrupt(i) => panic!("[User trap] [Interrupt] Unimplementd: {:?}", i),
@@ -245,6 +247,8 @@ pub async fn user_trap_handler_async(tcb: &Arc<TaskControlBlock>) {
         }
         Trap::Exception(Exception::UserEnvCall) => {
             kstat.on_syscall();
+            tcb.stats.lock().syscalls += 1; // can not hold the lock for too long
+                                            // or we may cause deadlock
 
             let trap_ctx = tcb.mut_trap_ctx();
             let syscall_id = trap_ctx.regs.a7;
@@ -280,6 +284,7 @@ pub async fn user_trap_handler_async(tcb: &Arc<TaskControlBlock>) {
         }
         Trap::Exception(e) => {
             kstat.on_user_exception();
+            tcb.stats.lock().exceptions += 1;
             // Trap::Exception(Exception::InstructionMisaligned) => (),
             // Trap::Exception(Exception::InstructionFault) => (),
             // Trap::Exception(Exception::IllegalInstruction) => (),

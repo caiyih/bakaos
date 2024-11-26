@@ -33,8 +33,12 @@ impl Future for ExposeWakerFuture {
 async fn task_loop(tcb: Arc<TaskControlBlock>) {
     debug_assert!(tcb.is_ready(), "task must be ready to run");
 
-    // We can't pass the waker(or the context) to nested functions, so we store it in the tcb.
-    unsafe { *tcb.waker.get() = MaybeUninit::new(ExposeWakerFuture.await) };
+    unsafe {
+        // We can't pass the waker(or the context) to nested functions, so we store it in the tcb.
+        *tcb.waker.get() = MaybeUninit::new(ExposeWakerFuture.await);
+        *tcb.start_time.get().as_mut().unwrap() =
+            MaybeUninit::new(crate::timing::current_timespec());
+    }
 
     *tcb.task_status.lock() = TaskStatus::Running;
     while !tcb.is_exited() {

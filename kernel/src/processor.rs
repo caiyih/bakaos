@@ -3,6 +3,8 @@ use core::{arch::asm, mem::MaybeUninit, usize};
 use alloc::sync::Arc;
 use tasks::TaskControlBlock;
 
+use crate::timing::ITimer;
+
 #[allow(unused)]
 pub struct ProcessorUnit {
     hart_id: usize,
@@ -30,9 +32,9 @@ impl ProcessorUnit {
     #[no_mangle]
     pub fn stage_task(&mut self, task: Arc<TaskControlBlock>) {
         unsafe { task.memory_space.lock().page_table().activate() };
+        task.timer.lock().start();
+        task.kernel_timer.lock().start();
         self.staged_task = Some(task);
-
-        // TODO: setup timer
     }
 
     pub fn staged_task(&self) -> Option<Arc<TaskControlBlock>> {
@@ -40,8 +42,14 @@ impl ProcessorUnit {
     }
 
     pub fn pop_staged_task(&mut self) -> Option<Arc<TaskControlBlock>> {
-        // TODO: stop timer
-        self.staged_task.take()
+        let tcb = self.staged_task.take();
+
+        if let Some(ref tcb) = tcb {
+            tcb.timer.lock().set();
+            tcb.kernel_timer.lock().set();
+        }
+
+        tcb
     }
 
     pub fn is_idle(&self) -> bool {
