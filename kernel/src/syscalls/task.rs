@@ -5,6 +5,7 @@ use address::{IPageNum, IToPageNum, VirtualAddress};
 use log::debug;
 use paging::{IWithPageGuardBuilder, PageTableEntryFlags};
 use tasks::TaskStatus;
+use timing::TimeVal;
 
 use crate::timing::ITimer;
 
@@ -92,7 +93,7 @@ impl ISyncSyscallHandler for BrkSyscall {
         // new brk is in the same page, no need to allocate new pages
         // Only update brk position
         let brk_page_end = brk_area.end().start_addr::<VirtualAddress>().as_usize();
-        if brk <  brk_page_end {
+        if brk < brk_page_end {
             ctx.tcb.brk_pos.store(brk, Ordering::Relaxed);
             return Ok(brk as isize);
         }
@@ -114,5 +115,31 @@ impl ISyncSyscallHandler for BrkSyscall {
 
     fn name(&self) -> &str {
         "sys_brk"
+    }
+}
+
+pub struct GetTimeOfDaySyscall;
+
+impl ISyncSyscallHandler for GetTimeOfDaySyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        let tv = ctx.arg0::<*mut TimeVal>();
+
+        let memory_space = ctx.tcb.memory_space.lock();
+        match memory_space
+            .page_table()
+            .guard_ptr(tv)
+            .must_have(PageTableEntryFlags::User)
+            .with(PageTableEntryFlags::Writable)
+        {
+            Some(mut guard) => {
+                *guard = crate::timing::current_timeval();
+                Ok(0)
+            }
+            None => Err(-1),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "sys_gettimeofday"
     }
 }

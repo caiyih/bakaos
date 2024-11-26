@@ -1,7 +1,7 @@
 use alloc::sync::Arc;
 use file::WriteSyscall;
 use paging::{IWithPageGuardBuilder, PageTableEntryFlags};
-use task::{ExitSyscall, TimesSyscall};
+use task::{ExitSyscall, GetTimeOfDaySyscall, TimesSyscall};
 use tasks::TaskControlBlock;
 
 mod file;
@@ -11,6 +11,7 @@ const SYSCALL_ID_WRITE: usize = 64;
 const SYSCALL_ID_EXIT: usize = 93;
 const SYSCALL_ID_TIMES: usize = 153;
 const SYSCALL_ID_UNAME: usize = 160;
+const SYSCALL_ID_GETTIMEOFDAY: usize = 169;
 const SYSCALL_ID_BRK: usize = 214;
 
 pub trait ISyscallResult {
@@ -37,6 +38,7 @@ impl SyscallDispatcher {
             SYSCALL_ID_EXIT => Some(&ExitSyscall),
             SYSCALL_ID_TIMES => Some(&TimesSyscall),
             SYSCALL_ID_UNAME => Some(&UnameSyscall),
+            SYSCALL_ID_GETTIMEOFDAY => Some(&GetTimeOfDaySyscall),
             SYSCALL_ID_BRK => Some(&task::BrkSyscall),
             _ => None,
         }
