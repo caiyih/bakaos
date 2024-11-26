@@ -1,4 +1,5 @@
 use alloc::{rc::Weak, sync::Arc, vec::Vec};
+use timing::{TimeSpan, TimeSpec};
 use core::{cell::UnsafeCell, mem::MaybeUninit, sync::atomic::AtomicI32, task::Waker};
 
 use address::VirtualAddress;
@@ -224,6 +225,10 @@ pub struct TaskControlBlock {
     pub children: SpinMutex<Vec<Arc<TaskControlBlock>>>,
     pub trap_context: UnsafeCell<TaskTrapContext>,
     pub waker: UnsafeCell<MaybeUninit<Waker>>,
+    pub stats: SpinMutex<UserTaskStatistics>,
+    pub start_time: UnsafeCell<MaybeUninit<TimeSpec>>,
+    pub timer: SpinMutex<UserTaskTimer>,
+    pub kernel_timer: SpinMutex<UserTaskTimer>,
 }
 
 unsafe impl Sync for TaskControlBlock {}
@@ -241,6 +246,10 @@ impl TaskControlBlock {
             children: SpinMutex::new(Vec::new()),
             trap_context: UnsafeCell::new(trap_context),
             waker: UnsafeCell::new(MaybeUninit::uninit()),
+            stats: SpinMutex::new(UserTaskStatistics::new()),
+            start_time: UnsafeCell::new(MaybeUninit::uninit()),
+            timer: SpinMutex::new(UserTaskTimer::new()),
+            kernel_timer: SpinMutex::new(UserTaskTimer::new()),
         })
     }
 
@@ -270,5 +279,41 @@ impl TaskControlBlock {
 
     pub fn is_exited(&self) -> bool {
         *self.task_status.lock() >= TaskStatus::Exited
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct UserTaskStatistics {
+    pub external_interrupts: usize,
+    pub timer_interrupts: usize,
+    pub software_interrupts: usize,
+    pub exceptions: usize,
+    pub syscalls: usize,
+}
+
+impl UserTaskStatistics {
+    pub fn new() -> Self {
+        UserTaskStatistics {
+            external_interrupts: 0,
+            timer_interrupts: 0,
+            software_interrupts: 0,
+            exceptions: 0,
+            syscalls: 0,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct UserTaskTimer {
+    pub total: TimeSpan,
+    pub start: Option<TimeSpec>,
+}
+
+impl UserTaskTimer {
+    pub fn new() -> Self {
+        UserTaskTimer {
+            total: TimeSpan::zero(),
+            start: None,
+        }
     }
 }
