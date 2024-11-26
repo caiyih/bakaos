@@ -70,6 +70,10 @@ impl SyscallDispatcher {
         syscall_id: usize,
     ) -> Option<SyscallResult> {
         let mut ctx = SyscallContext::new(tcb);
+
+        // Since interface with async function brokes object safety
+        // The return value of a async function is actually a anonymous Type implementing Future
+        // So we have to use static dispatch here
         match syscall_id {
             SYSCALL_ID_NANOSLEEP => Some(sys_nanosleep_async(&mut ctx).await),
             _ => None,
@@ -134,6 +138,36 @@ pub trait ISyncSyscallHandler {
     fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult;
 
     fn name(&self) -> &str;
+}
+
+#[macro_export]
+macro_rules! sync_syscall {
+    ($struct:ident, $syscall_name:expr, $param:ident, $body:block) => {
+        pub struct $struct;
+
+        impl crate::syscalls::ISyncSyscallHandler for $struct {
+            fn handle(&self, $param: &mut SyscallContext) -> SyscallResult {
+                $body
+            }
+
+            fn name(&self) -> &str {
+                $syscall_name
+            }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! async_syscall {
+    ($name:ident, $param:ident, $body:block) => {
+        pub async fn $name($param: &mut SyscallContext<'_>) -> SyscallResult {
+            // It's hard to find the syscall id constants with macro
+            // So we just read the syscall id from the register
+            let sys_id = $param.tcb.mut_trap_ctx().regs.a7;
+            log::debug!("[User trap] [Exception::Syscall] Async handler name: {}({})", stringify!($name), sys_id);
+            $body
+        }
+    };
 }
 
 #[repr(C)]
