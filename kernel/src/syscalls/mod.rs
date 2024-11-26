@@ -5,14 +5,17 @@ use task::{
     ExitSyscall, GetCwdSyscall, GetParentPidSyscall, GetPidSyscall, GetTimeOfDaySyscall,
     TimesSyscall,
 };
+use task_async::sys_nanosleep_async;
 use tasks::TaskControlBlock;
 
 mod file;
 mod task;
+mod task_async;
 
 const SYSCALL_ID_GETCWD: usize = 17;
 const SYSCALL_ID_WRITE: usize = 64;
 const SYSCALL_ID_EXIT: usize = 93;
+const SYSCALL_ID_NANOSLEEP: usize = 101;
 const SYSCALL_ID_TIMES: usize = 153;
 const SYSCALL_ID_UNAME: usize = 160;
 const SYSCALL_ID_GETTIMEOFDAY: usize = 169;
@@ -63,10 +66,14 @@ impl SyscallDispatcher {
     }
 
     pub async fn dispatch_async(
-        _tcb: &Arc<TaskControlBlock>,
-        _syscall_id: usize,
+        tcb: &Arc<TaskControlBlock>,
+        syscall_id: usize,
     ) -> Option<SyscallResult> {
-        None
+        let mut ctx = SyscallContext::new(tcb);
+        match syscall_id {
+            SYSCALL_ID_NANOSLEEP => Some(sys_nanosleep_async(&mut ctx).await),
+            _ => None,
+        }
     }
 }
 
