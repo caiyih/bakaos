@@ -41,6 +41,15 @@ impl ISyscallResult for SyscallResult {
 pub struct SyscallDispatcher;
 
 impl SyscallDispatcher {
+    pub fn dispatch(
+        tcb: &Arc<TaskControlBlock>,
+        syscall_id: usize,
+    ) -> Option<(SyscallContext, &'static dyn ISyncSyscallHandler)> {
+        let handler = Self::translate_id(syscall_id)?;
+
+        Some((SyscallContext::new(tcb), handler))
+    }
+
     fn translate_id(id: usize) -> Option<&'static dyn ISyncSyscallHandler> {
         match id {
             SYSCALL_ID_GETCWD => Some(&GetCwdSyscall),
@@ -54,15 +63,6 @@ impl SyscallDispatcher {
             SYSCALL_ID_BRK => Some(&task::BrkSyscall),
             _ => None,
         }
-    }
-
-    pub fn dispatch(
-        tcb: &Arc<TaskControlBlock>,
-        syscall_id: usize,
-    ) -> Option<(SyscallContext, &'static dyn ISyncSyscallHandler)> {
-        let handler = Self::translate_id(syscall_id)?;
-
-        Some((SyscallContext::new(tcb), handler))
     }
 
     pub async fn dispatch_async(
