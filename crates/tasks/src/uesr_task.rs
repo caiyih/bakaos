@@ -1,5 +1,5 @@
 use abstractions::operations::IUsizeAlias;
-use alloc::{rc::Weak, sync::Arc, vec::Vec};
+use alloc::{rc::Weak, string::String, sync::Arc, vec::Vec};
 use core::{
     cell::UnsafeCell,
     mem::MaybeUninit,
@@ -236,6 +236,7 @@ pub struct TaskControlBlock {
     pub timer: SpinMutex<UserTaskTimer>,
     pub kernel_timer: SpinMutex<UserTaskTimer>,
     pub brk_pos: AtomicUsize,
+    pub cwd: UnsafeCell<String>,
 }
 
 unsafe impl Sync for TaskControlBlock {}
@@ -259,6 +260,7 @@ impl TaskControlBlock {
             timer: SpinMutex::new(UserTaskTimer::default()),
             kernel_timer: SpinMutex::new(UserTaskTimer::default()),
             brk_pos: AtomicUsize::new(brk_pos),
+            cwd: UnsafeCell::new(String::new()),
         })
     }
 
