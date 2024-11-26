@@ -283,7 +283,7 @@ pub async fn user_trap_handler_async(tcb: &Arc<TaskControlBlock>) {
             // Trap::Exception(Exception::InstructionPageFault) => (),
             // Trap::Exception(Exception::LoadPageFault) => (),
             // Trap::Exception(Exception::StorePageFault) => (),
-            debug!("[User Trap] [{:?}] Not supported! Kernel killed it", e);
+            debug!("[User Trap] [{:?}] stval: {:#x}Kernel killed it", e, stval);
             *tcb.task_status.lock() = TaskStatus::Exited;
         }
     }
