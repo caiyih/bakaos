@@ -195,7 +195,7 @@ impl ISyncSyscallHandler for GetCwdSyscall {
             .with(PageTableEntryFlags::Writable)
         {
             Some(mut guard) => {
-                guard.copy_from_slice(&cwd);
+                guard.copy_from_slice(cwd);
                 Ok(len as isize)
             }
             None => Err(-1),
