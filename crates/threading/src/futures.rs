@@ -7,10 +7,9 @@ use core::{
 pub struct FromResult<T>(T);
 
 #[allow(non_upper_case_globals)]
-pub const CompletedFuture: FromResult<()>  = FromResult(());
+pub const CompletedFuture: FromResult<()> = FromResult(());
 
-impl<T> FromResult<T> 
-{
+impl<T> FromResult<T> {
     pub fn new(value: T) -> Self {
         FromResult(value)
     }
