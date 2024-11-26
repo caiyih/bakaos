@@ -12,6 +12,7 @@ paging = { path = "../paging", default-features = false }
 address = { path = "../address", default-features = false }
 abstractions = { path = "../abstractions", default-features = false }
 riscv = "0.12.1"
+lock_api = "0.4.12"
 
 [features]
 default = ["std"]
