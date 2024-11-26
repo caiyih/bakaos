@@ -2,9 +2,11 @@ use paging::{IWithPageGuardBuilder, PageTableEntryFlags};
 use threading::yield_now;
 use timing::TimeSpec;
 
+use crate::async_syscall;
+
 use super::{SyscallContext, SyscallResult};
 
-pub async fn sys_nanosleep_async(ctx: &mut SyscallContext<'_>) -> SyscallResult {
+async_syscall!(sys_nanosleep_async, ctx, {
     let req = ctx.arg0::<*const TimeSpec>();
 
     match ctx
@@ -26,4 +28,4 @@ pub async fn sys_nanosleep_async(ctx: &mut SyscallContext<'_>) -> SyscallResult 
         }
         None => Err(-1),
     }
-}
+});
