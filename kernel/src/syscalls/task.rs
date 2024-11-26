@@ -154,4 +154,17 @@ impl ISyncSyscallHandler for GetPidSyscall {
     fn name(&self) -> &str {
         "sys_getpid"
     }
-} 
+}
+
+pub struct GetParentPidSyscall;
+
+impl ISyncSyscallHandler for GetParentPidSyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        let parent = ctx.tcb.parent.as_ref().map(|p| p.upgrade().unwrap());
+        Ok(parent.map(|p| p.task_id.id()).unwrap_or(1) as isize)
+    }
+
+    fn name(&self) -> &str {
+        "sys_getppid"
+    }
+}
