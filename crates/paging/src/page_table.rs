@@ -1,10 +1,10 @@
-use alloc::{boxed::Box, collections::BTreeMap, vec, vec::Vec};
+use alloc::{collections::BTreeMap, sync::Arc, vec, vec::Vec};
 use core::{
-    cell::UnsafeCell,
     marker::PhantomData,
     ops::{Deref, DerefMut},
     slice,
 };
+use hermit_sync::SpinMutex;
 use log::debug;
 
 use abstractions::{impl_arith_ops, impl_bitwise_ops, impl_bitwise_ops_with, IUsizeAlias};
@@ -209,12 +209,15 @@ struct ModifiablePageTable {
     temporary_modified_pages: BTreeMap<VirtualPageNum, TemporaryModifiedPage>,
 }
 
+unsafe impl Sync for ModifiablePageTable {}
+unsafe impl Send for ModifiablePageTable {}
+
 // A page table is a tree of page table entries
 // Represent a SV39 page table and exposes many useful methods
 // to work with the memory space of the current page table
 pub struct PageTable {
     root: PhysicalPageNum,
-    tracker: Option<Box<UnsafeCell<ModifiablePageTable>>>,
+    tracker: Option<Arc<SpinMutex<ModifiablePageTable>>>,
 }
 
 // Consturctor and Properties
@@ -236,7 +239,7 @@ impl PageTable {
 
         Self {
             root,
-            tracker: Some(Box::new(UnsafeCell::new(tracker))),
+            tracker: Some(Arc::new(SpinMutex::new(tracker))),
         }
     }
 
@@ -348,7 +351,7 @@ impl PageTable {
         let indices = vpn.page_table_indices();
         let mut table_ppn = self.root_ppn();
 
-        let tracker = unsafe { self.tracker.as_mut().unwrap_unchecked().get_mut() };
+        let tracker = unsafe { &mut self.tracker.as_mut().unwrap_unchecked().lock() };
         for (level, index) in indices.iter().enumerate() {
             let table = unsafe { table_ppn.as_entries() };
             let entry = &mut table[*index];
@@ -598,9 +601,7 @@ impl PageTable {
         match &self.tracker {
             None => debug!("Ignoring for borrowed page table"),
             Some(tracker) => {
-                let modified_pages =
-                    unsafe { &mut tracker.get().as_mut().unwrap().temporary_modified_pages };
-
+                let modified_pages = &mut tracker.lock().temporary_modified_pages;
                 // Prevent flushing tlb if there is no modification
                 if modified_pages.is_empty() {
                     return;
@@ -631,10 +632,10 @@ impl PageTable {
         let entry = self.get_create_entry_of(vpn);
         *entry |= flags;
 
-        let tracker = unsafe { self.tracker.as_mut().unwrap_unchecked() };
+        let tracker = unsafe { &mut self.tracker.as_mut().unwrap_unchecked() };
         // Update the temporary modified pages
         tracker
-            .get_mut()
+            .lock()
             .temporary_modified_pages
             .entry(vpn)
             .and_modify(|e| e.now |= flags); // not add if not exist
@@ -654,7 +655,7 @@ impl PageTable {
         let tracker = unsafe { self.tracker.as_mut().unwrap_unchecked() };
         // Update the temporary modified pages
         tracker
-            .get_mut()
+            .lock()
             .temporary_modified_pages
             .entry(vpn)
             .and_modify(|e| e.now &= !flags); // not add if not exist
@@ -828,15 +829,7 @@ impl<'a, T> PageGuardBuilder<'a, T> {
             self.page_table.tracker.is_some(),
             "Page table is not modifiable"
         );
-        let tracker = unsafe {
-            self.page_table
-                .tracker
-                .as_ref()
-                .unwrap_unchecked()
-                .get()
-                .as_mut()
-                .unwrap()
-        };
+        let tracker = &mut self.page_table.tracker.as_ref().unwrap().lock();
 
         let mut modified = false;
 
