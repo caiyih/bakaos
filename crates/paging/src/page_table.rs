@@ -1,4 +1,4 @@
-use alloc::{collections::BTreeMap, vec::Vec};
+use alloc::{boxed::Box, collections::BTreeMap, vec, vec::Vec};
 use core::{
     cell::UnsafeCell,
     marker::PhantomData,
@@ -144,11 +144,7 @@ impl PageTable {
     pub fn borrow_from_root(root_ppn: PhysicalPageNum) -> PageTable {
         PageTable {
             root: root_ppn,
-            // lazy allocation, no allocation when created
-            // Not using `from_raw_parts(null, 0, 0` for compiler optimization generates no `ret` instruction
-            // See frame.rs at allocation for more info
-            table_frames: Vec::new_in(alloc::alloc::Global),
-            temporary_modified_pages: UnsafeCell::new(BTreeMap::new()), // This does not involves memory allocation
+            tracker: None,
         }
     }
 
@@ -176,15 +172,19 @@ pub fn init_kernel_page_table(kernel_table: PageTable) {
     }
 }
 
+struct ModifiablePageTable {
+    table_frames: Vec<TrackedFrame>,
+    /// # WARNING
+    /// Remember to call `restore_temporary_modified_pages` before returning to the user space
+    temporary_modified_pages: BTreeMap<VirtualPageNum, TemporaryModifiedPage>,
+}
+
 // A page table is a tree of page table entries
 // Represent a SV39 page table and exposes many useful methods
 // to work with the memory space of the current page table
 pub struct PageTable {
     root: PhysicalPageNum,
-    table_frames: Vec<TrackedFrame>,
-    /// # WARNING
-    /// Remember to call `restore_temporary_modified_pages` before returning to the user space
-    temporary_modified_pages: UnsafeCell<BTreeMap<VirtualPageNum, TemporaryModifiedPage>>,
+    tracker: Option<Box<UnsafeCell<ModifiablePageTable>>>,
 }
 
 // Consturctor and Properties
@@ -199,14 +199,14 @@ impl PageTable {
         debug!("Allocating page table at: {}", root);
         frame.zero();
 
-        // vec![] triggers page fault, so uses manual allocation
-        let mut table_frames = Vec::with_capacity(1);
-        table_frames.push(frame);
+        let tracker = ModifiablePageTable {
+            table_frames: vec![frame],
+            temporary_modified_pages: BTreeMap::new(),
+        };
 
         Self {
             root,
-            table_frames,
-            temporary_modified_pages: UnsafeCell::new(BTreeMap::new()),
+            tracker: Some(Box::new(UnsafeCell::new(tracker))),
         }
     }
 
@@ -311,9 +311,12 @@ impl PageTable {
     }
 
     fn get_create_entry_of(&mut self, vpn: VirtualPageNum) -> &mut PageTableEntry {
+        debug_assert!(self.tracker.is_some(), "Page table is not modifiable");
+
         let indices = vpn.page_table_indices();
         let mut table_ppn = self.root_ppn();
 
+        let tracker = unsafe { self.tracker.as_mut().unwrap_unchecked().get_mut() };
         for (level, index) in indices.iter().enumerate() {
             let table = unsafe { table_ppn.as_entries() };
             let entry = &mut table[*index];
@@ -327,7 +330,7 @@ impl PageTable {
                     .expect("Failed to allocate a frame for the page table");
                 frame.zero();
                 *entry = PageTableEntry::new(frame.ppn(), PageTableEntryFlags::Valid);
-                self.table_frames.push(frame);
+                tracker.table_frames.push(frame);
             }
 
             table_ppn = entry.ppn();
@@ -559,33 +562,43 @@ impl PageTable {
 
     // You don't have to call this method manually as long as you created the guard
     pub fn restore_temporary_modified_pages(&self) {
-        let modified_pages = unsafe { self.temporary_modified_pages.get().as_mut().unwrap() };
+        match &self.tracker {
+            None => (),
+            Some(tracker) => {
+                let modified_pages =
+                    unsafe { &mut tracker.get().as_mut().unwrap().temporary_modified_pages };
 
-        // Prevent flushing tlb if there is no modification
-        if modified_pages.is_empty() {
-            return;
+                // Prevent flushing tlb if there is no modification
+                if modified_pages.is_empty() {
+                    return;
+                }
+
+                for modification in modified_pages.iter() {
+                    let entry = self.get_entry_of(*modification.0).unwrap();
+                    *entry = PageTableEntry::new(entry.ppn(), modification.1.previous);
+                }
+
+                modified_pages.clear();
+
+                self.flush_tlb();
+            }
         }
-
-        for modification in modified_pages.iter() {
-            let entry = self.get_entry_of(*modification.0).unwrap();
-            *entry = PageTableEntry::new(entry.ppn(), modification.1.previous);
-        }
-
-        modified_pages.clear();
-
-        self.flush_tlb();
     }
 
     /// If you want to modify the page table persistently,
     /// you should use the following methods instead of modifying the page table directly
     #[allow(clippy::option_map_unit_fn)]
     pub fn persistent_add(&mut self, vpn: VirtualPageNum, flags: PageTableEntryFlags) {
+        debug_assert!(self.tracker.is_some(), "Page table is not modifiable");
+
         let entry = self.get_create_entry_of(vpn);
         *entry |= flags;
 
+        let tracker = unsafe { self.tracker.as_mut().unwrap_unchecked() };
         // Update the temporary modified pages
-        self.temporary_modified_pages
+        tracker
             .get_mut()
+            .temporary_modified_pages
             .entry(vpn)
             .and_modify(|e| e.now |= flags); // not add if not exist
 
@@ -596,12 +609,16 @@ impl PageTable {
     /// you should use the following methods instead of modifying the page table directly
     #[allow(clippy::option_map_unit_fn)]
     pub fn persistent_remove(&mut self, vpn: VirtualPageNum, flags: PageTableEntryFlags) {
+        debug_assert!(self.tracker.is_some(), "Page table is not modifiable");
+
         let entry = self.get_entry_of(vpn).unwrap();
         *entry &= !flags;
 
+        let tracker = unsafe { self.tracker.as_mut().unwrap_unchecked() };
         // Update the temporary modified pages
-        self.temporary_modified_pages
+        tracker
             .get_mut()
+            .temporary_modified_pages
             .entry(vpn)
             .and_modify(|e| e.now &= !flags); // not add if not exist
 
@@ -765,6 +782,20 @@ impl<'a, T> PageGuardBuilder<'a, T> {
             return Some(WithPageGuard { builder: self });
         }
 
+        debug_assert!(
+            self.page_table.tracker.is_some(),
+            "Page table is not modifiable"
+        );
+        let tracker = unsafe {
+            self.page_table
+                .tracker
+                .as_ref()
+                .unwrap_unchecked()
+                .get()
+                .as_mut()
+                .unwrap()
+        };
+
         let mut modified = false;
 
         for page in self.vpn_range.iter() {
@@ -777,25 +808,20 @@ impl<'a, T> PageGuardBuilder<'a, T> {
                 modified = true;
                 *entry |= flags;
 
-                unsafe {
-                    self.page_table
-                        .temporary_modified_pages
-                        .get()
-                        .as_mut()
-                        .unwrap()
-                        .entry(page)
-                        // merge the flags if the entry already exists
-                        .and_modify(|f| {
-                            debug_assert!(f.previous == existing_flags);
-                            f.now |= flags;
-                        })
-                        // add entry if not exist
-                        .or_insert_with(|| TemporaryModifiedPage {
-                            page,
-                            previous: existing_flags,
-                            now: flags | existing_flags,
-                        })
-                };
+                tracker
+                    .temporary_modified_pages
+                    .entry(page)
+                    // merge the flags if the entry already exists
+                    .and_modify(|f| {
+                        debug_assert!(f.previous == existing_flags);
+                        f.now |= flags;
+                    })
+                    // add entry if not exist
+                    .or_insert_with(|| TemporaryModifiedPage {
+                        page,
+                        previous: existing_flags,
+                        now: flags | existing_flags,
+                    });
             }
         }
 
