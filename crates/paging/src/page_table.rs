@@ -145,7 +145,11 @@ impl Drop for PageTable {
         match self.tracker {
             Some(_) => {
                 let activated = self.is_activated();
-                debug!("Droping owned page table: {}, activated: {}", self.root_ppn(), activated);
+                debug!(
+                    "Droping owned page table: {}, activated: {}",
+                    self.root_ppn(),
+                    activated
+                );
 
                 if activated {
                     debug!("Activating kernel page table for the activated page table is being dropped");
@@ -160,7 +164,7 @@ impl Drop for PageTable {
                         get_kernel_page_table().activate();
                     }
                 }
-            },
+            }
             None => debug!("Droping borrowed page table: {}", self.root_ppn()),
         }
     }
