@@ -28,7 +28,7 @@ pub fn yield_now() -> YieldFuture {
 #[macro_export]
 macro_rules! yield_return {
     () => {
-        yield_now().await;
+        threading::yield_now().await;
     };
 }
 
