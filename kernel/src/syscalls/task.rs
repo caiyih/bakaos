@@ -45,9 +45,9 @@ impl ISyncSyscallHandler for TimesSyscall {
     fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
         let p_tms = ctx.arg0::<*mut Tms>();
 
-        let memory_space = ctx.tcb.memory_space.lock();
-        match memory_space
-            .page_table()
+        match ctx
+            .tcb
+            .borrow_page_table()
             .guard_ptr(p_tms)
             .must_have(PageTableEntryFlags::User)
             .with(PageTableEntryFlags::Writable)
@@ -124,9 +124,9 @@ impl ISyncSyscallHandler for GetTimeOfDaySyscall {
     fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
         let tv = ctx.arg0::<*mut TimeVal>();
 
-        let memory_space = ctx.tcb.memory_space.lock();
-        match memory_space
-            .page_table()
+        match ctx
+            .tcb
+            .borrow_page_table()
             .guard_ptr(tv)
             .must_have(PageTableEntryFlags::User)
             .with(PageTableEntryFlags::Writable)
@@ -187,9 +187,9 @@ impl ISyncSyscallHandler for GetCwdSyscall {
 
         let dst_slice = unsafe { core::slice::from_raw_parts_mut(buf, len) };
 
-        let memory_space = ctx.tcb.memory_space.lock();
-        match memory_space
-            .page_table()
+        match ctx
+            .tcb
+            .borrow_page_table()
             .guard_slice(dst_slice)
             .must_have(PageTableEntryFlags::User)
             .with(PageTableEntryFlags::Writable)

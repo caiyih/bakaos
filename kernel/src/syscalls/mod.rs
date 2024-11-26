@@ -167,9 +167,9 @@ impl ISyncSyscallHandler for UnameSyscall {
     fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
         let p_utsname = ctx.arg0::<*mut UtsName>();
 
-        let memory_space = ctx.tcb.memory_space.lock();
-        match memory_space
-            .page_table()
+        match ctx
+            .tcb
+            .borrow_page_table()
             .guard_ptr(p_utsname)
             .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
             .with(PageTableEntryFlags::Writable)

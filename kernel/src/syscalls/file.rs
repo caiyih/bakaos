@@ -14,9 +14,9 @@ impl ISyncSyscallHandler for WriteSyscall {
 
         let buf = unsafe { core::slice::from_raw_parts(p_buf, len) };
 
-        let memory_space = ctx.tcb.memory_space.lock();
-        match memory_space
-            .page_table()
+        match ctx
+            .tcb
+            .borrow_page_table()
             .guard_slice(buf)
             .must_have(PageTableEntryFlags::User)
             .with(PageTableEntryFlags::Readable)

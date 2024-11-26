@@ -31,7 +31,7 @@ impl ProcessorUnit {
 
     #[no_mangle]
     pub fn stage_task(&mut self, task: Arc<TaskControlBlock>) {
-        unsafe { task.memory_space.lock().page_table().activate() };
+        unsafe { task.borrow_page_table().activate() };
         task.timer.lock().start();
         task.kernel_timer.lock().start();
         self.staged_task = Some(task);
