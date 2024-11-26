@@ -122,6 +122,7 @@ fn main() {
     preliminary_test("/write", None, None);
     preliminary_test("/times", None, None);
     preliminary_test("/brk", None, None);
+    preliminary_test("/gettimeofday", None, None);
 }
 
 fn preliminary_test(path: &str, args: Option<&[&str]>, envp: Option<&[&str]>) {
