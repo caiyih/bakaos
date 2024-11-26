@@ -14,7 +14,10 @@ use riscv::{
 };
 use tasks::{TaskControlBlock, TaskStatus, TaskTrapContext};
 
-use crate::syscalls::{ISyscallResult, SyscallDispatcher};
+use crate::{
+    kernel,
+    syscalls::{ISyscallResult, SyscallDispatcher},
+};
 
 use super::set_kernel_trap_handler;
 
@@ -221,6 +224,7 @@ pub fn return_to_user(tcb: &Arc<TaskControlBlock>) {
 
 #[no_mangle]
 pub async fn user_trap_handler_async(tcb: &Arc<TaskControlBlock>) {
+    let kstat = kernel::get().stat();
     let scause = riscv::register::scause::read().cause();
     let stval = riscv::register::stval::read();
 
@@ -240,6 +244,8 @@ pub async fn user_trap_handler_async(tcb: &Arc<TaskControlBlock>) {
             panic!("[User trap] [Exception::SupervisorEnvCall]")
         }
         Trap::Exception(Exception::UserEnvCall) => {
+            kstat.on_syscall();
+
             let trap_ctx = tcb.mut_trap_ctx();
             let syscall_id = trap_ctx.regs.a7;
 
@@ -273,6 +279,7 @@ pub async fn user_trap_handler_async(tcb: &Arc<TaskControlBlock>) {
                 .restore_temporary_modified_pages();
         }
         Trap::Exception(e) => {
+            kstat.on_user_exception();
             // Trap::Exception(Exception::InstructionMisaligned) => (),
             // Trap::Exception(Exception::InstructionFault) => (),
             // Trap::Exception(Exception::IllegalInstruction) => (),

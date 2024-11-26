@@ -1,7 +1,15 @@
 use core::arch::asm;
 
 use log::{debug, trace};
-use riscv::register::{scause, stval, stvec};
+use riscv::{
+    interrupt::{
+        supervisor::{Exception, Interrupt},
+        Trap,
+    },
+    register::{scause, stval, stvec},
+};
+
+use crate::kernel;
 
 pub fn set_kernel_trap_handler() {
     trace!("Set trap handler to kernel");
@@ -62,8 +70,25 @@ unsafe extern "C" fn __on_kernel_trap() -> ! {
 
 #[no_mangle]
 fn kernel_trap_handler() {
-    let scause = scause::read();
+    let scause = scause::read().cause();
     let stval = stval::read();
 
-    debug!("[Kernel trap] [{:?}] stval: {:#x}", scause.cause(), stval);
+    debug!("[Kernel trap] [{:?}] stval: {:#x}", scause, stval);
+    let kstat = kernel::get().stat();
+
+    let scause = unsafe { core::mem::transmute::<_, Trap<Interrupt, Exception>>(scause) };
+    match scause {
+        Trap::Interrupt(interrupt) => match interrupt {
+            Interrupt::SupervisorSoft => kstat.on_software_interrupt(),
+            Interrupt::SupervisorTimer => kstat.on_timer_interrupt(),
+            Interrupt::SupervisorExternal => kstat.on_external_interrupt(),
+        },
+        Trap::Exception(_) => {
+            let kexception = kstat.on_kernel_exception();
+
+            // Handle exceptions
+
+            kexception
+        }
+    };
 }
