@@ -143,3 +143,15 @@ impl ISyncSyscallHandler for GetTimeOfDaySyscall {
         "sys_gettimeofday"
     }
 }
+
+pub struct GetPidSyscall;
+
+impl ISyncSyscallHandler for GetPidSyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        Ok(ctx.tcb.task_id.id() as isize)
+    }
+
+    fn name(&self) -> &str {
+        "sys_getpid"
+    }
+} 
