@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 constants = { path = "../crates/constants", default-features = false }
+abstractions = { path = "../crates/abstractions", default-features = false }
 address = { path = "../crates/address", default-features = false }
 path = { path = "../crates/path", default-features = false }
 allocation = { path = "../crates/allocation", default-features = false }
