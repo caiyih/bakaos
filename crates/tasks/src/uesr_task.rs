@@ -343,7 +343,7 @@ impl TaskControlBlock {
 
         Arc::new(TaskControlBlock {
             task_id: tid::allocate_tid(),
-            task_status: SpinMutex::new(*self.task_status.lock()),
+            task_status: SpinMutex::new(TaskStatus::Ready),
             exit_code: AtomicI32::new(self.exit_code.load(Ordering::Relaxed)),
             memory_space: Arc::new(SpinMutex::new(memory_space)),
             parent: Some(Arc::new(Arc::downgrade(self))),
