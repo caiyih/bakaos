@@ -301,13 +301,13 @@ impl TaskControlBlock {
 
 impl TaskControlBlock {
     pub fn fork_process(self: &Arc<TaskControlBlock>) -> Arc<TaskControlBlock> {
-        let this_trap_ctx = self.mut_trap_ctx().clone();
+        let this_trap_ctx = *self.mut_trap_ctx();
         let this_brk_pos = self.brk_pos.load(Ordering::Relaxed);
         let memory_space = MemorySpace::clone_existing(&self.memory_space.lock());
 
         Arc::new(TaskControlBlock {
             task_id: tid::allocate_tid(),
-            task_status: SpinMutex::new(self.task_status.lock().clone()),
+            task_status: SpinMutex::new(*self.task_status.lock()),
             exit_code: AtomicI32::new(self.exit_code.load(Ordering::Relaxed)),
             memory_space: Arc::new(SpinMutex::new(memory_space)),
             parent: Some(Arc::new(Arc::downgrade(self))),
@@ -315,7 +315,7 @@ impl TaskControlBlock {
             trap_context: UnsafeCell::new(this_trap_ctx),
             waker: UnsafeCell::new(MaybeUninit::uninit()),
             stats: SpinMutex::new(self.stats.lock().clone()),
-            start_time: UnsafeCell::new(unsafe { self.start_time.get().as_ref().unwrap().clone() }),
+            start_time: UnsafeCell::new(unsafe { *self.start_time.get().as_ref().unwrap() }),
             timer: SpinMutex::new(UserTaskTimer::default()),
             kernel_timer: SpinMutex::new(UserTaskTimer::default()),
             brk_pos: AtomicUsize::new(this_brk_pos),
