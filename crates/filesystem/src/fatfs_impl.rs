@@ -211,7 +211,6 @@ impl IInode for FatFileInode {
     ) -> filesystem_abstractions::FileSystemResult<filesystem_abstractions::Metadata> {
         Ok(filesystem_abstractions::Metadata {
             filename: &self.filename,
-            inode_id: usize::MAX,
             entry_type: filesystem_abstractions::DirectoryEntryType::File,
             size: unsafe { self.inner.make_guard_unchecked().size },
             children_count: 0,
@@ -310,7 +309,6 @@ impl IInode for FatDirectoryInode {
     ) -> filesystem_abstractions::FileSystemResult<filesystem_abstractions::Metadata> {
         Ok(filesystem_abstractions::Metadata {
             filename: &self.filename,
-            inode_id: usize::MAX,
             entry_type: filesystem_abstractions::DirectoryEntryType::Directory,
             size: 0,
             children_count: usize::MAX,

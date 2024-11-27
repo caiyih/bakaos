@@ -62,7 +62,6 @@ pub struct DirectoryEntry {
 #[derive(Debug, Clone)]
 pub struct Metadata<'a> {
     pub filename: &'a str,
-    pub inode_id: usize,
     pub entry_type: DirectoryEntryType,
     pub size: usize,
     pub children_count: usize,
