@@ -2,7 +2,7 @@ use alloc::sync::Arc;
 use file::WriteSyscall;
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
 use task::{
-    CloneSyscall, ExitSyscall, GetCwdSyscall, GetParentPidSyscall, GetPidSyscall,
+    CloneSyscall, ExecveSyscall, ExitSyscall, GetCwdSyscall, GetParentPidSyscall, GetPidSyscall,
     GetTimeOfDaySyscall, TimesSyscall,
 };
 use task_async::{sys_nanosleep_async, sys_sched_yield_async, sys_wait4_async};
@@ -24,6 +24,7 @@ const SYSCALL_ID_GETPID: usize = 172;
 const SYSCALL_ID_GETPPID: usize = 173;
 const SYSCALL_ID_BRK: usize = 214;
 const SYSCALL_ID_CLONE: usize = 220;
+const SYSCALL_ID_EXECVE: usize = 221;
 const STSCALL_ID_WAIT4: usize = 260;
 
 pub trait ISyscallResult {
@@ -65,6 +66,7 @@ impl SyscallDispatcher {
             SYSCALL_ID_GETPID => Some(&GetPidSyscall),
             SYSCALL_ID_BRK => Some(&task::BrkSyscall),
             SYSCALL_ID_CLONE => Some(&CloneSyscall),
+            SYSCALL_ID_EXECVE => Some(&ExecveSyscall),
             _ => None,
         }
     }

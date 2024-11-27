@@ -1,9 +1,11 @@
-use core::sync::atomic::Ordering;
+use core::{str, sync::atomic::Ordering};
 
 use abstractions::operations::IUsizeAlias;
 use address::{IPageNum, IToPageNum, VirtualAddress};
 use log::debug;
-use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
+use paging::{
+    page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, PageTableEntryFlags,
+};
 use tasks::{TaskCloneFlags, TaskStatus};
 use timing::TimeVal;
 
@@ -276,5 +278,54 @@ impl ISyncSyscallHandler for CloneSyscall {
 
     fn name(&self) -> &str {
         "sys_clone"
+    }
+}
+
+pub struct ExecveSyscall;
+
+impl ISyncSyscallHandler for ExecveSyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        let pathname = ctx.arg0::<*const u8>();
+
+        let _args = ctx.arg1::<*const *const u8>();
+        let _envp = ctx.arg2::<*const *const u8>();
+
+        match ctx
+            .tcb
+            .borrow_page_table()
+            .guard_cstr(pathname, 1024)
+            .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
+        {
+            Some(guard) => {
+                let path = str::from_utf8(&guard).map_err(|_| -1isize)?;
+                debug!("Task {} execve: '{}'", ctx.tcb.task_id.id(), path);
+
+                match path::get_full_path(
+                    path,
+                    Some(unsafe { ctx.tcb.cwd.get().as_ref().unwrap() }),
+                ) {
+                    Some(fullpath) => {
+                        let file = filesystem::root_filesystem()
+                            .lookup(&fullpath)
+                            .map_err(|_| -1isize)?;
+
+                        let bytes = file.readall().map_err(|_| -1isize)?;
+
+                        // TODO: handle args and envp
+                        ctx.tcb.execve(&bytes, &[], &[]).map_err(|_| -1isize)?;
+
+                        *ctx.tcb.task_status.lock() = TaskStatus::Running;
+
+                        Ok(0)
+                    }
+                    None => Err(-1),
+                }
+            }
+            None => Err(-1),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "sys_execve"
     }
 }
