@@ -397,7 +397,7 @@ unsafe impl Sync for MemorySpaceBuilder {}
 unsafe impl Send for MemorySpaceBuilder {}
 
 impl MemorySpaceBuilder {
-    pub fn from_elf(elf_data: &[u8]) -> Result<Self, &str> {
+    pub fn from_elf(elf_data: &[u8]) -> Result<Self, &'static str> {
         let current_page_table = PageTable::borrow_current();
         let mut memory_space = MemorySpace::empty();
         memory_space.register_kernel_area();
