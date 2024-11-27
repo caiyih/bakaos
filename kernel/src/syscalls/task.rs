@@ -17,10 +17,10 @@ impl ISyncSyscallHandler for ExitSyscall {
     fn handle(&self, ctx: &mut SyscallContext<'_>) -> SyscallResult {
         let code = ctx.arg0::<isize>();
 
-        *ctx.tcb.task_status.lock() = TaskStatus::Exited;
         ctx.tcb
             .exit_code
             .store(code as i32, core::sync::atomic::Ordering::Relaxed);
+        *ctx.tcb.task_status.lock() = TaskStatus::Exited;
 
         debug!("Task {} exited with code {}", ctx.tcb.task_id.id(), code);
         Ok(0)
