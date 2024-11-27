@@ -60,7 +60,16 @@ impl ISyncSyscallHandler for TimesSyscall {
 
                 guard.tms_utime = user_timer.elapsed().total_microseconds() as i64;
                 guard.tms_stime = kernel_timer.elapsed().total_microseconds() as i64;
-                // TODO: calculate tms_cutime and tms_cstime
+
+                guard.tms_cutime = ctx.tcb.children.lock().iter().fold(0, |acc, child| {
+                    let child_timer = child.timer.lock().clone();
+                    acc + child_timer.elapsed().total_microseconds() as i64
+                });
+
+                guard.tms_cstime = ctx.tcb.children.lock().iter().fold(0, |acc, child| {
+                    let child_kernel_timer = child.kernel_timer.lock().clone();
+                    acc + child_kernel_timer.elapsed().total_microseconds() as i64
+                });
 
                 Ok(0)
             }
