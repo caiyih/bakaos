@@ -2,10 +2,10 @@ use alloc::sync::Arc;
 use file::WriteSyscall;
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
 use task::{
-    ExitSyscall, GetCwdSyscall, GetParentPidSyscall, GetPidSyscall, GetTimeOfDaySyscall,
-    TimesSyscall,
+    CloneSyscall, ExitSyscall, GetCwdSyscall, GetParentPidSyscall, GetPidSyscall,
+    GetTimeOfDaySyscall, TimesSyscall,
 };
-use task_async::{sys_nanosleep_async, sys_sched_yield_async};
+use task_async::{sys_nanosleep_async, sys_sched_yield_async, sys_wait4_async};
 use tasks::TaskControlBlock;
 
 mod file;
@@ -23,6 +23,8 @@ const SYSCALL_ID_GETTIMEOFDAY: usize = 169;
 const SYSCALL_ID_GETPID: usize = 172;
 const SYSCALL_ID_GETPPID: usize = 173;
 const SYSCALL_ID_BRK: usize = 214;
+const SYSCALL_ID_CLONE: usize = 220;
+const STSCALL_ID_WAIT4: usize = 260;
 
 pub trait ISyscallResult {
     fn to_ret(self) -> isize;
@@ -62,6 +64,7 @@ impl SyscallDispatcher {
             SYSCALL_ID_GETPPID => Some(&GetParentPidSyscall),
             SYSCALL_ID_GETPID => Some(&GetPidSyscall),
             SYSCALL_ID_BRK => Some(&task::BrkSyscall),
+            SYSCALL_ID_CLONE => Some(&CloneSyscall),
             _ => None,
         }
     }
@@ -78,6 +81,7 @@ impl SyscallDispatcher {
         match syscall_id {
             SYSCALL_ID_NANOSLEEP => Some(sys_nanosleep_async(&mut ctx).await),
             SYSCALL_ID_SCHED_YIELD => Some(sys_sched_yield_async(&mut ctx).await),
+            STSCALL_ID_WAIT4 => Some(sys_wait4_async(&mut ctx).await),
             _ => None,
         }
     }

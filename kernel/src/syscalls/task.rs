@@ -3,11 +3,11 @@ use core::sync::atomic::Ordering;
 use abstractions::operations::IUsizeAlias;
 use address::{IPageNum, IToPageNum, VirtualAddress};
 use log::debug;
-use paging::IWithPageGuardBuilder;
-use tasks::TaskStatus;
+use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
+use tasks::{TaskCloneFlags, TaskStatus};
 use timing::TimeVal;
 
-use crate::timing::ITimer;
+use crate::{scheduling::spawn_task, timing::ITimer};
 
 use super::{ISyncSyscallHandler, SyscallContext, SyscallResult};
 
@@ -204,5 +204,77 @@ impl ISyncSyscallHandler for GetCwdSyscall {
 
     fn name(&self) -> &str {
         "sys_getcwd"
+    }
+}
+
+pub struct CloneSyscall;
+
+impl ISyncSyscallHandler for CloneSyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        let flags = ctx.arg0::<TaskCloneFlags>();
+        let sp = ctx.arg1::<VirtualAddress>();
+        let ptid = ctx.arg2::<*mut usize>();
+        let tls = ctx.arg3::<usize>();
+        let pctid = ctx.arg4::<*mut usize>();
+
+        // TODO: Implement thread fork
+        let new_task = ctx.tcb.fork_process();
+        let new_tid = new_task.task_id.id();
+
+        ctx.tcb.children.lock().push(new_task.clone());
+
+        debug!("Forking task: {} from: {}", new_tid, ctx.tcb.task_id.id());
+
+        let new_trap_ctx = new_task.mut_trap_ctx();
+
+        new_trap_ctx.regs.a0 = 0; // Child task's return value is 0
+        new_trap_ctx.sepc += 4; // skip `ecall` instruction
+
+        if sp.as_usize() != 0 {
+            new_trap_ctx.regs.sp = sp;
+        }
+
+        if flags.contains(TaskCloneFlags::PARENT_SETTID) {
+            match ctx
+                .tcb
+                .borrow_page_table()
+                .guard_ptr(ptid)
+                .mustbe_user()
+                .mustbe_readable()
+                .with_write()
+            {
+                Some(mut guard) => *guard = new_tid,
+                None => return Err(-1),
+            }
+        }
+
+        if flags.contains(TaskCloneFlags::CHILD_SETTID) {
+            let child_pt = new_task.borrow_page_table();
+
+            if pctid.is_null() {
+                return Err(-1);
+            }
+
+            // Copy through higher half address
+            ctx.tcb.borrow_page_table().activated_copy_val_to_other(
+                VirtualAddress::from_ptr(pctid),
+                &child_pt,
+                &new_tid,
+            );
+        }
+
+        if flags.contains(TaskCloneFlags::SETTLS) {
+            ctx.tcb.mut_trap_ctx().regs.tp = tls;
+        }
+
+        // TODO: Set clear tid address to pctid
+
+        spawn_task(new_task);
+
+        Ok(new_tid as isize)
+    }
+
+    fn name(&self) -> &str {
+        "sys_clone"
     }
 }
