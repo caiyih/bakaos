@@ -40,7 +40,7 @@ impl Deref for Fat32Disk {
 
 impl IFileSystem for Fat32FileSystem {
     fn root_dir(&'static self) -> alloc::sync::Arc<dyn filesystem_abstractions::IInode> {
-        Arc::new(FatDirectory {
+        Arc::new(FatDirectoryInode {
             // Since the "/" is used as separator in the path module and is ignored by the iterator
             // We use "" as the filename for the root directory
             filename: String::from(""),
@@ -191,21 +191,21 @@ fn from_fatfs_error<T>(err: fatfs::Error<T>) -> FileSystemError {
     }
 }
 
-pub struct FatFileInner {
+pub struct FatFileInodeInner {
     inner: File<'static, Fat32Disk, NullTimeProvider, LossyOemCpConverter>,
     size: usize,
 }
 
 #[allow(dead_code)]
-pub struct FatFile {
+pub struct FatFileInode {
     filename: String,
-    inner: SpinMutex<FatFileInner>,
+    inner: SpinMutex<FatFileInodeInner>,
 }
 
-unsafe impl Sync for FatFile {}
-unsafe impl Send for FatFile {}
+unsafe impl Sync for FatFileInode {}
+unsafe impl Send for FatFileInode {}
 
-impl IInode for FatFile {
+impl IInode for FatFileInode {
     fn metadata(
         &self,
     ) -> filesystem_abstractions::FileSystemResult<filesystem_abstractions::Metadata> {
@@ -296,15 +296,15 @@ impl IInode for FatFile {
     }
 }
 
-pub struct FatDirectory {
+pub struct FatDirectoryInode {
     filename: String,
     inner: Dir<'static, Fat32Disk, NullTimeProvider, LossyOemCpConverter>,
 }
 
-unsafe impl Sync for FatDirectory {}
-unsafe impl Send for FatDirectory {}
+unsafe impl Sync for FatDirectoryInode {}
+unsafe impl Send for FatDirectoryInode {}
 
-impl IInode for FatDirectory {
+impl IInode for FatDirectoryInode {
     fn metadata(
         &self,
     ) -> filesystem_abstractions::FileSystemResult<filesystem_abstractions::Metadata> {
@@ -322,7 +322,7 @@ impl IInode for FatDirectory {
 
         let dir = self.inner.open_dir(name).map_err(from_fatfs_error)?;
 
-        Ok(Arc::new(FatDirectory {
+        Ok(Arc::new(FatDirectoryInode {
             filename: name.to_string(),
             inner: dir,
         }))
@@ -339,15 +339,15 @@ impl IInode for FatDirectory {
 
                     if entry.is_dir() {
                         let dir = entry.to_dir();
-                        return Ok(Arc::new(FatDirectory {
+                        return Ok(Arc::new(FatDirectoryInode {
                             filename,
                             inner: dir,
                         }));
                     } else if entry.is_file() {
                         let file = entry.to_file();
-                        return Ok(Arc::new(FatFile {
+                        return Ok(Arc::new(FatFileInode {
                             filename,
-                            inner: SpinMutex::new(FatFileInner {
+                            inner: SpinMutex::new(FatFileInodeInner {
                                 inner: file,
                                 size: entry.len() as usize,
                             }),
@@ -387,9 +387,9 @@ impl IInode for FatDirectory {
     fn touch(&self, name: &str) -> FileSystemResult<Arc<dyn IInode>> {
         let file = self.inner.create_file(name).map_err(from_fatfs_error)?;
 
-        Ok(Arc::new(FatFile {
+        Ok(Arc::new(FatFileInode {
             filename: name.to_string(),
-            inner: SpinMutex::new(FatFileInner {
+            inner: SpinMutex::new(FatFileInodeInner {
                 inner: file,
                 size: 0,
             }),
@@ -421,7 +421,7 @@ impl IInode for FatDirectory {
                             filename: String::from(&filename),
                             entry_type: filesystem_abstractions::DirectoryEntryType::Directory,
                             size: size as usize,
-                            inode: Some(Arc::new(FatDirectory {
+                            inode: Some(Arc::new(FatDirectoryInode {
                                 filename,
                                 inner: entry.to_dir(),
                             })),
@@ -431,9 +431,9 @@ impl IInode for FatDirectory {
                             filename: String::from(&filename),
                             size: size as usize,
                             entry_type: filesystem_abstractions::DirectoryEntryType::File,
-                            inode: Some(Arc::new(FatFile {
+                            inode: Some(Arc::new(FatFileInode {
                                 filename,
-                                inner: SpinMutex::new(FatFileInner {
+                                inner: SpinMutex::new(FatFileInodeInner {
                                     inner: entry.to_file(),
                                     size: size as usize,
                                 }),
