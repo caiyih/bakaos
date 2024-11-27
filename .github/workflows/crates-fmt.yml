@@ -56,5 +56,9 @@ jobs:
           rustup override set $TOOLCHAIN_VERSION
           rustup component add rustfmt
 
+      - name: Build Crates
+        # Some crates requires build artifacts to be present before running fmt
+        run: cargo build
+
       - name: Check formatting
         run: cargo fmt -- --check
