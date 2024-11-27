@@ -45,7 +45,7 @@ async_syscall!(sys_sched_yield_async, ctx, {
 
 async_syscall!(sys_wait4_async, ctx, {
     let pid = ctx.arg0::<isize>();
-    let p_code = ctx.arg1::<usize>();
+    let p_code = ctx.arg1::<usize>(); // pointer can not across await point, so we cast it later
 
     let target_child = ctx
         .tcb
