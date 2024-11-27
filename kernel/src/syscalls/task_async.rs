@@ -88,9 +88,6 @@ async_syscall!(sys_wait4_async, ctx, {
         }
     };
 
-    let exit_code = exited_task.exit_code.load(Ordering::Relaxed);
-    let exit_code = (exit_code << 8) & 0xff00;
-
     if let Some(mut guard) = ctx
         .tcb
         .borrow_page_table()
@@ -99,7 +96,7 @@ async_syscall!(sys_wait4_async, ctx, {
         .mustbe_readable()
         .with_write()
     {
-        *guard = exit_code;
+        *guard = (exited_task.exit_code.load(Ordering::Relaxed) << 8) & 0xff00;
     }
 
     Ok(exited_task.task_id.id() as isize)
