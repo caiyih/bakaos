@@ -1,5 +1,3 @@
-#![allow(clippy::await_holding_lock)] // we manually dropped mutex guard before await
-
 use core::sync::atomic::Ordering;
 
 use alloc::sync::Arc;
@@ -73,17 +71,18 @@ async_syscall!(sys_wait4_async, ctx, {
             }
 
             loop {
-                let child = ctx.tcb.children.lock();
+                // Explicity limit the scope of the lock to prevent deadlock
+                let exited_child = {
+                    let children = ctx.tcb.children.lock();
+                    children.iter().find(|t| t.is_exited()).cloned()
+                };
 
-                match child.iter().find(|t| t.is_exited()) {
-                    Some(founded) => {
-                        exited_task = founded.clone();
+                match exited_child {
+                    Some(exited) => {
+                        exited_task = exited;
                         break;
                     }
-                    None => {
-                        drop(child); // prevent dead lock
-                        yield_now().await
-                    }
+                    None => yield_now().await,
                 }
             }
         }
