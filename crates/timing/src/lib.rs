@@ -476,7 +476,7 @@ impl TimeSpan {
         let diff_nsec = lhs.tv_nsec - rhs.tv_nsec;
 
         let total_microseconds = diff_sec * (TICKS_PER_SECOND / TICKS_PER_MICROSECOND)
-            + diff_nsec / (NSEC_PER_SEC / TICKS_PER_MICROSECOND);
+            + diff_nsec / (NSEC_PER_SEC / (TICKS_PER_SECOND / TICKS_PER_MICROSECOND));
 
         TimeSpan {
             _ticks: total_microseconds * TICKS_PER_MICROSECOND,
@@ -487,8 +487,7 @@ impl TimeSpan {
         let diff_sec = lhs.tv_sec - rhs.tv_sec;
         let diff_usec = lhs.tv_msec - rhs.tv_msec;
 
-        let total_microseconds = diff_sec * (TICKS_PER_SECOND / TICKS_PER_MICROSECOND)
-            + diff_usec / (USEC_PER_SEC / TICKS_PER_MICROSECOND);
+        let total_microseconds = diff_sec * (TICKS_PER_SECOND / TICKS_PER_MICROSECOND) + diff_usec;
 
         TimeSpan {
             _ticks: total_microseconds * TICKS_PER_MICROSECOND,
