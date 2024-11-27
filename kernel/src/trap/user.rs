@@ -253,6 +253,7 @@ pub async fn user_trap_handler_async(tcb: &Arc<TaskControlBlock>) {
             let trap_ctx = tcb.mut_trap_ctx();
             let syscall_id = trap_ctx.regs.a7;
 
+            trap_ctx.sepc += 4; // skip `ecall` instruction
             let ret = match SyscallDispatcher::dispatch(tcb, syscall_id) {
                 Some((mut ctx, handler)) => {
                     debug!(
@@ -275,7 +276,6 @@ pub async fn user_trap_handler_async(tcb: &Arc<TaskControlBlock>) {
                 },
             };
             trap_ctx.regs.a0 = ret as usize;
-            trap_ctx.sepc += 4; // skip `ecall` instruction
 
             // tracker is locked, so we can borrow the page table
             tcb.borrow_page_table().restore_temporary_modified_pages();

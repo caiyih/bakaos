@@ -230,7 +230,6 @@ impl ISyncSyscallHandler for CloneSyscall {
         let new_trap_ctx = new_task.mut_trap_ctx();
 
         new_trap_ctx.regs.a0 = 0; // Child task's return value is 0
-        new_trap_ctx.sepc += 4; // skip `ecall` instruction
 
         if sp.as_usize() != 0 {
             new_trap_ctx.regs.sp = sp;
