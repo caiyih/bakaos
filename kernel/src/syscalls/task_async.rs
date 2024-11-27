@@ -61,7 +61,7 @@ async_syscall!(sys_wait4_async, ctx, {
 
     match target_child {
         Some(c) => {
-            if !c.is_exited() {
+            while !c.is_exited() {
                 yield_now().await;
             }
 
