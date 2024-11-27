@@ -320,7 +320,8 @@ impl TaskControlBlock {
         self.exit_code.store(0, Ordering::Relaxed);
         *self.stats.lock() = UserTaskStatistics::default();
 
-        // TODO: We should clear start time and timers
+        *self.timer.lock() = UserTaskTimer::default();
+        *self.kernel_timer.lock() = UserTaskTimer::default();
 
         *self.memory_space.lock() = memory_space_builder.memory_space;
 
