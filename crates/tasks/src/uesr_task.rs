@@ -300,6 +300,36 @@ impl TaskControlBlock {
 }
 
 impl TaskControlBlock {
+    pub fn execve(
+        self: &Arc<TaskControlBlock>,
+        elf: &[u8],
+        args: &[&str],
+        envp: &[&str],
+    ) -> Result<(), &'static str> {
+        let mut memory_space_builder = MemorySpaceBuilder::from_elf(elf)?;
+
+        memory_space_builder.init_stack(args, envp);
+
+        *self.mut_trap_ctx() = TaskTrapContext::new(&memory_space_builder);
+
+        self.brk_pos.store(
+            memory_space_builder.memory_space.brk_start().as_usize(),
+            Ordering::Relaxed,
+        );
+
+        self.exit_code.store(0, Ordering::Relaxed);
+        *self.stats.lock() = UserTaskStatistics::default();
+
+        // TODO: We should clear start time and timers
+
+        *self.memory_space.lock() = memory_space_builder.memory_space;
+
+        unsafe { self.borrow_page_table().activate() };
+        self.init();
+
+        Ok(())
+    }
+
     pub fn fork_process(self: &Arc<TaskControlBlock>) -> Arc<TaskControlBlock> {
         let this_trap_ctx = *self.mut_trap_ctx();
         let this_brk_pos = self.brk_pos.load(Ordering::Relaxed);
