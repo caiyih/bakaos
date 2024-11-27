@@ -806,12 +806,42 @@ pub struct PageGuardBuilder<'a, T> {
     _marker: PhantomData<T>,
 }
 
+pub trait IOptionalPageGuardBuilderExtension {
+    fn mustbe_user(self) -> Self;
+
+    fn mustbe_readable(self) -> Self;
+
+    fn mustbe_writable(self) -> Self;
+
+    fn mustbe_executable(self) -> Self;
+}
+
+impl<'a, T> IOptionalPageGuardBuilderExtension for Option<PageGuardBuilder<'a, T>> {
+    fn mustbe_user(self) -> Self {
+        self?.must_be_internal(PageTableEntryFlags::User)
+    }
+
+    fn mustbe_readable(self) -> Self {
+        self?.must_be_internal(PageTableEntryFlags::Readable)
+    }
+
+    fn mustbe_writable(self) -> Self {
+        self?.must_be_internal(PageTableEntryFlags::Writable)
+    }
+
+    fn mustbe_executable(self) -> Self {
+        self?.must_be_internal(PageTableEntryFlags::Executable)
+    }
+}
+
 impl<'a, T> PageGuardBuilder<'a, T> {
-    pub fn must_have(self, mut flags: PageTableEntryFlags) -> Option<MustHavePageGuard<'a, T>> {
+    fn must_be_internal(self, mut flags: PageTableEntryFlags) -> Option<Self> {
         // Fast path for rejecting null pointer
         if self.vpn_range.start().as_usize() == 0 {
             return None;
         }
+
+        flags |= PageTableEntryFlags::Valid;
 
         flags |= PageTableEntryFlags::Valid;
         for page in self.vpn_range.iter() {
@@ -821,7 +851,29 @@ impl<'a, T> PageGuardBuilder<'a, T> {
             }
         }
 
-        Some(MustHavePageGuard { builder: self })
+        Some(self)
+    }
+
+    pub fn must_have(self, flags: PageTableEntryFlags) -> Option<MustHavePageGuard<'a, T>> {
+        let this = self.must_be_internal(flags)?;
+
+        Some(MustHavePageGuard { builder: this })
+    }
+
+    pub fn mustbe_user(self) -> Option<Self> {
+        self.must_be_internal(PageTableEntryFlags::User)
+    }
+
+    pub fn mustbe_readable(self) -> Option<Self> {
+        self.must_be_internal(PageTableEntryFlags::Readable)
+    }
+
+    pub fn mustbe_writable(self) -> Option<Self> {
+        self.must_be_internal(PageTableEntryFlags::Writable)
+    }
+
+    pub fn mustbe_executable(self) -> Option<Self> {
+        self.must_be_internal(PageTableEntryFlags::Executable)
     }
 
     #[allow(invalid_reference_casting)]
@@ -881,6 +933,12 @@ pub trait IWithPageGuardBuilder<'a, T> {
 impl<'a, T> IWithPageGuardBuilder<'a, T> for PageGuardBuilder<'a, T> {
     fn with(self, flags: PageTableEntryFlags) -> Option<WithPageGuard<'a, T>> {
         self.with_internal(flags)
+    }
+}
+
+impl<'a, T> IWithPageGuardBuilder<'a, T> for Option<PageGuardBuilder<'a, T>> {
+    fn with(self, flags: PageTableEntryFlags) -> Option<WithPageGuard<'a, T>> {
+        self?.with_internal(flags)
     }
 }
 
