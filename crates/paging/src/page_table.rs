@@ -1,5 +1,6 @@
 use alloc::{collections::BTreeMap, sync::Arc, vec, vec::Vec};
 use core::{
+    cmp::Ordering,
     marker::PhantomData,
     ops::{Deref, DerefMut},
     slice,
@@ -780,6 +781,145 @@ impl PageTable {
         guard.ptr = value as usize;
         guard.len = 1; // Not needed actually
         unsafe { core::mem::transmute::<_, PageGuardBuilder<'a, &T>>(guard) }
+    }
+
+    pub fn guard_cstr(
+        &self,
+        ptr: *const u8,
+        max_len: usize,
+    ) -> UnsizedSlicePageGuardBuilder<'_, &'static [u8]> {
+        UnsizedSlicePageGuardBuilder {
+            page_table: self,
+            vpn_start: VirtualAddress::from_ptr(ptr).to_floor_page_num(),
+            ptr: ptr as usize,
+            max_len,
+            terminator_predicate: Some(|c, idx| c[idx] == 0),
+            exclusive_end: true,
+            _marker: PhantomData,
+        }
+    }
+
+    pub fn guard_unsized_cstr_array(
+        &self,
+        ptr: *const *const u8,
+        max_len: usize,
+    ) -> UnsizedSlicePageGuardBuilder<'_, &'static [*const u8]> {
+        UnsizedSlicePageGuardBuilder {
+            page_table: self,
+            vpn_start: VirtualAddress::from_ptr(ptr).to_floor_page_num(),
+            ptr: ptr as usize,
+            max_len,
+            terminator_predicate: Some(|c, idx| c[idx].is_null()),
+            exclusive_end: true,
+            _marker: PhantomData,
+        }
+    }
+}
+
+pub struct UnsizedSlicePageGuardBuilder<'a, T> {
+    page_table: &'a PageTable,
+    vpn_start: VirtualPageNum,
+    ptr: usize,
+    max_len: usize,
+    terminator_predicate: Option<fn(&T, usize) -> bool>,
+    exclusive_end: bool,
+    _marker: PhantomData<T>,
+}
+
+impl<'a, T> UnsizedSlicePageGuardBuilder<'a, &'static [T]> {
+    pub fn must_have(
+        &self,
+        flags: PageTableEntryFlags,
+    ) -> Option<MustHavePageGuard<'a, &'static [T]>> {
+        let mut idx = 0;
+        let mut current_ptr = self.ptr;
+        let mut current_vpn = self.vpn_start;
+        let max_end_va = self.ptr + (self.max_len * core::mem::size_of::<T>());
+
+        let slice = unsafe { core::slice::from_raw_parts(self.ptr as *const T, self.max_len) };
+
+        loop {
+            match self.page_table.guard_vpn(current_vpn).must_have(flags) {
+                // Still have the permission, check with the predicate
+                Some(_) => match &self.terminator_predicate {
+                    Some(predicate) => {
+                        let page_end_va = current_vpn.end_addr::<VirtualAddress>().as_usize();
+                        while current_ptr < max_end_va && current_ptr < page_end_va {
+                            if predicate(&slice, idx) {
+                                let len = match self.exclusive_end {
+                                    true => idx,
+                                    false => idx + 1,
+                                };
+
+                                return Some(MustHavePageGuard {
+                                    builder: PageGuardBuilder {
+                                        page_table: self.page_table,
+                                        vpn_range: VirtualPageNumRange::from_start_end(
+                                            self.vpn_start,
+                                            current_vpn + 1, // current_vpn is the last valid vpn, but end is exclusive
+                                        ),
+                                        ptr: self.ptr,
+                                        len,
+                                        _marker: PhantomData,
+                                    },
+                                });
+                            }
+
+                            current_ptr += core::mem::size_of::<T>();
+                            idx += 1;
+                        }
+                    }
+                    None => {
+                        match Ord::cmp(
+                            &max_end_va,
+                            &current_vpn.end_addr::<VirtualAddress>().as_usize(),
+                        ) {
+                            Ordering::Greater => (),
+                            // Reached max length
+                            _ => {
+                                return Some(MustHavePageGuard {
+                                    builder: PageGuardBuilder {
+                                        page_table: self.page_table,
+                                        vpn_range: VirtualPageNumRange::from_start_end(
+                                            self.vpn_start,
+                                            current_vpn + 1, // current_vpn is the last valid vpn, but end is exclusive
+                                        ),
+                                        ptr: self.ptr,
+                                        len: self.max_len,
+                                        _marker: PhantomData,
+                                    },
+                                });
+                            }
+                        }
+                    }
+                },
+                // Reached an end that does not meet the specified permission
+                None => {
+                    let page_va = current_vpn.start_addr::<VirtualAddress>().as_usize();
+                    let mut len = Ord::min(max_end_va, page_va) - self.ptr;
+
+                    len -= len % core::mem::size_of::<T>();
+
+                    return match len {
+                        0 => None,
+                        _ => Some(MustHavePageGuard {
+                            builder: PageGuardBuilder {
+                                page_table: self.page_table,
+                                vpn_range: VirtualPageNumRange::from_start_end(
+                                    self.vpn_start,
+                                    current_vpn,
+                                ),
+                                ptr: self.ptr,
+                                len,
+                                _marker: PhantomData,
+                            },
+                        }),
+                    };
+                }
+            }
+
+            current_vpn += 1;
+        }
     }
 }
 
