@@ -322,8 +322,6 @@ impl ISyncSyscallHandler for ExecveSyscall {
                         // TODO: handle args and envp
                         ctx.tcb.execve(&bytes, &[], &[]).map_err(|_| -1isize)?;
 
-                        *ctx.tcb.task_status.lock() = TaskStatus::Running;
-
                         unsafe {
                             *ctx.tcb.start_time.get().as_mut().unwrap().assume_init_mut() =
                                 crate::timing::current_timespec();

@@ -266,7 +266,12 @@ impl TaskControlBlock {
     }
 
     pub fn init(&self) {
-        *self.task_status.lock() = TaskStatus::Ready;
+        let mut task_status = self.task_status.lock();
+        if let core::cmp::Ordering::Less = task_status.cmp(&TaskStatus::Ready) {
+            // For process that is execve'd, it is already in Running state
+            // So we don't need to change it to Ready
+            *task_status = TaskStatus::Ready;
+        }
     }
 
     pub fn borrow_page_table(&self) -> MappedMutexGuard<RawSpinMutex, PageTable> {
