@@ -928,11 +928,23 @@ impl<'a, T> PageGuardBuilder<'a, T> {
 
 pub trait IWithPageGuardBuilder<'a, T> {
     fn with(self, flags: PageTableEntryFlags) -> Option<WithPageGuard<'a, T>>;
+
+    fn with_read(self) -> Option<WithPageGuard<'a, T>>;
+
+    fn with_write(self) -> Option<WithPageGuard<'a, T>>;
 }
 
 impl<'a, T> IWithPageGuardBuilder<'a, T> for PageGuardBuilder<'a, T> {
     fn with(self, flags: PageTableEntryFlags) -> Option<WithPageGuard<'a, T>> {
         self.with_internal(flags)
+    }
+
+    fn with_read(self) -> Option<WithPageGuard<'a, T>> {
+        self.with(PageTableEntryFlags::Readable)
+    }
+
+    fn with_write(self) -> Option<WithPageGuard<'a, T>> {
+        self.with(PageTableEntryFlags::Readable | PageTableEntryFlags::Writable)
     }
 }
 
@@ -940,11 +952,27 @@ impl<'a, T> IWithPageGuardBuilder<'a, T> for Option<PageGuardBuilder<'a, T>> {
     fn with(self, flags: PageTableEntryFlags) -> Option<WithPageGuard<'a, T>> {
         self?.with_internal(flags)
     }
+
+    fn with_read(self) -> Option<WithPageGuard<'a, T>> {
+        self.with(PageTableEntryFlags::Readable)
+    }
+
+    fn with_write(self) -> Option<WithPageGuard<'a, T>> {
+        self.with(PageTableEntryFlags::Readable | PageTableEntryFlags::Writable)
+    }
 }
 
 impl<'a, T> IWithPageGuardBuilder<'a, T> for Option<MustHavePageGuard<'a, T>> {
     fn with(self, flags: PageTableEntryFlags) -> Option<WithPageGuard<'a, T>> {
         self?.builder.with_internal(flags)
+    }
+
+    fn with_read(self) -> Option<WithPageGuard<'a, T>> {
+        self.with(PageTableEntryFlags::Readable)
+    }
+
+    fn with_write(self) -> Option<WithPageGuard<'a, T>> {
+        self.with(PageTableEntryFlags::Readable | PageTableEntryFlags::Writable)
     }
 }
 
