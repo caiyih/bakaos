@@ -129,6 +129,10 @@ fn main() {
     preliminary_test("/sleep", None, None);
     preliminary_test("/fork", None, None);
     preliminary_test("/clone", None, None);
+    preliminary_test("/yield", None, None);
+    preliminary_test("/exit", None, None);
+    preliminary_test("/wait", None, None);
+    preliminary_test("/waitpid", None, None);
 }
 
 fn preliminary_test(path: &str, args: Option<&[&str]>, envp: Option<&[&str]>) {
