@@ -1,6 +1,6 @@
 use alloc::sync::Arc;
 use file::WriteSyscall;
-use paging::{IWithPageGuardBuilder, PageTableEntryFlags};
+use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
 use task::{
     ExitSyscall, GetCwdSyscall, GetParentPidSyscall, GetPidSyscall, GetTimeOfDaySyscall,
     TimesSyscall,
@@ -218,8 +218,9 @@ impl ISyncSyscallHandler for UnameSyscall {
             .tcb
             .borrow_page_table()
             .guard_ptr(p_utsname)
-            .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
-            .with(PageTableEntryFlags::Writable)
+            .mustbe_user()
+            .mustbe_readable()
+            .with_write()
         {
             Some(mut guard) => {
                 guard.write_to(0, "Linux");

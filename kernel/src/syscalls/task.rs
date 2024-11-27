@@ -3,7 +3,7 @@ use core::sync::atomic::Ordering;
 use abstractions::operations::IUsizeAlias;
 use address::{IPageNum, IToPageNum, VirtualAddress};
 use log::debug;
-use paging::{IWithPageGuardBuilder, PageTableEntryFlags};
+use paging::IWithPageGuardBuilder;
 use tasks::TaskStatus;
 use timing::TimeVal;
 
@@ -49,8 +49,8 @@ impl ISyncSyscallHandler for TimesSyscall {
             .tcb
             .borrow_page_table()
             .guard_ptr(p_tms)
-            .must_have(PageTableEntryFlags::User)
-            .with(PageTableEntryFlags::Writable)
+            .mustbe_user()
+            .with_write()
         {
             Some(mut guard) => {
                 let user_timer = ctx.tcb.timer.lock().clone();
@@ -128,8 +128,8 @@ impl ISyncSyscallHandler for GetTimeOfDaySyscall {
             .tcb
             .borrow_page_table()
             .guard_ptr(tv)
-            .must_have(PageTableEntryFlags::User)
-            .with(PageTableEntryFlags::Writable)
+            .mustbe_user()
+            .with_write()
         {
             Some(mut guard) => {
                 *guard = crate::timing::current_timeval();
@@ -191,8 +191,8 @@ impl ISyncSyscallHandler for GetCwdSyscall {
             .tcb
             .borrow_page_table()
             .guard_slice(dst_slice)
-            .must_have(PageTableEntryFlags::User)
-            .with(PageTableEntryFlags::Writable)
+            .mustbe_user()
+            .with_write()
         {
             Some(mut guard) => {
                 guard.copy_from_slice(cwd);

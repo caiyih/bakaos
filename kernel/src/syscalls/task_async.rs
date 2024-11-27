@@ -1,4 +1,4 @@
-use paging::{IWithPageGuardBuilder, PageTableEntryFlags};
+use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
 use threading::yield_now;
 use timing::TimeSpec;
 
@@ -13,8 +13,9 @@ async_syscall!(sys_nanosleep_async, ctx, {
         .tcb
         .borrow_page_table()
         .guard_ptr(req)
-        .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
-        .with(PageTableEntryFlags::Writable)
+        .mustbe_user()
+        .mustbe_readable()
+        .with_write()
     {
         Some(guard) => {
             let start = crate::timing::current_timespec();

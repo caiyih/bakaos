@@ -1,4 +1,4 @@
-use paging::{IWithPageGuardBuilder, PageTableEntryFlags};
+use paging::IWithPageGuardBuilder;
 
 use super::{ISyncSyscallHandler, SyscallContext, SyscallResult};
 use crate::legacy_print;
@@ -18,8 +18,8 @@ impl ISyncSyscallHandler for WriteSyscall {
             .tcb
             .borrow_page_table()
             .guard_slice(buf)
-            .must_have(PageTableEntryFlags::User)
-            .with(PageTableEntryFlags::Readable)
+            .mustbe_user()
+            .with_read()
         {
             Some(guard) => {
                 for c in guard.iter() {

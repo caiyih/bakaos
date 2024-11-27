@@ -450,8 +450,8 @@ impl PageTable {
         let slice = unsafe { slice::from_raw_parts_mut(offset.as_mut_ptr::<u8>(), data.len()) };
 
         match (
-            self.guard_slice(data).with(PageTableEntryFlags::Readable),
-            self.guard_slice(slice).with(PageTableEntryFlags::Writable),
+            self.guard_slice(data).with_read(),
+            self.guard_slice(slice).with_write(),
         ) {
             (Some(from_guard), Some(mut to_guard)) => {
                 to_guard.as_mut().copy_from_slice(&from_guard);
