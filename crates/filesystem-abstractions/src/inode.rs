@@ -204,8 +204,8 @@ impl InodeCacheAccessor {
     /// This can be a dangerous operation, so you need to be very careful when using this method.
     ///
     /// # Example
-    /// ```no_run
-    /// use crate::filesystem::ICacheableInode;
+    /// ```ignore
+    /// use filesystem_abstractions::ICacheableInode;
     ///
     /// let text_cache = filesystem::root_filesystem()
     ///    .lookup("/text.txt")
