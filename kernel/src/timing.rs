@@ -40,7 +40,10 @@ impl ITimer for UserTaskTimer {
     }
 
     fn elapsed(&self) -> TimeSpan {
-        self.total
+        match self.start {
+            Some(start) => self.total + TimeSpan::from_timespec_diff(&current_timespec(), &start),
+            None => self.total,
+        }
     }
 
     fn is_started(&self) -> bool {
