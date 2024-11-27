@@ -6,11 +6,9 @@ extern crate std;
 extern crate alloc;
 
 mod fatfs_impl;
-mod inode;
 
 pub use fatfs_impl::*;
 use filesystem_abstractions::IFileSystem;
-pub use inode::ICacheableInode;
 use log::debug;
 
 pub type RootFileSystemType = fatfs_impl::Fat32FileSystem;

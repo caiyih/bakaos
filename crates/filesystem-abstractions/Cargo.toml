@@ -10,6 +10,8 @@ bitflags = "2.6.0"
 downcast-rs = { version = "1.2.1", default-features = false }
 timing = { path = "../timing", default-features = false }
 path = { path = "../path", default-features = false }
+hermit-sync = "0.1.6"
+lock_api = "0.4.12"
 
 [features]
 default = ["std"]
