@@ -31,7 +31,11 @@ impl Future for ExposeWakerFuture {
 #[no_mangle]
 // Complete lifecycle of a task from ready to exited
 async fn task_loop(tcb: Arc<TaskControlBlock>) {
-    debug_assert!(tcb.is_ready(), "task must be ready to run, but got {:?}", tcb.task_status);
+    debug_assert!(
+        tcb.is_ready(),
+        "task must be ready to run, but got {:?}",
+        tcb.task_status
+    );
 
     unsafe {
         // We can't pass the waker(or the context) to nested functions, so we store it in the tcb.
