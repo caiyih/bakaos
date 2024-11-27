@@ -1,9 +1,9 @@
 use abstractions::operations::IUsizeAlias;
-use alloc::{rc::Weak, string::String, sync::Arc, vec::Vec};
+use alloc::{string::String, sync::Arc, sync::Weak, vec::Vec};
 use core::{
     cell::UnsafeCell,
     mem::MaybeUninit,
-    sync::atomic::{AtomicI32, AtomicUsize},
+    sync::atomic::{AtomicI32, AtomicUsize, Ordering},
     task::Waker,
 };
 use lock_api::MappedMutexGuard;
@@ -296,6 +296,31 @@ impl TaskControlBlock {
 
     pub fn is_exited(&self) -> bool {
         *self.task_status.lock() >= TaskStatus::Exited
+    }
+}
+
+impl TaskControlBlock {
+    pub fn fork_process(self: &Arc<TaskControlBlock>) -> Arc<TaskControlBlock> {
+        let this_trap_ctx = self.mut_trap_ctx().clone();
+        let this_brk_pos = self.brk_pos.load(Ordering::Relaxed);
+        let memory_space = MemorySpace::clone_existing(&self.memory_space.lock());
+
+        Arc::new(TaskControlBlock {
+            task_id: tid::allocate_tid(),
+            task_status: SpinMutex::new(self.task_status.lock().clone()),
+            exit_code: AtomicI32::new(self.exit_code.load(Ordering::Relaxed)),
+            memory_space: Arc::new(SpinMutex::new(memory_space)),
+            parent: Some(Arc::new(Arc::downgrade(self))),
+            children: SpinMutex::new(Vec::new()),
+            trap_context: UnsafeCell::new(this_trap_ctx),
+            waker: UnsafeCell::new(MaybeUninit::uninit()),
+            stats: SpinMutex::new(self.stats.lock().clone()),
+            start_time: UnsafeCell::new(unsafe { self.start_time.get().as_ref().unwrap().clone() }),
+            timer: SpinMutex::new(UserTaskTimer::default()),
+            kernel_timer: SpinMutex::new(UserTaskTimer::default()),
+            brk_pos: AtomicUsize::new(this_brk_pos),
+            cwd: UnsafeCell::new(unsafe { self.cwd.get().as_ref().unwrap().clone() }),
+        })
     }
 }
 
