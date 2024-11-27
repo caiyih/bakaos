@@ -133,6 +133,7 @@ fn main() {
     preliminary_test("/exit", None, None);
     preliminary_test("/wait", None, None);
     preliminary_test("/waitpid", None, None);
+    preliminary_test("/execve", None, None);
 }
 
 fn preliminary_test(path: &str, args: Option<&[&str]>, envp: Option<&[&str]>) {
