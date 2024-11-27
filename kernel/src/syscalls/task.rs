@@ -325,6 +325,8 @@ impl ISyncSyscallHandler for ExecveSyscall {
                         unsafe {
                             *ctx.tcb.start_time.get().as_mut().unwrap().assume_init_mut() =
                                 crate::timing::current_timespec();
+                            ctx.tcb.kernel_timer.lock().start();
+                            ctx.tcb.timer.lock().start();
                         }
 
                         Ok(0)
