@@ -247,6 +247,13 @@ impl FileDescriptor {
     }
 }
 
+pub trait IFileDescriptorBuilder {
+    /// Builds the `FileDescriptor` with the specified index.
+    /// # Arguments
+    /// * `idx` - The index of the file descriptor in the task's file descriptor table.
+    fn build(self, idx: usize) -> Arc<FileDescriptor>;
+}
+
 /// Builder for creating `FileDescriptor` instances with customizable properties.
 pub struct FileDescriptorBuilder {
     file_handle: Arc<FileCacheAccessor>,
@@ -289,10 +296,18 @@ impl FileDescriptorBuilder {
         self
     }
 
+    // Freezes the builder and returns a `FrozenPermissionFileDescriptorBuilder`.
+    // which prohibits further permission changes but still allows building the file descriptor.
+    pub fn freeze(self) -> FrozenPermissionFileDescriptorBuilder {
+        FrozenPermissionFileDescriptorBuilder::new(self)
+    }
+}
+
+impl IFileDescriptorBuilder for FileDescriptorBuilder {
     /// Builds the `FileDescriptor` with the specified index.
     /// # Arguments
     /// * `idx` - The index of the file descriptor in the task's file descriptor table.
-    pub fn build(self, idx: usize) -> Arc<FileDescriptor> {
+    fn build(self, idx: usize) -> Arc<FileDescriptor> {
         Arc::new(FileDescriptor {
             idx,
             file_handle: self.file_handle,
@@ -300,12 +315,6 @@ impl FileDescriptorBuilder {
             can_write: self.can_write,
             redirected_fd: RwSpinLock::new(None),
         })
-    }
-
-    // Freezes the builder and returns a `FrozenPermissionFileDescriptorBuilder`.
-    // which prohibits further permission changes but still allows building the file descriptor.
-    pub fn freeze(self) -> FrozenPermissionFileDescriptorBuilder {
-        FrozenPermissionFileDescriptorBuilder::new(self)
     }
 }
 
@@ -317,8 +326,10 @@ impl FrozenPermissionFileDescriptorBuilder {
     pub fn new(builder: FileDescriptorBuilder) -> Self {
         FrozenPermissionFileDescriptorBuilder { builder }
     }
+}
 
-    pub fn build(self, idx: usize) -> Arc<FileDescriptor> {
+impl IFileDescriptorBuilder for FrozenPermissionFileDescriptorBuilder {
+    fn build(self, idx: usize) -> Arc<FileDescriptor> {
         self.builder.build(idx)
     }
 }
