@@ -337,7 +337,8 @@ impl Clone for FileDescriptor {
             file_handle: self.file_handle.clone(),
             can_read: self.can_read,
             can_write: self.can_write,
-            redirected_fd: RwSpinLock::new(None),
+            // File descriptors are shared among tasks(if they are cloned across tasks), so we can share the same weak pointer.
+            redirected_fd: RwSpinLock::new(self.redirected_fd.read().clone()),
         }
     }
 }
