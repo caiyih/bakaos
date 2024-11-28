@@ -126,6 +126,10 @@ impl FileCacheEntry {
     pub fn is_closed(&self) -> bool {
         self.rc.load(Ordering::Relaxed) == 0
     }
+
+    pub fn references(&self) -> usize {
+        self.rc.load(Ordering::Relaxed)
+    }
 }
 
 static mut FILE_TABLE: SpinMutex<Vec<Option<FileCacheEntry>>> = SpinMutex::new(Vec::new());
