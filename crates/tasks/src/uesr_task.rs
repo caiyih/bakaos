@@ -6,6 +6,7 @@ use core::{
     sync::atomic::{AtomicI32, AtomicUsize, Ordering},
     task::Waker,
 };
+use filesystem_abstractions::FileDescriptorTable;
 use lock_api::MappedMutexGuard;
 use timing::{TimeSpan, TimeSpec};
 
@@ -238,6 +239,7 @@ pub struct TaskControlBlock {
     pub kernel_timer: SpinMutex<UserTaskTimer>,
     pub brk_pos: AtomicUsize,
     pub cwd: UnsafeCell<String>,
+    pub fd_table: SpinMutex<FileDescriptorTable>,
 }
 
 unsafe impl Sync for TaskControlBlock {}
@@ -247,8 +249,10 @@ impl TaskControlBlock {
     pub fn new(memory_space_builder: MemorySpaceBuilder) -> Arc<TaskControlBlock> {
         let trap_context = TaskTrapContext::new(&memory_space_builder);
         let brk_pos = memory_space_builder.memory_space.brk_start().as_usize();
+        let task_id = tid::allocate_tid();
+        let tid = task_id.id();
         Arc::new(TaskControlBlock {
-            task_id: tid::allocate_tid(),
+            task_id,
             task_status: SpinMutex::new(TaskStatus::Uninitialized),
             exit_code: AtomicI32::new(0),
             memory_space: Arc::new(SpinMutex::new(memory_space_builder.memory_space)),
@@ -262,6 +266,7 @@ impl TaskControlBlock {
             kernel_timer: SpinMutex::new(UserTaskTimer::default()),
             brk_pos: AtomicUsize::new(brk_pos),
             cwd: UnsafeCell::new(String::new()),
+            fd_table: SpinMutex::new(FileDescriptorTable::new(tid)),
         })
     }
 
@@ -330,6 +335,8 @@ impl TaskControlBlock {
 
         *self.memory_space.lock() = memory_space_builder.memory_space;
 
+        // TODO: Handle file descriptor table with FD_CLOEXEC flag
+
         unsafe { self.borrow_page_table().activate() };
         self.init();
 
@@ -340,9 +347,11 @@ impl TaskControlBlock {
         let this_trap_ctx = *self.mut_trap_ctx();
         let this_brk_pos = self.brk_pos.load(Ordering::Relaxed);
         let memory_space = MemorySpace::clone_existing(&self.memory_space.lock());
+        let task_id = tid::allocate_tid();
+        let tid = task_id.id();
 
         Arc::new(TaskControlBlock {
-            task_id: tid::allocate_tid(),
+            task_id,
             task_status: SpinMutex::new(TaskStatus::Ready),
             exit_code: AtomicI32::new(self.exit_code.load(Ordering::Relaxed)),
             memory_space: Arc::new(SpinMutex::new(memory_space)),
@@ -356,6 +365,7 @@ impl TaskControlBlock {
             kernel_timer: SpinMutex::new(UserTaskTimer::default()),
             brk_pos: AtomicUsize::new(this_brk_pos),
             cwd: UnsafeCell::new(unsafe { self.cwd.get().as_ref().unwrap().clone() }),
+            fd_table: SpinMutex::new(self.fd_table.lock().clone_for(tid)),
         })
     }
 }
