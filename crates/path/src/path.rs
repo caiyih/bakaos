@@ -489,7 +489,7 @@ fn effective_length(path: &str) -> usize {
     }
 }
 
-fn get_common_length(first: &str, second: &str) -> usize {
+pub fn get_common_length(first: &str, second: &str) -> usize {
     let mut common_chars = equal_starting_character_count(first, second);
 
     if common_chars == 0 {
