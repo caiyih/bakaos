@@ -352,9 +352,11 @@ impl FileDescriptorTable {
     pub fn clone_for(&self, task_id: usize) -> Self {
         let mut new = Self::new(task_id);
 
-        for entry in self.table.iter() {
+        for entry in self.table.iter().skip(3) {
             new.table.push(entry.clone());
         }
+
+        debug_assert!(self.table.len() == new.table.len());
 
         new
     }
