@@ -326,15 +326,35 @@ impl Deref for FileDescriptor {
     }
 }
 
-pub trait IFileDescriptorBuilder {
+#[allow(private_bounds)] // Hide abstractions from the public interface.
+pub trait IFileDescriptorBuilder: IHasFrozenFileDescriptor {
     /// Builds the `FileDescriptor` with the specified index.
     /// # Arguments
     /// * `idx` - The index of the file descriptor in the task's file descriptor table.
-    fn build(self, idx: usize) -> Arc<FileDescriptor>;
+    fn build(&self, idx: usize) -> Arc<FileDescriptor> {
+        Arc::new(FileDescriptor {
+            idx,
+            inner: self.inner(),
+        })
+    }
 
     /// Builds the `FileDescriptor` with an independent file handle.
     /// This will create a new file handle for the file descriptor, that means the file descriptor is not shared with the original one.
-    fn build_non_inherited(self, idx: usize) -> Arc<FileDescriptor>;
+    fn build_non_inherited(&self, idx: usize) -> Arc<FileDescriptor> {
+        let file_handle = self.inner().file_handle.clone_non_inherited_arc();
+        Arc::new(FileDescriptor {
+            idx,
+            inner: FrozenFileDescriptor {
+                file_handle,
+                can_read: self.inner().can_read,
+                can_write: self.inner().can_write,
+            },
+        })
+    }
+}
+
+trait IHasFrozenFileDescriptor {
+    fn inner(&self) -> FrozenFileDescriptor;
 }
 
 /// Builder for creating `FileDescriptor` instances with customizable properties
@@ -393,6 +413,14 @@ impl FileDescriptorBuilder {
     }
 }
 
+impl IFileDescriptorBuilder for FileDescriptorBuilder {}
+
+impl IHasFrozenFileDescriptor for FileDescriptorBuilder {
+    fn inner(&self) -> FrozenFileDescriptor {
+        self.fd_inner.clone()
+    }
+}
+
 #[derive(Clone)]
 pub struct FrozenFileDescriptorBuilder {
     fd_inner: FrozenFileDescriptor,
@@ -418,24 +446,11 @@ impl FrozenFileDescriptorBuilder {
     }
 }
 
-impl IFileDescriptorBuilder for FrozenFileDescriptorBuilder {
-    fn build(self, idx: usize) -> Arc<FileDescriptor> {
-        Arc::new(FileDescriptor {
-            idx,
-            inner: self.fd_inner,
-        })
-    }
+impl IFileDescriptorBuilder for FrozenFileDescriptorBuilder {}
 
-    fn build_non_inherited(self, idx: usize) -> Arc<FileDescriptor> {
-        let file_handle = self.fd_inner.file_handle.clone_non_inherited_arc();
-        Arc::new(FileDescriptor {
-            idx,
-            inner: FrozenFileDescriptor {
-                file_handle,
-                can_read: self.fd_inner.can_read,
-                can_write: self.fd_inner.can_write,
-            },
-        })
+impl IHasFrozenFileDescriptor for FrozenFileDescriptorBuilder {
+    fn inner(&self) -> FrozenFileDescriptor {
+        self.fd_inner.clone()
     }
 }
 
