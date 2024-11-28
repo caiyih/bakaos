@@ -10,13 +10,7 @@ impl ISyncSyscallHandler for WriteSyscall {
         let p_buf = ctx.arg1::<*const u8>();
         let len = ctx.arg2::<usize>();
 
-        let fd = ctx.tcb.fd_table.lock().get(fd);
-
-        if fd.is_none() {
-            return Err(-1);
-        }
-
-        let fd = fd.unwrap();
+        let fd = ctx.tcb.fd_table.lock().get(fd).ok_or(-1isize)?;
 
         if !fd.can_write() {
             return Err(-1);
