@@ -480,19 +480,16 @@ impl FileDescriptorTable {
                 Some(
                     FileDescriptorBuilder::new(Stdin::open_for(task_id).cache_as_arc_accessor())
                         .set_readable()
-                        .freeze()
                         .build(0),
                 ),
                 Some(
                     FileDescriptorBuilder::new(Stdout::open_for(task_id).cache_as_arc_accessor())
                         .set_writable()
-                        .freeze()
                         .build(1),
                 ),
                 Some(
                     FileDescriptorBuilder::new(Stderr::open_for(task_id).cache_as_arc_accessor())
                         .set_writable()
-                        .freeze()
                         .build(2),
                 ),
             ],
