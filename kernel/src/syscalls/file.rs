@@ -61,8 +61,18 @@ impl ISyncSyscallHandler for Pipe2Syscall {
 
                 let mut fd_table = ctx.tcb.fd_table.lock();
 
-                guard.read_end = fd_table.allocate(pipe_pair.read_end) as i32;
-                guard.write_end = fd_table.allocate(pipe_pair.write_end) as i32;
+                match fd_table.allocate(pipe_pair.read_end) {
+                    Some(read_end) => guard.read_end = read_end as i32,
+                    None => return Err(-1),
+                }
+
+                match fd_table.allocate(pipe_pair.write_end) {
+                    Some(write_end) => guard.write_end = write_end as i32,
+                    None => {
+                        fd_table.remove(guard.read_end as usize);
+                        return Err(-1);
+                    }
+                }
 
                 Ok(0)
             }
