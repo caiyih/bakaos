@@ -12,6 +12,7 @@ timing = { path = "../timing", default-features = false }
 path = { path = "../path", default-features = false }
 hermit-sync = "0.1.6"
 lock_api = "0.4.12"
+log = "0.4.22"
 
 [features]
 default = ["std"]
