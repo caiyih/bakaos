@@ -13,7 +13,7 @@ async_syscall!(sys_read_async, ctx, {
 
     let file = fd.access().ok_or(-1isize)?; // check if file is closed
 
-    if !file.read_avaliable() {
+    while !file.read_avaliable() {
         yield_now().await;
     }
 
