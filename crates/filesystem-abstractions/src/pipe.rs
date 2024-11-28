@@ -66,7 +66,7 @@ impl PipeBuilder {
             buf_queue: SpinMutex::new(VecDeque::new()),
         });
 
-        let accessor = pipe_file.cache_as_arc_accessor();
+        let accessor = pipe_file.cache_as_accessor();
 
         PipeBuilder {
             read_end: FileDescriptorBuilder::new(accessor.clone())

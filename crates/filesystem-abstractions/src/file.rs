@@ -131,15 +131,10 @@ impl FileCacheEntry {
 static mut FILE_TABLE: SpinMutex<Vec<Option<FileCacheEntry>>> = SpinMutex::new(Vec::new());
 
 pub trait ICacheableFile: IFile {
-    fn cache_as_arc_accessor(self: &Arc<Self>) -> Arc<FileCacheAccessor>;
     fn cache_as_accessor(self: &Arc<Self>) -> FileCacheAccessor;
 }
 
 impl ICacheableFile for dyn IFile {
-    fn cache_as_arc_accessor(self: &Arc<Self>) -> Arc<FileCacheAccessor> {
-        Arc::new(self.cache_as_accessor())
-    }
-
     fn cache_as_accessor(self: &Arc<Self>) -> FileCacheAccessor {
         FileCacheAccessor::cache(self.clone())
     }
@@ -170,13 +165,17 @@ impl Drop for FileCacheAccessor {
     fn drop(&mut self) {
         unsafe {
             let mut caches = FILE_TABLE.lock();
-            let entry = caches[self.file_id].as_ref().unwrap();
 
-            if !self.close_requested() {
-                // Remove close rc added by *this* accessor.
-                // Rc should have been removed if the accessor is closed.
-                entry.remove_reference();
+            if self.close_requested() {
+                return;
             }
+
+            let entry = caches[self.file_id].as_ref()
+                .expect("Entry should still exist as this accessor still holds a reference.");
+
+            // Remove close rc added by *this* accessor.
+            // Rc should have been removed if the accessor is closed.
+            entry.remove_reference();
 
             // Clear the cache entry if the file is closed and there are no references to it.
             if entry.is_closed() {
@@ -283,10 +282,10 @@ impl FileCacheAccessor {
 /// It also supports redirection to another file descriptor.
 #[derive(Debug)]
 pub struct FileDescriptor {
-    idx: usize,                          // index in the task's file descriptor table
-    file_handle: Arc<FileCacheAccessor>, // file handle
-    can_read: bool,                      // whether the file descriptor is readable
-    can_write: bool,                     // whether the file descriptor is writable
+    idx: usize,                     // index in the task's file descriptor table
+    file_handle: FileCacheAccessor, // file handle
+    can_read: bool,                 // whether the file descriptor is readable
+    can_write: bool,                // whether the file descriptor is writable
     redirected_fd: RwSpinLock<Option<Weak<FileDescriptor>>>, // redirected file descriptor
 }
 
@@ -344,7 +343,7 @@ impl FileDescriptor {
     }
 
     /// Returns the file handle associated with the file descriptor, following any redirections.
-    pub fn file_handle(self: &Arc<FileDescriptor>) -> Arc<FileCacheAccessor> {
+    pub fn file_handle(self: &Arc<FileDescriptor>) -> FileCacheAccessor {
         self.real_fd().file_handle.clone()
     }
 
@@ -356,6 +355,18 @@ impl FileDescriptor {
     /// Checks if the file descriptor is writable, following any redirections.
     pub fn can_write(self: &Arc<FileDescriptor>) -> bool {
         self.real_fd().can_write
+    }
+}
+
+impl Clone for FileDescriptor {
+    fn clone(&self) -> Self {
+        Self {
+            idx: self.idx.clone(),
+            file_handle: self.file_handle.clone(),
+            can_read: self.can_read.clone(),
+            can_write: self.can_write.clone(),
+            redirected_fd: RwSpinLock::new(None),
+        }
     }
 }
 
@@ -376,7 +387,7 @@ pub trait IFileDescriptorBuilder {
 
 /// Builder for creating `FileDescriptor` instances with customizable properties.
 pub struct FileDescriptorBuilder {
-    file_handle: Arc<FileCacheAccessor>,
+    file_handle: FileCacheAccessor,
     can_read: bool,
     can_write: bool,
 }
@@ -388,7 +399,7 @@ impl FileDescriptorBuilder {
     /// Creates a new `FileDescriptorBuilder` with the given file handle.
     /// # Arguments
     /// * `file_handle` - The file handle associated with the file descriptor.
-    pub fn new(file_handle: Arc<FileCacheAccessor>) -> Self {
+    pub fn new(file_handle: FileCacheAccessor) -> Self {
         FileDescriptorBuilder {
             file_handle,
             can_read: false,
@@ -481,17 +492,17 @@ impl FileDescriptorTable {
         FileDescriptorTable {
             table: vec![
                 Some(
-                    FileDescriptorBuilder::new(Stdin::open_for(task_id).cache_as_arc_accessor())
+                    FileDescriptorBuilder::new(Stdin::open_for(task_id).cache_as_accessor())
                         .set_readable()
                         .build(0),
                 ),
                 Some(
-                    FileDescriptorBuilder::new(Stdout::open_for(task_id).cache_as_arc_accessor())
+                    FileDescriptorBuilder::new(Stdout::open_for(task_id).cache_as_accessor())
                         .set_writable()
                         .build(1),
                 ),
                 Some(
-                    FileDescriptorBuilder::new(Stderr::open_for(task_id).cache_as_arc_accessor())
+                    FileDescriptorBuilder::new(Stderr::open_for(task_id).cache_as_accessor())
                         .set_writable()
                         .build(2),
                 ),
@@ -524,7 +535,10 @@ impl FileDescriptorTable {
     /// Allocates a new file descriptor in the table with the given properties.
     /// # Arguments
     /// * `fd_builder` - The builder for creating the file descriptor.
-    pub fn allocate<TFDBuilder: IFileDescriptorBuilder>(&mut self, fd_builder: TFDBuilder) -> usize {
+    pub fn allocate<TFDBuilder: IFileDescriptorBuilder>(
+        &mut self,
+        fd_builder: TFDBuilder,
+    ) -> usize {
         for (idx, entry) in self.table.iter().enumerate() {
             if entry.is_none() {
                 self.table[idx] = Some(fd_builder.build(idx));
