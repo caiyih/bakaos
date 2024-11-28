@@ -336,6 +336,10 @@ impl FileDescriptor {
 }
 
 impl Clone for FileDescriptor {
+    // This clone the file descriptor and sharing the same FrozenFileDescriptor.
+    // No permission changes are allowed after the file descriptor is cloned as they are shared.
+    // To create a new file descriptor with different permissions, use `FileDescriptorBuilder`.
+    // But this loses the ability to trace the original file descriptor as they are not shared the same FrozenFileDescriptor.
     fn clone(&self) -> Self {
         Self {
             idx: self.idx,
@@ -361,7 +365,10 @@ pub trait IFileDescriptorBuilder {
     fn build(self, idx: usize) -> Arc<FileDescriptor>;
 }
 
-/// Builder for creating `FileDescriptor` instances with customizable properties.
+/// Builder for creating `FileDescriptor` instances with customizable properties
+/// This deconstructs an existing `FileDescriptor` and allows for changing its properties.
+/// But you will also lose the ability to trace the original file descriptor as they are not shared the same FrozenFileDescriptor.
+/// To trace the original file descriptor, use `FrozenFileDescriptorBuilder`.
 pub struct FileDescriptorBuilder {
     fd_inner: FrozenFileDescriptor,
 }
