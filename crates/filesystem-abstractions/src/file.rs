@@ -248,7 +248,9 @@ impl FileCacheAccessor {
     ///
     /// # Returns
     /// A mutable reference to the file in the cache table.
-    pub unsafe fn access_cache_entry(&self) -> MappedMutexGuard<'static, RawSpinMutex, FileCacheEntry> {
+    pub unsafe fn access_cache_entry(
+        &self,
+    ) -> MappedMutexGuard<'static, RawSpinMutex, FileCacheEntry> {
         let caches = FILE_TABLE.lock();
         MutexGuard::map(caches, |caches| caches[self.file_id].as_mut().unwrap())
     }
