@@ -511,15 +511,40 @@ impl FileDescriptorTable {
     pub fn allocate<TFDBuilder: IFileDescriptorBuilder>(
         &mut self,
         fd_builder: TFDBuilder,
-    ) -> usize {
+    ) -> Option<usize> {
         for (idx, entry) in self.table.iter().enumerate() {
             if entry.is_none() {
                 self.table[idx] = Some(fd_builder.build(idx));
-                return idx;
+                return Some(idx);
             }
         }
 
+        if self.table.len() >= Self::MAX_SIZE {
+            return None;
+        }
+
         self.table.push(Some(fd_builder.build(self.table.len())));
-        self.table.len() - 1
+        Some(self.table.len() - 1)
+    }
+
+    pub const MAX_SIZE: usize = 1024;
+    pub fn allocate_at<TFDBuilder: IFileDescriptorBuilder>(
+        &mut self,
+        fd_builder: TFDBuilder,
+        idx: usize,
+    ) -> Option<usize> {
+        if idx >= Self::MAX_SIZE {
+            return None;
+        }
+
+        if self.table.len() <= idx {
+            self.table.reserve_exact(idx - self.table.len() + 1);
+            self.table.resize_with(idx + 1, || None);
+        } else if self.table.get(idx)?.is_some() {
+            return None;
+        }
+
+        self.table[idx] = Some(fd_builder.build(idx));
+        Some(idx)
     }
 }
