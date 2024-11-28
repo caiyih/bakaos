@@ -323,9 +323,8 @@ impl ISyncSyscallHandler for ExecveSyscall {
                     Some(unsafe { ctx.tcb.cwd.get().as_ref().unwrap() }),
                 ) {
                     Some(fullpath) => {
-                        let file = filesystem::root_filesystem()
-                            .lookup_inode(&fullpath)
-                            .map_err(|_| -1isize)?;
+                        let file =
+                            filesystem_abstractions::lookup_inode(&fullpath).ok_or(-1isize)?;
 
                         let bytes = file.readall().map_err(|_| -1isize)?;
 

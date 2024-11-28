@@ -7,24 +7,14 @@ extern crate alloc;
 
 mod fatfs_impl;
 
+use alloc::sync::Arc;
+
 pub use fatfs_impl::*;
-use filesystem_abstractions::IFileSystem;
-use log::debug;
+use filesystem_abstractions::{mount_at, IFileSystem};
 
 pub type RootFileSystemType = fatfs_impl::Fat32FileSystem;
 
-static mut ROOT_FILESYSTEM: Option<RootFileSystemType> = None;
-
 pub fn setup_root_filesystem(fs: RootFileSystemType) {
-    debug!("Initializing filesystem: {}", fs.name());
-
-    unsafe { ROOT_FILESYSTEM = Some(fs) };
-}
-
-pub fn root_filesystem() -> &'static dyn IFileSystem {
-    unsafe {
-        ROOT_FILESYSTEM
-            .as_ref()
-            .expect("Root filesystem not initialized")
-    }
+    let root: Arc<dyn IFileSystem> = Arc::new(fs);
+    mount_at(root, "/");
 }
