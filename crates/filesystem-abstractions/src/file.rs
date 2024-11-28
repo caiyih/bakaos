@@ -520,7 +520,7 @@ impl FileDescriptorTable {
     /// Allocates a new file descriptor in the table with the given properties.
     /// # Arguments
     /// * `fd_builder` - The builder for creating the file descriptor.
-    pub fn allocate(&mut self, fd_buider: FileDescriptorBuilder) -> usize {
+    pub fn allocate<TFDBuilder: IFileDescriptorBuilder>(&mut self, fd_buider: TFDBuilder) -> usize {
         for (idx, entry) in self.table.iter().enumerate() {
             if entry.is_none() {
                 self.table[idx] = Some(fd_buider.build(idx));
