@@ -6,7 +6,7 @@ use crate::{IStdioFile, Stderr, Stdin, Stdout};
 use alloc::sync::Arc;
 use alloc::sync::Weak;
 use alloc::{vec, vec::Vec};
-use hermit_sync::{RawSpinMutex, RwSpinLock, SpinMutex};
+use hermit_sync::{RawSpinMutex, SpinMutex};
 use lock_api::{MappedMutexGuard, MutexGuard};
 
 pub struct FileMetadata {
@@ -263,50 +263,15 @@ pub struct FrozenFileDescriptor {
 pub struct FileDescriptor {
     idx: usize,                       // index in the task's file descriptor table
     inner: Arc<FrozenFileDescriptor>, // file handle and access permissions, used to trace dupped fds
-    redirected_fd: RwSpinLock<Option<Weak<FileDescriptor>>>, // redirected file descriptor
 }
 
 unsafe impl Send for FileDescriptor {}
 unsafe impl Sync for FileDescriptor {}
 
 impl FileDescriptor {
-    /// Returns the real file descriptor that this file descriptor points to, following any redirections.
-    pub fn real_fd(self: &Arc<FileDescriptor>) -> Arc<FileDescriptor> {
-        let mut current = self.clone();
-        loop {
-            let weak = {
-                let read_guard = current.redirected_fd.read();
-                if let Some(weak) = read_guard.as_ref().map(|w| w.clone()) {
-                    weak
-                } else {
-                    break;
-                }
-            };
-            // If the weak pointer is still valid, we can upgrade it to a strong pointer.
-            // But if not, we should stop redirection and return the current file descriptor.
-            match weak.upgrade() {
-                Some(fd) => current = fd,
-                None => *current.redirected_fd.write() = None,
-            }
-        }
-        current
-    }
-
     /// Returns a weak reference to the current file descriptor.
     pub fn weak_clone(self: &Arc<FileDescriptor>) -> Weak<FileDescriptor> {
         Arc::downgrade(self)
-    }
-
-    /// Checks if the file descriptor is redirected to another file descriptor.
-    pub fn is_redirected(self: &Arc<FileDescriptor>) -> bool {
-        self.redirected_fd.read().is_some()
-    }
-
-    /// Redirects the current file descriptor to another file descriptor.
-    /// # Arguments
-    /// * `new_fd` - The file descriptor to redirect to.
-    pub fn redirect_to(self: &Arc<FileDescriptor>, new_fd: Arc<FileDescriptor>) {
-        *self.redirected_fd.write() = Some(new_fd.weak_clone());
     }
 
     /// Returns the index of the file descriptor in the task's file descriptor table.
@@ -314,24 +279,19 @@ impl FileDescriptor {
         self.idx
     }
 
-    /// Returns the index of the real file descriptor, following any redirections.
-    pub fn real_id(self: &Arc<FileDescriptor>) -> usize {
-        self.real_fd().id()
-    }
-
     /// Returns the file handle associated with the file descriptor, following any redirections.
     pub fn file_handle(self: &Arc<FileDescriptor>) -> FileCacheAccessor {
-        self.real_fd().inner.file_handle.clone()
+        self.inner.file_handle.clone()
     }
 
     /// Checks if the file descriptor is readable, following any redirections.
     pub fn can_read(self: &Arc<FileDescriptor>) -> bool {
-        self.real_fd().inner.can_read
+        self.inner.can_read
     }
 
     /// Checks if the file descriptor is writable, following any redirections.
     pub fn can_write(self: &Arc<FileDescriptor>) -> bool {
-        self.real_fd().inner.can_write
+        self.inner.can_write
     }
 }
 
@@ -344,8 +304,6 @@ impl Clone for FileDescriptor {
         Self {
             idx: self.idx,
             inner: self.inner.clone(),
-            // File descriptors are shared among tasks(if they are cloned across tasks), so we can share the same weak pointer.
-            redirected_fd: RwSpinLock::new(self.redirected_fd.read().clone()),
         }
     }
 }
@@ -449,7 +407,6 @@ impl IFileDescriptorBuilder for FrozenFileDescriptorBuilder {
         Arc::new(FileDescriptor {
             idx,
             inner: self.fd_inner,
-            redirected_fd: RwSpinLock::new(None),
         })
     }
 }
