@@ -222,7 +222,7 @@ impl InodeCacheAccessor {
     /// // The cache accessor returns the new inode
     /// let new_text = text_cache.access();
     /// ```
-    pub unsafe fn as_mut(&self) -> MappedMutexGuard<'static, RawSpinMutex, Arc<dyn IInode>> {
+    pub unsafe fn access_mut(&self) -> MappedMutexGuard<'static, RawSpinMutex, Arc<dyn IInode>> {
         let caches = INODE_CACHE.lock();
         MutexGuard::map(caches, |caches| caches[self.inode_id].as_mut().unwrap())
     }
