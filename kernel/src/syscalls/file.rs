@@ -111,7 +111,7 @@ impl ISyncSyscallHandler for DupSyscall {
         let mut fd_table = ctx.tcb.fd_table.lock();
         match fd_table.get(fd) {
             Some(old) => {
-                let builder = FrozenFileDescriptorBuilder::clone_existing_fd(&old);
+                let builder = FrozenFileDescriptorBuilder::deconstruct(&old);
                 match fd_table.allocate(builder) {
                     Some(newfd) => Ok(newfd as isize),
                     None => Err(-1),
@@ -141,7 +141,7 @@ impl ISyncSyscallHandler for Dup3Syscall {
         let mut fd_table = ctx.tcb.fd_table.lock();
         match fd_table.get(oldfd) {
             Some(old) => {
-                let builder = FrozenFileDescriptorBuilder::clone_existing_fd(&old);
+                let builder = FrozenFileDescriptorBuilder::deconstruct(&old);
 
                 // if newfd is already open, close it
                 if fd_table.get(newfd).is_some() {

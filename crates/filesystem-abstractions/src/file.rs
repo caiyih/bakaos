@@ -135,6 +135,10 @@ impl FileCacheEntry {
 static mut FILE_TABLE: SpinMutex<Vec<Option<FileCacheEntry>>> = SpinMutex::new(Vec::new());
 
 pub trait ICacheableFile: IFile {
+    fn cache_as_arc_accessor(self: &Arc<Self>) -> Arc<FileCacheAccessor> {
+        Arc::new(self.cache_as_accessor())
+    }
+
     fn cache_as_accessor(self: &Arc<Self>) -> FileCacheAccessor;
 }
 
@@ -158,6 +162,12 @@ impl FileCacheAccessor {
         }
 
         Some(Self { file_id })
+    }
+}
+
+impl FileCacheAccessor {
+    pub fn clone_non_inherited_arc(self: &Arc<Self>) -> Arc<Self> {
+        Arc::new(self.deref().clone())
     }
 }
 
@@ -249,11 +259,11 @@ impl FileCacheAccessor {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FrozenFileDescriptor {
-    file_handle: FileCacheAccessor, // file handle
-    can_read: bool,                 // whether the file descriptor is readable
-    can_write: bool,                // whether the file descriptor is writable
+    file_handle: Arc<FileCacheAccessor>, // file handle
+    can_read: bool,                      // whether the file descriptor is readable
+    can_write: bool,                     // whether the file descriptor is writable
 }
 
 /// `FileDescriptor` represents an open file in a task's file descriptor table.
@@ -261,8 +271,8 @@ pub struct FrozenFileDescriptor {
 /// It also supports redirection to another file descriptor.
 #[derive(Debug)]
 pub struct FileDescriptor {
-    idx: usize,                       // index in the task's file descriptor table
-    inner: Arc<FrozenFileDescriptor>, // file handle and access permissions, used to trace dupped fds
+    idx: usize,                  // index in the task's file descriptor table
+    inner: FrozenFileDescriptor, // file handle and access permissions, used to trace dupped fds
 }
 
 unsafe impl Send for FileDescriptor {}
@@ -280,8 +290,8 @@ impl FileDescriptor {
     }
 
     /// Returns the file handle associated with the file descriptor, following any redirections.
-    pub fn file_handle(self: &Arc<FileDescriptor>) -> FileCacheAccessor {
-        self.inner.file_handle.clone()
+    pub fn file_handle<'a>(self: &'a Arc<FileDescriptor>) -> &'a Arc<FileCacheAccessor> {
+        &self.inner.file_handle
     }
 
     /// Checks if the file descriptor is readable, following any redirections.
@@ -321,6 +331,10 @@ pub trait IFileDescriptorBuilder {
     /// # Arguments
     /// * `idx` - The index of the file descriptor in the task's file descriptor table.
     fn build(self, idx: usize) -> Arc<FileDescriptor>;
+
+    /// Builds the `FileDescriptor` with an independent file handle.
+    /// This will create a new file handle for the file descriptor, that means the file descriptor is not shared with the original one.
+    fn build_non_inherited(self, idx: usize) -> Arc<FileDescriptor>;
 }
 
 /// Builder for creating `FileDescriptor` instances with customizable properties
@@ -338,7 +352,7 @@ impl FileDescriptorBuilder {
     /// Creates a new `FileDescriptorBuilder` with the given file handle.
     /// # Arguments
     /// * `file_handle` - The file handle associated with the file descriptor.
-    pub fn new(file_handle: FileCacheAccessor) -> Self {
+    pub fn new(file_handle: Arc<FileCacheAccessor>) -> Self {
         FileDescriptorBuilder {
             fd_inner: FrozenFileDescriptor {
                 file_handle,
@@ -348,7 +362,7 @@ impl FileDescriptorBuilder {
         }
     }
 
-    pub fn from_existing(fd: &Arc<FileDescriptor>) -> Self {
+    pub fn deconstruct(fd: &Arc<FileDescriptor>) -> Self {
         FileDescriptorBuilder {
             fd_inner: FrozenFileDescriptor {
                 file_handle: fd.inner.file_handle.clone(),
@@ -374,31 +388,33 @@ impl FileDescriptorBuilder {
     // which prohibits further permission changes but still allows building the file descriptor.
     pub fn freeze(self) -> FrozenFileDescriptorBuilder {
         FrozenFileDescriptorBuilder {
-            fd_inner: Arc::new(self.fd_inner),
+            fd_inner: self.fd_inner,
         }
     }
 }
 
 #[derive(Clone)]
 pub struct FrozenFileDescriptorBuilder {
-    fd_inner: Arc<FrozenFileDescriptor>,
+    fd_inner: FrozenFileDescriptor,
 }
 
 impl FrozenFileDescriptorBuilder {
-    pub fn new(fd_inner: &Arc<FrozenFileDescriptor>) -> Self {
-        Self {
-            fd_inner: fd_inner.clone(),
-        }
+    pub fn new(fd_inner: FrozenFileDescriptor) -> Self {
+        Self { fd_inner }
     }
 
-    pub fn clone_existing_fd(fd: &Arc<FileDescriptor>) -> Self {
-        Self {
-            fd_inner: fd.inner.clone(),
-        }
+    pub fn deconstruct(fd: &Arc<FileDescriptor>) -> Self {
+        Self::new(fd.inner.clone())
     }
 
-    pub fn fd_inner(&self) -> &Arc<FrozenFileDescriptor> {
+    pub fn fd_inner(&self) -> &FrozenFileDescriptor {
         &self.fd_inner
+    }
+
+    pub fn unfreeze(self) -> FileDescriptorBuilder {
+        FileDescriptorBuilder {
+            fd_inner: self.fd_inner,
+        }
     }
 }
 
@@ -407,6 +423,18 @@ impl IFileDescriptorBuilder for FrozenFileDescriptorBuilder {
         Arc::new(FileDescriptor {
             idx,
             inner: self.fd_inner,
+        })
+    }
+
+    fn build_non_inherited(self, idx: usize) -> Arc<FileDescriptor> {
+        let file_handle = self.fd_inner.file_handle.clone_non_inherited_arc();
+        Arc::new(FileDescriptor {
+            idx,
+            inner: FrozenFileDescriptor {
+                file_handle,
+                can_read: self.fd_inner.can_read,
+                can_write: self.fd_inner.can_write,
+            },
         })
     }
 }
@@ -438,19 +466,19 @@ impl FileDescriptorTable {
         FileDescriptorTable {
             table: vec![
                 Some(
-                    FileDescriptorBuilder::new(Stdin::open_for(task_id).cache_as_accessor())
+                    FileDescriptorBuilder::new(Stdin::open_for(task_id).cache_as_arc_accessor())
                         .set_readable()
                         .freeze()
                         .build(0),
                 ),
                 Some(
-                    FileDescriptorBuilder::new(Stdout::open_for(task_id).cache_as_accessor())
+                    FileDescriptorBuilder::new(Stdout::open_for(task_id).cache_as_arc_accessor())
                         .set_writable()
                         .freeze()
                         .build(1),
                 ),
                 Some(
-                    FileDescriptorBuilder::new(Stderr::open_for(task_id).cache_as_accessor())
+                    FileDescriptorBuilder::new(Stderr::open_for(task_id).cache_as_arc_accessor())
                         .set_writable()
                         .freeze()
                         .build(2),

@@ -4,13 +4,13 @@ use alloc::sync::{Arc, Weak};
 use hermit_sync::SpinMutex;
 
 use crate::{
-    FileDescriptorBuilder, FileMetadata, FrozenFileDescriptor, FrozenFileDescriptorBuilder,
+    FileCacheAccessor, FileDescriptorBuilder, FileMetadata, FrozenFileDescriptorBuilder,
     ICacheableFile, IFile,
 };
 
 struct Pipe {
     buf_queue: SpinMutex<VecDeque<u8>>,
-    write_end_weak: SpinMutex<Weak<FrozenFileDescriptor>>,
+    write_end_weak: SpinMutex<Weak<FileCacheAccessor>>,
 }
 
 impl IFile for Pipe {
@@ -75,17 +75,17 @@ impl PipeBuilder {
 
         let pipe_file: Arc<dyn IFile> = pipe.clone();
 
-        let accessor = pipe_file.cache_as_accessor();
+        let read_accessor = pipe_file.cache_as_arc_accessor();
+        let write_accessor = read_accessor.clone_non_inherited_arc();
 
-        let read_end_builder = FileDescriptorBuilder::new(accessor.clone())
+        let read_end_builder = FileDescriptorBuilder::new(read_accessor)
             .set_readable()
             .freeze();
 
-        let write_end_builder = FileDescriptorBuilder::new(accessor.clone())
+        *pipe.write_end_weak.lock() = Arc::downgrade(&write_accessor);
+        let write_end_builder = FileDescriptorBuilder::new(write_accessor)
             .set_writable()
             .freeze();
-
-        *pipe.write_end_weak.lock() = Arc::downgrade(write_end_builder.fd_inner());
 
         PipeBuilder {
             read_end_builder,
