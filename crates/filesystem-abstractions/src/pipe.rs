@@ -15,6 +15,8 @@ struct Pipe {
 
 impl IFile for Pipe {
     fn read_avaliable(&self) -> bool {
+        // Strong counts of accessors that are only inherited by write end
+        // Indicates whether the write end is still open
         let strong_count = self.write_end_weak.lock().strong_count();
 
         // When has write end, we should let the read end yield if the buffer is empty
