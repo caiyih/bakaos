@@ -16,6 +16,8 @@ impl ISyncSyscallHandler for WriteSyscall {
             return Err(-1);
         }
 
+        let file = fd.access().ok_or(-1isize)?; // check if file is closed
+
         let buf = unsafe { core::slice::from_raw_parts(p_buf, len) };
 
         match ctx
@@ -25,7 +27,7 @@ impl ISyncSyscallHandler for WriteSyscall {
             .mustbe_user()
             .with_read()
         {
-            Some(guard) => Ok(fd.access().write(&guard) as isize),
+            Some(guard) => Ok(file.write(&guard) as isize),
             None => Err(-1),
         }
     }

@@ -1,5 +1,5 @@
 use core::ops::Deref;
-use core::sync::atomic::{AtomicUsize, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use crate::{DirectoryEntryType, IInode, OpenFlags};
 use crate::{IStdioFile, Stderr, Stdin, Stdout};
@@ -105,7 +105,31 @@ pub trait IFile: Send + Sync {
     }
 }
 
-static mut FILE_TABLE: SpinMutex<Vec<Option<Arc<dyn IFile>>>> = SpinMutex::new(Vec::new());
+pub struct FileCacheEntry {
+    cahce: Arc<dyn IFile>,
+    rc: AtomicUsize,
+    close_requested: AtomicBool,
+}
+
+impl FileCacheEntry {
+    pub fn add_reference(&self) {
+        self.rc.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub fn remove_reference(&self) {
+        self.rc.fetch_sub(1, Ordering::Relaxed);
+    }
+
+    pub fn is_closed(&self) -> bool {
+        self.close_requested.load(Ordering::Relaxed)
+    }
+
+    pub fn request_close(&self) {
+        self.close_requested.store(true, Ordering::Relaxed);
+    }
+}
+
+static mut FILE_TABLE: SpinMutex<Vec<Option<FileCacheEntry>>> = SpinMutex::new(Vec::new());
 
 pub trait ICacheableFile: IFile {
     fn cache_as_arc_accessor(self: &Arc<Self>) -> Arc<FileCacheAccessor>;
@@ -128,26 +152,77 @@ pub struct FileCacheAccessor {
 }
 
 impl FileCacheAccessor {
+    fn new(file_id: usize) -> Option<Self> {
+        unsafe {
+            let caches = FILE_TABLE.lock();
+
+            caches[file_id].as_ref()?.add_reference();
+        }
+
+        Some(Self { file_id })
+    }
+}
+
+impl Drop for FileCacheAccessor {
+    fn drop(&mut self) {
+        unsafe {
+            let mut caches = FILE_TABLE.lock();
+            let entry = caches[self.file_id].as_ref().unwrap();
+
+            entry.remove_reference();
+
+            // Clear the cache entry if the file is closed and there are no references to it.
+            if entry.is_closed() && entry.rc.load(Ordering::Relaxed) == 0 {
+                caches[self.file_id] = None;
+            }
+        }
+    }
+}
+
+impl Clone for FileCacheAccessor {
+    fn clone(&self) -> Self {
+        Self::new(self.file_id).unwrap()
+    }
+}
+
+impl FileCacheAccessor {
     pub fn cache(file: Arc<dyn IFile>) -> FileCacheAccessor {
         let mut caches = unsafe { FILE_TABLE.lock() };
 
         let file_id = match caches.iter().enumerate().find(|x| x.1.is_none()) {
             Some((index, _)) => {
-                caches[index] = Some(file);
+                caches[index] = Some(FileCacheEntry {
+                    cahce: file.clone(),
+                    rc: AtomicUsize::new(0),
+                    close_requested: AtomicBool::new(false),
+                });
                 index
             }
             None => {
-                caches.push(Some(file));
+                caches.push(Some(FileCacheEntry {
+                    cahce: file.clone(),
+                    rc: AtomicUsize::new(0),
+                    close_requested: AtomicBool::new(false),
+                }));
                 caches.len() - 1
             }
         };
 
-        FileCacheAccessor { file_id }
+        drop(caches); // `new` method requires the lock.
+                      // So we need to drop the lock to prevent deadlock.
+
+        FileCacheAccessor::new(file_id).unwrap()
     }
 
-    pub fn access(&self) -> Arc<dyn IFile> {
+    pub fn access(&self) -> Option<Arc<dyn IFile>> {
         let caches = unsafe { FILE_TABLE.lock() };
-        caches[self.file_id].as_ref().unwrap().clone()
+        let entry = caches[self.file_id].as_ref()?;
+
+        if entry.is_closed() {
+            return None;
+        }
+
+        Some(entry.cahce.clone())
     }
 
     pub fn file_id(&self) -> usize {
@@ -161,9 +236,27 @@ impl FileCacheAccessor {
     ///
     /// # Returns
     /// A mutable reference to the file in the cache table.
-    pub unsafe fn access_mut(&self) -> MappedMutexGuard<'static, RawSpinMutex, Arc<dyn IFile>> {
+    pub unsafe fn access_mut(&self) -> MappedMutexGuard<'static, RawSpinMutex, FileCacheEntry> {
         let caches = FILE_TABLE.lock();
         MutexGuard::map(caches, |caches| caches[self.file_id].as_mut().unwrap())
+    }
+
+    pub fn cache_entry(&self) -> MappedMutexGuard<'static, RawSpinMutex, Option<FileCacheEntry>> {
+        let caches = unsafe { FILE_TABLE.lock() };
+        MutexGuard::map(caches, |caches| &mut caches[self.file_id])
+    }
+
+    /// Closes the file in the cache table.
+    /// # Returns
+    /// `true` if the file is successfully closed, `false` if the file is already closed.
+    pub fn close_file(&self) -> bool {
+        match self.cache_entry().as_ref() {
+            Some(entry) => {
+                entry.request_close();
+                true
+            }
+            None => false,
+        }
     }
 }
 
