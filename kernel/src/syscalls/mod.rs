@@ -1,5 +1,6 @@
 use alloc::{format, sync::Arc};
 use file::{Pipe2Syscall, WriteSyscall};
+use file_async::sys_read_async;
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
 use task::{
     CloneSyscall, ExecveSyscall, ExitSyscall, GetCwdSyscall, GetParentPidSyscall, GetPidSyscall,
@@ -9,11 +10,13 @@ use task_async::{sys_nanosleep_async, sys_sched_yield_async, sys_wait4_async};
 use tasks::TaskControlBlock;
 
 mod file;
+mod file_async;
 mod task;
 mod task_async;
 
 const SYSCALL_ID_GETCWD: usize = 17;
 const SYSCALL_ID_PIPE2: usize = 59;
+const SYSCALL_ID_READ: usize = 63;
 const SYSCALL_ID_WRITE: usize = 64;
 const SYSCALL_ID_EXIT: usize = 93;
 const SYSCALL_ID_NANOSLEEP: usize = 101;
@@ -83,6 +86,7 @@ impl SyscallDispatcher {
         // The return value of a async function is actually a anonymous Type implementing Future
         // So we have to use static dispatch here
         match syscall_id {
+            SYSCALL_ID_READ => Some(sys_read_async(&mut ctx).await),
             SYSCALL_ID_NANOSLEEP => Some(sys_nanosleep_async(&mut ctx).await),
             SYSCALL_ID_SCHED_YIELD => Some(sys_sched_yield_async(&mut ctx).await),
             STSCALL_ID_WAIT4 => Some(sys_wait4_async(&mut ctx).await),
