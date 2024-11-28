@@ -25,7 +25,7 @@ impl ISyncSyscallHandler for WriteSyscall {
             .mustbe_user()
             .with_read()
         {
-            Some(guard) => Ok(fd.file_handle().access().write(&guard) as isize),
+            Some(guard) => Ok(fd.access().write(&guard) as isize),
             None => Err(-1),
         }
     }

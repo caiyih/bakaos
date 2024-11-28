@@ -1,3 +1,4 @@
+use core::ops::Deref;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::{DirectoryEntryType, IInode, OpenFlags};
@@ -244,6 +245,14 @@ impl FileDescriptor {
     /// Checks if the file descriptor is writable, following any redirections.
     pub fn can_write(self: &Arc<FileDescriptor>) -> bool {
         self.real_fd().can_write
+    }
+}
+
+impl Deref for FileDescriptor {
+    type Target = FileCacheAccessor;
+
+    fn deref(&self) -> &Self::Target {
+        &self.file_handle
     }
 }
 
