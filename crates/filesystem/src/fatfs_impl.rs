@@ -208,8 +208,8 @@ unsafe impl Send for FatFileInode {}
 impl IInode for FatFileInode {
     fn metadata(
         &self,
-    ) -> filesystem_abstractions::FileSystemResult<filesystem_abstractions::Metadata> {
-        Ok(filesystem_abstractions::Metadata {
+    ) -> filesystem_abstractions::FileSystemResult<filesystem_abstractions::InodeMetadata> {
+        Ok(filesystem_abstractions::InodeMetadata {
             filename: &self.filename,
             entry_type: filesystem_abstractions::DirectoryEntryType::File,
             size: unsafe { self.inner.make_guard_unchecked().size },
@@ -306,8 +306,8 @@ unsafe impl Send for FatDirectoryInode {}
 impl IInode for FatDirectoryInode {
     fn metadata(
         &self,
-    ) -> filesystem_abstractions::FileSystemResult<filesystem_abstractions::Metadata> {
-        Ok(filesystem_abstractions::Metadata {
+    ) -> filesystem_abstractions::FileSystemResult<filesystem_abstractions::InodeMetadata> {
+        Ok(filesystem_abstractions::InodeMetadata {
             filename: &self.filename,
             entry_type: filesystem_abstractions::DirectoryEntryType::Directory,
             size: 0,

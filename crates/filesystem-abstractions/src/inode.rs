@@ -6,11 +6,11 @@ use hermit_sync::{RawSpinMutex, SpinMutex};
 use lock_api::{MappedMutexGuard, MutexGuard};
 
 use crate::{
-    DirectoryEntry, FileStatistics, FileSystemError, FileSystemResult, Metadata, OpenFlags,
+    DirectoryEntry, FileStatistics, FileSystemError, FileSystemResult, InodeMetadata, OpenFlags,
 };
 
 pub trait IInode: DowncastSync + Send + Sync {
-    fn metadata(&self) -> FileSystemResult<Metadata> {
+    fn metadata(&self) -> FileSystemResult<InodeMetadata> {
         Err(FileSystemError::Unimplemented)
     }
 
