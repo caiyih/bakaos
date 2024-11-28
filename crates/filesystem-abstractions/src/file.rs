@@ -249,15 +249,20 @@ impl FileCacheAccessor {
     }
 }
 
+#[derive(Debug)]
+pub struct FrozenFileDescriptor {
+    file_handle: FileCacheAccessor, // file handle
+    can_read: bool,                 // whether the file descriptor is readable
+    can_write: bool,                // whether the file descriptor is writable
+}
+
 /// `FileDescriptor` represents an open file in a task's file descriptor table.
 /// It holds metadata about the file, including its file handle and access permissions.
 /// It also supports redirection to another file descriptor.
 #[derive(Debug)]
 pub struct FileDescriptor {
-    idx: usize,                     // index in the task's file descriptor table
-    file_handle: FileCacheAccessor, // file handle
-    can_read: bool,                 // whether the file descriptor is readable
-    can_write: bool,                // whether the file descriptor is writable
+    idx: usize,                       // index in the task's file descriptor table
+    inner: Arc<FrozenFileDescriptor>, // file handle and access permissions, used to trace dupped fds
     redirected_fd: RwSpinLock<Option<Weak<FileDescriptor>>>, // redirected file descriptor
 }
 
@@ -316,17 +321,17 @@ impl FileDescriptor {
 
     /// Returns the file handle associated with the file descriptor, following any redirections.
     pub fn file_handle(self: &Arc<FileDescriptor>) -> FileCacheAccessor {
-        self.real_fd().file_handle.clone()
+        self.real_fd().inner.file_handle.clone()
     }
 
     /// Checks if the file descriptor is readable, following any redirections.
     pub fn can_read(self: &Arc<FileDescriptor>) -> bool {
-        self.real_fd().can_read
+        self.real_fd().inner.can_read
     }
 
     /// Checks if the file descriptor is writable, following any redirections.
     pub fn can_write(self: &Arc<FileDescriptor>) -> bool {
-        self.real_fd().can_write
+        self.real_fd().inner.can_write
     }
 }
 
@@ -334,9 +339,7 @@ impl Clone for FileDescriptor {
     fn clone(&self) -> Self {
         Self {
             idx: self.idx,
-            file_handle: self.file_handle.clone(),
-            can_read: self.can_read,
-            can_write: self.can_write,
+            inner: self.inner.clone(),
             // File descriptors are shared among tasks(if they are cloned across tasks), so we can share the same weak pointer.
             redirected_fd: RwSpinLock::new(self.redirected_fd.read().clone()),
         }
@@ -347,7 +350,7 @@ impl Deref for FileDescriptor {
     type Target = FileCacheAccessor;
 
     fn deref(&self) -> &Self::Target {
-        &self.file_handle
+        &self.inner.file_handle
     }
 }
 
@@ -360,9 +363,7 @@ pub trait IFileDescriptorBuilder {
 
 /// Builder for creating `FileDescriptor` instances with customizable properties.
 pub struct FileDescriptorBuilder {
-    file_handle: FileCacheAccessor,
-    can_read: bool,
-    can_write: bool,
+    fd_inner: FrozenFileDescriptor,
 }
 
 unsafe impl Send for FileDescriptorBuilder {}
@@ -374,67 +375,75 @@ impl FileDescriptorBuilder {
     /// * `file_handle` - The file handle associated with the file descriptor.
     pub fn new(file_handle: FileCacheAccessor) -> Self {
         FileDescriptorBuilder {
-            file_handle,
-            can_read: false,
-            can_write: false,
+            fd_inner: FrozenFileDescriptor {
+                file_handle,
+                can_read: false,
+                can_write: false,
+            },
         }
     }
 
     pub fn from_existing(fd: &Arc<FileDescriptor>) -> Self {
         FileDescriptorBuilder {
-            file_handle: fd.file_handle.clone(),
-            can_read: fd.can_read,
-            can_write: fd.can_write,
+            fd_inner: FrozenFileDescriptor {
+                file_handle: fd.inner.file_handle.clone(),
+                can_read: fd.can_read(),
+                can_write: fd.can_write(),
+            },
         }
     }
 
     /// Sets the file descriptor to be readable.
     pub fn set_readable(mut self) -> Self {
-        self.can_read = true;
+        self.fd_inner.can_read = true;
         self
     }
 
     /// Sets the file descriptor to be writable.
     pub fn set_writable(mut self) -> Self {
-        self.can_write = true;
+        self.fd_inner.can_write = true;
         self
     }
 
     // Freezes the builder and returns a `FrozenPermissionFileDescriptorBuilder`.
     // which prohibits further permission changes but still allows building the file descriptor.
-    pub fn freeze(self) -> FrozenPermissionFileDescriptorBuilder {
-        FrozenPermissionFileDescriptorBuilder::new(self)
+    pub fn freeze(self) -> FrozenFileDescriptorBuilder {
+        FrozenFileDescriptorBuilder {
+            fd_inner: Arc::new(self.fd_inner),
+        }
     }
 }
 
-impl IFileDescriptorBuilder for FileDescriptorBuilder {
-    /// Builds the `FileDescriptor` with the specified index.
-    /// # Arguments
-    /// * `idx` - The index of the file descriptor in the task's file descriptor table.
+#[derive(Clone)]
+pub struct FrozenFileDescriptorBuilder {
+    fd_inner: Arc<FrozenFileDescriptor>,
+}
+
+impl FrozenFileDescriptorBuilder {
+    pub fn new(fd_inner: &Arc<FrozenFileDescriptor>) -> Self {
+        Self {
+            fd_inner: fd_inner.clone(),
+        }
+    }
+
+    pub fn clone_existing_fd(fd: &Arc<FileDescriptor>) -> Self {
+        Self {
+            fd_inner: fd.inner.clone(),
+        }
+    }
+
+    pub fn fd_inner(&self) -> &Arc<FrozenFileDescriptor> {
+        &self.fd_inner
+    }
+}
+
+impl IFileDescriptorBuilder for FrozenFileDescriptorBuilder {
     fn build(self, idx: usize) -> Arc<FileDescriptor> {
         Arc::new(FileDescriptor {
             idx,
-            file_handle: self.file_handle,
-            can_read: self.can_read,
-            can_write: self.can_write,
+            inner: self.fd_inner,
             redirected_fd: RwSpinLock::new(None),
         })
-    }
-}
-
-pub struct FrozenPermissionFileDescriptorBuilder {
-    builder: FileDescriptorBuilder,
-}
-
-impl FrozenPermissionFileDescriptorBuilder {
-    pub fn new(builder: FileDescriptorBuilder) -> Self {
-        FrozenPermissionFileDescriptorBuilder { builder }
-    }
-}
-
-impl IFileDescriptorBuilder for FrozenPermissionFileDescriptorBuilder {
-    fn build(self, idx: usize) -> Arc<FileDescriptor> {
-        self.builder.build(idx)
     }
 }
 
@@ -467,16 +476,19 @@ impl FileDescriptorTable {
                 Some(
                     FileDescriptorBuilder::new(Stdin::open_for(task_id).cache_as_accessor())
                         .set_readable()
+                        .freeze()
                         .build(0),
                 ),
                 Some(
                     FileDescriptorBuilder::new(Stdout::open_for(task_id).cache_as_accessor())
                         .set_writable()
+                        .freeze()
                         .build(1),
                 ),
                 Some(
                     FileDescriptorBuilder::new(Stderr::open_for(task_id).cache_as_accessor())
                         .set_writable()
+                        .freeze()
                         .build(2),
                 ),
             ],

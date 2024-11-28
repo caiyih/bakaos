@@ -1,4 +1,4 @@
-use filesystem_abstractions::{FileDescriptorBuilder, PipeBuilder};
+use filesystem_abstractions::{FrozenFileDescriptorBuilder, PipeBuilder};
 use paging::IWithPageGuardBuilder;
 
 use super::{ISyncSyscallHandler, SyscallContext, SyscallResult};
@@ -61,12 +61,12 @@ impl ISyncSyscallHandler for Pipe2Syscall {
 
                 let mut fd_table = ctx.tcb.fd_table.lock();
 
-                match fd_table.allocate(pipe_pair.read_end) {
+                match fd_table.allocate(pipe_pair.read_end_builder) {
                     Some(read_end) => guard.read_end = read_end as i32,
                     None => return Err(-1),
                 }
 
-                match fd_table.allocate(pipe_pair.write_end) {
+                match fd_table.allocate(pipe_pair.write_end_builder) {
                     Some(write_end) => guard.write_end = write_end as i32,
                     None => {
                         fd_table.remove(guard.read_end as usize);
@@ -111,7 +111,7 @@ impl ISyncSyscallHandler for DupSyscall {
         let mut fd_table = ctx.tcb.fd_table.lock();
         match fd_table.get(fd) {
             Some(old) => {
-                let builder = FileDescriptorBuilder::from_existing(&old);
+                let builder = FrozenFileDescriptorBuilder::clone_existing_fd(&old);
                 match fd_table.allocate(builder) {
                     Some(newfd) => Ok(newfd as isize),
                     None => Err(-1),
@@ -141,7 +141,7 @@ impl ISyncSyscallHandler for Dup3Syscall {
         let mut fd_table = ctx.tcb.fd_table.lock();
         match fd_table.get(oldfd) {
             Some(old) => {
-                let builder = FileDescriptorBuilder::from_existing(&old);
+                let builder = FrozenFileDescriptorBuilder::clone_existing_fd(&old);
 
                 // if newfd is already open, close it
                 if fd_table.get(newfd).is_some() {
