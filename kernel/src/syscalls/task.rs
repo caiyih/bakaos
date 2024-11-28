@@ -55,21 +55,31 @@ impl ISyncSyscallHandler for TimesSyscall {
             .with_write()
         {
             Some(mut guard) => {
-                let user_timer = ctx.tcb.timer.lock().clone();
-                let kernel_timer = ctx.tcb.kernel_timer.lock().clone();
+                // defined in <time.h>
+                const CLOCKS_PER_SEC: f64 = 1000000.0;
 
-                guard.tms_utime = user_timer.elapsed().total_microseconds() as i64;
-                guard.tms_stime = kernel_timer.elapsed().total_microseconds() as i64;
+                let timer_elapsed = ctx.tcb.timer.lock().elapsed().total_seconds();
+                let kernel_elapsed = ctx.tcb.kernel_timer.lock().elapsed().total_seconds();
 
-                guard.tms_cutime = ctx.tcb.children.lock().iter().fold(0, |acc, child| {
-                    let child_timer = child.timer.lock().clone();
-                    acc + child_timer.elapsed().total_microseconds() as i64
-                });
+                guard.tms_utime = ((timer_elapsed - kernel_elapsed) * CLOCKS_PER_SEC) as i64;
+                guard.tms_stime = (kernel_elapsed * CLOCKS_PER_SEC) as i64;
 
-                guard.tms_cstime = ctx.tcb.children.lock().iter().fold(0, |acc, child| {
-                    let child_kernel_timer = child.kernel_timer.lock().clone();
-                    acc + child_kernel_timer.elapsed().total_microseconds() as i64
-                });
+                let children_timer_elapsed =
+                    ctx.tcb.children.lock().iter().fold(0f64, |acc, child| {
+                        let child_timer = child.timer.lock().clone();
+                        acc + child_timer.elapsed().total_microseconds()
+                    });
+
+                let children_kernel_elapsed =
+                    ctx.tcb.children.lock().iter().fold(0f64, |acc, child| {
+                        let child_kernel_timer = child.kernel_timer.lock().clone();
+                        acc + child_kernel_timer.elapsed().total_microseconds()
+                    });
+
+                guard.tms_cutime =
+                    ((children_timer_elapsed - children_kernel_elapsed) * CLOCKS_PER_SEC) as i64;
+
+                guard.tms_cstime = (children_kernel_elapsed * CLOCKS_PER_SEC) as i64;
 
                 Ok(0)
             }
