@@ -11,10 +11,12 @@ extern crate alloc;
 
 mod file;
 mod inode;
+mod pipe;
 mod stdio;
 
 pub use file::*;
 pub use inode::*;
+pub use pipe::*;
 pub use stdio::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
