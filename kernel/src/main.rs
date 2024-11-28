@@ -134,6 +134,9 @@ fn main() {
     preliminary_test("/wait", None, None);
     preliminary_test("/waitpid", None, None);
     preliminary_test("/execve", None, None);
+    preliminary_test("/pipe", None, None);
+    preliminary_test("/dup", None, None);
+    preliminary_test("/dup2", None, None);
 }
 
 fn preliminary_test(path: &str, args: Option<&[&str]>, envp: Option<&[&str]>) {
