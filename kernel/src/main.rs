@@ -141,7 +141,7 @@ fn main() {
 
 fn preliminary_test(path: &str, args: Option<&[&str]>, envp: Option<&[&str]>) {
     let elf = filesystem::root_filesystem()
-        .lookup(path)
+        .lookup_inode(path)
         .expect("Failed to open path")
         .readall()
         .expect("Failed to read file");

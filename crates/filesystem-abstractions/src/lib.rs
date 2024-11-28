@@ -46,7 +46,10 @@ pub trait IFileSystem: Send + Sync {
     fn flush(&self) -> FileSystemResult<()> {
         Err(FileSystemError::Unimplemented)
     }
-    fn lookup(&'static self, path: &str) -> FileSystemResult<Arc<dyn IInode>> {
+}
+
+impl dyn IFileSystem {
+    pub fn lookup_inode(&'static self, path: &str) -> FileSystemResult<Arc<dyn IInode>> {
         let path = path.trim_start_matches(path::SEPARATOR);
         self.root_dir().lookup_recursive(path)
     }

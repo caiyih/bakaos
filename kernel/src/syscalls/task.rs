@@ -324,7 +324,7 @@ impl ISyncSyscallHandler for ExecveSyscall {
                 ) {
                     Some(fullpath) => {
                         let file = filesystem::root_filesystem()
-                            .lookup(&fullpath)
+                            .lookup_inode(&fullpath)
                             .map_err(|_| -1isize)?;
 
                         let bytes = file.readall().map_err(|_| -1isize)?;
