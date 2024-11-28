@@ -217,7 +217,8 @@ impl FileCacheAccessor {
 
     pub fn access(&self) -> Option<Arc<dyn IFile>> {
         let caches = unsafe { FILE_TABLE.lock() };
-        let entry = caches[self.file_id].as_ref()
+        let entry = caches[self.file_id]
+            .as_ref()
             .expect("Entry should still exist as this accessor still holds a reference.");
 
         // at least *this* accessor should have a reference to the file.
@@ -332,10 +333,10 @@ impl FileDescriptor {
 impl Clone for FileDescriptor {
     fn clone(&self) -> Self {
         Self {
-            idx: self.idx.clone(),
+            idx: self.idx,
             file_handle: self.file_handle.clone(),
-            can_read: self.can_read.clone(),
-            can_write: self.can_write.clone(),
+            can_read: self.can_read,
+            can_write: self.can_write,
             redirected_fd: RwSpinLock::new(None),
         }
     }
