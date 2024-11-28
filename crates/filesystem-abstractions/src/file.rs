@@ -199,7 +199,7 @@ impl Clone for FileCacheAccessor {
 }
 
 impl FileCacheAccessor {
-    pub fn cache(file: Arc<dyn IFile>) -> FileCacheAccessor {
+    fn cache(file: Arc<dyn IFile>) -> FileCacheAccessor {
         let mut caches = unsafe { FILE_TABLE.lock() };
 
         let file_id = match caches.iter().enumerate().find(|x| x.1.is_none()) {
