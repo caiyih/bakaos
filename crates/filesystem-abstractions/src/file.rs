@@ -1,5 +1,5 @@
 use core::ops::Deref;
-use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use core::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::{DirectoryEntryType, IInode, OpenFlags};
 use crate::{IStdioFile, Stderr, Stdin, Stdout};
@@ -123,7 +123,7 @@ impl FileCacheEntry {
         self.rc.fetch_sub(1, Ordering::Relaxed);
     }
 
-    pub fn is_closed(&self) -> bool {
+    pub fn is_zombie(&self) -> bool {
         self.rc.load(Ordering::Relaxed) == 0
     }
 
@@ -147,7 +147,6 @@ impl ICacheableFile for dyn IFile {
 #[derive(Debug)]
 pub struct FileCacheAccessor {
     file_id: usize,
-    close_requested: AtomicBool,
 }
 
 impl FileCacheAccessor {
@@ -158,10 +157,7 @@ impl FileCacheAccessor {
             caches[file_id].as_ref()?.add_reference();
         }
 
-        Some(Self {
-            file_id,
-            close_requested: AtomicBool::new(false),
-        })
+        Some(Self { file_id })
     }
 }
 
@@ -170,11 +166,8 @@ impl Drop for FileCacheAccessor {
         unsafe {
             let mut caches = FILE_TABLE.lock();
 
-            if self.close_requested() {
-                return;
-            }
-
-            let entry = caches[self.file_id].as_ref()
+            let entry = caches[self.file_id]
+                .as_ref()
                 .expect("Entry should still exist as this accessor still holds a reference.");
 
             // Remove close rc added by *this* accessor.
@@ -182,7 +175,7 @@ impl Drop for FileCacheAccessor {
             entry.remove_reference();
 
             // Clear the cache entry if the file is closed and there are no references to it.
-            if entry.is_closed() {
+            if entry.is_zombie() {
                 caches[self.file_id] = None;
             }
         }
@@ -223,15 +216,12 @@ impl FileCacheAccessor {
     }
 
     pub fn access(&self) -> Option<Arc<dyn IFile>> {
-        if self.close_requested() {
-            return None;
-        }
-
         let caches = unsafe { FILE_TABLE.lock() };
-        let entry = caches[self.file_id].as_ref()?;
+        let entry = caches[self.file_id].as_ref()
+            .expect("Entry should still exist as this accessor still holds a reference.");
 
         // at least *this* accessor should have a reference to the file.
-        debug_assert!(!entry.is_closed());
+        debug_assert!(!entry.is_zombie());
 
         Some(entry.cahce.clone())
     }
@@ -255,29 +245,6 @@ impl FileCacheAccessor {
     pub fn cache_entry(&self) -> MappedMutexGuard<'static, RawSpinMutex, Option<FileCacheEntry>> {
         let caches = unsafe { FILE_TABLE.lock() };
         MutexGuard::map(caches, |caches| &mut caches[self.file_id])
-    }
-
-    pub fn close_requested(&self) -> bool {
-        self.close_requested.load(Ordering::Relaxed)
-    }
-
-    /// Closes the file in the cache table.
-    /// # Returns
-    /// `true` if the file is successfully closed, `false` if the file is already closed.
-    pub fn close_file(&self) -> bool {
-        if self.close_requested() {
-            return false;
-        }
-
-        self.close_requested.store(true, Ordering::Relaxed);
-
-        match self.cache_entry().as_ref() {
-            Some(entry) => {
-                entry.remove_reference();
-                true
-            }
-            None => false,
-        }
     }
 }
 
