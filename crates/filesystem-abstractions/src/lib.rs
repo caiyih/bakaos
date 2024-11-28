@@ -9,9 +9,13 @@ extern crate std;
 
 extern crate alloc;
 
+mod file;
 mod inode;
+mod stdio;
 
+pub use file::*;
 pub use inode::*;
+pub use stdio::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FileSystemError {
