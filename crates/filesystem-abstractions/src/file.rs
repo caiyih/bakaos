@@ -301,6 +301,26 @@ impl FileDescriptorBuilder {
             redirected_fd: RwSpinLock::new(None),
         })
     }
+
+    // Freezes the builder and returns a `FrozenPermissionFileDescriptorBuilder`.
+    // which prohibits further permission changes but still allows building the file descriptor.
+    pub fn freeze(self) -> FrozenPermissionFileDescriptorBuilder {
+        FrozenPermissionFileDescriptorBuilder::new(self)
+    }
+}
+
+pub struct FrozenPermissionFileDescriptorBuilder {
+    builder: FileDescriptorBuilder,
+}
+
+impl FrozenPermissionFileDescriptorBuilder {
+    pub fn new(builder: FileDescriptorBuilder) -> Self {
+        FrozenPermissionFileDescriptorBuilder { builder }
+    }
+
+    pub fn build(self, idx: usize) -> Arc<FileDescriptor> {
+        self.builder.build(idx)
+    }
 }
 
 #[derive(Debug)]
