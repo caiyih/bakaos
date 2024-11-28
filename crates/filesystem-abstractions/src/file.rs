@@ -280,7 +280,7 @@ impl FileDescriptor {
     }
 
     /// Returns the index of the file descriptor in the task's file descriptor table.
-    pub fn id(self: &Arc<FileDescriptor>) -> usize {
+    pub fn fd_idx(self: &Arc<FileDescriptor>) -> usize {
         self.idx
     }
 
