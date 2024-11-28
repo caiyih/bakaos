@@ -13,6 +13,10 @@ struct Pipe {
 }
 
 impl IFile for Pipe {
+    fn read_avaliable(&self) -> bool {
+        !self.buf_queue.lock().is_empty()
+    }
+
     fn read(&self, buf: &mut [u8]) -> usize {
         if buf.is_empty() {
             return 0;
@@ -25,6 +29,10 @@ impl IFile for Pipe {
         while let Some(byte) = queue.pop_front() {
             buf[bytes_read] = byte;
             bytes_read += 1;
+
+            if bytes_read >= buf.len() {
+                break;
+            }
         }
 
         bytes_read

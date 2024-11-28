@@ -57,7 +57,11 @@ pub trait IFile: Send + Sync {
         })
     }
 
-    fn avaliable(&self) -> bool {
+    fn read_avaliable(&self) -> bool {
+        true
+    }
+
+    fn write_avaliable(&self) -> bool {
         true
     }
 
