@@ -225,7 +225,7 @@ impl FileCacheAccessor {
         FileCacheAccessor::new(file_id).unwrap()
     }
 
-    pub fn access(&self) -> Option<Arc<dyn IFile>> {
+    pub fn access(&self) -> Arc<dyn IFile> {
         let caches = unsafe { FILE_TABLE.lock() };
         let entry = caches[self.file_id]
             .as_ref()
@@ -234,7 +234,7 @@ impl FileCacheAccessor {
         // at least *this* accessor should have a reference to the file.
         debug_assert!(!entry.is_zombie());
 
-        Some(entry.cahce.clone())
+        entry.cahce.clone()
     }
 
     pub fn file_id(&self) -> usize {
@@ -248,14 +248,9 @@ impl FileCacheAccessor {
     ///
     /// # Returns
     /// A mutable reference to the file in the cache table.
-    pub unsafe fn access_mut(&self) -> MappedMutexGuard<'static, RawSpinMutex, FileCacheEntry> {
+    pub unsafe fn access_cache_entry(&self) -> MappedMutexGuard<'static, RawSpinMutex, FileCacheEntry> {
         let caches = FILE_TABLE.lock();
         MutexGuard::map(caches, |caches| caches[self.file_id].as_mut().unwrap())
-    }
-
-    pub fn cache_entry(&self) -> MappedMutexGuard<'static, RawSpinMutex, Option<FileCacheEntry>> {
-        let caches = unsafe { FILE_TABLE.lock() };
-        MutexGuard::map(caches, |caches| &mut caches[self.file_id])
     }
 }
 
