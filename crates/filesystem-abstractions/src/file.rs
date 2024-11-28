@@ -108,7 +108,6 @@ pub trait IFile: Send + Sync {
 pub struct FileCacheEntry {
     cahce: Arc<dyn IFile>,
     rc: AtomicUsize,
-    close_requested: AtomicBool,
 }
 
 impl FileCacheEntry {
@@ -121,11 +120,7 @@ impl FileCacheEntry {
     }
 
     pub fn is_closed(&self) -> bool {
-        self.close_requested.load(Ordering::Relaxed)
-    }
-
-    pub fn request_close(&self) {
-        self.close_requested.store(true, Ordering::Relaxed);
+        self.rc.load(Ordering::Relaxed) == 0
     }
 }
 
@@ -149,6 +144,7 @@ impl ICacheableFile for dyn IFile {
 #[derive(Debug)]
 pub struct FileCacheAccessor {
     file_id: usize,
+    close_requested: AtomicBool,
 }
 
 impl FileCacheAccessor {
@@ -159,7 +155,10 @@ impl FileCacheAccessor {
             caches[file_id].as_ref()?.add_reference();
         }
 
-        Some(Self { file_id })
+        Some(Self {
+            file_id,
+            close_requested: AtomicBool::new(false),
+        })
     }
 }
 
@@ -169,10 +168,14 @@ impl Drop for FileCacheAccessor {
             let mut caches = FILE_TABLE.lock();
             let entry = caches[self.file_id].as_ref().unwrap();
 
-            entry.remove_reference();
+            if !self.close_requested() {
+                // Remove close rc added by *this* accessor.
+                // Rc should have been removed if the accessor is closed.
+                entry.remove_reference();
+            }
 
             // Clear the cache entry if the file is closed and there are no references to it.
-            if entry.is_closed() && entry.rc.load(Ordering::Relaxed) == 0 {
+            if entry.is_closed() {
                 caches[self.file_id] = None;
             }
         }
@@ -194,7 +197,6 @@ impl FileCacheAccessor {
                 caches[index] = Some(FileCacheEntry {
                     cahce: file.clone(),
                     rc: AtomicUsize::new(0),
-                    close_requested: AtomicBool::new(false),
                 });
                 index
             }
@@ -202,7 +204,6 @@ impl FileCacheAccessor {
                 caches.push(Some(FileCacheEntry {
                     cahce: file.clone(),
                     rc: AtomicUsize::new(0),
-                    close_requested: AtomicBool::new(false),
                 }));
                 caches.len() - 1
             }
@@ -215,12 +216,15 @@ impl FileCacheAccessor {
     }
 
     pub fn access(&self) -> Option<Arc<dyn IFile>> {
+        if self.close_requested() {
+            return None;
+        }
+
         let caches = unsafe { FILE_TABLE.lock() };
         let entry = caches[self.file_id].as_ref()?;
 
-        if entry.is_closed() {
-            return None;
-        }
+        // at least *this* accessor should have a reference to the file.
+        debug_assert!(!entry.is_closed());
 
         Some(entry.cahce.clone())
     }
@@ -246,13 +250,23 @@ impl FileCacheAccessor {
         MutexGuard::map(caches, |caches| &mut caches[self.file_id])
     }
 
+    pub fn close_requested(&self) -> bool {
+        self.close_requested.load(Ordering::Relaxed)
+    }
+
     /// Closes the file in the cache table.
     /// # Returns
     /// `true` if the file is successfully closed, `false` if the file is already closed.
     pub fn close_file(&self) -> bool {
+        if self.close_requested() {
+            return false;
+        }
+
+        self.close_requested.store(true, Ordering::Relaxed);
+
         match self.cache_entry().as_ref() {
             Some(entry) => {
-                entry.request_close();
+                entry.remove_reference();
                 true
             }
             None => false,
