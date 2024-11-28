@@ -1,3 +1,5 @@
+use core::cell::UnsafeCell;
+
 use alloc::collections::VecDeque;
 
 use alloc::sync::{Arc, Weak};
@@ -10,14 +12,16 @@ use crate::{
 
 struct Pipe {
     buf_queue: SpinMutex<VecDeque<u8>>,
-    write_end_weak: SpinMutex<Weak<FileCacheAccessor>>,
+    write_end_weak: UnsafeCell<Weak<FileCacheAccessor>>,
 }
+
+unsafe impl Sync for Pipe {}
 
 impl IFile for Pipe {
     fn read_avaliable(&self) -> bool {
         // Strong counts of accessors that are only inherited by write end
         // Indicates whether the write end is still open
-        let strong_count = self.write_end_weak.lock().strong_count();
+        let strong_count = unsafe { self.write_end_weak.get().as_ref().unwrap().strong_count() };
 
         // When has write end, we should let the read end yield if the buffer is empty
         // But when the write end is closed, either the buffer is empty or not, we should return let the read end read.
@@ -72,7 +76,7 @@ impl PipeBuilder {
     pub fn open() -> PipeBuilder {
         let pipe = Arc::new(Pipe {
             buf_queue: SpinMutex::new(VecDeque::new()),
-            write_end_weak: SpinMutex::new(Weak::new()),
+            write_end_weak: UnsafeCell::new(Weak::new()),
         });
 
         let pipe_file: Arc<dyn IFile> = pipe.clone();
@@ -84,7 +88,9 @@ impl PipeBuilder {
             .set_readable()
             .freeze();
 
-        *pipe.write_end_weak.lock() = Arc::downgrade(&write_accessor);
+        // All write end file descriptors inherit the same accessor, and we use a weak reference to the accessor to trace whether the write end is still open
+        // the weak reference only needs to be store once, so a SpinMutex is too heavy for this
+        *unsafe { pipe.write_end_weak.get().as_mut().unwrap() } = Arc::downgrade(&write_accessor);
         let write_end_builder = FileDescriptorBuilder::new(write_accessor)
             .set_writable()
             .freeze();
