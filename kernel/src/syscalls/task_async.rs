@@ -8,8 +8,6 @@ use timing::TimeSpec;
 
 use crate::async_syscall;
 
-use super::{SyscallContext, SyscallResult};
-
 async_syscall!(sys_nanosleep_async, ctx, {
     let req = ctx.arg0::<*const TimeSpec>();
 

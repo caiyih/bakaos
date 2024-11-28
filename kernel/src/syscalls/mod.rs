@@ -170,7 +170,7 @@ macro_rules! sync_syscall {
 #[macro_export]
 macro_rules! async_syscall {
     ($name:ident, $param:ident, $body:block) => {
-        pub async fn $name($param: &mut SyscallContext<'_>) -> SyscallResult {
+        pub async fn $name($param: &mut crate::syscalls::SyscallContext<'_>) -> crate::syscalls::SyscallResult {
             // It's hard to find the syscall id constants with macro
             // So we just read the syscall id from the register
             let sys_id = $param.tcb.mut_trap_ctx().regs.a7;
