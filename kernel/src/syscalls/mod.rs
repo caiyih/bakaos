@@ -1,5 +1,5 @@
 use alloc::{format, sync::Arc};
-use file::{Pipe2Syscall, WriteSyscall};
+use file::{CloseSyscall, Pipe2Syscall, WriteSyscall};
 use file_async::sys_read_async;
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
 use task::{
@@ -15,6 +15,7 @@ mod task;
 mod task_async;
 
 const SYSCALL_ID_GETCWD: usize = 17;
+const SYSCALL_ID_CLOSE: usize = 57;
 const SYSCALL_ID_PIPE2: usize = 59;
 const SYSCALL_ID_READ: usize = 63;
 const SYSCALL_ID_WRITE: usize = 64;
@@ -72,6 +73,7 @@ impl SyscallDispatcher {
             SYSCALL_ID_CLONE => Some(&CloneSyscall),
             SYSCALL_ID_EXECVE => Some(&ExecveSyscall),
             SYSCALL_ID_PIPE2 => Some(&Pipe2Syscall),
+            SYSCALL_ID_CLOSE => Some(&CloseSyscall),
             _ => None,
         }
     }

@@ -74,3 +74,20 @@ impl ISyncSyscallHandler for Pipe2Syscall {
         "sys_pipe2"
     }
 }
+
+pub struct CloseSyscall;
+
+impl ISyncSyscallHandler for CloseSyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        let fd = ctx.arg0::<usize>();
+
+        ctx.tcb.fd_table.lock().remove(fd); // rc to file will be dropped as the fd is removed
+                                            // and when rc is 0, the opened file will be dropped
+
+        Ok(0)
+    }
+
+    fn name(&self) -> &str {
+        "sys_close"
+    }
+}
