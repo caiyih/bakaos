@@ -143,6 +143,7 @@ fn main() {
     preliminary_test("/read", None, None);
     preliminary_test("/mount", None, None);
     preliminary_test("/umount", None, None);
+    preliminary_test("/mkdir_", None, None);
 }
 
 fn preliminary_test(path: &str, args: Option<&[&str]>, envp: Option<&[&str]>) {
