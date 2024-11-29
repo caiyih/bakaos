@@ -34,7 +34,7 @@ QEMU_ARGS := -machine virt \
 			 -bios $(BOOTLOADER) \
 			 -kernel $(KERNEL_ELF) \
 			 -m 128M \
-			 -drive file=../test_preliminary/sdcard.img,if=none,format=raw,id=x0 \
+			 -drive file=../sdcard.img,if=none,format=raw,id=x0 \
              -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0 \
              -device virtio-net-device,netdev=net \
              -netdev user,id=net \
@@ -48,11 +48,14 @@ build:
 strip:
 	@$(OBJCOPY) --strip-all $(KERNEL_ELF) $(KERNEL_ELF)
 
-run: build
+_prepare_sdcard:
+	make -C .. _prepare_sdcard
+
+run: build _prepare_sdcard
 	$(QEMU) $(QEMU_ARGS) 2>&1 | tee qemu_output.log
 	@python3 unwinder.py --silent --file qemu_output.log
 
-debug: build
+debug: build _prepare_sdcard
 	pkill qemu || echo '[!] Previous Qemu killed'
 	@echo '[!] Waiting for debugger'
 	@$(QEMU) $(QEMU_ARGS) -s -S 2>&1 | tee qemu_output.log
