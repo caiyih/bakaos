@@ -151,12 +151,15 @@ fn main() {
 }
 
 fn preliminary_test(path: &str, args: Option<&[&str]>, envp: Option<&[&str]>) {
-    let elf = filesystem_abstractions::lookup_inode(path)
-        .expect("Failed to open path")
-        .readall()
-        .expect("Failed to read file");
+    let mut memspace = {
+        let elf = filesystem_abstractions::lookup_inode(path)
+            .expect("Failed to open path")
+            .readall()
+            .expect("Failed to read file");
 
-    let mut memspace = MemorySpaceBuilder::from_elf(&elf).unwrap();
+        MemorySpaceBuilder::from_elf(&elf).unwrap()
+    };
+
     memspace.init_stack(args.unwrap_or(&[]), envp.unwrap_or(&[]));
     let task = TaskControlBlock::new(memspace);
     unsafe {
