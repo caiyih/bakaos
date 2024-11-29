@@ -7,9 +7,11 @@ extern crate std;
 extern crate alloc;
 
 pub mod memory;
+pub mod memory_map;
 pub mod page_table;
 
 pub use memory::*;
+pub use memory_map::*;
 pub use page_table::{
     IRawPageTable, IWithPageGuardBuilder, MustHavePageGuard, PageGuardBuilder, PageTable,
     PageTableEntry, PageTableEntryFlags, TemporaryModificationGuard, WithPageGuard,
