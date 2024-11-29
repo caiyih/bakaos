@@ -137,6 +137,10 @@ fn main() {
     preliminary_test("/pipe", None, None);
     preliminary_test("/dup", None, None);
     preliminary_test("/dup2", None, None);
+    preliminary_test("/openat", None, None);
+    preliminary_test("/open", None, None);
+    preliminary_test("/close", None, None);
+    preliminary_test("/read", None, None);
 }
 
 fn preliminary_test(path: &str, args: Option<&[&str]>, envp: Option<&[&str]>) {
