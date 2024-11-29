@@ -40,12 +40,17 @@ jobs:
         run: |
           cd kernel
           cargo vendor ../third_party >> .cargo/config.toml
+          for dir in ../third_party/*; do
+            if [ -d "$dir" ]; then
+              # Ensure Cargo.lock is generated for each vendored dependency
+              (cd "$dir" && cargo generate-lockfile)
+            fi
+          done
 
       - name: Commit changes
         run: |
-          git add .
           # Vendored dependencies require Cargo.lock to be committed
-          git add -f **/Cargo.lock
+          git add . -f
           git commit -m "Vendor dependencies"
 
     #   - name: Push vendored branch to repository
