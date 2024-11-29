@@ -1,3 +1,5 @@
+use abstractions::IUsizeAlias;
+use address::VirtualAddress;
 use alloc::{slice, string::String, sync::Arc};
 use filesystem::DummyFileSystem;
 use filesystem_abstractions::{
@@ -5,7 +7,8 @@ use filesystem_abstractions::{
     FrozenFileDescriptorBuilder, ICacheableFile, IInode, OpenFlags, PipeBuilder,
 };
 use paging::{
-    page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, PageTableEntryFlags,
+    page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, MemoryMapFlags,
+    MemoryMapProt, PageTableEntryFlags,
 };
 
 use super::{ISyncSyscallHandler, SyscallContext, SyscallResult};
@@ -548,5 +551,47 @@ impl ISyncSyscallHandler for UnlinkAtSyscall {
 
     fn name(&self) -> &str {
         "sys_unlinkat"
+    }
+}
+
+pub struct MmapSyscall;
+
+impl ISyncSyscallHandler for MmapSyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        let addr = ctx.arg0::<*mut u8>();
+        let length = ctx.arg1::<usize>();
+        let prot = ctx.arg2::<MemoryMapProt>();
+        let flags = ctx.arg3::<MemoryMapFlags>();
+        let fd = ctx.arg4::<usize>();
+        let offset = ctx.arg5::<usize>();
+
+        debug_assert!(addr.is_null());
+
+        ctx.tcb
+            .mmap(fd, flags, prot, offset, length)
+            .ok_or(-1isize)
+            .map(|addr| addr.as_usize() as isize)
+    }
+
+    fn name(&self) -> &str {
+        "sys_old_mmap"
+    }
+}
+
+pub struct MunmapSyscall;
+
+impl ISyncSyscallHandler for MunmapSyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        let addr = ctx.arg0::<VirtualAddress>();
+        let length = ctx.arg1::<usize>();
+
+        match ctx.tcb.munmap(addr, length) {
+            true => Ok(0),
+            false => Err(-1),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "sys_munmap"
     }
 }

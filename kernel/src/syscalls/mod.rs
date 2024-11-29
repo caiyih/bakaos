@@ -1,8 +1,8 @@
 use alloc::{format, sync::Arc};
 use file::{
-    CloseSyscall, Dup3Syscall, DupSyscall, GetDents64Syscall, MkdirAtSyscall, MountSyscall,
-    NewFstatSyscall, NewFstatatSyscall, OpenAtSyscall, Pipe2Syscall, UmountSyscall,
-    UnlinkAtSyscall,
+    CloseSyscall, Dup3Syscall, DupSyscall, GetDents64Syscall, MkdirAtSyscall, MmapSyscall,
+    MountSyscall, MunmapSyscall, NewFstatSyscall, NewFstatatSyscall, OpenAtSyscall, Pipe2Syscall,
+    UmountSyscall, UnlinkAtSyscall,
 };
 use file_async::{sys_read_async, sys_write_async};
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
@@ -43,8 +43,10 @@ const SYSCALL_ID_GETTIMEOFDAY: usize = 169;
 const SYSCALL_ID_GETPID: usize = 172;
 const SYSCALL_ID_GETPPID: usize = 173;
 const SYSCALL_ID_BRK: usize = 214;
+const SYSCALL_ID_MUNMAP: usize = 215;
 const SYSCALL_ID_CLONE: usize = 220;
 const SYSCALL_ID_EXECVE: usize = 221;
+const SYSCALL_ID_MMAP: usize = 222;
 const STSCALL_ID_WAIT4: usize = 260;
 
 pub trait ISyscallResult {
@@ -99,6 +101,8 @@ impl SyscallDispatcher {
             SYSCALL_ID_NEWFSTAT => Some(&NewFstatSyscall),
             SYSCALL_ID_GETDENTS64 => Some(&GetDents64Syscall),
             SYSCALL_ID_UNLINKAT => Some(&UnlinkAtSyscall),
+            SYSCALL_ID_MMAP => Some(&MmapSyscall),
+            SYSCALL_ID_MUNMAP => Some(&MunmapSyscall),
             _ => None,
         }
     }
