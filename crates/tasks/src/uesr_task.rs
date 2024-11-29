@@ -12,7 +12,9 @@ use timing::{TimeSpan, TimeSpec};
 
 use address::VirtualAddress;
 use hermit_sync::{RawSpinMutex, SpinMutex, SpinMutexGuard};
-use paging::{MemorySpace, MemorySpaceBuilder, PageTable};
+use paging::{
+    MemoryMapFlags, MemoryMapProt, MemorySpace, MemorySpaceBuilder, PageTable, TaskMemoryMap,
+};
 use riscv::register::sstatus::{self, Sstatus, FS, SPP};
 
 use crate::{
@@ -240,6 +242,7 @@ pub struct TaskControlBlock {
     pub brk_pos: AtomicUsize,
     pub cwd: UnsafeCell<String>,
     pub fd_table: SpinMutex<FileDescriptorTable>,
+    pub mmaps: SpinMutex<TaskMemoryMap>,
 }
 
 unsafe impl Sync for TaskControlBlock {}
@@ -267,6 +270,7 @@ impl TaskControlBlock {
             brk_pos: AtomicUsize::new(brk_pos),
             cwd: UnsafeCell::new(String::new()),
             fd_table: SpinMutex::new(FileDescriptorTable::new(tid)),
+            mmaps: SpinMutex::new(TaskMemoryMap::default()),
         })
     }
 
@@ -366,7 +370,53 @@ impl TaskControlBlock {
             brk_pos: AtomicUsize::new(this_brk_pos),
             cwd: UnsafeCell::new(unsafe { self.cwd.get().as_ref().unwrap().clone() }),
             fd_table: SpinMutex::new(self.fd_table.lock().clone_for(tid)),
+            mmaps: SpinMutex::new(TaskMemoryMap::default()),
         })
+    }
+}
+
+impl TaskControlBlock {
+    pub fn mmap(
+        self: &Arc<TaskControlBlock>,
+        fd: usize,
+        flags: MemoryMapFlags,
+        prot: MemoryMapProt,
+        offset: usize,
+        length: usize,
+    ) -> Option<VirtualAddress> {
+        let fd_table = self.fd_table.lock();
+        let fd = fd_table.get(fd);
+
+        let mut memory_space = self.memory_space.lock();
+        let page_table = memory_space.page_table_mut();
+
+        let ret = self.mmaps.lock().mmap(
+            fd.as_ref(),
+            flags,
+            prot,
+            offset,
+            length,
+            |vpn, ppn, flags| {
+                page_table.map_single(vpn, ppn, flags);
+            },
+        );
+
+        page_table.flush_tlb();
+
+        ret
+    }
+
+    pub fn munmap(self: &Arc<TaskControlBlock>, addr: VirtualAddress, length: usize) -> bool {
+        let mut memory_space = self.memory_space.lock();
+        let page_table = memory_space.page_table_mut();
+
+        let ret = self.mmaps.lock().munmap(addr, length, |vpn| {
+            page_table.unmap_single(vpn);
+        });
+
+        page_table.flush_tlb();
+
+        ret
     }
 }
 
