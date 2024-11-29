@@ -1,10 +1,12 @@
 use alloc::{string::String, sync::Arc};
 use filesystem::DummyFileSystem;
 use filesystem_abstractions::{
-    FileDescriptor, FileDescriptorBuilder, FileMode, FrozenFileDescriptorBuilder, ICacheableFile,
-    IInode, OpenFlags, PipeBuilder,
+    FileDescriptor, FileDescriptorBuilder, FileMode, FileStatistics, FrozenFileDescriptorBuilder,
+    ICacheableFile, IInode, OpenFlags, PipeBuilder,
 };
-use paging::{IWithPageGuardBuilder, PageTableEntryFlags};
+use paging::{
+    page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, PageTableEntryFlags,
+};
 
 use super::{ISyncSyscallHandler, SyscallContext, SyscallResult};
 
@@ -366,5 +368,87 @@ impl ISyncSyscallHandler for MkdirAtSyscall {
 
     fn name(&self) -> &str {
         "sys_mkdirat"
+    }
+}
+
+pub struct NewFstatatSyscall;
+
+impl ISyncSyscallHandler for NewFstatatSyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        let dirfd = ctx.arg0::<isize>();
+        let p_path = ctx.arg1::<*const u8>();
+        let p_stat = ctx.arg2::<*mut FileStatistics>();
+
+        if dirfd < 0 && dirfd != FileDescriptor::AT_FDCWD {
+            return Err(-1);
+        }
+
+        let pt = ctx.tcb.borrow_page_table();
+
+        match (
+            pt.guard_cstr(p_path, 1024)
+                .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable),
+            pt.guard_ptr(p_stat)
+                .mustbe_user()
+                .mustbe_readable()
+                .with_write(),
+        ) {
+            (Some(path_guard), Some(mut buf_guard)) => {
+                let dir_inode: Arc<dyn IInode> = if dirfd == FileDescriptor::AT_FDCWD {
+                    let cwd = unsafe { ctx.tcb.cwd.get().as_ref().unwrap() };
+                    filesystem_abstractions::lookup_inode(cwd).ok_or(-1isize)?
+                } else {
+                    let fd_table = ctx.tcb.fd_table.lock();
+                    let fd = fd_table.get(dirfd as usize).ok_or(-1isize)?;
+                    fd.access().inode().ok_or(-1isize)?
+                };
+
+                let path = core::str::from_utf8(&path_guard).map_err(|_| -1isize)?;
+                let path = path::remove_relative_segments(path);
+
+                let inode: Arc<dyn IInode> =
+                    dir_inode.lookup_recursive(&path).map_err(|_| -1isize)?;
+
+                inode.stat(&mut buf_guard).map_err(|_| -1isize).map(|_| 0)
+            }
+            _ => Err(-1),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "sys_newfstatat"
+    }
+}
+
+pub struct NewFstatSyscall;
+
+impl ISyncSyscallHandler for NewFstatSyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        let fd = ctx.arg0::<usize>();
+        let p_buf = ctx.arg1::<*mut FileStatistics>();
+
+        match ctx
+            .tcb
+            .borrow_page_table()
+            .guard_ptr(p_buf)
+            .mustbe_user()
+            .mustbe_readable()
+            .with_write()
+        {
+            Some(mut guard) => {
+                let fd = ctx.tcb.fd_table.lock().get(fd).ok_or(-1isize)?;
+                fd.access()
+                    .inode()
+                    .ok_or(-1isize)?
+                    .stat(&mut guard)
+                    .map_err(|_| -1isize)
+                    .map(|_| 0)
+            }
+            None => Err(-1),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "sys_newfstat"
     }
 }

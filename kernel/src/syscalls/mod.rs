@@ -1,7 +1,7 @@
 use alloc::{format, sync::Arc};
 use file::{
-    CloseSyscall, Dup3Syscall, DupSyscall, MkdirAtSyscall, MountSyscall, OpenAtSyscall,
-    Pipe2Syscall, UmountSyscall, WriteSyscall,
+    CloseSyscall, Dup3Syscall, DupSyscall, MkdirAtSyscall, MountSyscall, NewFstatatSyscall,
+    OpenAtSyscall, Pipe2Syscall, UmountSyscall, WriteSyscall,
 };
 use file_async::sys_read_async;
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
@@ -29,6 +29,8 @@ const SYSCALL_ID_CLOSE: usize = 57;
 const SYSCALL_ID_PIPE2: usize = 59;
 const SYSCALL_ID_READ: usize = 63;
 const SYSCALL_ID_WRITE: usize = 64;
+const SYSCALL_ID_NEWFSTATAT: usize = 79;
+const SYSCALL_ID_NEWFSTAT: usize = 80;
 const SYSCALL_ID_EXIT: usize = 93;
 const SYSCALL_ID_NANOSLEEP: usize = 101;
 const SYSCALL_ID_SCHED_YIELD: usize = 124;
@@ -91,6 +93,8 @@ impl SyscallDispatcher {
             SYSCALL_ID_UMOUNT => Some(&UmountSyscall),
             SYSCALL_ID_MKDIRAT => Some(&MkdirAtSyscall),
             SYSCALL_ID_CHDIR => Some(&ChdirSyscall),
+            SYSCALL_ID_NEWFSTATAT => Some(&NewFstatatSyscall),
+            SYSCALL_ID_NEWFSTAT => Some(&file::NewFstatSyscall),
             _ => None,
         }
     }
