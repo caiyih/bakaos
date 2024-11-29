@@ -6,7 +6,7 @@ use core::{
     slice,
 };
 use hermit_sync::SpinMutex;
-use log::debug;
+use log::{debug, trace};
 
 use abstractions::{impl_arith_ops, impl_bitwise_ops, impl_bitwise_ops_with, IUsizeAlias};
 use address::{
@@ -604,7 +604,7 @@ impl PageTable {
 
     // You don't have to call this method manually as long as you created the guard
     pub fn restore_temporary_modified_pages(&self) {
-        debug!("Restoring temporary modified pages");
+        trace!("Restoring temporary modified pages");
         match &self.tracker {
             None => debug!("Ignoring for borrowed page table"),
             Some(tracker) => {
