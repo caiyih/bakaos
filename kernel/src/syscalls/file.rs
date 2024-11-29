@@ -1,5 +1,9 @@
-use filesystem_abstractions::{FrozenFileDescriptorBuilder, PipeBuilder};
-use paging::IWithPageGuardBuilder;
+use alloc::sync::Arc;
+use filesystem_abstractions::{
+    FileDescriptor, FileDescriptorBuilder, FileMode, FrozenFileDescriptorBuilder, ICacheableFile,
+    IInode, OpenFlags, PipeBuilder,
+};
+use paging::{IWithPageGuardBuilder, PageTableEntryFlags};
 
 use super::{ISyncSyscallHandler, SyscallContext, SyscallResult};
 
@@ -80,6 +84,85 @@ impl ISyncSyscallHandler for Pipe2Syscall {
 
     fn name(&self) -> &str {
         "sys_pipe2"
+    }
+}
+
+pub struct OpenAtSyscall;
+
+impl ISyncSyscallHandler for OpenAtSyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        let dirfd = ctx.arg0::<isize>();
+        let p_path = ctx.arg1::<*const u8>();
+        let flags = ctx.arg2::<OpenFlags>();
+        let _mode = ctx.arg3::<FileMode>();
+
+        if dirfd < 0 && dirfd != FileDescriptor::AT_FDCWD {
+            return Err(-1);
+        }
+
+        match ctx
+            .tcb
+            .borrow_page_table()
+            .guard_cstr(p_path, 1024)
+            .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
+        {
+            Some(guard) => {
+                let dir_inode: Arc<dyn IInode>;
+
+                if dirfd == FileDescriptor::AT_FDCWD {
+                    let cwd = unsafe { ctx.tcb.cwd.get().as_ref().unwrap() };
+                    dir_inode = filesystem_abstractions::lookup_inode(cwd).ok_or(-1isize)?;
+                } else {
+                    let fd_table = ctx.tcb.fd_table.lock();
+                    let fd = fd_table.get(dirfd as usize).ok_or(-1isize)?;
+                    let inode = fd.access().inode().ok_or(-1isize)?;
+                    dir_inode = inode;
+                }
+
+                let path = core::str::from_utf8(&guard).map_err(|_| -1isize)?;
+                let path = path::remove_relative_segments(path);
+                let filename = path::get_filename(&path);
+                let parent_inode_path = path::get_directory_name(&path).ok_or(-1isize)?;
+
+                let inode: Arc<dyn IInode>;
+                match dir_inode.lookup_recursive(&path) {
+                    Ok(i) => inode = i,
+                    Err(_) => {
+                        if flags.contains(OpenFlags::O_CREAT) {
+                            let parent_inode = dir_inode
+                                .lookup_recursive(parent_inode_path)
+                                .map_err(|_| -1isize)?;
+
+                            let new_inode = parent_inode.touch(filename).map_err(|_| -1isize)?;
+
+                            inode = new_inode;
+                        } else {
+                            return Err(-1);
+                        }
+                    }
+                }
+
+                let opened_file = filesystem_abstractions::open_file(inode, flags, 0).clear_type();
+
+                let accessor = opened_file.cache_as_arc_accessor();
+
+                let builder = FileDescriptorBuilder::new(accessor)
+                    .set_readable()
+                    .set_writable()
+                    .freeze();
+
+                let mut fd_table = ctx.tcb.fd_table.lock();
+                match fd_table.allocate(builder) {
+                    Some(fd) => Ok(fd as isize),
+                    None => Err(-1),
+                }
+            }
+            None => return Err(-1),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "sys_openat"
     }
 }
 
