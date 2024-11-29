@@ -78,6 +78,7 @@ pub struct InodeMetadata<'a> {
     pub children_count: usize,
 }
 
+#[repr(C)]
 pub struct FileStatistics {
     pub device_id: u64,
     pub inode_id: u64,
