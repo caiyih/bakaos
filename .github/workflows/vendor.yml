@@ -44,6 +44,8 @@ jobs:
       - name: Commit changes
         run: |
           git add .
+          # Vendored dependencies require Cargo.lock to be committed
+          git add -f **/Cargo.lock
           git commit -m "Vendor dependencies"
 
     #   - name: Push vendored branch to repository
