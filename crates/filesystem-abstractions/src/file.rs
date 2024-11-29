@@ -110,8 +110,8 @@ pub trait IFile: Send + Sync {
 }
 
 pub struct FileCacheEntry {
-    cahce: Arc<dyn IFile>,
-    rc: AtomicUsize,
+    pub cahce: Arc<dyn IFile>,
+    pub rc: AtomicUsize,
 }
 
 impl FileCacheEntry {
@@ -154,6 +154,10 @@ pub struct FileCacheAccessor {
 }
 
 impl FileCacheAccessor {
+    pub fn table_idx(&self) -> usize {
+        self.file_id
+    }
+
     fn new(file_id: usize) -> Option<Self> {
         unsafe {
             let caches = FILE_TABLE.lock();
