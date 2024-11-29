@@ -30,7 +30,7 @@ async_syscall!(sys_read_async, ctx, {
         .mustbe_readable()
         .with_write()
     {
-        Some(mut guard) => Ok(file.read(guard.as_mut()) as isize),
+        Some(mut guard) => Ok(file.read(&mut guard) as isize),
         None => Err(-1),
     }
 });
