@@ -107,17 +107,14 @@ impl ISyncSyscallHandler for OpenAtSyscall {
             .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
         {
             Some(guard) => {
-                let dir_inode: Arc<dyn IInode>;
-
-                if dirfd == FileDescriptor::AT_FDCWD {
+                let dir_inode: Arc<dyn IInode> = if dirfd == FileDescriptor::AT_FDCWD {
                     let cwd = unsafe { ctx.tcb.cwd.get().as_ref().unwrap() };
-                    dir_inode = filesystem_abstractions::lookup_inode(cwd).ok_or(-1isize)?;
+                    filesystem_abstractions::lookup_inode(cwd).ok_or(-1isize)?
                 } else {
                     let fd_table = ctx.tcb.fd_table.lock();
                     let fd = fd_table.get(dirfd as usize).ok_or(-1isize)?;
-                    let inode = fd.access().inode().ok_or(-1isize)?;
-                    dir_inode = inode;
-                }
+                    fd.access().inode().ok_or(-1isize)?
+                };
 
                 let path = core::str::from_utf8(&guard).map_err(|_| -1isize)?;
                 let path = path::remove_relative_segments(path);
@@ -157,7 +154,7 @@ impl ISyncSyscallHandler for OpenAtSyscall {
                     None => Err(-1),
                 }
             }
-            None => return Err(-1),
+            None => Err(-1),
         }
     }
 

@@ -333,7 +333,7 @@ impl IInode for FatDirectoryInode {
                 inner: self.inner.clone(),
             }));
         }
-        
+
         for entry_result in self.inner.iter() {
             match entry_result {
                 Ok(entry) => {

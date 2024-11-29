@@ -66,7 +66,7 @@ pub trait IFile: Send + Sync {
     }
 
     fn flags(&self) -> OpenFlags {
-        self.metadata().unwrap().flags().clone()
+        *self.metadata().unwrap().flags()
     }
 
     fn delete(&self) -> bool {
