@@ -318,3 +318,53 @@ impl ISyncSyscallHandler for UmountSyscall {
         "sys_umount"
     }
 }
+
+pub struct MkdirAtSyscall;
+
+impl ISyncSyscallHandler for MkdirAtSyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        let dirfd = ctx.arg0::<isize>();
+        let p_path = ctx.arg1::<*const u8>();
+        let _mode = ctx.arg2::<FileMode>();
+
+        if dirfd < 0 && dirfd != FileDescriptor::AT_FDCWD {
+            return Err(-1);
+        }
+
+        match ctx
+            .tcb
+            .borrow_page_table()
+            .guard_cstr(p_path, 1024)
+            .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
+        {
+            Some(guard) => {
+                let dir_inode: Arc<dyn IInode> = if dirfd == FileDescriptor::AT_FDCWD {
+                    let cwd = unsafe { ctx.tcb.cwd.get().as_ref().unwrap() };
+                    filesystem_abstractions::lookup_inode(cwd).ok_or(-1isize)?
+                } else {
+                    let fd_table = ctx.tcb.fd_table.lock();
+                    let fd = fd_table.get(dirfd as usize).ok_or(-1isize)?;
+                    fd.access().inode().ok_or(-1isize)?
+                };
+
+                let path = core::str::from_utf8(&guard).map_err(|_| -1isize)?;
+                let path = path::remove_relative_segments(path);
+                let filename = path::get_filename(&path);
+                let parent_inode_path = path::get_directory_name(&path).ok_or(-1isize)?;
+
+                let parent_inode = dir_inode
+                    .lookup_recursive(parent_inode_path)
+                    .map_err(|_| -1isize)?;
+
+                parent_inode.mkdir(filename).map_err(|_| -1isize)?;
+
+                Ok(0)
+            }
+            None => Err(-1),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "sys_mkdirat"
+    }
+}
