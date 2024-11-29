@@ -563,3 +563,25 @@ impl FileDescriptorTable {
         Some(idx)
     }
 }
+
+pub struct OpenedDiskInode {
+    metadata: Arc<FileMetadata>,
+}
+
+impl IFile for OpenedDiskInode {
+    fn metadata(&self) -> Option<Arc<FileMetadata>> {
+        Some(self.metadata.clone())
+    }
+}
+
+impl OpenedDiskInode {
+    pub fn clear_type(self: Arc<Self>) -> Arc<dyn IFile> {
+        self
+    }
+}
+
+pub fn open_file(inode: Arc<dyn IInode>, flags: OpenFlags, offset: usize) -> Arc<OpenedDiskInode> {
+    Arc::new(OpenedDiskInode {
+        metadata: Arc::new(FileMetadata::open(inode, flags, offset)),
+    })
+}
