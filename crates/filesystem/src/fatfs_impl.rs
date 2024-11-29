@@ -284,7 +284,7 @@ impl IInode for FatFileInode {
         let size = unsafe { self.inner.make_guard_unchecked().size as u64 };
         stat.inode_id = 1;
         stat.mode = FileStatisticsMode::FILE;
-        stat.link_count = 0;
+        stat.link_count = 1;
         stat.uid = 0;
         stat.gid = 0;
         stat.size = size;
