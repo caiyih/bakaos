@@ -146,6 +146,8 @@ fn main() {
     preliminary_test("/mkdir_", None, None);
     preliminary_test("/chdir", None, None);
     preliminary_test("/fstat", None, None);
+    preliminary_test("/getdents", None, None);
+    preliminary_test("/unlink", None, None);
 }
 
 fn preliminary_test(path: &str, args: Option<&[&str]>, envp: Option<&[&str]>) {
