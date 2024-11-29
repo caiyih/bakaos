@@ -327,6 +327,13 @@ impl IInode for FatDirectoryInode {
     }
 
     fn lookup(&self, name: &str) -> FileSystemResult<Arc<dyn IInode>> {
+        if name.is_empty() || name == "." {
+            return Ok(Arc::new(FatDirectoryInode {
+                filename: self.filename.clone(),
+                inner: self.inner.clone(),
+            }));
+        }
+        
         for entry_result in self.inner.iter() {
             match entry_result {
                 Ok(entry) => {
