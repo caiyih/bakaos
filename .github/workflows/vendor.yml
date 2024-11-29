@@ -39,13 +39,8 @@ jobs:
       - name: Vendor dependencies
         run: |
           cd kernel
-          cargo vendor ../third_party >> .cargo/config.toml
-          for dir in ../third_party/*; do
-            if [ -d "$dir" ]; then
-              # Ensure Cargo.lock is generated for each vendored dependency
-              (cd "$dir" && cargo generate-lockfile)
-            fi
-          done
+          cargo generate-lockfile
+          cargo vendor --locked ../third_party >> .cargo/config.toml
 
       - name: Commit changes
         run: |
