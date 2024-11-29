@@ -47,6 +47,7 @@ pub struct Pipe2Syscall;
 
 impl ISyncSyscallHandler for Pipe2Syscall {
     fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        #[repr(C)]
         struct FdPair {
             read_end: i32,
             write_end: i32,
