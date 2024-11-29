@@ -276,6 +276,8 @@ unsafe impl Send for FileDescriptor {}
 unsafe impl Sync for FileDescriptor {}
 
 impl FileDescriptor {
+    pub const AT_FDCWD: isize = -100;
+
     /// Returns a weak reference to the current file descriptor.
     pub fn weak_clone(self: &Arc<FileDescriptor>) -> Weak<FileDescriptor> {
         Arc::downgrade(self)
