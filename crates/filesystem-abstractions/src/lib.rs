@@ -152,7 +152,7 @@ bitflags! {
 }
 
 bitflags! {
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, Copy)]
     pub struct OpenFlags: usize {
         // reserve 3 bits for the access mode
         const NONE          = 0;
@@ -179,5 +179,29 @@ bitflags! {
         const O_NOATIME     = 0o1000000;
         const O_PATH        = 0o10000000;
         const O_TMPFILE     = 0o20200000;
+    }
+}
+
+bitflags! {
+    #[derive(Debug, Copy, Clone)]
+    pub struct FileMode: u32 {
+        const S_ISUID  = 0o4000;
+        const S_ISGID  = 0o2000;
+        const S_ISVTX  = 0o1000;
+
+        const S_IRWXU  = 0o700;
+        const S_IRUSR  = 0o400;
+        const S_IWUSR  = 0o200;
+        const S_IXUSR  = 0o100;
+
+        const S_IRWXG  = 0o070;
+        const S_IRGRP  = 0o040;
+        const S_IWGRP  = 0o020;
+        const S_IXGRP  = 0o010;
+
+        const S_IRWXO  = 0o007;
+        const S_IROTH  = 0o004;
+        const S_IWOTH  = 0o002;
+        const S_IXOTH  = 0o001;
     }
 }
