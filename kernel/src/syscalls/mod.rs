@@ -2,9 +2,9 @@ use alloc::{format, sync::Arc};
 use file::{
     CloseSyscall, Dup3Syscall, DupSyscall, GetDents64Syscall, MkdirAtSyscall, MountSyscall,
     NewFstatSyscall, NewFstatatSyscall, OpenAtSyscall, Pipe2Syscall, UmountSyscall,
-    UnlinkAtSyscall, WriteSyscall,
+    UnlinkAtSyscall,
 };
-use file_async::sys_read_async;
+use file_async::{sys_read_async, sys_write_async};
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
 use task::{
     ChdirSyscall, CloneSyscall, ExecveSyscall, ExitSyscall, GetCwdSyscall, GetParentPidSyscall,
@@ -77,7 +77,6 @@ impl SyscallDispatcher {
     fn translate_id(id: usize) -> Option<&'static dyn ISyncSyscallHandler> {
         match id {
             SYSCALL_ID_GETCWD => Some(&GetCwdSyscall),
-            SYSCALL_ID_WRITE => Some(&WriteSyscall),
             SYSCALL_ID_EXIT => Some(&ExitSyscall),
             SYSCALL_ID_TIMES => Some(&TimesSyscall),
             SYSCALL_ID_UNAME => Some(&UnameSyscall),
@@ -114,6 +113,7 @@ impl SyscallDispatcher {
         // The return value of a async function is actually a anonymous Type implementing Future
         // So we have to use static dispatch here
         match syscall_id {
+            SYSCALL_ID_WRITE => Some(sys_write_async(&mut ctx).await),
             SYSCALL_ID_READ => Some(sys_read_async(&mut ctx).await),
             SYSCALL_ID_NANOSLEEP => Some(sys_nanosleep_async(&mut ctx).await),
             SYSCALL_ID_SCHED_YIELD => Some(sys_sched_yield_async(&mut ctx).await),
