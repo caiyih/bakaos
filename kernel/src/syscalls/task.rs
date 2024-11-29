@@ -2,6 +2,7 @@ use core::{str, sync::atomic::Ordering};
 
 use abstractions::operations::IUsizeAlias;
 use address::{IPageNum, IToPageNum, VirtualAddress};
+use filesystem_abstractions::DirectoryEntryType;
 use log::debug;
 use paging::{
     page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, PageTableEntryFlags,
@@ -349,5 +350,55 @@ impl ISyncSyscallHandler for ExecveSyscall {
 
     fn name(&self) -> &str {
         "sys_execve"
+    }
+}
+
+pub struct ChdirSyscall;
+
+impl ISyncSyscallHandler for ChdirSyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        let p_path = ctx.arg0::<*const u8>();
+
+        match ctx
+            .tcb
+            .borrow_page_table()
+            .guard_cstr(p_path, 1024)
+            .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
+        {
+            Some(guard) => {
+                let path = str::from_utf8(&guard).map_err(|_| -1isize)?;
+
+                match path::get_full_path(
+                    path,
+                    Some(unsafe { ctx.tcb.cwd.get().as_ref().unwrap() }),
+                ) {
+                    Some(fullpath) => {
+                        let processed_path = path::remove_relative_segments(&fullpath);
+                        let inode = filesystem_abstractions::lookup_inode(&processed_path)
+                            .ok_or(-1isize)?;
+
+                        let inode_metadata = inode.metadata().map_err(|_| -1isize)?;
+
+                        match inode_metadata.entry_type {
+                            DirectoryEntryType::Directory => {
+                                let cwd_mut = unsafe { ctx.tcb.cwd.get().as_mut().unwrap() };
+
+                                cwd_mut.clear();
+                                cwd_mut.push_str(&processed_path);
+
+                                Ok(0)
+                            }
+                            _ => Err(-1),
+                        }
+                    }
+                    None => Err(-1),
+                }
+            }
+            None => Err(-1),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "sys_chdir"
     }
 }

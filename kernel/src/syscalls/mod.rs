@@ -6,8 +6,8 @@ use file::{
 use file_async::sys_read_async;
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
 use task::{
-    CloneSyscall, ExecveSyscall, ExitSyscall, GetCwdSyscall, GetParentPidSyscall, GetPidSyscall,
-    GetTimeOfDaySyscall, TimesSyscall,
+    ChdirSyscall, CloneSyscall, ExecveSyscall, ExitSyscall, GetCwdSyscall, GetParentPidSyscall,
+    GetPidSyscall, GetTimeOfDaySyscall, TimesSyscall,
 };
 use task_async::{sys_nanosleep_async, sys_sched_yield_async, sys_wait4_async};
 use tasks::TaskControlBlock;
@@ -23,6 +23,7 @@ const SYSCALL_ID_DUP3: usize = 24;
 const SYSCALL_ID_MKDIRAT: usize = 34;
 const SYSCALL_ID_UMOUNT: usize = 39;
 const SYSCALL_ID_MOUNT: usize = 40;
+const SYSCALL_ID_CHDIR: usize = 49;
 const SYSCALL_ID_OPENAT: usize = 56;
 const SYSCALL_ID_CLOSE: usize = 57;
 const SYSCALL_ID_PIPE2: usize = 59;
@@ -89,6 +90,7 @@ impl SyscallDispatcher {
             SYSCALL_ID_MOUNT => Some(&MountSyscall),
             SYSCALL_ID_UMOUNT => Some(&UmountSyscall),
             SYSCALL_ID_MKDIRAT => Some(&MkdirAtSyscall),
+            SYSCALL_ID_CHDIR => Some(&ChdirSyscall),
             _ => None,
         }
     }
