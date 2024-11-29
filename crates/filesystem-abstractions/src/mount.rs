@@ -23,6 +23,32 @@ pub fn mount_at(fs: Arc<dyn IFileSystem>, path: &str) -> usize {
     }
 }
 
+pub fn umount_at(path: &str) -> bool {
+    debug!("Unmounting filesystem at {}", path);
+
+    let path = match MountTable::resolve_path(path) {
+        Some(path) => path,
+        None => return false,
+    };
+
+    unsafe {
+        let mount_table =
+            MOUNT_TABLE.get_or_insert_with(|| RwSpinLock::new(UnsafeCell::new(MountTable::new())));
+        let mount_table = mount_table.write();
+        let mount_table = mount_table.get().as_mut().unwrap();
+
+        let mount_point = mount_table.get_mount_point(&path);
+        match mount_point {
+            Some(mount_point) => {
+                debug!("Found mount point at {}", path);
+                mount_table.umount(mount_point);
+                true
+            }
+            None => false,
+        }
+    }
+}
+
 pub fn umount(mount_point_id: usize) -> bool {
     unsafe {
         let mount_table =
