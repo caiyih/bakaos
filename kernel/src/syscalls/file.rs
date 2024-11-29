@@ -1,8 +1,8 @@
-use alloc::{string::String, sync::Arc};
+use alloc::{slice, string::String, sync::Arc};
 use filesystem::DummyFileSystem;
 use filesystem_abstractions::{
-    FileDescriptor, FileDescriptorBuilder, FileMode, FileStatistics, FrozenFileDescriptorBuilder,
-    ICacheableFile, IInode, OpenFlags, PipeBuilder,
+    DirectoryEntryType, FileDescriptor, FileDescriptorBuilder, FileMode, FileStatistics,
+    FrozenFileDescriptorBuilder, ICacheableFile, IInode, OpenFlags, PipeBuilder,
 };
 use paging::{
     page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, PageTableEntryFlags,
@@ -451,5 +451,85 @@ impl ISyncSyscallHandler for NewFstatSyscall {
 
     fn name(&self) -> &str {
         "sys_newfstat"
+    }
+}
+
+pub struct GetDents64Syscall;
+
+impl ISyncSyscallHandler for GetDents64Syscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        #[repr(C)]
+        struct LinuxDirEntry64 {
+            inode_id: u64,
+            doffsset: u64,
+            entry_len: u16,
+            file_type: u8,
+            name: [u8; 0],
+        }
+
+        let fd = ctx.arg0::<usize>();
+        let p_buf = ctx.arg1::<*mut u8>();
+        let len = ctx.arg2::<usize>();
+
+        let buf = unsafe { core::slice::from_raw_parts(p_buf, len) };
+
+        let pt = ctx.tcb.borrow_page_table();
+
+        match pt
+            .guard_slice(buf)
+            .mustbe_user()
+            .mustbe_readable()
+            .with_write()
+        {
+            Some(mut guard) => {
+                let fd = ctx.tcb.fd_table.lock().get(fd).ok_or(-1isize)?;
+                let inode = fd.access().inode().ok_or(-1isize)?;
+
+                let entries = inode.read_dir().map_err(|_| -1isize)?;
+
+                let mut offset = 0;
+
+                for (idx, entry) in entries.iter().enumerate() {
+                    let name = entry.filename.as_bytes();
+                    let entry_size = core::mem::size_of::<LinuxDirEntry64>() + name.len() + 1;
+
+                    if offset + entry_size > len {
+                        break;
+                    }
+
+                    let p_entry = unsafe {
+                        &mut *guard
+                            .as_mut()
+                            .as_mut_ptr()
+                            .add(offset)
+                            .cast::<LinuxDirEntry64>()
+                    };
+
+                    p_entry.inode_id = idx as u64;
+                    p_entry.doffsset = offset as u64; // no meaning for user space
+                    p_entry.entry_len = entry_size as u16;
+                    p_entry.file_type = match entry.entry_type {
+                        DirectoryEntryType::File => 0,
+                        DirectoryEntryType::Directory => 1,
+                    };
+
+                    let name_slice =
+                        unsafe { slice::from_raw_parts_mut(p_entry.name.as_mut_ptr(), name.len()) };
+                    name_slice.copy_from_slice(name);
+
+                    // Add null terminator
+                    unsafe { p_entry.name.as_mut_ptr().add(name.len()).write(0) };
+
+                    offset += entry_size;
+                }
+
+                Ok(fd.fd_idx() as isize)
+            }
+            None => Err(-1),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "sys_getdents64"
     }
 }
