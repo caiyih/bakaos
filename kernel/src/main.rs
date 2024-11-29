@@ -148,6 +148,8 @@ fn main() {
     preliminary_test("/fstat", None, None);
     preliminary_test("/getdents", None, None);
     preliminary_test("/unlink", None, None);
+    preliminary_test("/mmap", None, None);
+    preliminary_test("/munmap", None, None);
 }
 
 fn preliminary_test(path: &str, args: Option<&[&str]>, envp: Option<&[&str]>) {
