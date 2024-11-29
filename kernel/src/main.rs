@@ -141,6 +141,8 @@ fn main() {
     preliminary_test("/open", None, None);
     preliminary_test("/close", None, None);
     preliminary_test("/read", None, None);
+    preliminary_test("/mount", None, None);
+    preliminary_test("/umount", None, None);
 }
 
 fn preliminary_test(path: &str, args: Option<&[&str]>, envp: Option<&[&str]>) {
