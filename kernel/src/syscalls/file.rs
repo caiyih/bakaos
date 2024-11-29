@@ -1,4 +1,5 @@
-use alloc::sync::Arc;
+use alloc::{string::String, sync::Arc};
+use filesystem::DummyFileSystem;
 use filesystem_abstractions::{
     FileDescriptor, FileDescriptorBuilder, FileMode, FrozenFileDescriptorBuilder, ICacheableFile,
     IInode, OpenFlags, PipeBuilder,
@@ -237,5 +238,83 @@ impl ISyncSyscallHandler for Dup3Syscall {
 
     fn name(&self) -> &str {
         "sys_dup3"
+    }
+}
+
+pub struct MountSyscall;
+
+impl ISyncSyscallHandler for MountSyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        let _source = ctx.arg0::<*const u8>();
+        let target = ctx.arg1::<*const u8>();
+        let _filesystemtype = ctx.arg2::<*const u8>();
+        let _flags = ctx.arg3::<usize>();
+        let _data = ctx.arg4::<*const u8>();
+
+        match ctx
+            .tcb
+            .borrow_page_table()
+            .guard_cstr(target, 1024)
+            .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
+        {
+            Some(guard) => {
+                let mut target_path = core::str::from_utf8(&guard).map_err(|_| -1isize)?;
+
+                let fully_qualified: String;
+                if !path::is_path_fully_qualified(target_path) {
+                    let cwd = unsafe { ctx.tcb.cwd.get().as_ref().unwrap() };
+                    let full_path = path::get_full_path(target_path, Some(cwd)).ok_or(-1isize)?;
+                    fully_qualified = path::remove_relative_segments(&full_path);
+                    target_path = &fully_qualified;
+                }
+
+                filesystem_abstractions::mount_at(Arc::new(DummyFileSystem), target_path);
+
+                Ok(0)
+            }
+            None => Err(-1),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "sys_mount"
+    }
+}
+
+pub struct UmountSyscall;
+
+impl ISyncSyscallHandler for UmountSyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        let target = ctx.arg0::<*const u8>();
+        let _flags = ctx.arg1::<usize>();
+
+        match ctx
+            .tcb
+            .borrow_page_table()
+            .guard_cstr(target, 1024)
+            .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
+        {
+            Some(guard) => {
+                let mut target_path = core::str::from_utf8(&guard).map_err(|_| -1isize)?;
+
+                let fully_qualified: String;
+                if !path::is_path_fully_qualified(target_path) {
+                    let cwd = unsafe { ctx.tcb.cwd.get().as_ref().unwrap() };
+                    let full_path = path::get_full_path(target_path, Some(cwd)).ok_or(-1isize)?;
+                    fully_qualified = path::remove_relative_segments(&full_path);
+                    target_path = &fully_qualified;
+                }
+
+                match filesystem_abstractions::umount_at(target_path) {
+                    true => Ok(0),
+                    false => Err(-1),
+                }
+            }
+            None => Err(-1),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "sys_umount"
     }
 }
