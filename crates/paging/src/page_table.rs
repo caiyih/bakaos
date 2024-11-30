@@ -386,8 +386,9 @@ impl PageTable {
     // Get physical address of a virtual address in current page table
     // And returns the high half mapped virtual address
     pub fn as_high_half(&self, addr: VirtualAddress) -> Option<(PhysicalAddress, VirtualAddress)> {
+        // Fast path for already mapped high half address
         if addr.as_usize() & constants::VIRT_ADDR_OFFSET == constants::VIRT_ADDR_OFFSET {
-            return Some((addr.to_low_physical(), addr))
+            return Some((addr.to_low_physical(), addr));
         }
 
         let vpn = addr.to_floor_page_num();
