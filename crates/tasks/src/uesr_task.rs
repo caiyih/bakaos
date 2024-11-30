@@ -222,6 +222,10 @@ impl TaskTrapContext {
 
         ctx.sstatus = unsafe { core::mem::transmute::<Sstatus, usize>(sstatus) };
 
+        ctx.regs.a0 = memory_space_builder.argc;
+        ctx.regs.a1 = memory_space_builder.argv_base.as_usize();
+        ctx.regs.a2 = memory_space_builder.envp_base.as_usize();
+
         ctx
     }
 }

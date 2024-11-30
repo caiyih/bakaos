@@ -4,14 +4,14 @@ use abstractions::IUsizeAlias;
 use alloc::{collections::BTreeMap, vec::Vec};
 
 use address::{
-    IPageNum, IToPageNum, PhysicalAddress, PhysicalPageNum, VirtualAddress, VirtualAddressRange,
-    VirtualPageNum, VirtualPageNumRange,
+    IAlignableAddress, IPageNum, IToPageNum, PhysicalAddress, PhysicalPageNum, VirtualAddress,
+    VirtualAddressRange, VirtualPageNum, VirtualPageNumRange,
 };
 use allocation::{alloc_frame, TrackedFrame};
 use log::debug;
 use xmas_elf::ElfFile;
 
-use crate::{PageTable, PageTableEntryFlags};
+use crate::{page_table, PageTable, PageTableEntryFlags};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MapType {
@@ -389,6 +389,9 @@ pub struct MemorySpaceBuilder {
     pub memory_space: MemorySpace,
     pub entry_pc: VirtualAddress,
     pub stack_top: VirtualAddress,
+    pub argc: usize,
+    pub argv_base: VirtualAddress,
+    pub envp_base: VirtualAddress,
     // reserved for auxiliary vector
 }
 
@@ -542,10 +545,107 @@ impl MemorySpaceBuilder {
             memory_space,
             entry_pc,
             stack_top,
+            argc: 0,
+            argv_base: stack_top,
+            envp_base: stack_top,
         })
     }
 
-    pub fn init_stack(&mut self, _args: &[&str], _envp: &[&str]) {
-        self.stack_top -= 8;
+    fn push<T>(&mut self, value: T) {
+        let kernel_pt = page_table::get_kernel_page_table();
+
+        self.stack_top -= core::mem::size_of::<T>();
+        self.stack_top = self.stack_top.align_down(core::mem::align_of::<T>());
+
+        let pt = self.memory_space.page_table_mut();
+
+        kernel_pt.activated_copy_val_to_other(self.stack_top, pt, &value);
+    }
+
+    pub fn init_stack(&mut self, args: &[&str], envp: &[&str]) {
+        let mut envps = Vec::new(); // envp pointers
+
+        // Step1: Copy envp strings vector to the stack
+        for env in envp.iter().rev() {
+            self.push(0u8); // NULL-terminated
+            for byte in env.bytes().rev() {
+                self.push(byte);
+            }
+            envps.push(self.stack_top);
+        }
+
+        let mut argvs = Vec::new(); // argv pointers
+
+        // Step2: Copy args strings vector to the stack
+        for arg in args.iter().rev() {
+            self.push(0u8); // NULL-terminated
+            for byte in arg.bytes().rev() {
+                self.push(byte);
+            }
+            argvs.push(self.stack_top);
+        }
+
+        // align stack top down to 8 bytes
+        self.stack_top = self.stack_top.align_down(8);
+        debug_assert!(self.stack_top.as_usize() % 8 == 0);
+
+        // Step3: Copy PLATFORM string to the stack
+        const PLATFORM: &str = "RISC-V64\0";
+        const PLATFORM_LEN: usize = PLATFORM.len();
+
+        // Ensure that start address of copied PLATFORM is aligned to 8 bytes
+        self.stack_top -= PLATFORM_LEN;
+        self.stack_top = self.stack_top.align_down(8);
+        debug_assert!(self.stack_top.as_usize() % 8 == 0);
+        self.stack_top += PLATFORM_LEN;
+
+        for byte in PLATFORM.bytes().rev() {
+            self.push(byte);
+        }
+
+        // Step4: Setup 16 random bytes for aux vector
+        self.push(0xdeadbeefu64);
+
+        // align down to 16 bytes
+        self.stack_top = self.stack_top.align_down(16);
+        debug_assert!(self.stack_top.as_usize() % 16 == 0);
+
+        // TODO Step5: setup aux vector
+
+        // Step6: setup envp vector
+
+        // push NULL for envp
+        self.push(0usize);
+
+        // push envp, envps is already in reverse order
+        for env in envps.iter() {
+            self.push(*env);
+        }
+
+        let envp_base = self.stack_top;
+
+        // Step7: setup argv vector
+
+        // push NULL for args
+        self.push(0usize);
+
+        // push args, argvs is already in reverse order
+        for arg in argvs.iter() {
+            self.push(*arg);
+        }
+
+        let argv_base = self.stack_top;
+
+        // Step8: setup argc
+
+        // push argc
+        let argc = args.len();
+        self.push(argc);
+
+        // let argc_base = self.stack_top;
+
+        self.argc = argc;
+        self.argv_base = argv_base;
+        self.envp_base = envp_base;
     }
 }
