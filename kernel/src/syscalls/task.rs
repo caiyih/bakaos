@@ -199,7 +199,7 @@ impl ISyncSyscallHandler for GetCwdSyscall {
         let size = ctx.arg1::<usize>();
 
         let cwd = unsafe { ctx.tcb.cwd.get().as_ref().unwrap().as_bytes() };
-        let len = cwd.len();
+        let len = cwd.len() + 1;
 
         debug_assert!(len > 0, "cwd remains uninitialized");
 
@@ -217,7 +217,8 @@ impl ISyncSyscallHandler for GetCwdSyscall {
             .with_write()
         {
             Some(mut guard) => {
-                guard.copy_from_slice(cwd);
+                guard[..len - 1].copy_from_slice(cwd);
+                guard[len - 1] = 0;
                 Ok(len as isize)
             }
             None => Err(-1),
