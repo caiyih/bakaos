@@ -563,7 +563,10 @@ impl MemorySpaceBuilder {
             VirtualPageNumRange::from_start_count(max_end_vpn, 0),
             AreaType::UserBrk,
             MapType::Framed,
-            PageTableEntryFlags::Valid | PageTableEntryFlags::Writable | PageTableEntryFlags::User,
+            PageTableEntryFlags::Valid
+                | PageTableEntryFlags::Writable
+                | PageTableEntryFlags::Readable
+                | PageTableEntryFlags::User,
         ));
         memory_space.brk_area_idx = memory_space
             .mapping_areas
