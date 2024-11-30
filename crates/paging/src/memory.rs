@@ -392,7 +392,7 @@ pub struct MemorySpaceBuilder {
     pub argc: usize,
     pub argv_base: VirtualAddress,
     pub envp_base: VirtualAddress,
-    // reserved for auxiliary vector
+    pub auxv: Vec<AuxVecEntry>,
 }
 
 // Fix that `TaskControlBlock::from(memory_space_builder)` complains `Arc<MemorySpaceBuilder>` is not `Send` and `Sync`
@@ -415,6 +415,10 @@ impl MemorySpaceBuilder {
         let mut min_start_vpn = VirtualPageNum::from_usize(usize::MAX);
         let mut max_end_vpn = VirtualPageNum::from_usize(0);
 
+        let mut auxv = Vec::new();
+
+        let mut p_head = VirtualAddress::from_usize(0);
+
         for ph in elf_info
             .program_iter()
             // Only loadable segments are considered
@@ -424,6 +428,10 @@ impl MemorySpaceBuilder {
 
             let start = VirtualAddress::from_usize(ph.virtual_addr() as usize);
             let end = start + ph.mem_size() as usize;
+
+            if p_head == VirtualAddress::from_usize(0) {
+                p_head = start;
+            }
 
             min_start_vpn = min_start_vpn.min(start.to_floor_page_num());
             max_end_vpn = max_end_vpn.max(end.to_floor_page_num());
@@ -473,6 +481,33 @@ impl MemorySpaceBuilder {
         );
 
         log::debug!("Elf segments loaded, max_end_vpn: {:?}", max_end_vpn);
+
+        let p_phhead = p_head + elf_info.header.pt2.ph_offset() as usize;
+
+        auxv.push(AuxVecEntry::new(AT_PHDR, p_phhead.as_usize()));
+        auxv.push(AuxVecEntry::new(
+            AT_PHENT,
+            elf_info.header.pt2.ph_entry_size() as usize,
+        ));
+        auxv.push(AuxVecEntry::new(
+            AT_PHNUM,
+            elf_info.header.pt2.ph_count() as usize,
+        ));
+        auxv.push(AuxVecEntry::new(AT_PAGESZ, constants::PAGE_SIZE));
+        auxv.push(AuxVecEntry::new(AT_BASE, 0));
+        auxv.push(AuxVecEntry::new(AT_FLAGS, 0));
+        auxv.push(AuxVecEntry::new(
+            AT_ENTRY,
+            elf_info.header.pt2.entry_point() as usize,
+        ));
+        auxv.push(AuxVecEntry::new(AT_UID, 0));
+        auxv.push(AuxVecEntry::new(AT_EUID, 0));
+        auxv.push(AuxVecEntry::new(AT_GID, 0));
+        auxv.push(AuxVecEntry::new(AT_EGID, 0));
+        auxv.push(AuxVecEntry::new(AT_HWCAP, 0));
+        // FIXME: Decouple the IMachine to separate crate and load the machine specific values
+        auxv.push(AuxVecEntry::new(AT_CLKTCK, 125000000usize));
+        auxv.push(AuxVecEntry::new(AT_SECURE, 0));
 
         max_end_vpn += 1;
         debug!("Stack guard base: {:?}", max_end_vpn);
@@ -548,6 +583,7 @@ impl MemorySpaceBuilder {
             argc: 0,
             argv_base: stack_top,
             envp_base: stack_top,
+            auxv,
         })
     }
 
@@ -605,12 +641,26 @@ impl MemorySpaceBuilder {
 
         // Step4: Setup 16 random bytes for aux vector
         self.push(0xdeadbeefu64);
+        let aux_random_base = self.stack_top;
 
         // align down to 16 bytes
         self.stack_top = self.stack_top.align_down(16);
         debug_assert!(self.stack_top.as_usize() % 16 == 0);
 
-        // TODO Step5: setup aux vector
+        // Step5: setup aux vector
+        self.push(AuxVecEntry::new(AT_NULL, 0));
+
+        self.push(aux_random_base);
+        self.push(AT_RANDOM);
+
+        // Move auxv out of self
+        let auxv = core::mem::take(&mut self.auxv);
+
+        // Push other auxv entries
+        for aux in auxv.iter().rev() {
+            self.push(aux.value);
+            self.push(aux.key.0);
+        }
 
         // Step6: setup envp vector
 
@@ -647,5 +697,46 @@ impl MemorySpaceBuilder {
         self.argc = argc;
         self.argv_base = argv_base;
         self.envp_base = envp_base;
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct AuxVecKey(pub usize);
+
+pub const AT_NULL: AuxVecKey = AuxVecKey(0); // end of vector
+pub const AT_IGNORE: AuxVecKey = AuxVecKey(1); // entry should be ignored
+pub const AT_EXECFD: AuxVecKey = AuxVecKey(2); // file descriptor of program
+pub const AT_NOTELF: AuxVecKey = AuxVecKey(10); // program is not ELF
+pub const AT_PLATFORM: AuxVecKey = AuxVecKey(15); // string identifying CPU for optimizations
+pub const AT_BASE_PLATFORM: AuxVecKey = AuxVecKey(24); // string identifying real platform, may differ from AT_PLATFORM.
+pub const AT_HWCAP2: AuxVecKey = AuxVecKey(26); // extension of AT_HWCAP
+pub const AT_EXECFN: AuxVecKey = AuxVecKey(31); // filename of program
+pub const AT_PHDR: AuxVecKey = AuxVecKey(3); // program headers for program
+pub const AT_PHENT: AuxVecKey = AuxVecKey(4); // size of program header entry
+pub const AT_PHNUM: AuxVecKey = AuxVecKey(5); // number of program headers
+pub const AT_PAGESZ: AuxVecKey = AuxVecKey(6); // system page size
+pub const AT_BASE: AuxVecKey = AuxVecKey(7); // base address of interpreter
+pub const AT_FLAGS: AuxVecKey = AuxVecKey(8); // flags
+pub const AT_ENTRY: AuxVecKey = AuxVecKey(9); // entry point of program
+pub const AT_UID: AuxVecKey = AuxVecKey(11); // real uid
+pub const AT_EUID: AuxVecKey = AuxVecKey(12); // effective uid
+pub const AT_GID: AuxVecKey = AuxVecKey(13); // real gid
+pub const AT_EGID: AuxVecKey = AuxVecKey(14); // effective gid
+pub const AT_HWCAP: AuxVecKey = AuxVecKey(16); // arch dependent hints at CPU capabilities
+pub const AT_CLKTCK: AuxVecKey = AuxVecKey(17); // frequency at which times() increments
+pub const AT_SECURE: AuxVecKey = AuxVecKey(23); // secure mode boolean
+pub const AT_RANDOM: AuxVecKey = AuxVecKey(25); // address of 16 random bytes
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct AuxVecEntry {
+    pub key: AuxVecKey,
+    pub value: usize,
+}
+
+impl AuxVecEntry {
+    pub const fn new(key: AuxVecKey, val: usize) -> Self {
+        AuxVecEntry { key, value: val }
     }
 }
