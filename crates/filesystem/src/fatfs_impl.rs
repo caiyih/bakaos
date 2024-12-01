@@ -223,24 +223,33 @@ impl IInode for FatFileInode {
         buffer: &mut [u8],
     ) -> filesystem_abstractions::FileSystemResult<usize> {
         let mut locked_inner = self.inner.lock();
-        if offset >= locked_inner.size {
-            return Ok(0);
+        let file_size = locked_inner.size;
+
+        let mut bytes_read = 0;
+
+        if offset < file_size {
+            let pos = SeekFrom::Start(offset as u64);
+
+            locked_inner.inner.seek(pos).map_err(from_fatfs_error)?;
+
+            let rlen = Ord::min(buffer.len(), file_size - offset);
+
+            locked_inner
+                .inner
+                .read_exact(&mut buffer[..rlen])
+                .map_err(from_fatfs_error)?;
+
+            bytes_read = rlen;
         }
 
-        let pos = SeekFrom::Start(offset as u64);
+        // Add EOF if reached the end
+        if buffer.len() > file_size - offset {
+            const EOF: u8 = 0;
+            buffer[file_size - offset] = EOF;
+            bytes_read += 1;
+        }
 
-        locked_inner.inner.seek(pos).map_err(from_fatfs_error)?;
-
-        let len = locked_inner.size as u64;
-
-        let rlen = Ord::min(buffer.len(), len as usize - offset);
-
-        locked_inner
-            .inner
-            .read_exact(&mut buffer[..rlen])
-            .map_err(from_fatfs_error)?;
-
-        Ok(rlen)
+        Ok(bytes_read)
     }
 
     fn writeat(
