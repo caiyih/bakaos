@@ -1,11 +1,11 @@
 use core::ops::Deref;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
+use crate::TeleTypewriterBuilder;
 use crate::{DirectoryEntryType, IInode, OpenFlags};
-use crate::{IStdioFile, Stderr, Stdin, Stdout};
 use alloc::sync::Arc;
 use alloc::sync::Weak;
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use hermit_sync::{RawSpinMutex, SpinMutex};
 use lock_api::{MappedMutexGuard, MutexGuard};
 
@@ -481,25 +481,15 @@ impl FileDescriptorTable {
     /// # Arguments
     /// * `task_id` - The ID of the task that owns the file descriptor table.
     pub fn new(task_id: usize) -> Self {
-        FileDescriptorTable {
-            table: vec![
-                Some(
-                    FileDescriptorBuilder::new(Stdin::open_for(task_id).cache_as_arc_accessor())
-                        .set_readable()
-                        .build(0),
-                ),
-                Some(
-                    FileDescriptorBuilder::new(Stdout::open_for(task_id).cache_as_arc_accessor())
-                        .set_writable()
-                        .build(1),
-                ),
-                Some(
-                    FileDescriptorBuilder::new(Stderr::open_for(task_id).cache_as_arc_accessor())
-                        .set_writable()
-                        .build(2),
-                ),
-            ],
-        }
+        let tty = TeleTypewriterBuilder::open_for(task_id);
+
+        let mut table = FileDescriptorTable { table: Vec::new() };
+
+        table.allocate(tty.stdin_builder);
+        table.allocate(tty.stdout_builder);
+        table.allocate(tty.stderr_builder);
+
+        table
     }
 
     /// Returns the file descriptor at the specified index.

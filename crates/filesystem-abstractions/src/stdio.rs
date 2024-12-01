@@ -1,29 +1,53 @@
+use crate::file::ICacheableFile;
+use crate::{FileDescriptorBuilder, FrozenFileDescriptorBuilder};
 use alloc::sync::Arc;
 
 use crate::IFile;
 
-pub trait IStdioFile: IFile {
-    fn open_for(task_id: usize) -> Arc<dyn IFile>;
+pub struct TeleTypewriterBuilder {
+    pub stdin_builder: FrozenFileDescriptorBuilder,
+    pub stdout_builder: FrozenFileDescriptorBuilder,
+    pub stderr_builder: FrozenFileDescriptorBuilder,
+}
 
+impl TeleTypewriterBuilder {
+    pub fn open_for(task_id: usize) -> Self {
+        let tty: Arc<dyn IFile> = Arc::new(TeleTypewriter { task_id });
+
+        let stdin_accessor = tty.cache_as_arc_accessor();
+        let stdout_accessor = stdin_accessor.clone_non_inherited_arc();
+        let stderr_accessor = stdin_accessor.clone_non_inherited_arc();
+
+        Self {
+            stdin_builder: FileDescriptorBuilder::new(stdin_accessor)
+                .set_readable()
+                .freeze(),
+            stdout_builder: FileDescriptorBuilder::new(stdout_accessor)
+                .set_writable()
+                .freeze(),
+            stderr_builder: FileDescriptorBuilder::new(stderr_accessor)
+                .set_writable()
+                .freeze(),
+        }
+    }
+}
+
+pub trait IStdioFile: IFile {
     fn task_id(&self) -> usize;
 }
 
 #[derive(Debug)]
-pub struct Stdin {
+struct TeleTypewriter {
     task_id: usize,
 }
 
-impl IStdioFile for Stdin {
-    fn open_for(task_id: usize) -> Arc<dyn IFile> {
-        Arc::new(Stdin { task_id })
-    }
-
+impl IStdioFile for TeleTypewriter {
     fn task_id(&self) -> usize {
         self.task_id
     }
 }
 
-impl IFile for Stdin {
+impl IFile for TeleTypewriter {
     fn metadata(&self) -> Option<Arc<crate::FileMetadata>> {
         None
     }
@@ -73,30 +97,6 @@ impl IFile for Stdin {
 
         read_bytes
     }
-}
-
-pub struct Stdout {
-    task_id: usize,
-}
-
-impl IStdioFile for Stdout {
-    fn open_for(task_id: usize) -> Arc<dyn IFile> {
-        Arc::new(Stdout { task_id })
-    }
-
-    fn task_id(&self) -> usize {
-        self.task_id
-    }
-}
-
-impl IFile for Stdout {
-    fn metadata(&self) -> Option<Arc<crate::FileMetadata>> {
-        None
-    }
-
-    fn lseek(&self, _offset: usize) -> usize {
-        0
-    }
 
     fn can_write(&self) -> bool {
         true
@@ -133,6 +133,3 @@ impl IFile for Stdout {
         written_bytes
     }
 }
-
-// Since Stderr also prints to serial, we just alias it to Stdout
-pub type Stderr = Stdout;
