@@ -1,5 +1,4 @@
-use crate::file::ICacheableFile;
-use crate::{FileDescriptorBuilder, FrozenFileDescriptorBuilder};
+use crate::{FileDescriptorBuilder, FrozenFileDescriptorBuilder, ICacheableFile};
 use alloc::sync::Arc;
 
 use crate::IFile;

@@ -1,7 +1,7 @@
 use core::ops::Deref;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
-use crate::{DirectoryEntryType, FileCacheAccessor, ICacheableFile, IInode, OpenFlags, TeleTypewriterBuilder};
+use crate::{DirectoryEntryType, FileCacheAccessor, IInode, OpenFlags, TeleTypewriterBuilder};
 use alloc::sync::Arc;
 use alloc::sync::Weak;
 use alloc::vec::Vec;
