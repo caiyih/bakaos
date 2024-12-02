@@ -9,12 +9,14 @@ extern crate std;
 
 extern crate alloc;
 
+mod caching;
 mod file;
 mod inode;
 mod mount;
 mod pipe;
 mod stdio;
 
+pub use caching::*;
 pub use file::*;
 pub use inode::*;
 pub use mount::*;
