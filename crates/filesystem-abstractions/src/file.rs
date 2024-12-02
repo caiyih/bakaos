@@ -6,6 +6,7 @@ use crate::{IStdioFile, Stderr, Stdin, Stdout};
 use alloc::sync::Arc;
 use alloc::sync::Weak;
 use alloc::{vec, vec::Vec};
+use downcast_rs::{impl_downcast, DowncastSync};
 use hermit_sync::{RawSpinMutex, SpinMutex};
 use lock_api::{MappedMutexGuard, MutexGuard};
 
@@ -44,7 +45,7 @@ impl FileMetadata {
 unsafe impl Send for FileMetadata {}
 unsafe impl Sync for FileMetadata {}
 
-pub trait IFile: Send + Sync {
+pub trait IFile: DowncastSync + Send + Sync {
     fn metadata(&self) -> Option<Arc<FileMetadata>>;
 
     fn can_read(&self) -> bool {
@@ -108,6 +109,8 @@ pub trait IFile: Send + Sync {
         })
     }
 }
+
+impl_downcast!(sync IFile);
 
 pub struct FileCacheEntry {
     pub cahce: Arc<dyn IFile>,
