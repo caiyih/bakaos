@@ -1,80 +1,12 @@
-use core::{arch::asm, panic::PanicInfo};
+use core::panic::PanicInfo;
+
+use unwinding::StackTrace;
 
 use crate::{legacy_println, system};
 
-#[inline(always)]
-pub fn sp() -> usize {
-    let ptr;
-    unsafe {
-        asm!("mv {}, sp", out(reg) ptr);
-    }
-    ptr
-}
-
-#[inline(always)]
-pub fn fp() -> usize {
-    let ptr;
-    unsafe {
-        asm!("mv {}, fp", out(reg) ptr);
-    }
-    ptr
-}
-
-#[inline(always)]
-pub fn lr() -> usize {
-    let ptr;
-    unsafe {
-        asm!("mv {}, ra", out(reg) ptr);
-    }
-    ptr
-}
-
-#[no_mangle]
-fn stack_trace() {
-    extern "C" {
-        fn __tmp_stack_top();
-        fn stext();
-        fn etext();
-    }
-
-    let mut pc = lr();
-    let mut fp = fp();
-    let mut depth = 0;
-
-    legacy_println!(
-        "[BAKA-OS]     Tmp stack top: {:#018x}",
-        __tmp_stack_top as usize
-    );
-    legacy_println!("[BAKA-OS]     Stack pointer: {:#018x}", sp());
-    legacy_println!("[BAKA-OS]     Stack trace:");
-    while pc >= stext as usize && pc <= etext as usize && fp >= stext as usize && fp != 0
-    // // TODO: fp should be lower than __tmp_stack_top
-    // // But the kernel may have mutiple stacks
-    // Unnecessary check. The two lines comment above seems to be wrong. But leave it here for now.
-    // && fp < __tmp_stack_top as usize
-    {
-        legacy_println!(
-            "[BAKA-OS]     {:4} at: {:#018x} Frame pointer: {:#018x}",
-            depth,
-            // PC implies the next instruction of function call
-            // So we need to subtract 4 to get the real pc
-            pc - 4,
-            fp
-        );
-
-        depth += 1;
-
-        fp = unsafe { *(fp as *const usize).offset(-2) };
-        pc = unsafe { *(fp as *const usize).offset(-1) };
-    }
-
-    legacy_println!("[BAKA-OS]     Note: Higher traces are deeper. You can check symbol files for detailed info.");
-    legacy_println!("[BAKA-OS]           Or you can copy all the {} lines above(including the note) and paste it to the unwinder.", depth + 1);
-}
-
 #[panic_handler]
 #[no_mangle]
-unsafe fn __kernel_panic(info: &PanicInfo) -> ! {
+unsafe fn rust_begin_unwind(info: &PanicInfo) -> ! {
     // legacy_println!("[BAKA-OS] Kernel panicked for: ", info.);
     match info.message() {
         Some(msg) => legacy_println!("[BAKA-OS] Kernel panicked for: {}", msg),
@@ -101,8 +33,44 @@ unsafe fn __kernel_panic(info: &PanicInfo) -> ! {
     legacy_println!("[BAKA-OS]     Can unwind: {}", info.can_unwind());
 
     if info.can_unwind() {
-        stack_trace();
+        StackTrace::begin_unwind(0).print_trace();
     }
 
     system::shutdown_failure();
+}
+
+pub trait IDisplayableStackTrace {
+    fn print_trace(&self);
+}
+
+impl IDisplayableStackTrace for StackTrace {
+    fn print_trace(&self) {
+        let frames = self.stack_frames();
+
+        legacy_println!("[BAKA-OS]     Stack trace:");
+
+        for (depth, frame) in frames.iter().enumerate() {
+            let ra = frame.ra();
+
+            // PC implies the next instruction of function call
+            match unwinding::find_previous_instruction(ra) {
+                Ok(pc) => legacy_println!(
+                    "[BAKA-OS]     {:4} at: {:#018x} Frame pointer: {:#018x}",
+                    depth + 1,
+                    pc,
+                    frame.fp()
+                ),
+                Err(ins64) => legacy_println!(
+                    "[BAKA-OS]     {:4} Frame pointer: {:#018x} Unrecognize instruction, ra: {:#018x}, instruction 64bits: {:#018x}",
+                    depth + 1,
+                    frame.fp(),
+                    ra,
+                    ins64
+                ),
+            }
+        }
+
+        legacy_println!("[BAKA-OS]     Note: The unwinder script will resolve all stack frames when the kernel shutdown.");
+        legacy_println!("[BAKA-OS]           If it didn't, you can copy all the {} lines above(including the note) and paste it to the unwinder.", frames.len() + 1);
+    }
 }
