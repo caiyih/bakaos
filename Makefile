@@ -49,7 +49,7 @@ parse:
 	@echo "Parsing test output..."
 	@python3 -W ignore test_preliminary/grading_scripts/test_runner.py output.log > results.json
 	@echo "Visualizing test results..."
-	@python3 test_preliminary/visualize_result.py results.json || exit 0
+	@python3 test_preliminary/visualize_result.py results.json
 
 clean:
 	@echo "Warn: This only cleans files generated for contest submission."
