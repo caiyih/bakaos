@@ -33,7 +33,7 @@ unsafe fn rust_begin_unwind(info: &PanicInfo) -> ! {
     legacy_println!("[BAKA-OS]     Can unwind: {}", info.can_unwind());
 
     if info.can_unwind() {
-        StackTrace::begin_unwind(0).print_trace();
+        StackTrace::begin_unwind(1).print_trace();
     }
 
     system::shutdown_failure();

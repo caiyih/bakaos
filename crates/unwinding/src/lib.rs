@@ -91,18 +91,14 @@ impl StackTrace {
         let mut frames = Vec::new();
 
         while ra >= stext as usize && ra <= etext as usize && fp >= stext as usize && fp != 0 {
-            fp = unsafe { *(fp as *const usize).offset(-2) };
-            ra = unsafe { *(fp as *const usize).offset(-1) };
-
-            if ra == 0 {
-                break;
-            }
-
             if skip_frames == 0 {
                 frames.push(StackFrame { ra, fp })
             } else {
                 skip_frames -= 1;
             }
+
+            fp = unsafe { *(fp as *const usize).offset(-2) };
+            ra = unsafe { *(fp as *const usize).offset(-1) };
         }
 
         StackTrace { frames }
