@@ -1,39 +1,48 @@
-use core::panic::PanicInfo;
+use core::{panic::PanicInfo, sync::atomic::AtomicBool};
 
 use unwinding::StackTrace;
 
 use crate::{legacy_println, system};
 
+static mut PANIC_NESTING: AtomicBool = AtomicBool::new(false);
+
 #[panic_handler]
 #[no_mangle]
 unsafe fn rust_begin_unwind(info: &PanicInfo) -> ! {
-    // legacy_println!("[BAKA-OS] Kernel panicked for: ", info.);
-    match info.message() {
-        Some(msg) => legacy_println!("[BAKA-OS] Kernel panicked for: {}", msg),
-        None => legacy_println!("[BAKA-OS] Kernel panicked for Unknown reason"),
-    }
+    if !PANIC_NESTING.load(core::sync::atomic::Ordering::Relaxed) {
+        PANIC_NESTING.store(true, core::sync::atomic::Ordering::Relaxed);
 
-    match info.location() {
-        Some(location) => {
-            legacy_println!(
-                "[BAKA-OS]     at {}:{}:{}",
-                location.file(),
-                location.line(),
-                location.column()
-            );
+        match info.message() {
+            Some(msg) => legacy_println!("[BAKA-OS] Kernel panicked for: {}", msg),
+            None => legacy_println!("[BAKA-OS] Kernel panicked for Unknown reason"),
         }
-        None => legacy_println!("[BAKA-OS]     No location information available."),
-    }
 
-    match info.payload().downcast_ref::<&str>() {
-        Some(s) => legacy_println!("[BAKA-OS]     Payload: {}", s),
-        None => legacy_println!("[BAKA-OS]     No payload information available."),
-    }
+        match info.location() {
+            Some(location) => {
+                legacy_println!(
+                    "[BAKA-OS]     at {}:{}:{}",
+                    location.file(),
+                    location.line(),
+                    location.column()
+                );
+            }
+            None => legacy_println!("[BAKA-OS]     No location information available."),
+        }
 
-    legacy_println!("[BAKA-OS]     Can unwind: {}", info.can_unwind());
+        match info.payload().downcast_ref::<&str>() {
+            Some(s) => legacy_println!("[BAKA-OS]     Payload: {}", s),
+            None => legacy_println!("[BAKA-OS]     No payload information available."),
+        }
 
-    if info.can_unwind() {
-        StackTrace::begin_unwind(1).print_trace();
+        legacy_println!("[BAKA-OS]     Can unwind: {}", info.can_unwind());
+
+        if info.can_unwind() {
+            StackTrace::begin_unwind(1).print_trace();
+        }
+    } else {
+        legacy_println!("[BAKA-OS] Kernel panicked while handling another panic.");
+        legacy_println!("[BAKA-OS]     This is a bug in the kernel.");
+        legacy_println!("[BAKA-OS]     The kernel will now shutdown.");
     }
 
     system::shutdown_failure();
