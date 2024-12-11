@@ -62,7 +62,8 @@ def read_pc_list(read_line):
     return pc_list
 
 def build_symbol_table():
-    os.system('make -C ../kernel symboltable')
+    mode = os.getenv('MODE', 'debug')
+    os.system(f'make -C ../kernel symboltable MODE={mode}')
 
 # read argument list to detect if has -slient or --silent
 
@@ -115,6 +116,7 @@ try:
         source_file = None
         source_line = None
         start_idx_of_the_line = -1
+        idx_if_method_name = -1
 
         if pc in address_line_map:
             idx = address_line_map[pc]
@@ -124,6 +126,7 @@ try:
                 # 查找函数名
                 if function_name is None and line.endswith(':'):
                     function_name = line[:-1] # Remove the trailing semicolon
+                    idx_if_method_name = i
                     break
                 # 查找源文件和行号
                 if source_file is None:
@@ -135,6 +138,9 @@ try:
                     continue
 
         print_color(f"  pc: {hex(pc)}", 'green')
+
+        if start_idx_of_the_line == -1 and idx_if_method_name != -1:
+            start_idx_of_the_line = idx_if_method_name + 1
 
         if start_idx_of_the_line != -1:
             if '()' not in function_name:
