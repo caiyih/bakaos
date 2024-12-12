@@ -12,7 +12,7 @@ The whole project is developed within 3 weeks, with over 400 commits and 12k lin
 
 ## Documentation
 
-For detailed documentations, please refer to the `docs` directory(Only avaliable in Simplified Chinese).
+For detailed documentations, please refer to the [`docs`](docs/README.md) directory(Only avaliable in Simplified Chinese).
 
 ## Ranking
 
