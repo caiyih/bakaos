@@ -204,7 +204,7 @@ unsafe fn riscv64_ra_to_pc(ra: usize) -> Result<usize, u64> {
         return Ok(p_ins64 as usize);
     }
 
-    let p_ins48 = to::<u16>(ra).offset(2);
+    let p_ins48 = to::<u16>(ra).offset(-2);
     let ins48_header = p_ins48.read();
 
     if ins48_header & 0b111111 == 0b011111 {
