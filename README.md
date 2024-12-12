@@ -1,6 +1,28 @@
 # Baka OS
 
+Baka OS is a UNIX-like asynchronous operating system kernel written in Rust. Targeting RISC-V architecture, it is developed for the 2024 Operating System Kernel Contest(northeastern region).
+
+With the help of stackless coroutine and CPU pool, it has the potential to run thousands of tasks concurrently with multi-core support.
+
+The kernel is separated into multiple crates, and the crates is tested and inspected on the host machine, ensuring high quality code that is easy to maintain and debug.
+
+This kernel does not based on any existing project, and is developed from scratch. With years of OOP experience, this kernel utilized the power of abstraction and encapsulation, resulting a clean and reusable codebase.
+
+The whole project is developed within 3 weeks, with over 400 commits and 12k lines of code. (until the preliminary test submission)
+
+## Documentation
+
+For detailed documentations, please refer to the [`docs`](docs/README.md) directory(Only avaliable in Simplified Chinese).
+
+## Ranking
+
+![Ranking](docs/assets/ranking.png)
+
+Up until 2024-12-12, Baka OS is ranked the 2nd in the contest and is the first participant that achieved full score except an test account.
+
 ## Continuous Integration
+
+This repository uses continuous integration to keep the code quality high and prevent regressions. Every push is inspected and tested by the CI system, ensuring that the code is always high quality and stable.
 
 | Workflow | Status |
 |:---------|:-------|
@@ -85,6 +107,18 @@ $ make debug
 You have to connect use a GDB client or run `make connect` to connect to the GDB server.
 
 Also, vscode debugging is supported. Just open the `kernel` folder in vscode and press `F5`.
+
+##### Publish profile
+
+You can pass publish profile with `MODE` environment variable.
+
+eg:
+```bash
+make debug MODE=release
+make run MODE=debug
+```
+
+`debug` is the default profile.
 
 ##### Logging
 
