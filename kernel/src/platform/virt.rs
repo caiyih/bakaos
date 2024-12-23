@@ -4,7 +4,7 @@ use drivers::{
     virt::{VirtHal, VirtioDisk},
     DiskDriver,
 };
-use filesystem::Fat32FileSystem;
+use filesystem::{Ext4FileSystem, Fat32FileSystem};
 use virtio_drivers::{
     device::blk::VirtIOBlk,
     transport::mmio::{MmioTransport, VirtIOHeader},
@@ -64,5 +64,9 @@ impl IMachine for VirtBoard {
     fn create_fat32_filesystem_at_bus(&self, device_id: usize) -> filesystem::Fat32FileSystem {
         Fat32FileSystem::new(self.create_block_driver_at_bus(device_id))
             .expect("Failed to initialize FAT32 filesystem on VirtIOBlk")
+    }
+
+    fn create_ext4_filesystem_at_bus(&self, device_id: usize) -> filesystem::Ext4FileSystem {
+        Ext4FileSystem::new(self.create_block_driver_at_bus(device_id))
     }
 }
