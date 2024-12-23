@@ -5,11 +5,13 @@ extern crate std;
 
 extern crate alloc;
 
+mod ext4_impl;
 mod fatfs_impl;
 
 use alloc::sync::Arc;
 
-pub use fatfs_impl::*;
+pub use ext4_impl::Ext4FileSystem;
+pub use fatfs_impl::Fat32FileSystem;
 use filesystem_abstractions::{mount_at, IFileSystem, IInode};
 
 pub type RootFileSystemType = fatfs_impl::Fat32FileSystem;
