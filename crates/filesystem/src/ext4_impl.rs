@@ -56,7 +56,7 @@ unsafe impl Send for Ext4FileSystem {}
 unsafe impl Sync for Ext4FileSystem {}
 
 impl Ext4FileSystem {
-    pub fn new(device: DiskDriver) -> Arc<Ext4FileSystem> {
+    pub fn new(device: DiskDriver) -> Ext4FileSystem {
         let inner = Arc::new(Ext4::open(Arc::new(Ext4Disk {
             driver: SpinMutex::new(device),
         })));
@@ -68,7 +68,7 @@ impl Ext4FileSystem {
             file_type: DirectoryEntryType::Directory,
         });
 
-        Arc::new(Ext4FileSystem { root_dir })
+        Ext4FileSystem { root_dir }
     }
 }
 
