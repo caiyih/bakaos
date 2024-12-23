@@ -3,7 +3,7 @@ use address::{IPageNum, PhysicalAddress, PhysicalPageNum};
 use core::{mem::forget, ptr::NonNull};
 use virtio_drivers::{device::blk::VirtIOBlk, transport::mmio::MmioTransport};
 
-use crate::IDiskDevice;
+use crate::IRawDiskDevice;
 
 pub const SECTOR_SIZE: usize = 512;
 
@@ -31,7 +31,7 @@ where
     }
 }
 
-impl<T> IDiskDevice for VirtioDisk<T>
+impl<T> IRawDiskDevice for VirtioDisk<T>
 where
     T: virtio_drivers::Hal,
 {
@@ -54,10 +54,6 @@ where
     fn set_position(&mut self, position: usize) {
         self.sector = position / SECTOR_SIZE;
         self.offset = position % SECTOR_SIZE;
-    }
-
-    fn move_cursor(&mut self, amount: usize) {
-        self.set_position(self.get_position() + amount)
     }
 }
 
