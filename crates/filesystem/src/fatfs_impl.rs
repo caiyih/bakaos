@@ -1,12 +1,11 @@
 use alloc::{
-    boxed::Box,
     string::{String, ToString},
     sync::Arc,
     vec::Vec,
 };
-use core::{ops::Deref, str};
+use core::str;
+use drivers::DiskDriver;
 
-use drivers::IDiskDevice;
 use fatfs::{Dir, Error, File, LossyOemCpConverter, NullTimeProvider, Read, Seek, SeekFrom, Write};
 use filesystem_abstractions::{
     FileStatistics, FileStatisticsMode, FileSystemError, FileSystemResult, IFileSystem, IInode,
@@ -23,19 +22,7 @@ unsafe impl Send for Fat32FileSystem {}
 unsafe impl Sync for Fat32FileSystem {}
 
 pub struct Fat32Disk {
-    device: Box<dyn IDiskDevice>,
-}
-
-unsafe impl Send for Fat32Disk {}
-
-unsafe impl Sync for Fat32Disk {}
-
-impl Deref for Fat32Disk {
-    type Target = dyn IDiskDevice;
-
-    fn deref(&self) -> &Self::Target {
-        self.device.as_ref()
-    }
+    driver: SpinMutex<DiskDriver>,
 }
 
 impl IFileSystem for Fat32FileSystem {
@@ -54,8 +41,10 @@ impl IFileSystem for Fat32FileSystem {
 }
 
 impl Fat32FileSystem {
-    pub fn new(device: Box<dyn IDiskDevice>) -> Result<Self, Error<()>> {
-        let disk = Fat32Disk { device };
+    pub fn new(device: DiskDriver) -> Result<Self, Error<()>> {
+        let disk = Fat32Disk {
+            driver: SpinMutex::new(device),
+        };
 
         let fs = fatfs::FileSystem::new(disk, fatfs::FsOptions::new())?;
         Ok(Fat32FileSystem { inner: fs })
@@ -66,89 +55,15 @@ impl fatfs::IoBase for Fat32Disk {
     type Error = ();
 }
 
-impl Fat32Disk {
-    fn read_inner(&mut self, buf: &mut [u8]) -> Result<usize, ()> {
-        let len = buf.len();
-
-        assert!(
-            len <= 512,
-            "buf.len() must be less than or equal to 512, found: {}",
-            len
-        );
-
-        let device = &mut self.device;
-        let device_offset = device.get_position() % 512;
-
-        // Virtio_driver can only read 512 bytes at a time
-        let size_read = if device_offset != 0 || len < 512 {
-            let mut tmp = [0u8; 512];
-            device.read_blocks(&mut tmp);
-
-            let start = device_offset;
-            let end = (device_offset + len).min(512);
-
-            buf[..end - start].copy_from_slice(&tmp[start..end]);
-            end - start
-        } else {
-            device.read_blocks(buf);
-            512
-        };
-
-        device.move_cursor(size_read);
-        Ok(size_read)
-    }
-}
-
 impl fatfs::Read for Fat32Disk {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, ()> {
-        self.read_exact(buf).map(|_| buf.len()).map_err(|_| ())
-    }
-
-    fn read_exact(&mut self, mut buf: &mut [u8]) -> Result<(), Self::Error> {
-        while !buf.is_empty() {
-            match buf.len() {
-                0..=512 => {
-                    let size = self.read_inner(buf)?;
-                    buf = &mut buf[size..];
-                }
-                _ => {
-                    let (left, right) = buf.split_at_mut(512);
-                    self.read_inner(left)?;
-                    buf = right;
-                }
-            }
-        }
-        if buf.is_empty() {
-            Ok(())
-        } else {
-            warn!("failed to fill whole buffer in read_exact");
-            Err(())
-        }
+        unsafe { self.driver.lock().read_at(buf).map_err(|_| ()) }
     }
 }
 
 impl fatfs::Write for Fat32Disk {
-    fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
-        let device = &mut self.device;
-        let device_offset = device.get_position() % 512;
-
-        let size_written = if device_offset != 0 || buf.len() < 512 {
-            let mut tmp_buf = [0u8; 512];
-            device.read_blocks(&mut tmp_buf);
-
-            let start = device_offset;
-            let end = (device_offset + buf.len()).min(512);
-
-            tmp_buf[start..end].copy_from_slice(&buf[..end - start]);
-            device.write_blocks(&tmp_buf);
-            end - start
-        } else {
-            device.write_blocks(buf);
-            512
-        };
-
-        device.move_cursor(size_written);
-        Ok(size_written)
+    fn write(&mut self, buf: &[u8]) -> Result<usize, ()> {
+        unsafe { self.driver.lock().write_at(buf).map_err(|_| ()) }
     }
 
     fn flush(&mut self) -> Result<(), Self::Error> {
@@ -158,17 +73,13 @@ impl fatfs::Write for Fat32Disk {
 
 impl fatfs::Seek for Fat32Disk {
     fn seek(&mut self, pos: SeekFrom) -> Result<u64, Self::Error> {
-        // let device = &mut self.device;
+        let mut driver = self.driver.lock();
         match pos {
             fatfs::SeekFrom::Start(i) => {
-                self.device.set_position(i as usize);
+                unsafe { driver.set_position(i as usize) };
                 Ok(i)
             }
-            fatfs::SeekFrom::Current(i) => {
-                let new_pos = (self.device.get_position() as i64) + i;
-                self.device.set_position(new_pos as usize);
-                Ok(new_pos as u64)
-            }
+            fatfs::SeekFrom::Current(i) => Ok(unsafe { driver.move_forward(i) as u64 }),
             fatfs::SeekFrom::End(_) => unreachable!(),
         }
     }
