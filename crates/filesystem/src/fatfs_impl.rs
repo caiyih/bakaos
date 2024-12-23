@@ -289,26 +289,6 @@ impl IInode for FatDirectoryInode {
         FileSystemResult::Err(FileSystemError::NotFound)
     }
 
-    fn lookup_recursive(&self, path: &str) -> FileSystemResult<Arc<dyn IInode>> {
-        let mut subs = path
-            .trim_end_matches(path::SEPARATOR) // Remove trailing separator, if any
-            .split(path::SEPARATOR);
-
-        match subs.next() {
-            Some(curr) => {
-                let inode = self.lookup(curr)?;
-                match subs.clone().next() {
-                    Some(next) => {
-                        let next_idx = next.as_ptr() as usize - path.as_ptr() as usize;
-                        inode.lookup_recursive(&path[next_idx..])
-                    }
-                    None => Ok(inode),
-                }
-            }
-            None => Err(FileSystemError::NotFound),
-        }
-    }
-
     fn touch(&self, name: &str) -> FileSystemResult<Arc<dyn IInode>> {
         let file = self.inner.create_file(name).map_err(from_fatfs_error)?;
 
