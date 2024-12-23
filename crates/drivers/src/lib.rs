@@ -65,10 +65,10 @@ impl DiskDriver {
         Ok(size_read)
     }
 
-    // Populate the buffer with the data read from the disk
-    // # Safety
-    // This function is unsafe because you have to lock the disk driver since
-    // set_position call and read_at call are not atomic
+    /// Populate the buffer with the data read from the disk
+    /// # Safety
+    /// This function is unsafe because you have to lock the disk driver since
+    /// set_position call and read_at call are not atomic
     pub unsafe fn read_at(&mut self, mut buf: &mut [u8]) -> Result<usize, usize> {
         let mut bytes_read = 0;
 
@@ -95,10 +95,10 @@ impl DiskDriver {
         }
     }
 
-    // Write the buffer to the disk
-    // # Safety
-    // This function is unsafe because you have to lock the disk driver since
-    // set_position call and write_at call are not atomic
+    /// Write the buffer to the disk
+    /// # Safety
+    /// This function is unsafe because you have to lock the disk driver since
+    /// set_position call and write_at call are not atomic
     pub unsafe fn write_at(&mut self, buf: &[u8]) -> Result<usize, usize> {
         let sector_offset = self.device.get_position() % 512;
 
@@ -114,7 +114,7 @@ impl DiskDriver {
             end - start
         } else {
             assert!(buf.len() == 512);
-            
+
             self.device.write_blocks(buf);
             512
         };
@@ -127,18 +127,18 @@ impl DiskDriver {
         self.device.get_position()
     }
 
-    // Set the position of the disk driver
-    // # Safety
-    // This function is unsafe because you have to lock the disk driver since
-    // set_position call and read/write calls are not atomic
+    /// Set the position of the disk driver
+    /// # Safety
+    /// This function is unsafe because you have to lock the disk driver since
+    /// set_position call and read/write calls are not atomic
     pub unsafe fn set_position(&mut self, position: usize) {
         self.device.set_position(position);
     }
 
-    // Move the position of the disk driver
-    // # Safety
-    // This function is unsafe because you have to lock the disk driver since
-    // set_position call and read/write calls are not atomic
+    /// Move the position of the disk driver
+    /// # Safety
+    /// This function is unsafe because you have to lock the disk driver since
+    /// set_position call and read/write calls are not atomic
     pub unsafe fn move_forward(&mut self, amount: i64) -> usize {
         self.device.move_forward(amount)
     }
