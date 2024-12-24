@@ -1,7 +1,7 @@
 use core::{mem::MaybeUninit, panic};
 
 use drivers::DiskDriver;
-use ext4_rs::Ext4;
+use ext4_rs::{Ext4, InodeFileType};
 use filesystem_abstractions::{
     DirectoryEntryType, FileStatisticsMode, FileSystemError, IFileSystem, IInode,
 };
@@ -142,7 +142,14 @@ impl IInode for Ext4Inode {
 
         let inode = self.fs.alloc_inode(true).unwrap(); // TODO: Return error
         let mut this = self.fs.get_inode_ref(self.inode_id);
-        let that = self.fs.get_inode_ref(inode);
+        let mut that = self.fs.get_inode_ref(inode);
+
+        that.inode.set_file_type(InodeFileType::S_IFDIR);
+        self.fs.write_back_inode(&mut that);
+
+        if that.inode.file_type() != InodeFileType::S_IFDIR {
+            return Err(FileSystemError::InternalError);
+        }
 
         self.fs.dir_add_entry(&mut this, &that, name).unwrap(); // TODO: Return error
 
@@ -215,7 +222,14 @@ impl IInode for Ext4Inode {
         let inode = self.fs.alloc_inode(false).unwrap(); // TODO: Return error
 
         let mut this = self.fs.get_inode_ref(self.inode_id);
-        let that = self.fs.get_inode_ref(inode);
+        let mut that = self.fs.get_inode_ref(inode);
+        
+        that.inode.set_file_type(InodeFileType::S_IFREG);
+        self.fs.write_back_inode(&mut that);
+
+        if that.inode.file_type() != InodeFileType::S_IFREG {
+            return Err(FileSystemError::InternalError);
+        }
 
         self.fs.dir_add_entry(&mut this, &that, name).unwrap(); // TODO: Return error
 
