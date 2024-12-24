@@ -80,9 +80,9 @@ impl DiskDriver {
                     bytes_read += size;
                 }
                 _ => {
-                    let (left, right) = buf.split_at_mut(512);
+                    let (left, _) = buf.split_at_mut(512);
                     let size = self.read_512(left).map_err(|_| bytes_read)?;
-                    buf = right;
+                    buf = &mut buf[size..];
                     bytes_read += size;
                 }
             }
