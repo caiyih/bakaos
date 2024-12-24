@@ -8,6 +8,8 @@ edition = "2021"
 [dependencies]
 fatfs = { git = "https://github.com/neuq-rcore/rust-fatfs.git", default-features = false, features = ["lfn", "alloc", "unicode"] }
 ext4_rs = { git = "https://github.com/neuq-rcore/ext4_rs", default-features = false }
+# lwext4-rs = { git = "https://github.com/os-module/lwext4.git", default-features = false }
+# embedded-io = "0.6.1"
 timing = { path = "../timing", default-features = false }
 filesystem-abstractions = { path = "../filesystem-abstractions", default-features = false }
 drivers = { path = "../drivers", default-features = false }
