@@ -1,4 +1,4 @@
-use filesystem::Fat32FileSystem;
+use filesystem::{Ext4FileSystem, Fat32FileSystem};
 use riscv::register::time;
 
 pub trait IMachine {
@@ -48,4 +48,6 @@ pub trait IMachine {
     }
 
     fn create_fat32_filesystem_at_bus(&self, device_id: usize) -> Fat32FileSystem;
+
+    fn create_ext4_filesystem_at_bus(&self, device_id: usize) -> Ext4FileSystem;
 }
