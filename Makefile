@@ -45,6 +45,9 @@ _test_internal:
         -device virtio-net-device,netdev=net \
         -netdev user,id=net | tee output.log
 
+test-final:
+	@echo "Dummy test final"
+
 parse:
 	@echo "Parsing test output..."
 	@python3 -W ignore test_preliminary/grading_scripts/test_runner.py output.log > results.json
