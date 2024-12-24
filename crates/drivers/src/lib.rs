@@ -113,8 +113,6 @@ impl DiskDriver {
             self.device.write_blocks(&tmp_buf);
             end - start
         } else {
-            assert!(buf.len() == 512);
-
             self.device.write_blocks(buf);
             512
         };
