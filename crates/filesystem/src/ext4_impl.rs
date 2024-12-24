@@ -140,7 +140,11 @@ impl IInode for Ext4Inode {
     fn mkdir(&self, name: &str) -> filesystem_abstractions::FileSystemResult<Arc<dyn IInode>> {
         self.should_be_directory()?;
 
-        let inode = self.fs.alloc_inode(true).unwrap(); // TODO: Return error
+        let inode = self
+            .fs
+            .alloc_inode(true)
+            .map_err(|_| FileSystemError::SpaceNotEnough)?; // TODO: parse the error
+
         let mut this = self.fs.get_inode_ref(self.inode_id);
         let mut that = self.fs.get_inode_ref(inode);
 
@@ -151,7 +155,9 @@ impl IInode for Ext4Inode {
             return Err(FileSystemError::InternalError);
         }
 
-        self.fs.dir_add_entry(&mut this, &that, name).unwrap(); // TODO: Return error
+        self.fs
+            .dir_add_entry(&mut this, &that, name)
+            .map_err(|_| FileSystemError::InternalError)?; // TODO: parse the error
 
         Ok(Arc::new(Ext4Inode {
             filename: name.to_string(),
@@ -219,11 +225,14 @@ impl IInode for Ext4Inode {
     fn touch(&self, name: &str) -> filesystem_abstractions::FileSystemResult<Arc<dyn IInode>> {
         self.should_be_directory()?;
 
-        let inode = self.fs.alloc_inode(false).unwrap(); // TODO: Return error
+        let inode = self
+            .fs
+            .alloc_inode(false)
+            .map_err(|_| FileSystemError::SpaceNotEnough)?; // TODO: parse the error
 
         let mut this = self.fs.get_inode_ref(self.inode_id);
         let mut that = self.fs.get_inode_ref(inode);
-        
+
         that.inode.set_file_type(InodeFileType::S_IFREG);
         self.fs.write_back_inode(&mut that);
 
@@ -231,7 +240,9 @@ impl IInode for Ext4Inode {
             return Err(FileSystemError::InternalError);
         }
 
-        self.fs.dir_add_entry(&mut this, &that, name).unwrap(); // TODO: Return error
+        self.fs
+            .dir_add_entry(&mut this, &that, name)
+            .map_err(|_| FileSystemError::InternalError)?; // TODO: parse the error
 
         Ok(Arc::new(Ext4Inode {
             filename: name.to_string(),
