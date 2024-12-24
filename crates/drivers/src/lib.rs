@@ -95,11 +95,7 @@ impl DiskDriver {
         }
     }
 
-    /// Write the buffer to the disk
-    /// # Safety
-    /// This function is unsafe because you have to lock the disk driver since
-    /// set_position call and write_at call are not atomic
-    pub unsafe fn write_at(&mut self, buf: &[u8]) -> Result<usize, usize> {
+    fn write_512(&mut self, buf: &[u8]) -> Result<usize, ()> {
         let sector_offset = self.device.get_position() % 512;
 
         let size_written = if sector_offset != 0 || buf.len() < 512 {
@@ -119,6 +115,36 @@ impl DiskDriver {
 
         self.device.move_forward(size_written as i64);
         Ok(size_written)
+    }
+
+    /// Write the buffer to the disk
+    /// # Safety
+    /// This function is unsafe because you have to lock the disk driver since
+    /// set_position call and write_at call are not atomic
+    pub unsafe fn write_at(&mut self, mut buf: &[u8]) -> Result<usize, usize> {
+        let mut bytes_written = 0;
+
+        while !buf.is_empty() {
+            match buf.len() {
+                0..=512 => {
+                    let size = self.write_512(buf).map_err(|_| bytes_written)?;
+                    buf = &buf[size..];
+                    bytes_written += size;
+                }
+                _ => {
+                    let (left, _) = buf.split_at(512);
+                    let size = self.write_512(left).map_err(|_| bytes_written)?;
+                    buf = &buf[size..];
+                    bytes_written += size;
+                }
+            }
+        }
+
+        if buf.is_empty() {
+            Ok(bytes_written)
+        } else {
+            Err(bytes_written)
+        }
     }
 
     pub fn get_position(&self) -> usize {
