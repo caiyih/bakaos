@@ -14,9 +14,7 @@ pub use ext4_impl::Ext4FileSystem;
 pub use fatfs_impl::Fat32FileSystem;
 use filesystem_abstractions::{mount_at, IFileSystem, IInode};
 
-pub type RootFileSystemType = fatfs_impl::Fat32FileSystem;
-
-pub fn setup_root_filesystem(fs: RootFileSystemType) {
+pub fn setup_root_filesystem(fs: impl IFileSystem + 'static) {
     let root: Arc<dyn IFileSystem> = Arc::new(fs);
     mount_at(root, "/");
 }
