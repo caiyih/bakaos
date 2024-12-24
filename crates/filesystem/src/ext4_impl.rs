@@ -172,12 +172,16 @@ impl IInode for Ext4Inode {
             .find(|e| e.compare_name(name));
 
         match inode_id {
-            Some(inode) => Ok(Arc::new(Ext4Inode {
-                filename: inode.get_name(),
-                inode_id: inode.inode,
-                file_type: DirectoryEntryType::Directory,
-                fs: self.fs.clone(),
-            })),
+            Some(entry) => {
+                let inode_ref = self.fs.get_inode_ref(entry.inode);
+
+                Ok(Arc::new(Ext4Inode {
+                    filename: entry.get_name(),
+                    inode_id: entry.inode,
+                    file_type: inode_ref.inode.file_type().to_entry_type(),
+                    fs: self.fs.clone(),
+                }))
+            }
             None => Err(filesystem_abstractions::FileSystemError::NotFound),
         }
     }
