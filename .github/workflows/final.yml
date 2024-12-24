@@ -1,0 +1,68 @@
+name: Final test
+
+on:
+  push:
+    branches:
+      - "**"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: 'always'
+  IS_CI_ENVIRONMENT: true
+
+jobs:
+  run:
+    name: Grading
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        env: 
+            TOOLCHAIN_VERSION: nightly-2024-02-03
+        run: |
+          rustup toolchain install $TOOLCHAIN_VERSION --profile minimal
+          rustup default $TOOLCHAIN_VERSION
+          rustup override set $TOOLCHAIN_VERSION
+          rustup target add riscv64gc-unknown-none-elf
+          rustup component add llvm-tools
+
+      - uses: taiki-e/cache-cargo-install-action@v2
+        with:
+          tool: cargo-binutils
+
+      - name: Install Qemu
+        run: |
+          sudo apt update
+          sudo apt install -y qemu-system-misc
+          qemu-system-riscv64 --version
+
+      # Try access the cache to keep it alive. 
+      - name: Attempt to restore sdcard.img.zst from cache
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: sdcard.img.zst
+          key: sdcard-img-cache
+          restore-keys: |
+            sdcard-img-
+
+      # Cache sdcard.img if it was not found in the cache. This should be rare, but ensures other CI jobs run quickly.
+      - name: Download .img file if not cached
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: curl -L -o sdcard.img.zst "${{ secrets.SDCARD_FINAL_URL }}"
+
+      - name: Cache sdcard.img if not cached
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache@v4
+        with:
+          path: sdcard.img.zst
+          key: sdcard-img-cache
+
+      - name: Extract sdcard.img
+        run: zstd -d sdcard.img.zst -o sdcard.img
+
+      - name: Run tests
+        timeout-minutes: 5 # A temporary value
+        run: make test-final
