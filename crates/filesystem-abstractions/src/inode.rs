@@ -109,8 +109,24 @@ pub trait IInode: DowncastSync + Send + Sync {
         Err(FileSystemError::NotADirectory)
     }
 
-    fn lookup_recursive(&self, _path: &str) -> FileSystemResult<Arc<dyn IInode>> {
-        Err(FileSystemError::NotADirectory)
+    fn lookup_recursive(&self, path: &str) -> FileSystemResult<Arc<dyn IInode>> {
+        let mut subs = path
+            .trim_end_matches(path::SEPARATOR) // Remove trailing separator, if any
+            .split(path::SEPARATOR);
+
+        match subs.next() {
+            Some(curr) => {
+                let inode = self.lookup(curr)?;
+                match subs.clone().next() {
+                    Some(next) => {
+                        let next_idx = next.as_ptr() as usize - path.as_ptr() as usize;
+                        inode.lookup_recursive(&path[next_idx..])
+                    }
+                    None => Ok(inode),
+                }
+            }
+            None => Err(FileSystemError::NotFound),
+        }
     }
 
     fn open(&self, _name: &str, _flags: OpenFlags) -> FileSystemResult<Arc<dyn IInode>> {
