@@ -45,6 +45,11 @@ _test_internal:
         -device virtio-net-device,netdev=net \
         -netdev user,id=net | tee output.log
 
+test-final: build
+	@KERNEL_TEST="F" make _test_final_internal
+
+_test_final_internal: build _test_internal
+
 parse:
 	@echo "Parsing test output..."
 	@python3 -W ignore test_preliminary/grading_scripts/test_runner.py output.log > results.json

@@ -27,10 +27,8 @@ mod trap;
 
 use core::{arch::asm, sync::atomic::AtomicBool};
 use firmwares::console::IConsole;
-use paging::{MemorySpaceBuilder, PageTable};
+use paging::PageTable;
 use sbi_spec::base::impl_id;
-use scheduling::spawn_task;
-use tasks::TaskControlBlock;
 
 extern crate alloc;
 
@@ -116,8 +114,66 @@ static mut PAGE_TABLE: [usize; 512] = {
 };
 
 #[no_mangle]
-#[allow(unused_assignments)]
 fn main() {
+    match option_env!("KERNEL_TEST") {
+        Some("F") => run_final_tests(),
+        Some("P") => run_preliminary_tests(),
+        None => run_preliminary_tests(),
+        profile => panic!("Unrecognized profile: {}", profile.unwrap()),
+    }
+}
+
+#[allow(unused)]
+fn run_final_tests() {
+    use paging::MemorySpaceBuilder;
+    use scheduling::spawn_task;
+    use tasks::TaskControlBlock;
+
+    filesystem::setup_root_filesystem(kernel::get().machine().create_ext4_filesystem_at_bus(0));
+
+    let busybox = filesystem_abstractions::lookup_inode("/busybox").unwrap();
+    let busybox = busybox.readall().unwrap();
+
+    let mut memspace = MemorySpaceBuilder::from_elf(&busybox).unwrap();
+
+    memspace.init_stack(&["/busybox", "--help"], &[]);
+    let task = TaskControlBlock::new(memspace);
+    unsafe {
+        task.cwd.get().as_mut().unwrap().push('/');
+    };
+
+    spawn_task(task);
+    threading::run_tasks();
+}
+
+#[allow(unused)]
+fn run_preliminary_tests() {
+    fn preliminary_test(path: &str, args: Option<&[&str]>, envp: Option<&[&str]>) {
+        use paging::MemorySpaceBuilder;
+        use scheduling::spawn_task;
+        use tasks::TaskControlBlock;
+
+        let mut memspace = {
+            let elf = filesystem_abstractions::lookup_inode(path)
+                .expect("Failed to open path")
+                .readall()
+                .expect("Failed to read file");
+
+            MemorySpaceBuilder::from_elf(&elf).unwrap()
+        };
+
+        memspace.init_stack(args.unwrap_or(&[]), envp.unwrap_or(&[]));
+        let task = TaskControlBlock::new(memspace);
+        unsafe {
+            let directory = path::get_directory_name(path).unwrap();
+            task.cwd.get().as_mut().unwrap().push_str(directory);
+        };
+        spawn_task(task);
+        threading::run_tasks();
+    }
+
+    filesystem::setup_root_filesystem(kernel::get().machine().create_fat32_filesystem_at_bus(0));
+
     preliminary_test("/uname", None, None);
     preliminary_test("/write", None, None);
     preliminary_test("/times", None, None);
@@ -152,26 +208,6 @@ fn main() {
     preliminary_test("/munmap", None, None);
 }
 
-fn preliminary_test(path: &str, args: Option<&[&str]>, envp: Option<&[&str]>) {
-    let mut memspace = {
-        let elf = filesystem_abstractions::lookup_inode(path)
-            .expect("Failed to open path")
-            .readall()
-            .expect("Failed to read file");
-
-        MemorySpaceBuilder::from_elf(&elf).unwrap()
-    };
-
-    memspace.init_stack(args.unwrap_or(&[]), envp.unwrap_or(&[]));
-    let task = TaskControlBlock::new(memspace);
-    unsafe {
-        let directory = path::get_directory_name(path).unwrap();
-        task.cwd.get().as_mut().unwrap().push_str(directory);
-    };
-    spawn_task(task);
-    threading::run_tasks();
-}
-
 static mut BOOTED: AtomicBool = AtomicBool::new(false);
 
 #[no_mangle]
@@ -195,8 +231,6 @@ unsafe extern "C" fn __kernel_init() {
 
     // Must be called after allocation::init because it depends on frame allocator
     paging::init(PageTable::borrow_current());
-
-    filesystem::setup_root_filesystem(machine.create_fat32_filesystem_at_bus(0));
 
     processor::init_processor_pool();
 
