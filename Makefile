@@ -45,8 +45,10 @@ _test_internal:
         -device virtio-net-device,netdev=net \
         -netdev user,id=net | tee output.log
 
-test-final:
-	@KERNEL_TEST="F" make test-only
+test-final: build
+	@KERNEL_TEST="F" make _test_final_internal
+
+_test_final_internal: build _test_internal
 
 parse:
 	@echo "Parsing test output..."
