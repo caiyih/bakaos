@@ -46,7 +46,7 @@ _test_internal:
         -netdev user,id=net | tee output.log
 
 test-final:
-	@echo "Dummy test final"
+	@KERNEL_TEST="F" make test-only
 
 parse:
 	@echo "Parsing test output..."
