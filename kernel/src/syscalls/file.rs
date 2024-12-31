@@ -457,6 +457,8 @@ impl ISyncSyscallHandler for GetDents64Syscall {
 
                 let entries = inode.read_dir().map_err(|_| -1isize)?;
 
+                unsafe { slice::from_raw_parts_mut(p_buf, len).fill(0) };
+
                 let mut offset = 0;
 
                 for (idx, entry) in entries.iter().enumerate() {
@@ -493,7 +495,7 @@ impl ISyncSyscallHandler for GetDents64Syscall {
                     offset += entry_size;
                 }
 
-                Ok(fd.fd_idx() as isize)
+                Ok(offset as isize)
             }
             None => Err(-1),
         }
