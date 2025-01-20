@@ -65,3 +65,57 @@ async_syscall!(sys_read_async, ctx, {
         None => Err(-1),
     }
 });
+
+async_syscall!(sys_writev_async, ctx, {
+    #[repr(C)]
+    struct IoItem {
+        p_data: *const u8,
+        len: usize,
+    }
+
+    let fd = ctx.arg0::<usize>();
+    let fd = ctx.tcb.fd_table.lock().get(fd).ok_or(-1isize)?;
+
+    if !fd.can_write() {
+        return Err(-1);
+    }
+
+    let file = fd.access();
+    while !file.write_avaliable() {
+        yield_now().await;
+    }
+
+    let iovec_base = ctx.arg1::<*const IoItem>();
+    let len = ctx.arg2::<usize>();
+    let io_vector = unsafe { core::slice::from_raw_parts(iovec_base, len) };
+
+    match ctx
+        .tcb
+        .borrow_page_table()
+        .guard_slice(io_vector)
+        .mustbe_user()
+        .with_read()
+    {
+        Some(vec_guard) => {
+            let mut bytes_written = 0;
+
+            for io in vec_guard.iter() {
+                let data = unsafe { core::slice::from_raw_parts(io.p_data, io.len) };
+
+                match ctx
+                    .tcb
+                    .borrow_page_table()
+                    .guard_slice(data)
+                    .mustbe_user()
+                    .with_read()
+                {
+                    Some(data_guard) => bytes_written += file.write(&data_guard),
+                    None => continue,
+                }
+            }
+
+            Ok(bytes_written as isize)
+        }
+        None => Err(-1isize),
+    }
+});
