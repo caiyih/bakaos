@@ -382,10 +382,15 @@ impl ISyncSyscallHandler for NewFstatatSyscall {
                 let path = core::str::from_utf8(&path_guard).map_err(|_| -1isize)?;
                 let path = path::remove_relative_segments(path);
 
-                let inode: Arc<dyn IInode> =
-                    dir_inode.lookup_recursive(&path).map_err(|_| -1isize)?;
+                let inode: Arc<dyn IInode> = if path::is_path_fully_qualified(&path) {
+                    filesystem_abstractions::lookup_inode(&path).ok_or(-1isize)?
+                } else {
+                    dir_inode.lookup_recursive(&path).map_err(|_| -1isize)?
+                };
 
-                inode.stat(&mut buf_guard).map_err(|_| -1isize).map(|_| 0)
+                let ret = inode.stat(&mut buf_guard).map_err(|_| -1isize).map(|_| 0);
+
+                ret
             }
             _ => Err(-1),
         }
