@@ -8,7 +8,7 @@ use paging::{
     page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, PageTableEntryFlags,
 };
 use tasks::{TaskCloneFlags, TaskStatus};
-use timing::TimeVal;
+use timing::{TimeSpec, TimeVal};
 
 use crate::{scheduling::spawn_task, timing::ITimer};
 
@@ -401,5 +401,55 @@ impl ISyncSyscallHandler for ChdirSyscall {
 
     fn name(&self) -> &str {
         "sys_chdir"
+    }
+}
+
+pub struct ClockGetTimeSyscall;
+
+impl ISyncSyscallHandler for ClockGetTimeSyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        const CLOCK_REALTIME: usize = 0;
+        const CLOCK_MONOTONIC: usize = 1;
+        const CLOCK_PROCESS_CPUTIME_ID: usize = 2;
+
+        let p_ts = ctx.arg1::<*mut TimeSpec>();
+
+        match ctx
+            .tcb
+            .borrow_page_table()
+            .guard_ptr(p_ts)
+            .mustbe_user()
+            .mustbe_readable()
+            .with_write()
+        {
+            Some(mut guard) => {
+                match ctx.arg0::<usize>() {
+                    CLOCK_REALTIME | CLOCK_MONOTONIC => {
+                        *guard = crate::timing::current_timespec();
+                        Ok(0)
+                    }
+                    CLOCK_PROCESS_CPUTIME_ID => {
+                        let self_elapsed = ctx.tcb.timer.lock().elapsed().ticks();
+                        let children_elapsed: i64 = ctx
+                            .tcb
+                            .children
+                            .lock()
+                            .iter()
+                            .map(|c| c.timer.lock().elapsed().ticks())
+                            .sum();
+
+                        *guard = TimeSpec::from_ticks(self_elapsed + children_elapsed, 10_000_000); // TimeSpan's freq
+
+                        Ok(0)
+                    }
+                    _ => Err(-1),
+                }
+            }
+            None => Err(-1),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "sys_clock_gettime"
     }
 }
