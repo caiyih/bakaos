@@ -463,13 +463,16 @@ impl ISyncSyscallHandler for GetDents64Syscall {
         {
             Some(mut guard) => {
                 let fd = ctx.tcb.fd_table.lock().get(fd).ok_or(-1isize)?;
-                let inode = fd.access().inode().ok_or(-1isize)?;
+                let file = fd.access();
+                let file_meta = file.metadata().ok_or(-1isize)?;
+
+                let inode = file.inode().ok_or(-1isize)?;
 
                 let entries = inode.read_dir().map_err(|_| -1isize)?;
 
                 unsafe { slice::from_raw_parts_mut(p_buf, len).fill(0) };
 
-                let mut offset = 0;
+                let mut offset: usize = 0;
 
                 for (idx, entry) in entries.iter().enumerate() {
                     let name = entry.filename.as_bytes();
@@ -491,8 +494,9 @@ impl ISyncSyscallHandler for GetDents64Syscall {
                     p_entry.doffsset = offset as u64; // no meaning for user space
                     p_entry.entry_len = entry_size as u16;
                     p_entry.file_type = match entry.entry_type {
-                        DirectoryEntryType::File => 0,
-                        DirectoryEntryType::Directory => 1,
+                        // magic number is bad, but this is not used in other places, so keep it for now
+                        DirectoryEntryType::File => 1,      // REG
+                        DirectoryEntryType::Directory => 2, // DIR
                     };
 
                     let name_slice =
@@ -500,12 +504,18 @@ impl ISyncSyscallHandler for GetDents64Syscall {
                     name_slice.copy_from_slice(name);
 
                     // Add null terminator
-                    unsafe { p_entry.name.as_mut_ptr().add(name.len()).write(0) };
+                    unsafe { p_entry.name.as_mut_ptr().add(name.len()).write_volatile(0) };
 
                     offset += entry_size;
                 }
 
-                Ok(offset as isize)
+                if file_meta.offset() == 0 {
+                    file_meta.set_offset(offset); // placeholder
+                    
+                    Ok(offset as isize)
+                } else {
+                    Ok(0)
+                }
             }
             None => Err(-1),
         }
