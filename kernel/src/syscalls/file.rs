@@ -93,25 +93,30 @@ impl ISyncSyscallHandler for OpenAtSyscall {
                 let path = core::str::from_utf8(&guard).map_err(|_| -1isize)?;
                 let path = path::remove_relative_segments(path);
                 let filename = path::get_filename(&path);
-                let parent_inode_path = path::get_directory_name(&path).ok_or(-1isize)?;
 
-                let inode: Arc<dyn IInode>;
-                match dir_inode.lookup_recursive(&path) {
-                    Ok(i) => inode = i,
-                    Err(_) => {
-                        if flags.contains(OpenFlags::O_CREAT) {
-                            let parent_inode = dir_inode
-                                .lookup_recursive(parent_inode_path)
-                                .map_err(|_| -1isize)?;
+                let inode: Arc<dyn IInode> = if path::is_path_fully_qualified(&path) {
+                    filesystem_abstractions::lookup_inode(&path).ok_or(-1isize)?
+                } else {
+                    let parent_inode_path = path::get_directory_name(&path).ok_or(-1isize)?;
 
-                            let new_inode = parent_inode.touch(filename).map_err(|_| -1isize)?;
+                    match dir_inode.lookup_recursive(&path) {
+                        Ok(i) => i,
+                        Err(_) => {
+                            if flags.contains(OpenFlags::O_CREAT) {
+                                let parent_inode = dir_inode
+                                    .lookup_recursive(parent_inode_path)
+                                    .map_err(|_| -1isize)?;
 
-                            inode = new_inode;
-                        } else {
-                            return Err(-1);
+                                let new_inode =
+                                    parent_inode.touch(filename).map_err(|_| -1isize)?;
+
+                                new_inode
+                            } else {
+                                return Err(-1);
+                            }
                         }
                     }
-                }
+                };
 
                 let opened_file = filesystem_abstractions::open_file(inode, flags, 0).clear_type();
 
