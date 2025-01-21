@@ -107,8 +107,7 @@ impl ISyncSyscallHandler for OpenAtSyscall {
                         dir_inode.lookup_recursive(&path),
                         flags.contains(OpenFlags::O_CREAT),
                     ) {
-                        (Ok(i), false) => i,
-                        (Ok(_), true) => return SyscallError::FileExists,
+                        (Ok(i), _) => i,
                         (Err(_), true) => dir_inode
                             .lookup_recursive(parent_inode_path)
                             .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
