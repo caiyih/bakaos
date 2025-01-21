@@ -376,7 +376,9 @@ impl FileDescriptorTable {
     /// # Arguments
     /// * `idx` - The index of the file descriptor in the table.
     pub fn remove(&mut self, idx: usize) {
-        self.table[idx] = None;
+        if idx < self.table.len() {
+            self.table[idx] = None;
+        }
     }
 
     /// Allocates a new file descriptor in the table with the given properties.
