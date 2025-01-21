@@ -42,7 +42,6 @@ async_syscall!(sys_sched_yield_async, ctx, {
 
 async_syscall!(sys_wait4_async, ctx, {
     let pid = ctx.arg0::<isize>();
-    let p_code = ctx.arg1::<usize>(); // pointer can not across await point, so we cast it later
 
     let target_child = ctx
         .children
@@ -84,9 +83,10 @@ async_syscall!(sys_wait4_async, ctx, {
         }
     };
 
+    let p_code = ctx.arg1::<*const i32>();
     if let Some(mut guard) = ctx
         .borrow_page_table()
-        .guard_ptr(p_code as *const i32)
+        .guard_ptr(p_code)
         .mustbe_user()
         .mustbe_readable()
         .with_write()
