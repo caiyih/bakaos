@@ -116,10 +116,12 @@ static mut PAGE_TABLE: [usize; 512] = {
 #[no_mangle]
 fn main() {
     match option_env!("KERNEL_TEST") {
-        Some("F") => run_final_tests(),
-        Some("P") => run_preliminary_tests(),
+        Some(profile) => match profile.chars().next().unwrap_or('\0').to_ascii_uppercase() {
+            'F' => run_final_tests(),
+            'P' => run_preliminary_tests(),
+            _ => panic!("Unrecognized kernel test profile: {}", profile),
+        },
         None => run_preliminary_tests(),
-        profile => panic!("Unrecognized profile: {}", profile.unwrap()),
     }
 }
 
