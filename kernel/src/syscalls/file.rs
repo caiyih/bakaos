@@ -99,22 +99,17 @@ impl ISyncSyscallHandler for OpenAtSyscall {
                 } else {
                     let parent_inode_path = path::get_directory_name(&path).ok_or(-1isize)?;
 
-                    match dir_inode.lookup_recursive(&path) {
-                        Ok(i) => i,
-                        Err(_) => {
-                            if flags.contains(OpenFlags::O_CREAT) {
-                                let parent_inode = dir_inode
-                                    .lookup_recursive(parent_inode_path)
-                                    .map_err(|_| -1isize)?;
-
-                                let new_inode =
-                                    parent_inode.touch(filename).map_err(|_| -1isize)?;
-
-                                new_inode
-                            } else {
-                                return Err(-1);
-                            }
-                        }
+                    match (
+                        dir_inode.lookup_recursive(&path),
+                        flags.contains(OpenFlags::O_CREAT),
+                    ) {
+                        (Ok(i), _) => i,
+                        (Err(_), true) => dir_inode
+                            .lookup_recursive(parent_inode_path)
+                            .map_err(|_| -1isize)?
+                            .touch(filename)
+                            .map_err(|_| -1isize)?,
+                        _ => return Err(-1),
                     }
                 };
 
@@ -388,9 +383,7 @@ impl ISyncSyscallHandler for NewFstatatSyscall {
                     dir_inode.lookup_recursive(&path).map_err(|_| -1isize)?
                 };
 
-                let ret = inode.stat(&mut buf_guard).map_err(|_| -1isize).map(|_| 0);
-
-                ret
+                inode.stat(&mut buf_guard).map_err(|_| -1isize).map(|_| 0)
             }
             _ => Err(-1),
         }
@@ -511,7 +504,7 @@ impl ISyncSyscallHandler for GetDents64Syscall {
 
                 if file_meta.offset() == 0 {
                     file_meta.set_offset(offset); // placeholder
-                    
+
                     Ok(offset as isize)
                 } else {
                     Ok(0)

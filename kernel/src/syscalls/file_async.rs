@@ -141,10 +141,13 @@ async_syscall!(sys_writev_async, ctx, {
 });
 
 async_syscall!(sys_sendfile_async, ctx, {
-    let fd_table = ctx.tcb.fd_table.lock();
-
-    let out_fd = fd_table.get(ctx.arg0::<usize>()).ok_or(-1isize)?;
-    let in_fd = fd_table.get(ctx.arg1::<usize>()).ok_or(-1isize)?;
+    let (out_fd, in_fd) = {
+        let fd_table = ctx.tcb.fd_table.lock();
+        (
+            fd_table.get(ctx.arg0::<usize>()).ok_or(-1isize)?, // out_fd
+            fd_table.get(ctx.arg1::<usize>()).ok_or(-1isize)?, // in_fd
+        )
+    };
 
     if !out_fd.can_write() || !in_fd.can_read() {
         return Err(-1isize);
@@ -190,7 +193,7 @@ async_syscall!(sys_sendfile_async, ctx, {
     }
 
     let mut bytes_written = 0;
-    while file_size == None || file_size != Some(0) {
+    while file_size.is_none() || file_size != Some(0) {
         let buf: MaybeUninit<[u8; 512]> = MaybeUninit::uninit();
         let mut buf: [u8; 512] = unsafe { core::mem::transmute::<_, _>(buf) };
 
