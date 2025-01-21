@@ -217,7 +217,7 @@ impl ISyncSyscallHandler for GetCwdSyscall {
             Some(mut guard) => {
                 guard[..len - 1].copy_from_slice(cwd);
                 guard[len - 1] = 0;
-                Ok(len as isize)
+                Ok(buf as isize)
             }
             None => SyscallError::BadAddress,
         }
