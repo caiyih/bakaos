@@ -273,7 +273,6 @@ impl ISyncSyscallHandler for UnameSyscall {
         let p_utsname = ctx.arg0::<*mut UtsName>();
 
         match ctx
-            .tcb
             .borrow_page_table()
             .guard_ptr(p_utsname)
             .mustbe_user()
