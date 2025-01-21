@@ -1,6 +1,5 @@
 use alloc::{collections::BTreeMap, sync::Arc, vec, vec::Vec};
 use core::{
-    cmp::Ordering,
     marker::PhantomData,
     ops::{Deref, DerefMut},
     slice,
@@ -849,25 +848,10 @@ impl<'a, T> UnsizedSlicePageGuardBuilder<'a, &'static [T]> {
                 Some(_) => match &self.terminator_predicate {
                     Some(predicate) => {
                         let page_end_va = current_vpn.end_addr::<VirtualAddress>().as_usize();
-                        while current_ptr < max_end_va && current_ptr < page_end_va {
+                        while current_ptr < Ord::min(max_end_va, page_end_va) {
                             if predicate(&slice, idx) {
-                                let len = match self.exclusive_end {
-                                    true => idx,
-                                    false => idx + 1,
-                                };
-
-                                return Some(MustHavePageGuard {
-                                    builder: PageGuardBuilder {
-                                        page_table: self.page_table,
-                                        vpn_range: VirtualPageNumRange::from_start_end(
-                                            self.vpn_start,
-                                            current_vpn + 1, // current_vpn is the last valid vpn, but end is exclusive
-                                        ),
-                                        ptr: self.ptr,
-                                        len,
-                                        _marker: PhantomData,
-                                    },
-                                });
+                                let len = if self.exclusive_end { idx } else { idx + 1 };
+                                return Some(self.build_guard(current_vpn + 1, len));
                             }
 
                             current_ptr += core::mem::size_of::<T>();
@@ -875,26 +859,8 @@ impl<'a, T> UnsizedSlicePageGuardBuilder<'a, &'static [T]> {
                         }
                     }
                     None => {
-                        match Ord::cmp(
-                            &max_end_va,
-                            &current_vpn.end_addr::<VirtualAddress>().as_usize(),
-                        ) {
-                            Ordering::Greater => (),
-                            // Reached max length
-                            _ => {
-                                return Some(MustHavePageGuard {
-                                    builder: PageGuardBuilder {
-                                        page_table: self.page_table,
-                                        vpn_range: VirtualPageNumRange::from_start_end(
-                                            self.vpn_start,
-                                            current_vpn + 1, // current_vpn is the last valid vpn, but end is exclusive
-                                        ),
-                                        ptr: self.ptr,
-                                        len: self.max_len,
-                                        _marker: PhantomData,
-                                    },
-                                });
-                            }
+                        if max_end_va <= current_vpn.end_addr::<VirtualAddress>().as_usize() {
+                            return Some(self.build_guard(current_vpn + 1, self.max_len));
                         }
                     }
                 },
@@ -907,23 +873,28 @@ impl<'a, T> UnsizedSlicePageGuardBuilder<'a, &'static [T]> {
 
                     return match len {
                         0 => None,
-                        _ => Some(MustHavePageGuard {
-                            builder: PageGuardBuilder {
-                                page_table: self.page_table,
-                                vpn_range: VirtualPageNumRange::from_start_end(
-                                    self.vpn_start,
-                                    current_vpn,
-                                ),
-                                ptr: self.ptr,
-                                len,
-                                _marker: PhantomData,
-                            },
-                        }),
+                        _ => Some(self.build_guard(current_vpn, len)),
                     };
                 }
             }
 
             current_vpn += 1;
+        }
+    }
+
+    fn build_guard(
+        &self,
+        end_vpn: VirtualPageNum,
+        len: usize,
+    ) -> MustHavePageGuard<'a, &'static [T]> {
+        MustHavePageGuard {
+            builder: PageGuardBuilder {
+                page_table: self.page_table,
+                vpn_range: VirtualPageNumRange::from_start_end(self.vpn_start, end_vpn),
+                ptr: self.ptr,
+                len,
+                _marker: PhantomData,
+            },
         }
     }
 }
