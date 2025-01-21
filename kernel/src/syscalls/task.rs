@@ -302,6 +302,40 @@ pub struct ExecveSyscall;
 
 impl ISyncSyscallHandler for ExecveSyscall {
     fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        fn guard_create_unsized_cstr_array(
+            pt: &PageTable,
+            mut ptr: *const *const u8,
+        ) -> Option<Vec<&str>> {
+            match pt
+                .guard_unsized_cstr_array(ptr, 1024)
+                .must_have(PageTableEntryFlags::User)
+                .with(PageTableEntryFlags::Readable)
+            {
+                Some(_) => {
+                    let mut array = Vec::new();
+                    while !unsafe { ptr.read_volatile().is_null() } {
+                        match pt
+                            .guard_cstr(unsafe { *ptr }, 1024)
+                            .must_have(PageTableEntryFlags::User)
+                            .with(PageTableEntryFlags::Readable)
+                        {
+                            Some(str_guard) => unsafe {
+                                let bytes = core::slice::from_raw_parts(*ptr, str_guard.len());
+                                let str = core::str::from_utf8_unchecked(bytes);
+
+                                array.push(str);
+                            },
+                            None => return None,
+                        }
+
+                        ptr = unsafe { ptr.add(1) };
+                    }
+                    Some(array)
+                }
+                None => None,
+            }
+        }
+
         let pathname = ctx.arg0::<*const u8>();
 
         let args = ctx.arg1::<*const *const u8>();
@@ -317,47 +351,6 @@ impl ISyncSyscallHandler for ExecveSyscall {
 
                 match path::get_full_path(path, Some(unsafe { ctx.cwd.get().as_ref().unwrap() })) {
                     Some(fullpath) => {
-                        fn guard_create_unsized_cstr_array(
-                            pt: &PageTable,
-                            mut ptr: *const *const u8,
-                        ) -> Option<Vec<&str>> {
-                            match pt
-                                .guard_unsized_cstr_array(ptr, 1024)
-                                .must_have(PageTableEntryFlags::User)
-                                .with(PageTableEntryFlags::Readable)
-                            {
-                                Some(_) => {
-                                    let mut array = Vec::new();
-                                    while !unsafe { ptr.read_volatile().is_null() } {
-                                        match pt
-                                            .guard_cstr(unsafe { *ptr }, 1024)
-                                            .must_have(PageTableEntryFlags::User)
-                                            .with(PageTableEntryFlags::Readable)
-                                        {
-                                            Some(str_guard) => {
-                                                let bytes = unsafe {
-                                                    core::slice::from_raw_parts(
-                                                        *ptr,
-                                                        str_guard.len(),
-                                                    )
-                                                };
-                                                let str = unsafe {
-                                                    core::str::from_utf8_unchecked(bytes)
-                                                };
-
-                                                array.push(str);
-                                            }
-                                            None => return None,
-                                        }
-
-                                        ptr = unsafe { ptr.add(1) };
-                                    }
-                                    Some(array)
-                                }
-                                None => None,
-                            }
-                        }
-
                         let pt = ctx.borrow_page_table();
 
                         let args =
