@@ -7,7 +7,7 @@ use file::{
     MountSyscall, MunmapSyscall, NewFstatSyscall, NewFstatatSyscall, OpenAtSyscall, Pipe2Syscall,
     UmountSyscall, UnlinkAtSyscall,
 };
-use file_async::{sys_read_async, sys_sendfile_async, sys_write_async};
+use file_async::{sys_read_async, sys_sendfile_async, sys_write_async, sys_writev_async};
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
 use task::{
     BrkSyscall, ChdirSyscall, ClockGetTimeSyscall, CloneSyscall, ExecveSyscall, ExitSyscall,
@@ -35,6 +35,7 @@ const SYSCALL_ID_PIPE2: usize = 59;
 const SYSCALL_ID_GETDENTS64: usize = 61;
 const SYSCALL_ID_READ: usize = 63;
 const SYSCALL_ID_WRITE: usize = 64;
+const SYSCALL_ID_WRITEV: usize = 66;
 const SYSCALL_ID_SENDFILE: usize = 71;
 const SYSCALL_ID_NEWFSTATAT: usize = 79;
 const SYSCALL_ID_NEWFSTAT: usize = 80;
@@ -129,6 +130,7 @@ impl SyscallDispatcher {
             SYSCALL_ID_SCHED_YIELD => Some(sys_sched_yield_async(&mut ctx).await),
             STSCALL_ID_WAIT4 => Some(sys_wait4_async(&mut ctx).await),
             SYSCALL_ID_SENDFILE => Some(sys_sendfile_async(&mut ctx).await),
+            SYSCALL_ID_WRITEV => Some(sys_writev_async(&mut ctx).await),
             _ => None,
         }
     }
