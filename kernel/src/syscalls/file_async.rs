@@ -130,6 +130,10 @@ async_syscall!(sys_writev_async, ctx, {
                 }
             }
 
+            if let Some(file_meta) = file.metadata() {
+                file_meta.set_offset(file_meta.offset() + bytes_written);
+            }
+
             Ok(bytes_written as isize)
         }
         None => Err(-1isize),
@@ -213,5 +217,10 @@ async_syscall!(sys_sendfile_async, ctx, {
             in_meta.set_offset(in_meta.offset() + bytes_read);
         }
     }
+
+    if let Some(out_meta) = out_file.metadata() {
+        out_meta.set_offset(out_meta.offset() + bytes_written);
+    }
+
     Ok(bytes_written as isize)
 });
