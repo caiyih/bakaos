@@ -1,6 +1,7 @@
 use core::sync::atomic::Ordering;
 
 use alloc::sync::Arc;
+use constants::SyscallError;
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
 use tasks::TaskControlBlock;
 use threading::yield_now;
@@ -28,7 +29,7 @@ async_syscall!(sys_nanosleep_async, ctx, {
 
             Ok(0)
         }
-        None => Err(-1),
+        None => SyscallError::BadAddress,
     }
 });
 
@@ -62,7 +63,7 @@ async_syscall!(sys_wait4_async, ctx, {
         }
         None => {
             if ctx.children.lock().is_empty() {
-                return Err(-1);
+                return SyscallError::NoChildProcesses;
             }
 
             loop {

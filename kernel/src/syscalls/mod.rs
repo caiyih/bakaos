@@ -1,6 +1,7 @@
 use core::ops::Deref;
 
 use alloc::{format, sync::Arc};
+use constants::SyscallError;
 use file::{
     CloseSyscall, Dup3Syscall, DupSyscall, GetDents64Syscall, MkdirAtSyscall, MmapSyscall,
     MountSyscall, MunmapSyscall, NewFstatSyscall, NewFstatatSyscall, OpenAtSyscall, Pipe2Syscall,
@@ -289,7 +290,7 @@ impl ISyncSyscallHandler for UnameSyscall {
 
                 Ok(0)
             }
-            None => Err(-1),
+            None => SyscallError::BadAddress,
         }
     }
 

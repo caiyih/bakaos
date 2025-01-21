@@ -1,6 +1,7 @@
 use core::mem::MaybeUninit;
 
 use alloc::sync::Arc;
+use constants::{ErrNo, SyscallError};
 use filesystem_abstractions::FileMetadata;
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
 use threading::yield_now;
@@ -12,10 +13,14 @@ async_syscall!(sys_write_async, ctx, {
     let p_buf = ctx.arg1::<usize>();
     let len = ctx.arg2::<usize>();
 
-    let fd = ctx.fd_table.lock().get(fd).ok_or(-1isize)?;
+    let fd = ctx
+        .fd_table
+        .lock()
+        .get(fd)
+        .ok_or(ErrNo::BadFileDescriptor)?;
 
     if !fd.can_write() {
-        return Err(-1);
+        return Err(ErrNo::BadFileDescriptor);
     }
 
     let file = fd.access();
@@ -41,16 +46,20 @@ async_syscall!(sys_write_async, ctx, {
 
             Ok(bytes_written as isize)
         }
-        None => Err(-1),
+        None => SyscallError::BadAddress,
     }
 });
 
 async_syscall!(sys_read_async, ctx, {
     let fd = ctx.arg0::<usize>();
-    let fd = ctx.fd_table.lock().get(fd).ok_or(-1isize)?;
+    let fd = ctx
+        .fd_table
+        .lock()
+        .get(fd)
+        .ok_or(ErrNo::BadFileDescriptor)?;
 
     if !fd.can_read() {
-        return Err(-1);
+        return Err(ErrNo::BadFileDescriptor);
     }
 
     let file = fd.access();
@@ -80,7 +89,7 @@ async_syscall!(sys_read_async, ctx, {
 
             Ok(bytes_read as isize)
         }
-        None => Err(-1),
+        None => SyscallError::BadAddress,
     }
 });
 
@@ -92,10 +101,14 @@ async_syscall!(sys_writev_async, ctx, {
     }
 
     let fd = ctx.arg0::<usize>();
-    let fd = ctx.fd_table.lock().get(fd).ok_or(-1isize)?;
+    let fd = ctx
+        .fd_table
+        .lock()
+        .get(fd)
+        .ok_or(ErrNo::BadFileDescriptor)?;
 
     if !fd.can_write() {
-        return Err(-1);
+        return SyscallError::BadFileDescriptor;
     }
 
     let file = fd.access();
@@ -136,7 +149,7 @@ async_syscall!(sys_writev_async, ctx, {
 
             Ok(bytes_written as isize)
         }
-        None => Err(-1isize),
+        None => SyscallError::BadAddress,
     }
 });
 
@@ -149,12 +162,16 @@ async_syscall!(sys_sendfile_async, ctx, {
     let (in_file, out_file) = {
         let fd_table = ctx.fd_table.lock();
         let (out_fd, in_fd) = (
-            fd_table.get(ctx.arg0::<usize>()).ok_or(-1isize)?, // out_fd
-            fd_table.get(ctx.arg1::<usize>()).ok_or(-1isize)?, // in_fd
+            fd_table
+                .get(ctx.arg0::<usize>())
+                .ok_or(ErrNo::BadFileDescriptor)?, // out_fd
+            fd_table
+                .get(ctx.arg1::<usize>())
+                .ok_or(ErrNo::BadFileDescriptor)?, // in_fd
         );
 
         if !out_fd.can_write() || !in_fd.can_read() {
-            return Err(-1isize);
+            return SyscallError::BadFileDescriptor;
         }
 
         (in_fd.access(), out_fd.access())

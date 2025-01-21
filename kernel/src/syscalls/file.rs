@@ -1,6 +1,7 @@
 use abstractions::IUsizeAlias;
 use address::VirtualAddress;
 use alloc::{slice, string::String, sync::Arc};
+use constants::{ErrNo, SyscallError};
 use filesystem::DummyFileSystem;
 use filesystem_abstractions::{
     DirectoryEntryType, FileDescriptor, FileDescriptorBuilder, FileMode, FileStatistics,
@@ -38,20 +39,20 @@ impl ISyncSyscallHandler for Pipe2Syscall {
 
                 match fd_table.allocate(pipe_pair.read_end_builder) {
                     Some(read_end) => guard.read_end = read_end as i32,
-                    None => return Err(-1),
+                    None => return SyscallError::TooManyOpenFiles,
                 }
 
                 match fd_table.allocate(pipe_pair.write_end_builder) {
                     Some(write_end) => guard.write_end = write_end as i32,
                     None => {
                         fd_table.remove(guard.read_end as usize);
-                        return Err(-1);
+                        return SyscallError::TooManyOpenFiles;
                     }
                 }
 
                 Ok(0)
             }
-            None => Err(-1),
+            None => SyscallError::BadAddress,
         }
     }
 
@@ -70,7 +71,7 @@ impl ISyncSyscallHandler for OpenAtSyscall {
         let _mode = ctx.arg3::<FileMode>();
 
         if dirfd < 0 && dirfd != FileDescriptor::AT_FDCWD {
-            return Err(-1);
+            return Err(ErrNo::BadFileDescriptor);
         }
 
         match ctx
@@ -81,33 +82,39 @@ impl ISyncSyscallHandler for OpenAtSyscall {
             Some(guard) => {
                 let dir_inode: Arc<dyn IInode> = if dirfd == FileDescriptor::AT_FDCWD {
                     let cwd = unsafe { ctx.cwd.get().as_ref().unwrap() };
-                    filesystem_abstractions::lookup_inode(cwd).ok_or(-1isize)?
+                    filesystem_abstractions::lookup_inode(cwd)
+                        .ok_or(ErrNo::NoSuchFileOrDirectory)?
                 } else {
                     let fd_table = ctx.fd_table.lock();
-                    let fd = fd_table.get(dirfd as usize).ok_or(-1isize)?;
-                    fd.access().inode().ok_or(-1isize)?
+                    let fd = fd_table
+                        .get(dirfd as usize)
+                        .ok_or(ErrNo::BadFileDescriptor)?;
+                    fd.access().inode().ok_or(ErrNo::FileDescriptorInBadState)?
                 };
 
-                let path = core::str::from_utf8(&guard).map_err(|_| -1isize)?;
+                let path = core::str::from_utf8(&guard).map_err(|_| ErrNo::InvalidArgument)?;
                 let path = path::remove_relative_segments(path);
                 let filename = path::get_filename(&path);
 
                 let inode: Arc<dyn IInode> = if path::is_path_fully_qualified(&path) {
-                    filesystem_abstractions::lookup_inode(&path).ok_or(-1isize)?
+                    filesystem_abstractions::lookup_inode(&path)
+                        .ok_or(ErrNo::NoSuchFileOrDirectory)?
                 } else {
-                    let parent_inode_path = path::get_directory_name(&path).ok_or(-1isize)?;
+                    let parent_inode_path =
+                        path::get_directory_name(&path).ok_or(ErrNo::InvalidArgument)?;
 
                     match (
                         dir_inode.lookup_recursive(&path),
                         flags.contains(OpenFlags::O_CREAT),
                     ) {
-                        (Ok(i), _) => i,
+                        (Ok(i), false) => i,
+                        (Ok(_), true) => return SyscallError::FileExists,
                         (Err(_), true) => dir_inode
                             .lookup_recursive(parent_inode_path)
-                            .map_err(|_| -1isize)?
+                            .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
                             .touch(filename)
-                            .map_err(|_| -1isize)?,
-                        _ => return Err(-1),
+                            .map_err(|_| ErrNo::OperationNotPermitted)?,
+                        _ => return SyscallError::NoSuchFileOrDirectory,
                     }
                 };
 
@@ -123,10 +130,10 @@ impl ISyncSyscallHandler for OpenAtSyscall {
                 let mut fd_table = ctx.fd_table.lock();
                 match fd_table.allocate(builder) {
                     Some(fd) => Ok(fd as isize),
-                    None => Err(-1),
+                    None => SyscallError::BadFileDescriptor,
                 }
             }
-            None => Err(-1),
+            None => SyscallError::BadAddress,
         }
     }
 
@@ -164,10 +171,10 @@ impl ISyncSyscallHandler for DupSyscall {
                 let builder = FrozenFileDescriptorBuilder::deconstruct(&old);
                 match fd_table.allocate(builder) {
                     Some(newfd) => Ok(newfd as isize),
-                    None => Err(-1),
+                    None => SyscallError::TooManyOpenFiles,
                 }
             }
-            None => Err(-1),
+            None => SyscallError::BadFileDescriptor,
         }
     }
 
@@ -200,10 +207,10 @@ impl ISyncSyscallHandler for Dup3Syscall {
 
                 match fd_table.allocate_at(builder, newfd) {
                     Some(newfd) => Ok(newfd as isize),
-                    None => Err(-1),
+                    None => SyscallError::TooManyOpenFiles,
                 }
             }
-            None => Err(-1),
+            None => SyscallError::BadFileDescriptor,
         }
     }
 
@@ -228,12 +235,14 @@ impl ISyncSyscallHandler for MountSyscall {
             .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
         {
             Some(guard) => {
-                let mut target_path = core::str::from_utf8(&guard).map_err(|_| -1isize)?;
+                let mut target_path =
+                    core::str::from_utf8(&guard).map_err(|_| ErrNo::InvalidArgument)?;
 
                 let fully_qualified: String;
                 if !path::is_path_fully_qualified(target_path) {
                     let cwd = unsafe { ctx.cwd.get().as_ref().unwrap() };
-                    let full_path = path::get_full_path(target_path, Some(cwd)).ok_or(-1isize)?;
+                    let full_path = path::get_full_path(target_path, Some(cwd))
+                        .ok_or(ErrNo::InvalidArgument)?;
                     fully_qualified = path::remove_relative_segments(&full_path);
                     target_path = &fully_qualified;
                 }
@@ -242,7 +251,7 @@ impl ISyncSyscallHandler for MountSyscall {
 
                 Ok(0)
             }
-            None => Err(-1),
+            None => SyscallError::BadAddress,
         }
     }
 
@@ -264,22 +273,24 @@ impl ISyncSyscallHandler for UmountSyscall {
             .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
         {
             Some(guard) => {
-                let mut target_path = core::str::from_utf8(&guard).map_err(|_| -1isize)?;
+                let mut target_path =
+                    core::str::from_utf8(&guard).map_err(|_| ErrNo::InvalidArgument)?;
 
                 let fully_qualified: String;
                 if !path::is_path_fully_qualified(target_path) {
                     let cwd = unsafe { ctx.cwd.get().as_ref().unwrap() };
-                    let full_path = path::get_full_path(target_path, Some(cwd)).ok_or(-1isize)?;
+                    let full_path = path::get_full_path(target_path, Some(cwd))
+                        .ok_or(ErrNo::InvalidArgument)?;
                     fully_qualified = path::remove_relative_segments(&full_path);
                     target_path = &fully_qualified;
                 }
 
                 match filesystem_abstractions::umount_at(target_path) {
                     true => Ok(0),
-                    false => Err(-1),
+                    false => SyscallError::NoSuchDevice,
                 }
             }
-            None => Err(-1),
+            None => SyscallError::BadAddress,
         }
     }
 
@@ -297,7 +308,7 @@ impl ISyncSyscallHandler for MkdirAtSyscall {
         let _mode = ctx.arg2::<FileMode>();
 
         if dirfd < 0 && dirfd != FileDescriptor::AT_FDCWD {
-            return Err(-1);
+            return SyscallError::BadFileDescriptor;
         }
 
         match ctx
@@ -308,27 +319,33 @@ impl ISyncSyscallHandler for MkdirAtSyscall {
             Some(guard) => {
                 let dir_inode: Arc<dyn IInode> = if dirfd == FileDescriptor::AT_FDCWD {
                     let cwd = unsafe { ctx.cwd.get().as_ref().unwrap() };
-                    filesystem_abstractions::lookup_inode(cwd).ok_or(-1isize)?
+                    filesystem_abstractions::lookup_inode(cwd)
+                        .ok_or(ErrNo::NoSuchFileOrDirectory)?
                 } else {
                     let fd_table = ctx.fd_table.lock();
-                    let fd = fd_table.get(dirfd as usize).ok_or(-1isize)?;
-                    fd.access().inode().ok_or(-1isize)?
+                    let fd = fd_table
+                        .get(dirfd as usize)
+                        .ok_or(ErrNo::BadFileDescriptor)?;
+                    fd.access().inode().ok_or(ErrNo::FileDescriptorInBadState)?
                 };
 
-                let path = core::str::from_utf8(&guard).map_err(|_| -1isize)?;
+                let path = core::str::from_utf8(&guard).map_err(|_| ErrNo::InvalidArgument)?;
                 let path = path::remove_relative_segments(path);
                 let filename = path::get_filename(&path);
-                let parent_inode_path = path::get_directory_name(&path).ok_or(-1isize)?;
+                let parent_inode_path =
+                    path::get_directory_name(&path).ok_or(ErrNo::InvalidArgument)?;
 
                 let parent_inode = dir_inode
                     .lookup_recursive(parent_inode_path)
-                    .map_err(|_| -1isize)?;
+                    .map_err(|_| ErrNo::NoSuchFileOrDirectory)?;
 
-                parent_inode.mkdir(filename).map_err(|_| -1isize)?;
+                parent_inode
+                    .mkdir(filename)
+                    .map_err(|_| ErrNo::OperationNotPermitted)?;
 
                 Ok(0)
             }
-            None => Err(-1),
+            None => SyscallError::BadAddress,
         }
     }
 
@@ -346,7 +363,7 @@ impl ISyncSyscallHandler for NewFstatatSyscall {
         let p_stat = ctx.arg2::<*mut FileStatistics>();
 
         if dirfd < 0 && dirfd != FileDescriptor::AT_FDCWD {
-            return Err(-1);
+            return SyscallError::BadFileDescriptor;
         }
 
         let pt = ctx.borrow_page_table();
@@ -362,25 +379,34 @@ impl ISyncSyscallHandler for NewFstatatSyscall {
             (Some(path_guard), Some(mut buf_guard)) => {
                 let dir_inode: Arc<dyn IInode> = if dirfd == FileDescriptor::AT_FDCWD {
                     let cwd = unsafe { ctx.cwd.get().as_ref().unwrap() };
-                    filesystem_abstractions::lookup_inode(cwd).ok_or(-1isize)?
+                    filesystem_abstractions::lookup_inode(cwd)
+                        .ok_or(ErrNo::NoSuchFileOrDirectory)?
                 } else {
                     let fd_table = ctx.fd_table.lock();
-                    let fd = fd_table.get(dirfd as usize).ok_or(-1isize)?;
-                    fd.access().inode().ok_or(-1isize)?
+                    let fd = fd_table
+                        .get(dirfd as usize)
+                        .ok_or(ErrNo::BadFileDescriptor)?;
+                    fd.access().inode().ok_or(ErrNo::FileDescriptorInBadState)?
                 };
 
-                let path = core::str::from_utf8(&path_guard).map_err(|_| -1isize)?;
+                let path = core::str::from_utf8(&path_guard).map_err(|_| ErrNo::InvalidArgument)?;
                 let path = path::remove_relative_segments(path);
 
                 let inode: Arc<dyn IInode> = if path::is_path_fully_qualified(&path) {
-                    filesystem_abstractions::lookup_inode(&path).ok_or(-1isize)?
+                    filesystem_abstractions::lookup_inode(&path)
+                        .ok_or(ErrNo::NoSuchFileOrDirectory)?
                 } else {
-                    dir_inode.lookup_recursive(&path).map_err(|_| -1isize)?
+                    dir_inode
+                        .lookup_recursive(&path)
+                        .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
                 };
 
-                inode.stat(&mut buf_guard).map_err(|_| -1isize).map(|_| 0)
+                inode
+                    .stat(&mut buf_guard)
+                    .map_err(|_| ErrNo::OperationNotPermitted)
+                    .map(|_| 0)
             }
-            _ => Err(-1),
+            _ => SyscallError::BadAddress,
         }
     }
 
@@ -404,15 +430,19 @@ impl ISyncSyscallHandler for NewFstatSyscall {
             .with_write()
         {
             Some(mut guard) => {
-                let fd = ctx.fd_table.lock().get(fd).ok_or(-1isize)?;
+                let fd = ctx
+                    .fd_table
+                    .lock()
+                    .get(fd)
+                    .ok_or(ErrNo::BadFileDescriptor)?;
                 fd.access()
                     .inode()
-                    .ok_or(-1isize)?
+                    .ok_or(ErrNo::FileDescriptorInBadState)?
                     .stat(&mut guard)
-                    .map_err(|_| -1isize)
+                    .map_err(|_| ErrNo::OperationNotPermitted)
                     .map(|_| 0)
             }
-            None => Err(-1),
+            None => SyscallError::BadAddress,
         }
     }
 
@@ -449,13 +479,17 @@ impl ISyncSyscallHandler for GetDents64Syscall {
             .with_write()
         {
             Some(mut guard) => {
-                let fd = ctx.fd_table.lock().get(fd).ok_or(-1isize)?;
+                let fd = ctx
+                    .fd_table
+                    .lock()
+                    .get(fd)
+                    .ok_or(ErrNo::BadFileDescriptor)?;
                 let file = fd.access();
-                let file_meta = file.metadata().ok_or(-1isize)?;
+                let file_meta = file.metadata().ok_or(ErrNo::FileDescriptorInBadState)?;
 
-                let inode = file.inode().ok_or(-1isize)?;
+                let inode = file.inode().ok_or(ErrNo::FileDescriptorInBadState)?;
 
-                let entries = inode.read_dir().map_err(|_| -1isize)?;
+                let entries = inode.read_dir().map_err(|_| ErrNo::NotADirectory)?;
 
                 unsafe { slice::from_raw_parts_mut(p_buf, len).fill(0) };
 
@@ -504,7 +538,7 @@ impl ISyncSyscallHandler for GetDents64Syscall {
 
                 Ok(offset as isize)
             }
-            None => Err(-1),
+            None => SyscallError::BadAddress,
         }
     }
 
@@ -522,7 +556,7 @@ impl ISyncSyscallHandler for UnlinkAtSyscall {
         let _flags = ctx.arg2::<usize>();
 
         if dirfd < 0 && dirfd != FileDescriptor::AT_FDCWD {
-            return Err(-1);
+            return SyscallError::BadFileDescriptor;
         }
 
         match ctx
@@ -533,27 +567,30 @@ impl ISyncSyscallHandler for UnlinkAtSyscall {
             Some(guard) => {
                 let dir_inode: Arc<dyn IInode> = if dirfd == FileDescriptor::AT_FDCWD {
                     let cwd = unsafe { ctx.cwd.get().as_ref().unwrap() };
-                    filesystem_abstractions::lookup_inode(cwd).ok_or(-1isize)?
+                    filesystem_abstractions::lookup_inode(cwd)
+                        .ok_or(ErrNo::NoSuchFileOrDirectory)?
                 } else {
                     let fd_table = ctx.fd_table.lock();
-                    let fd = fd_table.get(dirfd as usize).ok_or(-1isize)?;
-                    fd.access().inode().ok_or(-1isize)?
+                    let fd = fd_table
+                        .get(dirfd as usize)
+                        .ok_or(ErrNo::BadFileDescriptor)?;
+                    fd.access().inode().ok_or(ErrNo::FileDescriptorInBadState)?
                 };
 
-                let path = core::str::from_utf8(&guard).map_err(|_| -1isize)?;
-                let parent_path = path::get_directory_name(path).ok_or(-1isize)?;
+                let path = core::str::from_utf8(&guard).map_err(|_| ErrNo::InvalidArgument)?;
+                let parent_path = path::get_directory_name(path).ok_or(ErrNo::InvalidArgument)?;
                 let filename = path::get_filename(path);
 
                 let parent_inode = dir_inode
                     .lookup_recursive(parent_path)
-                    .map_err(|_| -1isize)?;
+                    .map_err(|_| ErrNo::NoSuchFileOrDirectory)?;
 
                 parent_inode
                     .remove(filename)
-                    .map_err(|_| -1isize)
+                    .map_err(|_| ErrNo::NoSuchFileOrDirectory)
                     .map(|_| 0)
             }
-            None => Err(-1),
+            None => SyscallError::BadAddress,
         }
     }
 
@@ -576,7 +613,7 @@ impl ISyncSyscallHandler for MmapSyscall {
         debug_assert!(addr.is_null());
 
         ctx.mmap(fd, flags, prot, offset, length)
-            .ok_or(-1isize)
+            .ok_or(ErrNo::OperationNotPermitted) // TODO: check this
             .map(|addr| addr.as_usize() as isize)
     }
 
@@ -594,7 +631,7 @@ impl ISyncSyscallHandler for MunmapSyscall {
 
         match ctx.munmap(addr, length) {
             true => Ok(0),
-            false => Err(-1),
+            false => SyscallError::InvalidArgument,
         }
     }
 
@@ -611,7 +648,11 @@ impl ISyncSyscallHandler for IoControlSyscall {
         let _op = ctx.arg1::<usize>();
         let _argp = ctx.arg2::<*mut u8>();
 
-        ctx.fd_table.lock().get(fd).ok_or(-1).map(|_| 0)
+        ctx.fd_table
+            .lock()
+            .get(fd)
+            .ok_or(ErrNo::BadFileDescriptor)
+            .map(|_| 0)
     }
 
     fn name(&self) -> &str {
@@ -640,29 +681,29 @@ impl ISyncSyscallHandler for FileControlSyscall {
                     let flags = OpenFlags::from_bits_truncate(arg);
                     match fd.access().set_flags(flags) {
                         true => Ok(0),
-                        false => Err(-1),
+                        false => SyscallError::FileDescriptorInBadState,
                     }
                 }
-                None => Err(-1),
+                None => SyscallError::BadFileDescriptor,
             },
             F_GETFD | F_GETFL => match fd_table.get(fd_idx) {
                 Some(fd) => Ok(fd.access().flags().bits() as isize),
-                None => Err(-1),
+                None => SyscallError::BadFileDescriptor,
             },
             F_DUPFD | F_DUPFD_CLOEXEC => match fd_table.get(fd_idx) {
                 Some(fd) => {
                     let builder = FrozenFileDescriptorBuilder::deconstruct(&fd);
                     match fd_table.allocate(builder) {
                         Some(id) => Ok(id as isize),
-                        None => Err(-1),
+                        None => SyscallError::TooManyOpenFiles,
                     }
                 }
-                None => Err(-1),
+                None => SyscallError::BadFileDescriptor,
             },
             F_SETFD => Ok(0),
             op => {
                 log::warn!("fnctl: Unsupported operation: {op}");
-                Err(-1)
+                SyscallError::InvalidArgument
             }
         }
     }

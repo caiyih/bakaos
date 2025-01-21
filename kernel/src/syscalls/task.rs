@@ -3,6 +3,7 @@ use core::{str, sync::atomic::Ordering};
 use abstractions::operations::IUsizeAlias;
 use address::{IPageNum, IToPageNum, VirtualAddress};
 use alloc::vec::Vec;
+use constants::{ErrNo, SyscallError};
 use filesystem_abstractions::DirectoryEntryType;
 use log::debug;
 use paging::{
@@ -83,7 +84,7 @@ impl ISyncSyscallHandler for TimesSyscall {
 
                 Ok(0)
             }
-            None => Err(-1),
+            None => SyscallError::BadAddress,
         }
     }
 
@@ -105,7 +106,7 @@ impl ISyncSyscallHandler for BrkSyscall {
         }
 
         if brk < current_brk {
-            return Err(-1);
+            return SyscallError::OperationNotPermitted;
         }
 
         let mut memory_space = ctx.memory_space.lock();
@@ -129,7 +130,7 @@ impl ISyncSyscallHandler for BrkSyscall {
             }
             Err(reason) => {
                 debug!("Failed to increase brk to {:#x}, reason: {}", brk, reason);
-                Err(-1)
+                SyscallError::OperationNotPermitted
             }
         }
     }
@@ -155,7 +156,7 @@ impl ISyncSyscallHandler for GetTimeOfDaySyscall {
                 *guard = crate::timing::current_timeval();
                 Ok(0)
             }
-            None => Err(-1),
+            None => SyscallError::BadAddress,
         }
     }
 
@@ -202,7 +203,7 @@ impl ISyncSyscallHandler for GetCwdSyscall {
         debug_assert!(len > 0, "cwd remains uninitialized");
 
         if size < len {
-            return Err(-1);
+            return SyscallError::NumericalResultOutOfRange;
         }
 
         let dst_slice = unsafe { core::slice::from_raw_parts_mut(buf, len) };
@@ -218,7 +219,7 @@ impl ISyncSyscallHandler for GetCwdSyscall {
                 guard[len - 1] = 0;
                 Ok(len as isize)
             }
-            None => Err(-1),
+            None => SyscallError::BadAddress,
         }
     }
 
@@ -262,7 +263,7 @@ impl ISyncSyscallHandler for CloneSyscall {
                 .with_write()
             {
                 Some(mut guard) => *guard = new_tid,
-                None => return Err(-1),
+                None => return SyscallError::BadAddress,
             }
         }
 
@@ -270,7 +271,7 @@ impl ISyncSyscallHandler for CloneSyscall {
             let child_pt = new_task.borrow_page_table();
 
             if pctid.is_null() {
-                return Err(-1);
+                return SyscallError::BadAddress;
             }
 
             // Copy through higher half address
@@ -312,7 +313,7 @@ impl ISyncSyscallHandler for ExecveSyscall {
             .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
         {
             Some(path_guard) => {
-                let path = str::from_utf8(&path_guard).map_err(|_| -1isize)?;
+                let path = str::from_utf8(&path_guard).map_err(|_| ErrNo::InvalidArgument)?;
 
                 match path::get_full_path(path, Some(unsafe { ctx.cwd.get().as_ref().unwrap() })) {
                     Some(fullpath) => {
@@ -359,8 +360,10 @@ impl ISyncSyscallHandler for ExecveSyscall {
 
                         let pt = ctx.borrow_page_table();
 
-                        let args = guard_create_unsized_cstr_array(&pt, args).ok_or(-1isize)?;
-                        let envp = guard_create_unsized_cstr_array(&pt, envp).ok_or(-1isize)?;
+                        let args =
+                            guard_create_unsized_cstr_array(&pt, args).ok_or(ErrNo::BadAddress)?;
+                        let envp =
+                            guard_create_unsized_cstr_array(&pt, envp).ok_or(ErrNo::BadAddress)?;
 
                         debug!(
                             "Task {} execve: '{}', args: {:?}, envp: {:?}",
@@ -370,12 +373,13 @@ impl ISyncSyscallHandler for ExecveSyscall {
                             envp
                         );
 
-                        let file =
-                            filesystem_abstractions::lookup_inode(&fullpath).ok_or(-1isize)?;
+                        let file = filesystem_abstractions::lookup_inode(&fullpath)
+                            .ok_or(ErrNo::NoSuchFileOrDirectory)?;
 
-                        let bytes = file.readall().map_err(|_| -1isize)?;
+                        let bytes = file.readall().map_err(|_| ErrNo::OperationNotPermitted)?;
 
-                        ctx.execve(&bytes, &args, &envp).map_err(|_| -1isize)?;
+                        ctx.execve(&bytes, &args, &envp)
+                            .map_err(|_| ErrNo::ExecFormatError)?;
 
                         unsafe {
                             *ctx.start_time.get().as_mut().unwrap().assume_init_mut() =
@@ -386,10 +390,10 @@ impl ISyncSyscallHandler for ExecveSyscall {
 
                         Ok(0)
                     }
-                    None => Err(-1),
+                    None => SyscallError::InvalidArgument,
                 }
             }
-            None => Err(-1),
+            None => SyscallError::BadAddress,
         }
     }
 
@@ -410,15 +414,15 @@ impl ISyncSyscallHandler for ChdirSyscall {
             .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
         {
             Some(guard) => {
-                let path = str::from_utf8(&guard).map_err(|_| -1isize)?;
+                let path = str::from_utf8(&guard).map_err(|_| ErrNo::InvalidArgument)?;
 
                 match path::get_full_path(path, Some(unsafe { ctx.cwd.get().as_ref().unwrap() })) {
                     Some(fullpath) => {
                         let processed_path = path::remove_relative_segments(&fullpath);
                         let inode = filesystem_abstractions::lookup_inode(&processed_path)
-                            .ok_or(-1isize)?;
+                            .ok_or(ErrNo::NoSuchFileOrDirectory)?;
 
-                        let inode_metadata = inode.metadata().map_err(|_| -1isize)?;
+                        let inode_metadata = inode.metadata().map_err(|_| ErrNo::NotADirectory)?;
 
                         match inode_metadata.entry_type {
                             DirectoryEntryType::Directory => {
@@ -429,13 +433,13 @@ impl ISyncSyscallHandler for ChdirSyscall {
 
                                 Ok(0)
                             }
-                            _ => Err(-1),
+                            _ => SyscallError::NotADirectory,
                         }
                     }
-                    None => Err(-1),
+                    None => SyscallError::InvalidArgument,
                 }
             }
-            None => Err(-1),
+            None => SyscallError::BadAddress,
         }
     }
 
@@ -480,10 +484,10 @@ impl ISyncSyscallHandler for ClockGetTimeSyscall {
 
                         Ok(0)
                     }
-                    _ => Err(-1),
+                    _ => SyscallError::InvalidArgument,
                 }
             }
-            None => Err(-1),
+            None => SyscallError::BadAddress,
         }
     }
 
