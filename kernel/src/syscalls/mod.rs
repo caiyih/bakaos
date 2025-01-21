@@ -7,11 +7,11 @@ use file::{
     MountSyscall, MunmapSyscall, NewFstatSyscall, NewFstatatSyscall, OpenAtSyscall, Pipe2Syscall,
     UmountSyscall, UnlinkAtSyscall,
 };
-use file_async::{sys_read_async, sys_write_async};
+use file_async::{sys_read_async, sys_sendfile_async, sys_write_async};
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
 use task::{
-    BrkSyscall, ChdirSyscall, CloneSyscall, ExecveSyscall, ExitSyscall, GetCwdSyscall,
-    GetParentPidSyscall, GetPidSyscall, GetTimeOfDaySyscall, TimesSyscall,
+    BrkSyscall, ChdirSyscall, ClockGetTimeSyscall, CloneSyscall, ExecveSyscall, ExitSyscall,
+    GetCwdSyscall, GetParentPidSyscall, GetPidSyscall, GetTimeOfDaySyscall, TimesSyscall,
 };
 use task_async::{sys_nanosleep_async, sys_sched_yield_async, sys_wait4_async};
 use tasks::TaskControlBlock;
@@ -35,6 +35,7 @@ const SYSCALL_ID_PIPE2: usize = 59;
 const SYSCALL_ID_GETDENTS64: usize = 61;
 const SYSCALL_ID_READ: usize = 63;
 const SYSCALL_ID_WRITE: usize = 64;
+const SYSCALL_ID_SENDFILE: usize = 71;
 const SYSCALL_ID_NEWFSTATAT: usize = 79;
 const SYSCALL_ID_NEWFSTAT: usize = 80;
 const SYSCALL_ID_EXIT: usize = 93;
@@ -51,6 +52,7 @@ const SYSCALL_ID_CLONE: usize = 220;
 const SYSCALL_ID_EXECVE: usize = 221;
 const SYSCALL_ID_MMAP: usize = 222;
 const STSCALL_ID_WAIT4: usize = 260;
+const SYSCALL_ID_CLOCK_GETTIME: usize = 403;
 
 pub trait ISyscallResult {
     fn to_ret(self) -> isize;
@@ -106,6 +108,7 @@ impl SyscallDispatcher {
             SYSCALL_ID_UNLINKAT => Some(&UnlinkAtSyscall),
             SYSCALL_ID_MMAP => Some(&MmapSyscall),
             SYSCALL_ID_MUNMAP => Some(&MunmapSyscall),
+            SYSCALL_ID_CLOCK_GETTIME => Some(&ClockGetTimeSyscall),
             _ => None,
         }
     }
@@ -125,6 +128,7 @@ impl SyscallDispatcher {
             SYSCALL_ID_NANOSLEEP => Some(sys_nanosleep_async(&mut ctx).await),
             SYSCALL_ID_SCHED_YIELD => Some(sys_sched_yield_async(&mut ctx).await),
             STSCALL_ID_WAIT4 => Some(sys_wait4_async(&mut ctx).await),
+            SYSCALL_ID_SENDFILE => Some(sys_sendfile_async(&mut ctx).await),
             _ => None,
         }
     }
