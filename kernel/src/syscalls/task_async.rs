@@ -12,7 +12,6 @@ async_syscall!(sys_nanosleep_async, ctx, {
     let req = ctx.arg0::<*const TimeSpec>();
 
     match ctx
-        .tcb
         .borrow_page_table()
         .guard_ptr(req)
         .mustbe_user()
@@ -46,7 +45,6 @@ async_syscall!(sys_wait4_async, ctx, {
     let p_code = ctx.arg1::<usize>(); // pointer can not across await point, so we cast it later
 
     let target_child = ctx
-        .tcb
         .children
         .lock()
         .iter()
@@ -64,14 +62,14 @@ async_syscall!(sys_wait4_async, ctx, {
             exited_task = c;
         }
         None => {
-            if ctx.tcb.children.lock().is_empty() {
+            if ctx.children.lock().is_empty() {
                 return Err(-1);
             }
 
             loop {
                 // Explicity limit the scope of the lock to prevent deadlock
                 let exited_child = {
-                    let children = ctx.tcb.children.lock();
+                    let children = ctx.children.lock();
                     children.iter().find(|t| t.is_exited()).cloned()
                 };
 
@@ -87,7 +85,6 @@ async_syscall!(sys_wait4_async, ctx, {
     };
 
     if let Some(mut guard) = ctx
-        .tcb
         .borrow_page_table()
         .guard_ptr(p_code as *const i32)
         .mustbe_user()
