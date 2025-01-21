@@ -36,6 +36,10 @@ impl FileMetadata {
         self.open_flags.lock()
     }
 
+    pub fn set_flags(&self, new_flags: OpenFlags) {
+        *self.open_flags.lock() = new_flags
+    }
+
     pub fn inode(&self) -> Arc<dyn IInode> {
         self.inode.clone()
     }
@@ -67,6 +71,16 @@ pub trait IFile: DowncastSync + Send + Sync {
 
     fn flags(&self) -> OpenFlags {
         *self.metadata().unwrap().flags()
+    }
+
+    fn set_flags(&self, new_flags: OpenFlags) -> bool {
+        match self.metadata() {
+            Some(metadata) => {
+                metadata.set_flags(new_flags);
+                true
+            }
+            None => false,
+        }
     }
 
     fn delete(&self) -> bool {
