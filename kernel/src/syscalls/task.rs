@@ -2,10 +2,12 @@ use core::{str, sync::atomic::Ordering};
 
 use abstractions::operations::IUsizeAlias;
 use address::{IPageNum, IToPageNum, VirtualAddress};
+use alloc::vec::Vec;
 use filesystem_abstractions::DirectoryEntryType;
 use log::debug;
 use paging::{
-    page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, PageTableEntryFlags,
+    page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, PageTable,
+    PageTableEntryFlags,
 };
 use tasks::{TaskCloneFlags, TaskStatus};
 use timing::{TimeSpec, TimeVal};
@@ -307,8 +309,8 @@ impl ISyncSyscallHandler for ExecveSyscall {
     fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
         let pathname = ctx.arg0::<*const u8>();
 
-        let _args = ctx.arg1::<*const *const u8>();
-        let _envp = ctx.arg2::<*const *const u8>();
+        let args = ctx.arg1::<*const *const u8>();
+        let envp = ctx.arg2::<*const *const u8>();
 
         match ctx
             .tcb
@@ -316,22 +318,74 @@ impl ISyncSyscallHandler for ExecveSyscall {
             .guard_cstr(pathname, 1024)
             .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
         {
-            Some(guard) => {
-                let path = str::from_utf8(&guard).map_err(|_| -1isize)?;
-                debug!("Task {} execve: '{}'", ctx.tcb.task_id.id(), path);
+            Some(path_guard) => {
+                let path = str::from_utf8(&path_guard).map_err(|_| -1isize)?;
 
                 match path::get_full_path(
                     path,
                     Some(unsafe { ctx.tcb.cwd.get().as_ref().unwrap() }),
                 ) {
                     Some(fullpath) => {
+                        fn guard_create_unsized_cstr_array(
+                            pt: &PageTable,
+                            mut ptr: *const *const u8,
+                        ) -> Option<Vec<&str>> {
+                            match pt
+                                .guard_unsized_cstr_array(ptr, 1024)
+                                .must_have(PageTableEntryFlags::User)
+                                .with(PageTableEntryFlags::Readable)
+                            {
+                                Some(_) => {
+                                    let mut array = Vec::new();
+                                    while !unsafe { ptr.read_volatile().is_null() } {
+                                        match pt
+                                            .guard_cstr(unsafe { *ptr }, 1024)
+                                            .must_have(PageTableEntryFlags::User)
+                                            .with(PageTableEntryFlags::Readable)
+                                        {
+                                            Some(str_guard) => {
+                                                let bytes = unsafe {
+                                                    core::slice::from_raw_parts(
+                                                        *ptr,
+                                                        str_guard.len(),
+                                                    )
+                                                };
+                                                let str = unsafe {
+                                                    core::str::from_utf8_unchecked(bytes)
+                                                };
+
+                                                array.push(str);
+                                            }
+                                            None => return None,
+                                        }
+
+                                        ptr = unsafe { ptr.add(1) };
+                                    }
+                                    Some(array)
+                                }
+                                None => None,
+                            }
+                        }
+
+                        let pt = ctx.tcb.borrow_page_table();
+
+                        let args = guard_create_unsized_cstr_array(&pt, args).ok_or(-1isize)?;
+                        let envp = guard_create_unsized_cstr_array(&pt, envp).ok_or(-1isize)?;
+
+                        debug!(
+                            "Task {} execve: '{}', args: {:?}, envp: {:?}",
+                            ctx.tcb.task_id.id(),
+                            path,
+                            args,
+                            envp
+                        );
+
                         let file =
                             filesystem_abstractions::lookup_inode(&fullpath).ok_or(-1isize)?;
 
                         let bytes = file.readall().map_err(|_| -1isize)?;
 
-                        // TODO: handle args and envp
-                        ctx.tcb.execve(&bytes, &[], &[]).map_err(|_| -1isize)?;
+                        ctx.tcb.execve(&bytes, &args, &envp).map_err(|_| -1isize)?;
 
                         unsafe {
                             *ctx.tcb.start_time.get().as_mut().unwrap().assume_init_mut() =
