@@ -987,8 +987,6 @@ impl<'a, T> PageGuardBuilder<'a, T> {
         }
 
         flags |= PageTableEntryFlags::Valid;
-
-        flags |= PageTableEntryFlags::Valid;
         for page in self.vpn_range.iter() {
             let entry = self.page_table.get_entry_of(page)?;
             if !entry.flags().contains(flags) {
