@@ -461,7 +461,12 @@ impl ISyncSyscallHandler for GetDents64Syscall {
 
                 let mut offset: usize = 0;
 
+                let starting_idx = file_meta.offset();
                 for (idx, entry) in entries.iter().enumerate() {
+                    if idx < starting_idx {
+                        continue;
+                    }
+
                     let name = entry.filename.as_bytes();
                     let entry_size = core::mem::size_of::<LinuxDirEntry64>() + name.len() + 1;
 
@@ -494,15 +499,10 @@ impl ISyncSyscallHandler for GetDents64Syscall {
                     unsafe { p_entry.name.as_mut_ptr().add(name.len()).write_volatile(0) };
 
                     offset += entry_size;
+                    file_meta.set_offset(idx + 1);
                 }
 
-                if file_meta.offset() == 0 {
-                    file_meta.set_offset(offset); // placeholder
-
-                    Ok(offset as isize)
-                } else {
-                    Ok(0)
-                }
+                Ok(offset as isize)
             }
             None => Err(-1),
         }
