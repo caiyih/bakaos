@@ -131,7 +131,7 @@ impl SyscallDispatcher {
 }
 
 pub struct SyscallContext<'a> {
-    pub tcb: &'a Arc<TaskControlBlock>,
+    tcb: &'a Arc<TaskControlBlock>,
     args: &'a [usize; 6],
 }
 
