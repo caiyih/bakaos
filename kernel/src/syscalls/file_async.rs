@@ -12,7 +12,7 @@ async_syscall!(sys_write_async, ctx, {
     let p_buf = ctx.arg1::<usize>();
     let len = ctx.arg2::<usize>();
 
-    let fd = ctx.tcb.fd_table.lock().get(fd).ok_or(-1isize)?;
+    let fd = ctx.fd_table.lock().get(fd).ok_or(-1isize)?;
 
     if !fd.can_write() {
         return Err(-1);
@@ -27,7 +27,6 @@ async_syscall!(sys_write_async, ctx, {
     let buf = unsafe { core::slice::from_raw_parts(p_buf as *mut u8, len) };
 
     match ctx
-        .tcb
         .borrow_page_table()
         .guard_slice(buf)
         .mustbe_user()
@@ -48,7 +47,7 @@ async_syscall!(sys_write_async, ctx, {
 
 async_syscall!(sys_read_async, ctx, {
     let fd = ctx.arg0::<usize>();
-    let fd = ctx.tcb.fd_table.lock().get(fd).ok_or(-1isize)?;
+    let fd = ctx.fd_table.lock().get(fd).ok_or(-1isize)?;
 
     if !fd.can_read() {
         return Err(-1);
@@ -66,7 +65,6 @@ async_syscall!(sys_read_async, ctx, {
     let buf = unsafe { core::slice::from_raw_parts_mut(p_buf, len) };
 
     match ctx
-        .tcb
         .borrow_page_table()
         .guard_slice(buf)
         .mustbe_user()
@@ -94,7 +92,7 @@ async_syscall!(sys_writev_async, ctx, {
     }
 
     let fd = ctx.arg0::<usize>();
-    let fd = ctx.tcb.fd_table.lock().get(fd).ok_or(-1isize)?;
+    let fd = ctx.fd_table.lock().get(fd).ok_or(-1isize)?;
 
     if !fd.can_write() {
         return Err(-1);
@@ -110,7 +108,6 @@ async_syscall!(sys_writev_async, ctx, {
     let io_vector = unsafe { core::slice::from_raw_parts(iovec_base, len) };
 
     match ctx
-        .tcb
         .borrow_page_table()
         .guard_slice(io_vector)
         .mustbe_user()
@@ -123,7 +120,6 @@ async_syscall!(sys_writev_async, ctx, {
                 let data = unsafe { core::slice::from_raw_parts(io.p_data, io.len) };
 
                 match ctx
-                    .tcb
                     .borrow_page_table()
                     .guard_slice(data)
                     .mustbe_user()
@@ -142,7 +138,7 @@ async_syscall!(sys_writev_async, ctx, {
 
 async_syscall!(sys_sendfile_async, ctx, {
     let (out_fd, in_fd) = {
-        let fd_table = ctx.tcb.fd_table.lock();
+        let fd_table = ctx.fd_table.lock();
         (
             fd_table.get(ctx.arg0::<usize>()).ok_or(-1isize)?, // out_fd
             fd_table.get(ctx.arg1::<usize>()).ok_or(-1isize)?, // in_fd
@@ -182,7 +178,6 @@ async_syscall!(sys_sendfile_async, ctx, {
 
     if seekable && !poffset.is_null() {
         let offset: usize = *ctx
-            .tcb
             .borrow_page_table()
             .guard_ptr(poffset)
             .mustbe_user()

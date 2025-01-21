@@ -22,12 +22,11 @@ impl ISyncSyscallHandler for ExitSyscall {
     fn handle(&self, ctx: &mut SyscallContext<'_>) -> SyscallResult {
         let code = ctx.arg0::<isize>();
 
-        ctx.tcb
-            .exit_code
+        ctx.exit_code
             .store(code as i32, core::sync::atomic::Ordering::Relaxed);
-        *ctx.tcb.task_status.lock() = TaskStatus::Exited;
+        *ctx.task_status.lock() = TaskStatus::Exited;
 
-        debug!("Task {} exited with code {}", ctx.tcb.task_id.id(), code);
+        debug!("Task {} exited with code {}", ctx.task_id.id(), code);
         Ok(0)
     }
 
@@ -51,7 +50,6 @@ impl ISyncSyscallHandler for TimesSyscall {
         let p_tms = ctx.arg0::<*mut Tms>();
 
         match ctx
-            .tcb
             .borrow_page_table()
             .guard_ptr(p_tms)
             .mustbe_user()
@@ -61,20 +59,19 @@ impl ISyncSyscallHandler for TimesSyscall {
                 // defined in <time.h>
                 const CLOCKS_PER_SEC: f64 = 1000000.0;
 
-                let timer_elapsed = ctx.tcb.timer.lock().elapsed().total_seconds();
-                let kernel_elapsed = ctx.tcb.kernel_timer.lock().elapsed().total_seconds();
+                let timer_elapsed = ctx.timer.lock().elapsed().total_seconds();
+                let kernel_elapsed = ctx.kernel_timer.lock().elapsed().total_seconds();
 
                 guard.tms_utime = ((timer_elapsed - kernel_elapsed) * CLOCKS_PER_SEC) as i64;
                 guard.tms_stime = (kernel_elapsed * CLOCKS_PER_SEC) as i64;
 
-                let children_timer_elapsed =
-                    ctx.tcb.children.lock().iter().fold(0f64, |acc, child| {
-                        let child_timer = child.timer.lock().clone();
-                        acc + child_timer.elapsed().total_microseconds()
-                    });
+                let children_timer_elapsed = ctx.children.lock().iter().fold(0f64, |acc, child| {
+                    let child_timer = child.timer.lock().clone();
+                    acc + child_timer.elapsed().total_microseconds()
+                });
 
                 let children_kernel_elapsed =
-                    ctx.tcb.children.lock().iter().fold(0f64, |acc, child| {
+                    ctx.children.lock().iter().fold(0f64, |acc, child| {
                         let child_kernel_timer = child.kernel_timer.lock().clone();
                         acc + child_kernel_timer.elapsed().total_microseconds()
                     });
@@ -101,7 +98,7 @@ impl ISyncSyscallHandler for BrkSyscall {
     fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
         let brk = ctx.arg0::<usize>();
 
-        let current_brk = ctx.tcb.brk_pos.load(Ordering::Relaxed);
+        let current_brk = ctx.brk_pos.load(Ordering::Relaxed);
 
         if brk == 0 || brk == current_brk {
             return Ok(current_brk as isize);
@@ -111,14 +108,14 @@ impl ISyncSyscallHandler for BrkSyscall {
             return Err(-1);
         }
 
-        let mut memory_space = ctx.tcb.memory_space.lock();
+        let mut memory_space = ctx.memory_space.lock();
         let brk_area = memory_space.brk_page_range();
 
         // new brk is in the same page, no need to allocate new pages
         // Only update brk position
         let brk_page_end = brk_area.end().start_addr::<VirtualAddress>().as_usize();
         if brk < brk_page_end {
-            ctx.tcb.brk_pos.store(brk, Ordering::Relaxed);
+            ctx.brk_pos.store(brk, Ordering::Relaxed);
             return Ok(brk as isize);
         }
 
@@ -127,7 +124,7 @@ impl ISyncSyscallHandler for BrkSyscall {
 
         match memory_space.increase_brk(vpn) {
             Ok(_) => {
-                ctx.tcb.brk_pos.store(brk, Ordering::Relaxed);
+                ctx.brk_pos.store(brk, Ordering::Relaxed);
                 Ok(brk as isize)
             }
             Err(reason) => {
@@ -149,7 +146,6 @@ impl ISyncSyscallHandler for GetTimeOfDaySyscall {
         let tv = ctx.arg0::<*mut TimeVal>();
 
         match ctx
-            .tcb
             .borrow_page_table()
             .guard_ptr(tv)
             .mustbe_user()
@@ -172,7 +168,7 @@ pub struct GetPidSyscall;
 
 impl ISyncSyscallHandler for GetPidSyscall {
     fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
-        Ok(ctx.tcb.task_id.id() as isize)
+        Ok(ctx.task_id.id() as isize)
     }
 
     fn name(&self) -> &str {
@@ -184,7 +180,7 @@ pub struct GetParentPidSyscall;
 
 impl ISyncSyscallHandler for GetParentPidSyscall {
     fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
-        let parent = ctx.tcb.parent.as_ref().map(|p| p.upgrade().unwrap());
+        let parent = ctx.parent.as_ref().map(|p| p.upgrade().unwrap());
         Ok(parent.map(|p| p.task_id.id()).unwrap_or(1) as isize)
     }
 
@@ -200,7 +196,7 @@ impl ISyncSyscallHandler for GetCwdSyscall {
         let buf = ctx.arg0::<*mut u8>();
         let size = ctx.arg1::<usize>();
 
-        let cwd = unsafe { ctx.tcb.cwd.get().as_ref().unwrap().as_bytes() };
+        let cwd = unsafe { ctx.cwd.get().as_ref().unwrap().as_bytes() };
         let len = cwd.len() + 1;
 
         debug_assert!(len > 0, "cwd remains uninitialized");
@@ -212,7 +208,6 @@ impl ISyncSyscallHandler for GetCwdSyscall {
         let dst_slice = unsafe { core::slice::from_raw_parts_mut(buf, len) };
 
         match ctx
-            .tcb
             .borrow_page_table()
             .guard_slice(dst_slice)
             .mustbe_user()
@@ -243,12 +238,12 @@ impl ISyncSyscallHandler for CloneSyscall {
         let pctid = ctx.arg4::<*mut usize>();
 
         // TODO: Implement thread fork
-        let new_task = ctx.tcb.fork_process();
+        let new_task = ctx.fork_process();
         let new_tid = new_task.task_id.id();
 
-        ctx.tcb.children.lock().push(new_task.clone());
+        ctx.children.lock().push(new_task.clone());
 
-        debug!("Forking task: {} from: {}", new_tid, ctx.tcb.task_id.id());
+        debug!("Forking task: {} from: {}", new_tid, ctx.task_id.id());
 
         let new_trap_ctx = new_task.mut_trap_ctx();
 
@@ -260,7 +255,6 @@ impl ISyncSyscallHandler for CloneSyscall {
 
         if flags.contains(TaskCloneFlags::PARENT_SETTID) {
             match ctx
-                .tcb
                 .borrow_page_table()
                 .guard_ptr(ptid)
                 .mustbe_user()
@@ -280,7 +274,7 @@ impl ISyncSyscallHandler for CloneSyscall {
             }
 
             // Copy through higher half address
-            ctx.tcb.borrow_page_table().activated_copy_val_to_other(
+            ctx.borrow_page_table().activated_copy_val_to_other(
                 VirtualAddress::from_ptr(pctid),
                 &child_pt,
                 &new_tid,
@@ -288,7 +282,7 @@ impl ISyncSyscallHandler for CloneSyscall {
         }
 
         if flags.contains(TaskCloneFlags::SETTLS) {
-            ctx.tcb.mut_trap_ctx().regs.tp = tls;
+            ctx.mut_trap_ctx().regs.tp = tls;
         }
 
         // TODO: Set clear tid address to pctid
@@ -313,7 +307,6 @@ impl ISyncSyscallHandler for ExecveSyscall {
         let envp = ctx.arg2::<*const *const u8>();
 
         match ctx
-            .tcb
             .borrow_page_table()
             .guard_cstr(pathname, 1024)
             .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
@@ -321,10 +314,7 @@ impl ISyncSyscallHandler for ExecveSyscall {
             Some(path_guard) => {
                 let path = str::from_utf8(&path_guard).map_err(|_| -1isize)?;
 
-                match path::get_full_path(
-                    path,
-                    Some(unsafe { ctx.tcb.cwd.get().as_ref().unwrap() }),
-                ) {
+                match path::get_full_path(path, Some(unsafe { ctx.cwd.get().as_ref().unwrap() })) {
                     Some(fullpath) => {
                         fn guard_create_unsized_cstr_array(
                             pt: &PageTable,
@@ -367,14 +357,14 @@ impl ISyncSyscallHandler for ExecveSyscall {
                             }
                         }
 
-                        let pt = ctx.tcb.borrow_page_table();
+                        let pt = ctx.borrow_page_table();
 
                         let args = guard_create_unsized_cstr_array(&pt, args).ok_or(-1isize)?;
                         let envp = guard_create_unsized_cstr_array(&pt, envp).ok_or(-1isize)?;
 
                         debug!(
                             "Task {} execve: '{}', args: {:?}, envp: {:?}",
-                            ctx.tcb.task_id.id(),
+                            ctx.task_id.id(),
                             path,
                             args,
                             envp
@@ -385,13 +375,13 @@ impl ISyncSyscallHandler for ExecveSyscall {
 
                         let bytes = file.readall().map_err(|_| -1isize)?;
 
-                        ctx.tcb.execve(&bytes, &args, &envp).map_err(|_| -1isize)?;
+                        ctx.execve(&bytes, &args, &envp).map_err(|_| -1isize)?;
 
                         unsafe {
-                            *ctx.tcb.start_time.get().as_mut().unwrap().assume_init_mut() =
+                            *ctx.start_time.get().as_mut().unwrap().assume_init_mut() =
                                 crate::timing::current_timespec();
-                            ctx.tcb.kernel_timer.lock().start();
-                            ctx.tcb.timer.lock().start();
+                            ctx.kernel_timer.lock().start();
+                            ctx.timer.lock().start();
                         }
 
                         Ok(0)
@@ -415,7 +405,6 @@ impl ISyncSyscallHandler for ChdirSyscall {
         let p_path = ctx.arg0::<*const u8>();
 
         match ctx
-            .tcb
             .borrow_page_table()
             .guard_cstr(p_path, 1024)
             .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
@@ -423,10 +412,7 @@ impl ISyncSyscallHandler for ChdirSyscall {
             Some(guard) => {
                 let path = str::from_utf8(&guard).map_err(|_| -1isize)?;
 
-                match path::get_full_path(
-                    path,
-                    Some(unsafe { ctx.tcb.cwd.get().as_ref().unwrap() }),
-                ) {
+                match path::get_full_path(path, Some(unsafe { ctx.cwd.get().as_ref().unwrap() })) {
                     Some(fullpath) => {
                         let processed_path = path::remove_relative_segments(&fullpath);
                         let inode = filesystem_abstractions::lookup_inode(&processed_path)
@@ -436,7 +422,7 @@ impl ISyncSyscallHandler for ChdirSyscall {
 
                         match inode_metadata.entry_type {
                             DirectoryEntryType::Directory => {
-                                let cwd_mut = unsafe { ctx.tcb.cwd.get().as_mut().unwrap() };
+                                let cwd_mut = unsafe { ctx.cwd.get().as_mut().unwrap() };
 
                                 cwd_mut.clear();
                                 cwd_mut.push_str(&processed_path);
@@ -469,7 +455,6 @@ impl ISyncSyscallHandler for ClockGetTimeSyscall {
         let p_ts = ctx.arg1::<*mut TimeSpec>();
 
         match ctx
-            .tcb
             .borrow_page_table()
             .guard_ptr(p_ts)
             .mustbe_user()
@@ -483,9 +468,8 @@ impl ISyncSyscallHandler for ClockGetTimeSyscall {
                         Ok(0)
                     }
                     CLOCK_PROCESS_CPUTIME_ID => {
-                        let self_elapsed = ctx.tcb.timer.lock().elapsed().ticks();
+                        let self_elapsed = ctx.timer.lock().elapsed().ticks();
                         let children_elapsed: i64 = ctx
-                            .tcb
                             .children
                             .lock()
                             .iter()

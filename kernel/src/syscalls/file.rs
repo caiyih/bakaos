@@ -26,7 +26,6 @@ impl ISyncSyscallHandler for Pipe2Syscall {
         let p_fd = ctx.arg0::<*mut FdPair>();
 
         match ctx
-            .tcb
             .borrow_page_table()
             .guard_ptr(p_fd)
             .mustbe_user()
@@ -35,7 +34,7 @@ impl ISyncSyscallHandler for Pipe2Syscall {
             Some(mut guard) => {
                 let pipe_pair = PipeBuilder::open();
 
-                let mut fd_table = ctx.tcb.fd_table.lock();
+                let mut fd_table = ctx.fd_table.lock();
 
                 match fd_table.allocate(pipe_pair.read_end_builder) {
                     Some(read_end) => guard.read_end = read_end as i32,
@@ -75,17 +74,16 @@ impl ISyncSyscallHandler for OpenAtSyscall {
         }
 
         match ctx
-            .tcb
             .borrow_page_table()
             .guard_cstr(p_path, 1024)
             .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
         {
             Some(guard) => {
                 let dir_inode: Arc<dyn IInode> = if dirfd == FileDescriptor::AT_FDCWD {
-                    let cwd = unsafe { ctx.tcb.cwd.get().as_ref().unwrap() };
+                    let cwd = unsafe { ctx.cwd.get().as_ref().unwrap() };
                     filesystem_abstractions::lookup_inode(cwd).ok_or(-1isize)?
                 } else {
-                    let fd_table = ctx.tcb.fd_table.lock();
+                    let fd_table = ctx.fd_table.lock();
                     let fd = fd_table.get(dirfd as usize).ok_or(-1isize)?;
                     fd.access().inode().ok_or(-1isize)?
                 };
@@ -122,7 +120,7 @@ impl ISyncSyscallHandler for OpenAtSyscall {
                     .set_writable()
                     .freeze();
 
-                let mut fd_table = ctx.tcb.fd_table.lock();
+                let mut fd_table = ctx.fd_table.lock();
                 match fd_table.allocate(builder) {
                     Some(fd) => Ok(fd as isize),
                     None => Err(-1),
@@ -143,8 +141,8 @@ impl ISyncSyscallHandler for CloseSyscall {
     fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
         let fd = ctx.arg0::<usize>();
 
-        ctx.tcb.fd_table.lock().remove(fd); // rc to file will be dropped as the fd is removed
-                                            // and when rc is 0, the opened file will be dropped
+        ctx.fd_table.lock().remove(fd); // rc to file will be dropped as the fd is removed
+                                        // and when rc is 0, the opened file will be dropped
 
         Ok(0)
     }
@@ -160,7 +158,7 @@ impl ISyncSyscallHandler for DupSyscall {
     fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
         let fd = ctx.arg0::<usize>();
 
-        let mut fd_table = ctx.tcb.fd_table.lock();
+        let mut fd_table = ctx.fd_table.lock();
         match fd_table.get(fd) {
             Some(old) => {
                 let builder = FrozenFileDescriptorBuilder::deconstruct(&old);
@@ -190,7 +188,7 @@ impl ISyncSyscallHandler for Dup3Syscall {
             return Ok(newfd as isize);
         }
 
-        let mut fd_table = ctx.tcb.fd_table.lock();
+        let mut fd_table = ctx.fd_table.lock();
         match fd_table.get(oldfd) {
             Some(old) => {
                 let builder = FrozenFileDescriptorBuilder::deconstruct(&old);
@@ -225,7 +223,6 @@ impl ISyncSyscallHandler for MountSyscall {
         let _data = ctx.arg4::<*const u8>();
 
         match ctx
-            .tcb
             .borrow_page_table()
             .guard_cstr(target, 1024)
             .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
@@ -235,7 +232,7 @@ impl ISyncSyscallHandler for MountSyscall {
 
                 let fully_qualified: String;
                 if !path::is_path_fully_qualified(target_path) {
-                    let cwd = unsafe { ctx.tcb.cwd.get().as_ref().unwrap() };
+                    let cwd = unsafe { ctx.cwd.get().as_ref().unwrap() };
                     let full_path = path::get_full_path(target_path, Some(cwd)).ok_or(-1isize)?;
                     fully_qualified = path::remove_relative_segments(&full_path);
                     target_path = &fully_qualified;
@@ -262,7 +259,6 @@ impl ISyncSyscallHandler for UmountSyscall {
         let _flags = ctx.arg1::<usize>();
 
         match ctx
-            .tcb
             .borrow_page_table()
             .guard_cstr(target, 1024)
             .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
@@ -272,7 +268,7 @@ impl ISyncSyscallHandler for UmountSyscall {
 
                 let fully_qualified: String;
                 if !path::is_path_fully_qualified(target_path) {
-                    let cwd = unsafe { ctx.tcb.cwd.get().as_ref().unwrap() };
+                    let cwd = unsafe { ctx.cwd.get().as_ref().unwrap() };
                     let full_path = path::get_full_path(target_path, Some(cwd)).ok_or(-1isize)?;
                     fully_qualified = path::remove_relative_segments(&full_path);
                     target_path = &fully_qualified;
@@ -305,17 +301,16 @@ impl ISyncSyscallHandler for MkdirAtSyscall {
         }
 
         match ctx
-            .tcb
             .borrow_page_table()
             .guard_cstr(p_path, 1024)
             .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
         {
             Some(guard) => {
                 let dir_inode: Arc<dyn IInode> = if dirfd == FileDescriptor::AT_FDCWD {
-                    let cwd = unsafe { ctx.tcb.cwd.get().as_ref().unwrap() };
+                    let cwd = unsafe { ctx.cwd.get().as_ref().unwrap() };
                     filesystem_abstractions::lookup_inode(cwd).ok_or(-1isize)?
                 } else {
-                    let fd_table = ctx.tcb.fd_table.lock();
+                    let fd_table = ctx.fd_table.lock();
                     let fd = fd_table.get(dirfd as usize).ok_or(-1isize)?;
                     fd.access().inode().ok_or(-1isize)?
                 };
@@ -354,7 +349,7 @@ impl ISyncSyscallHandler for NewFstatatSyscall {
             return Err(-1);
         }
 
-        let pt = ctx.tcb.borrow_page_table();
+        let pt = ctx.borrow_page_table();
 
         match (
             pt.guard_cstr(p_path, 1024)
@@ -366,10 +361,10 @@ impl ISyncSyscallHandler for NewFstatatSyscall {
         ) {
             (Some(path_guard), Some(mut buf_guard)) => {
                 let dir_inode: Arc<dyn IInode> = if dirfd == FileDescriptor::AT_FDCWD {
-                    let cwd = unsafe { ctx.tcb.cwd.get().as_ref().unwrap() };
+                    let cwd = unsafe { ctx.cwd.get().as_ref().unwrap() };
                     filesystem_abstractions::lookup_inode(cwd).ok_or(-1isize)?
                 } else {
-                    let fd_table = ctx.tcb.fd_table.lock();
+                    let fd_table = ctx.fd_table.lock();
                     let fd = fd_table.get(dirfd as usize).ok_or(-1isize)?;
                     fd.access().inode().ok_or(-1isize)?
                 };
@@ -402,7 +397,6 @@ impl ISyncSyscallHandler for NewFstatSyscall {
         let p_buf = ctx.arg1::<*mut FileStatistics>();
 
         match ctx
-            .tcb
             .borrow_page_table()
             .guard_ptr(p_buf)
             .mustbe_user()
@@ -410,7 +404,7 @@ impl ISyncSyscallHandler for NewFstatSyscall {
             .with_write()
         {
             Some(mut guard) => {
-                let fd = ctx.tcb.fd_table.lock().get(fd).ok_or(-1isize)?;
+                let fd = ctx.fd_table.lock().get(fd).ok_or(-1isize)?;
                 fd.access()
                     .inode()
                     .ok_or(-1isize)?
@@ -446,7 +440,7 @@ impl ISyncSyscallHandler for GetDents64Syscall {
 
         let buf = unsafe { core::slice::from_raw_parts(p_buf, len) };
 
-        let pt = ctx.tcb.borrow_page_table();
+        let pt = ctx.borrow_page_table();
 
         match pt
             .guard_slice(buf)
@@ -455,7 +449,7 @@ impl ISyncSyscallHandler for GetDents64Syscall {
             .with_write()
         {
             Some(mut guard) => {
-                let fd = ctx.tcb.fd_table.lock().get(fd).ok_or(-1isize)?;
+                let fd = ctx.fd_table.lock().get(fd).ok_or(-1isize)?;
                 let file = fd.access();
                 let file_meta = file.metadata().ok_or(-1isize)?;
 
@@ -532,17 +526,16 @@ impl ISyncSyscallHandler for UnlinkAtSyscall {
         }
 
         match ctx
-            .tcb
             .borrow_page_table()
             .guard_cstr(p_path, 1024)
             .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
         {
             Some(guard) => {
                 let dir_inode: Arc<dyn IInode> = if dirfd == FileDescriptor::AT_FDCWD {
-                    let cwd = unsafe { ctx.tcb.cwd.get().as_ref().unwrap() };
+                    let cwd = unsafe { ctx.cwd.get().as_ref().unwrap() };
                     filesystem_abstractions::lookup_inode(cwd).ok_or(-1isize)?
                 } else {
-                    let fd_table = ctx.tcb.fd_table.lock();
+                    let fd_table = ctx.fd_table.lock();
                     let fd = fd_table.get(dirfd as usize).ok_or(-1isize)?;
                     fd.access().inode().ok_or(-1isize)?
                 };
@@ -582,8 +575,7 @@ impl ISyncSyscallHandler for MmapSyscall {
 
         debug_assert!(addr.is_null());
 
-        ctx.tcb
-            .mmap(fd, flags, prot, offset, length)
+        ctx.mmap(fd, flags, prot, offset, length)
             .ok_or(-1isize)
             .map(|addr| addr.as_usize() as isize)
     }
@@ -600,7 +592,7 @@ impl ISyncSyscallHandler for MunmapSyscall {
         let addr = ctx.arg0::<VirtualAddress>();
         let length = ctx.arg1::<usize>();
 
-        match ctx.tcb.munmap(addr, length) {
+        match ctx.munmap(addr, length) {
             true => Ok(0),
             false => Err(-1),
         }
@@ -608,5 +600,74 @@ impl ISyncSyscallHandler for MunmapSyscall {
 
     fn name(&self) -> &str {
         "sys_munmap"
+    }
+}
+
+pub struct IoControlSyscall;
+
+impl ISyncSyscallHandler for IoControlSyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        let fd = ctx.arg0::<usize>();
+        let _op = ctx.arg1::<usize>();
+        let _argp = ctx.arg2::<*mut u8>();
+
+        ctx.fd_table.lock().get(fd).ok_or(-1).map(|_| 0)
+    }
+
+    fn name(&self) -> &str {
+        "sys_ioctl"
+    }
+}
+
+pub struct FileControlSyscall;
+
+impl ISyncSyscallHandler for FileControlSyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        const F_DUPFD: usize = 0;
+        const F_GETFD: usize = 1;
+        const F_SETFD: usize = 2;
+        const F_GETFL: usize = 3;
+        const F_SETFL: usize = 4;
+        const F_DUPFD_CLOEXEC: usize = 1030;
+
+        let fd_idx = ctx.arg0::<usize>();
+        let mut fd_table = ctx.fd_table.lock();
+
+        let arg = ctx.arg2::<usize>();
+        match ctx.arg1::<usize>() /* arg */ {
+            F_SETFL => match fd_table.get(fd_idx) {
+                Some(fd) => {
+                    let flags = OpenFlags::from_bits_truncate(arg);
+                    match fd.access().set_flags(flags) {
+                        true => Ok(0),
+                        false => Err(-1),
+                    }
+                }
+                None => Err(-1),
+            },
+            F_GETFD | F_GETFL => match fd_table.get(fd_idx) {
+                Some(fd) => Ok(fd.access().flags().bits() as isize),
+                None => Err(-1),
+            },
+            F_DUPFD | F_DUPFD_CLOEXEC => match fd_table.get(fd_idx) {
+                Some(fd) => {
+                    let builder = FrozenFileDescriptorBuilder::deconstruct(&fd);
+                    match fd_table.allocate(builder) {
+                        Some(id) => Ok(id as isize),
+                        None => Err(-1),
+                    }
+                }
+                None => Err(-1),
+            },
+            F_SETFD => Ok(0),
+            op => {
+                log::warn!("fnctl: Unsupported operation: {op}");
+                Err(-1)
+            }
+        }
+    }
+
+    fn name(&self) -> &str {
+        "sys_fnctl"
     }
 }

@@ -1,3 +1,5 @@
+use core::ops::Deref;
+
 use alloc::{format, sync::Arc};
 use file::{
     CloseSyscall, Dup3Syscall, DupSyscall, GetDents64Syscall, MkdirAtSyscall, MmapSyscall,
@@ -177,6 +179,14 @@ impl SyscallContext<'_> {
     #[inline]
     pub fn arg5<T: Sized + Copy>(&self) -> T {
         self.arg_i::<T>(5)
+    }
+}
+
+impl Deref for SyscallContext<'_> {
+    type Target = Arc<TaskControlBlock>;
+
+    fn deref(&self) -> &Self::Target {
+        self.tcb
     }
 }
 
