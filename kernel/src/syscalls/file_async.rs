@@ -141,66 +141,68 @@ async_syscall!(sys_writev_async, ctx, {
 });
 
 async_syscall!(sys_sendfile_async, ctx, {
-    let (out_fd, in_fd) = {
+    // Linux transfers at most 0x7ffff000 bytes
+    // see https://www.man7.org/linux/man-pages/man2/sendfile.2.html
+    const SENDFILE_MAX_BYTES: usize = 0x7ffff000;
+    const BYTES_PER_LOOP: usize = 512;
+
+    let (in_file, out_file) = {
         let fd_table = ctx.fd_table.lock();
-        (
+        let (out_fd, in_fd) = (
             fd_table.get(ctx.arg0::<usize>()).ok_or(-1isize)?, // out_fd
             fd_table.get(ctx.arg1::<usize>()).ok_or(-1isize)?, // in_fd
-        )
+        );
+
+        if !out_fd.can_write() || !in_fd.can_read() {
+            return Err(-1isize);
+        }
+
+        (in_fd.access(), out_fd.access())
     };
 
-    if !out_fd.can_write() || !in_fd.can_read() {
-        return Err(-1isize);
-    }
-
-    let in_file = in_fd.access();
-    let in_meta = in_file.metadata();
-
-    let poffset = ctx.arg2::<*const usize>();
-    let size = ctx.arg3::<usize>();
-
-    fn get_avaliable_size(
+    fn calculate_size(
         file_meta: &Option<Arc<FileMetadata>>,
+        offset: Option<usize>,
         size: usize,
-    ) -> (Option<usize>, bool) {
+    ) -> usize {
         if let Some(file_meta) = file_meta {
-            return match file_meta.inode().metadata() {
-                Ok(inode_meta) => (
-                    Some(usize::min(inode_meta.size - file_meta.offset(), size)),
-                    true,
-                ),
-                Err(_) => (None, true),
+            let offset = offset.unwrap_or_else(|| file_meta.offset());
+            file_meta.set_offset(offset);
+
+            if let Ok(inode_meta) = file_meta.inode().metadata() {
+                return usize::min(inode_meta.size - offset, size);
             };
         }
 
-        (None, false)
+        SENDFILE_MAX_BYTES
     }
 
-    let (mut file_size, seekable) = get_avaliable_size(&in_meta, size);
+    let poffset = ctx.arg2::<*const usize>();
+    let offset = ctx
+        .borrow_page_table()
+        .guard_ptr(poffset)
+        .mustbe_user()
+        .with_read()
+        .map(|p| *p);
 
-    let out_file = out_fd.access();
-
-    if seekable && !poffset.is_null() {
-        let offset: usize = *ctx
-            .borrow_page_table()
-            .guard_ptr(poffset)
-            .mustbe_user()
-            .with_read()
-            .ok_or(-1isize)?;
-
-        in_meta.as_ref().unwrap().set_offset(offset);
-    }
+    let in_meta = in_file.metadata();
+    let size = ctx.arg3::<usize>();
+    let mut remaining_bytes = calculate_size(&in_meta, offset, size);
 
     let mut bytes_written = 0;
-    while file_size.is_none() || file_size != Some(0) {
-        let buf: MaybeUninit<[u8; 512]> = MaybeUninit::uninit();
-        let mut buf: [u8; 512] = unsafe { core::mem::transmute::<_, _>(buf) };
+    while remaining_bytes != 0 {
+        let buf: MaybeUninit<[u8; BYTES_PER_LOOP]> = MaybeUninit::uninit();
+        let mut buf: [u8; BYTES_PER_LOOP] = unsafe { core::mem::transmute::<_, _>(buf) };
 
         while !in_file.read_avaliable() {
             yield_now().await;
         }
 
-        let bytes_read = in_file.read(&mut buf[..usize::min(512, file_size.unwrap_or(512))]);
+        let to_read = usize::min(BYTES_PER_LOOP, remaining_bytes);
+
+        let bytes_read = in_file.read(&mut buf[..to_read]);
+
+        debug_assert!(bytes_read <= to_read); // at least it must be less than SENDBYTES_PER_LOOP
 
         while !out_file.write_avaliable() {
             yield_now().await;
@@ -208,12 +210,9 @@ async_syscall!(sys_sendfile_async, ctx, {
 
         bytes_written += out_file.write(&buf[..bytes_read]);
 
-        if let Some(old_size) = file_size {
-            file_size = Some(old_size - bytes_read);
-        }
+        remaining_bytes -= bytes_read;
 
-        if seekable {
-            let in_meta = in_meta.as_ref().unwrap();
+        if let Some(ref in_meta) = in_meta {
             in_meta.set_offset(in_meta.offset() + bytes_read);
         }
     }
