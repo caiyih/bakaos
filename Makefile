@@ -37,16 +37,21 @@ test-only: build _prepare_sdcard _test_internal
 
 _prepare_sdcard:
 	@echo "Preparing sdcard..."
-	# Only copy sdcard.img if not exists or modified
-	@if [ -f $(SDCARD_IMAGE) ]; then \
-		HASH1=$$($(HASH_TO_USE) $(SDCARD_IMAGE) | cut -d' ' -f1); \
-		HASH2=$$($(HASH_TO_USE) $(PRELIMINARY_SDCARD_IMAGE) | cut -d' ' -f1); \
-		if [ "$$HASH1" != "$$HASH2" ]; then \
-			echo "Hash values are different. Copying from test_preliminary..."; \
+# Only copy sdcard.img if not exists or modified
+	@if command -v $(HASH_TO_USE) &> /dev/null; then \
+		if [ -f $(SDCARD_IMAGE) ]; then \
+			HASH1=$$($(HASH_TO_USE) $(SDCARD_IMAGE) | cut -d' ' -f1); \
+			HASH2=$$($(HASH_TO_USE) $(PRELIMINARY_SDCARD_IMAGE) | cut -d' ' -f1); \
+			if [ "$$HASH1" != "$$HASH2" ]; then \
+				echo "Hash values are different. Copying from test_preliminary..."; \
+				cp $(PRELIMINARY_SDCARD_IMAGE) $(SDCARD_IMAGE); \
+			fi; \
+		else \
+			echo "sdcard.img does not exist. Copying from test_preliminary..."; \
 			cp $(PRELIMINARY_SDCARD_IMAGE) $(SDCARD_IMAGE); \
-		fi; \
+		fi \
 	else \
-		echo "sdcard.img does not exist. Copying from test_preliminary..."; \
+		echo "'$(HASH_TO_USE)' does not exist. Copying sdcard.img..."; \
 		cp $(PRELIMINARY_SDCARD_IMAGE) $(SDCARD_IMAGE); \
 	fi
 
