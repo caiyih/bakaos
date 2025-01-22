@@ -9,6 +9,10 @@ ARCH := riscv64gc-unknown-none-elf
 # And it doesn't like non-ascii characters in the output. so we just completely disable the color output.
 LOG ?= OFF
 
+SDCARD_IMAGE =./sdcard.img
+PRELIMINARY_SDCARD_IMAGE = test_preliminary/sdcard.img
+HASH_TO_USE = xxh128sum
+
 all: _warn build
 
 _warn:
@@ -33,7 +37,18 @@ test-only: build _prepare_sdcard _test_internal
 
 _prepare_sdcard:
 	@echo "Preparing sdcard..."
-	@cp test_preliminary/sdcard.img .
+	# Only copy sdcard.img if not exists or modified
+	@if [ -f $(SDCARD_IMAGE) ]; then \
+		HASH1=$$($(HASH_TO_USE) $(SDCARD_IMAGE) | cut -d' ' -f1); \
+		HASH2=$$($(HASH_TO_USE) $(PRELIMINARY_SDCARD_IMAGE) | cut -d' ' -f1); \
+		if [ "$$HASH1" != "$$HASH2" ]; then \
+			echo "Hash values are different. Copying from test_preliminary..."; \
+			cp $(PRELIMINARY_SDCARD_IMAGE) $(SDCARD_IMAGE); \
+		fi; \
+	else \
+		echo "sdcard.img does not exist. Copying from test_preliminary..."; \
+		cp $(PRELIMINARY_SDCARD_IMAGE) $(SDCARD_IMAGE); \
+	fi
 
 _test_internal:
 	@qemu-system-riscv64 -machine virt \
