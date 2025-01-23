@@ -137,14 +137,6 @@ pub trait IInode: DowncastSync + Send + Sync {
         Err(FileSystemError::Unimplemented)
     }
 
-    fn mount(&self, _path: &str) -> FileSystemResult<()> {
-        Err(FileSystemError::Unimplemented)
-    }
-
-    fn umount(&self) -> FileSystemResult<()> {
-        Err(FileSystemError::Unimplemented)
-    }
-
     fn stat(&self, _stat: &mut FileStatistics) -> FileSystemResult<()> {
         Err(FileSystemError::Unimplemented)
     }
