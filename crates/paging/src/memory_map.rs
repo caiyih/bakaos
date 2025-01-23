@@ -434,10 +434,6 @@ impl IFile for MemoryMappedFile {
         true
     }
 
-    fn delete(&self) -> bool {
-        false
-    }
-
     fn inode(&self) -> Option<Arc<dyn IInode>> {
         // Prevent access to the inode before we completely restore the file
         None
