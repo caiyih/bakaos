@@ -83,10 +83,6 @@ pub trait IFile: DowncastSync + Send + Sync {
         }
     }
 
-    fn delete(&self) -> bool {
-        false
-    }
-
     fn inode(&self) -> Option<Arc<dyn IInode>> {
         self.metadata().map(|metadata| metadata.inode())
     }
