@@ -29,3 +29,7 @@ sdcard.img
 output.log
 results.json
 __pycache__
+
+*.sln
+bin
+obj
