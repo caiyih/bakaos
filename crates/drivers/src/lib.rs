@@ -7,6 +7,8 @@ extern crate alloc;
 
 use alloc::boxed::Box;
 
+pub mod vf2;
+pub use vf2::{VisionFive2Disk, VisionFive2SdMMIO};
 pub mod virt;
 pub use virt::VirtioDiskDriver;
 
