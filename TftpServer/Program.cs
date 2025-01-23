@@ -1,4 +1,8 @@
-﻿#nullable enable
+﻿// Licensed under Microsoft Public License (Ms-PL)
+// Based on Tftp.Net.SimpleServer
+// Copyright © Microsoft 2011
+
+#nullable enable
 #pragma warning disable IDE1006
 
 using System.Diagnostics;
