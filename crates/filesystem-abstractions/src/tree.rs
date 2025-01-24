@@ -215,14 +215,17 @@ impl DirectoryTreeNode {
         self: &Arc<DirectoryTreeNode>,
         name: &str,
     ) -> FileSystemResult<Arc<DirectoryTreeNode>> {
-        let inner = self.inner.lock();
+        // prevent dead lock in lookup method
+        {
+            let inner = self.inner.lock();
 
-        if let Some(opened) = inner.opened.get(name).and_then(|weak| weak.upgrade()) {
-            return Ok(opened);
-        }
+            if let Some(opened) = inner.opened.get(name).and_then(|weak| weak.upgrade()) {
+                return Ok(opened);
+            }
 
-        if let Some(mounted) = inner.mounted.get(name).cloned() {
-            return Ok(mounted);
+            if let Some(mounted) = inner.mounted.get(name).cloned() {
+                return Ok(mounted);
+            }
         }
 
         #[allow(deprecated)]
