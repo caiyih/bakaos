@@ -214,6 +214,7 @@ impl DirectoryTreeNode {
             return Ok(mounted);
         }
 
+        #[allow(deprecated)]
         let inode = self.lookup(name)?;
         let inode_meta = inode.as_ref().metadata()?;
 
@@ -295,6 +296,7 @@ impl IInode for DirectoryTreeNode {
             return Ok(opened);
         }
 
+        #[allow(deprecated)]
         match &inner.meta {
             DirectoryTreeNodeMetadata::Inode { inode } => inode.lookup(name),
             DirectoryTreeNodeMetadata::Empty => Err(FileSystemError::NotFound),
