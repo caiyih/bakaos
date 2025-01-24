@@ -328,7 +328,7 @@ impl IInode for FatDirectoryInode {
                     };
 
                     entries.push(filesystem_abstractions::DirectoryEntry {
-                        filename: filename,
+                        filename,
                         entry_type,
                         size: size as usize,
                     });
