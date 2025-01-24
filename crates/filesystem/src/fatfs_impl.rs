@@ -1,3 +1,5 @@
+#![allow(clippy::arc_with_non_send_sync)]
+
 use alloc::{
     string::{String, ToString},
     sync::Arc,
@@ -15,7 +17,7 @@ use hermit_sync::SpinMutex;
 use log::warn;
 
 pub struct Fat32FileSystem {
-    inner: fatfs::FileSystem<Fat32Disk, NullTimeProvider, LossyOemCpConverter>,
+    inner: Arc<fatfs::FileSystem<Fat32Disk, NullTimeProvider, LossyOemCpConverter>>,
 }
 
 unsafe impl Send for Fat32FileSystem {}
@@ -27,13 +29,21 @@ pub struct Fat32Disk {
 }
 
 impl IFileSystem for Fat32FileSystem {
-    fn root_dir(&'static self) -> alloc::sync::Arc<dyn filesystem_abstractions::IInode> {
-        Arc::new(FatDirectoryInode {
+    fn root_dir(&self) -> alloc::sync::Arc<dyn filesystem_abstractions::IInode> {
+        let _holding = self.inner.clone();
+        let pinned = _holding.as_ref()
+            as *const fatfs::FileSystem<Fat32Disk, NullTimeProvider, LossyOemCpConverter>;
+        let inner = unsafe { pinned.as_ref().unwrap().root_dir() };
+
+        let inode = FatDirectoryInode {
             // Since the "/" is used as separator in the path module and is ignored by the iterator
             // We use "" as the filename for the root directory
             filename: String::from(""),
-            inner: self.inner.root_dir(),
-        })
+            inner,
+            _holding,
+        };
+
+        Arc::new(inode)
     }
 
     fn name(&self) -> &str {
@@ -48,7 +58,9 @@ impl Fat32FileSystem {
         };
 
         let fs = fatfs::FileSystem::new(disk, fatfs::FsOptions::new())?;
-        Ok(Fat32FileSystem { inner: fs })
+        Ok(Fat32FileSystem {
+            inner: Arc::new(fs),
+        })
     }
 }
 
@@ -219,6 +231,7 @@ impl IInode for FatFileInode {
 pub struct FatDirectoryInode {
     filename: String,
     inner: Dir<'static, Fat32Disk, NullTimeProvider, LossyOemCpConverter>,
+    _holding: Arc<fatfs::FileSystem<Fat32Disk, NullTimeProvider, LossyOemCpConverter>>,
 }
 
 unsafe impl Sync for FatDirectoryInode {}
@@ -244,6 +257,7 @@ impl IInode for FatDirectoryInode {
         Ok(Arc::new(FatDirectoryInode {
             filename: name.to_string(),
             inner: dir,
+            _holding: self._holding.clone(),
         }))
     }
 
@@ -252,6 +266,7 @@ impl IInode for FatDirectoryInode {
             return Ok(Arc::new(FatDirectoryInode {
                 filename: self.filename.clone(),
                 inner: self.inner.clone(),
+                _holding: self._holding.clone(),
             }));
         }
 
@@ -268,6 +283,7 @@ impl IInode for FatDirectoryInode {
                         return Ok(Arc::new(FatDirectoryInode {
                             filename,
                             inner: dir,
+                            _holding: self._holding.clone(),
                         }));
                     } else if entry.is_file() {
                         let file = entry.to_file();

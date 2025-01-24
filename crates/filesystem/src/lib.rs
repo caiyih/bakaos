@@ -13,12 +13,12 @@ use alloc::sync::Arc;
 
 pub use ext4_impl::Ext4FileSystem;
 pub use fatfs_impl::Fat32FileSystem;
-use filesystem_abstractions::{mount_at, IFileSystem, IInode};
+use filesystem_abstractions::{global_mount, IFileSystem, IInode};
 // pub use lwext4rs_impl::Lwext4FileSystem;
 
-pub fn setup_root_filesystem(fs: impl IFileSystem + 'static) {
-    let root: Arc<dyn IFileSystem> = Arc::new(fs);
-    mount_at(root, "/");
+pub fn setup_root_filesystem(fs: impl IFileSystem) {
+    let root_inode = fs.root_dir();
+    global_mount(&root_inode, "/", None).expect("Failed to mount root filesystem");
 }
 
 pub struct DummyInode;
@@ -34,7 +34,7 @@ impl Default for DummyFileSystem {
 }
 
 impl IFileSystem for DummyFileSystem {
-    fn root_dir(&'static self) -> Arc<dyn IInode> {
+    fn root_dir(&self) -> Arc<dyn IInode> {
         Arc::new(DummyInode)
     }
 

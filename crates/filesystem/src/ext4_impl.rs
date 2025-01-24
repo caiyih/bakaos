@@ -73,7 +73,7 @@ impl Ext4FileSystem {
 }
 
 impl IFileSystem for Ext4FileSystem {
-    fn root_dir(&'static self) -> Arc<dyn filesystem_abstractions::IInode> {
+    fn root_dir(&self) -> Arc<dyn filesystem_abstractions::IInode> {
         self.root_dir.clone()
     }
 

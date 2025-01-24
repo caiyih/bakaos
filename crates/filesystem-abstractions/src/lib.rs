@@ -45,17 +45,10 @@ pub enum FileSystemError {
 pub type FileSystemResult<T> = Result<T, FileSystemError>;
 
 pub trait IFileSystem: Send + Sync {
-    fn root_dir(&'static self) -> Arc<dyn IInode>;
+    fn root_dir(&self) -> Arc<dyn IInode>;
     fn name(&self) -> &str;
     fn flush(&self) -> FileSystemResult<()> {
         Err(FileSystemError::Unimplemented)
-    }
-}
-
-impl dyn IFileSystem {
-    pub fn lookup_inode(&'static self, path: &str) -> FileSystemResult<Arc<dyn IInode>> {
-        let path = path.trim_start_matches(path::SEPARATOR);
-        self.root_dir().lookup_recursive(path)
     }
 }
 
