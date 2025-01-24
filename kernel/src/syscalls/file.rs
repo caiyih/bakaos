@@ -5,7 +5,7 @@ use constants::{ErrNo, SyscallError};
 use filesystem::DummyFileSystem;
 use filesystem_abstractions::{
     DirectoryEntryType, FileDescriptor, FileDescriptorBuilder, FileMode, FileStatistics,
-    FrozenFileDescriptorBuilder, ICacheableFile, IInode, OpenFlags, PipeBuilder,
+    FrozenFileDescriptorBuilder, ICacheableFile, IFileSystem, IInode, OpenFlags, PipeBuilder,
 };
 use paging::{
     page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, MemoryMapFlags,
@@ -82,8 +82,8 @@ impl ISyncSyscallHandler for OpenAtSyscall {
             Some(guard) => {
                 let dir_inode: Arc<dyn IInode> = if dirfd == FileDescriptor::AT_FDCWD {
                     let cwd = unsafe { ctx.cwd.get().as_ref().unwrap() };
-                    filesystem_abstractions::lookup_inode(cwd)
-                        .ok_or(ErrNo::NoSuchFileOrDirectory)?
+                    filesystem_abstractions::global_open(cwd, None)
+                        .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
                 } else {
                     let fd_table = ctx.fd_table.lock();
                     let fd = fd_table
@@ -97,8 +97,8 @@ impl ISyncSyscallHandler for OpenAtSyscall {
                 let filename = path::get_filename(&path);
 
                 let inode: Arc<dyn IInode> = if path::is_path_fully_qualified(&path) {
-                    filesystem_abstractions::lookup_inode(&path)
-                        .ok_or(ErrNo::NoSuchFileOrDirectory)?
+                    filesystem_abstractions::global_open(&path, None)
+                        .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
                 } else {
                     let parent_inode_path =
                         path::get_directory_name(&path).ok_or(ErrNo::InvalidArgument)?;
@@ -246,9 +246,11 @@ impl ISyncSyscallHandler for MountSyscall {
                     target_path = &fully_qualified;
                 }
 
-                filesystem_abstractions::mount_at(Arc::new(DummyFileSystem), target_path);
+                let fs: Arc<dyn IFileSystem> = Arc::new(DummyFileSystem);
 
-                Ok(0)
+                filesystem_abstractions::global_mount(&fs.root_dir(), target_path, None)
+                    .map(|_| 0isize)
+                    .map_err(|e| e.to_syscall_error().unwrap_err())
             }
             None => SyscallError::BadAddress,
         }
@@ -284,9 +286,9 @@ impl ISyncSyscallHandler for UmountSyscall {
                     target_path = &fully_qualified;
                 }
 
-                match filesystem_abstractions::umount_at(target_path) {
-                    true => Ok(0),
-                    false => SyscallError::NoSuchDevice,
+                match filesystem_abstractions::global_umount(target_path, None) {
+                    Ok(_) => Ok(0),
+                    Err(e) => e.to_syscall_error(),
                 }
             }
             None => SyscallError::BadAddress,
@@ -318,8 +320,8 @@ impl ISyncSyscallHandler for MkdirAtSyscall {
             Some(guard) => {
                 let dir_inode: Arc<dyn IInode> = if dirfd == FileDescriptor::AT_FDCWD {
                     let cwd = unsafe { ctx.cwd.get().as_ref().unwrap() };
-                    filesystem_abstractions::lookup_inode(cwd)
-                        .ok_or(ErrNo::NoSuchFileOrDirectory)?
+                    filesystem_abstractions::global_open(cwd, None)
+                        .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
                 } else {
                     let fd_table = ctx.fd_table.lock();
                     let fd = fd_table
@@ -378,8 +380,8 @@ impl ISyncSyscallHandler for NewFstatatSyscall {
             (Some(path_guard), Some(mut buf_guard)) => {
                 let dir_inode: Arc<dyn IInode> = if dirfd == FileDescriptor::AT_FDCWD {
                     let cwd = unsafe { ctx.cwd.get().as_ref().unwrap() };
-                    filesystem_abstractions::lookup_inode(cwd)
-                        .ok_or(ErrNo::NoSuchFileOrDirectory)?
+                    filesystem_abstractions::global_open(cwd, None)
+                        .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
                 } else {
                     let fd_table = ctx.fd_table.lock();
                     let fd = fd_table
@@ -392,8 +394,8 @@ impl ISyncSyscallHandler for NewFstatatSyscall {
                 let path = path::remove_relative_segments(path);
 
                 let inode: Arc<dyn IInode> = if path::is_path_fully_qualified(&path) {
-                    filesystem_abstractions::lookup_inode(&path)
-                        .ok_or(ErrNo::NoSuchFileOrDirectory)?
+                    filesystem_abstractions::global_open(&path, None)
+                        .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
                 } else {
                     dir_inode
                         .lookup_recursive(&path)
@@ -566,8 +568,8 @@ impl ISyncSyscallHandler for UnlinkAtSyscall {
             Some(guard) => {
                 let dir_inode: Arc<dyn IInode> = if dirfd == FileDescriptor::AT_FDCWD {
                     let cwd = unsafe { ctx.cwd.get().as_ref().unwrap() };
-                    filesystem_abstractions::lookup_inode(cwd)
-                        .ok_or(ErrNo::NoSuchFileOrDirectory)?
+                    filesystem_abstractions::global_open(cwd, None)
+                        .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
                 } else {
                     let fd_table = ctx.fd_table.lock();
                     let fd = fd_table

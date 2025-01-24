@@ -4,7 +4,7 @@ use abstractions::operations::IUsizeAlias;
 use address::{IPageNum, IToPageNum, VirtualAddress};
 use alloc::vec::Vec;
 use constants::{ErrNo, SyscallError};
-use filesystem_abstractions::DirectoryEntryType;
+use filesystem_abstractions::{DirectoryEntryType, IInode};
 use log::debug;
 use paging::{
     page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, PageTable,
@@ -366,8 +366,8 @@ impl ISyncSyscallHandler for ExecveSyscall {
                             envp
                         );
 
-                        let file = filesystem_abstractions::lookup_inode(&fullpath)
-                            .ok_or(ErrNo::NoSuchFileOrDirectory)?;
+                        let file = filesystem_abstractions::global_open(&fullpath, None)
+                            .map_err(|_| ErrNo::NoSuchFileOrDirectory)?;
 
                         let bytes = file.readall().map_err(|_| ErrNo::OperationNotPermitted)?;
 
@@ -412,8 +412,8 @@ impl ISyncSyscallHandler for ChdirSyscall {
                 match path::get_full_path(path, Some(unsafe { ctx.cwd.get().as_ref().unwrap() })) {
                     Some(fullpath) => {
                         let processed_path = path::remove_relative_segments(&fullpath);
-                        let inode = filesystem_abstractions::lookup_inode(&processed_path)
-                            .ok_or(ErrNo::NoSuchFileOrDirectory)?;
+                        let inode = filesystem_abstractions::global_open(&processed_path, None)
+                            .map_err(|_| ErrNo::NoSuchFileOrDirectory)?;
 
                         let inode_metadata = inode.metadata().map_err(|_| ErrNo::NotADirectory)?;
 

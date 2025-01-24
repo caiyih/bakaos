@@ -26,6 +26,7 @@ mod timing;
 mod trap;
 
 use core::{arch::asm, sync::atomic::AtomicBool};
+use filesystem_abstractions::IInode;
 use firmwares::console::IConsole;
 use paging::PageTable;
 use sbi_spec::base::impl_id;
@@ -133,7 +134,7 @@ fn run_final_tests() {
 
     filesystem::setup_root_filesystem(kernel::get().machine().create_ext4_filesystem_at_bus(0));
 
-    let busybox = filesystem_abstractions::lookup_inode("/busybox").unwrap();
+    let busybox = filesystem_abstractions::global_open("/busybox", None).unwrap();
     let busybox = busybox.readall().unwrap();
 
     let mut memspace = MemorySpaceBuilder::from_elf(&busybox).unwrap();
@@ -156,7 +157,7 @@ fn run_preliminary_tests() {
         use tasks::TaskControlBlock;
 
         let mut memspace = {
-            let elf = filesystem_abstractions::lookup_inode(path)
+            let elf = filesystem_abstractions::global_open(path, None)
                 .expect("Failed to open path")
                 .readall()
                 .expect("Failed to read file");
