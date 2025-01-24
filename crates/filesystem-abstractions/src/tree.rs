@@ -13,6 +13,7 @@ use crate::{
     InodeMetadata,
 };
 
+#[derive(Debug, Clone, Copy)]
 pub enum MountError {
     InvalidInput,
     NotADirectory,
