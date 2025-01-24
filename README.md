@@ -158,15 +158,35 @@ You can run `cargo test --all` in the folder to test all crates.
 
 ## License
 
-This project(including kernel and crates) is licensed under the MIT license. See [LICENSE](LICENSE) for more details.
+This project (including the kernel and crates) is licensed under the MIT License. See [LICENSE](LICENSE) for more details.
 
-Some code are derived from other projects, and they are licensed under their own licenses. The `lib.rs` file of those crates should contain the license information.
+Some code within this project is derived from other projects and is subject to their respective licenses. The `lib.rs` file of each relevant crate includes the corresponding license information.
 
-For now, the following crates are derived from other projects:
+Currently, the following crates include code derived from other projects:
 
-- `path`: derived from [.NET standard library](https://github.com/dotnet/runtime) and licensed to .NET Foundation under MIT license.
+- **`path`**: Derived from the [.NET Standard Library](https://github.com/dotnet/runtime), licensed under the MIT License by the .NET Foundation.
 
-- `TimeSpan` struct from `time`: Partially derived from [.NET standard library](https://github.com/dotnet/runtime) and licensed to .NET Foundation under MIT license.
+- **`TimeSpan` struct in `time`**: Partially derived from the [.NET Standard Library](https://github.com/dotnet/runtime), licensed under the MIT License by the .NET Foundation.
+
+### Important Statement
+
+This project/repository (including any derivative projects or repositories, or any part thereof) **cannot** be used in the [`全国大学生计算机系统能力大赛`](https://os.educg.net) or similar contests without prior written authorization from all contributors. Authorization from specific contributors is not required if their code is not used or referenced.
+
+This restriction applies to all commits in this repository, including those made prior to the inclusion of this statement. For all other use cases, the terms of the MIT License apply as outlined above.
+
+This statement always applies to the most recent version of this project. See `README.md` in [`caiyi/bakaos`](https://github.com/caiyih/bakaos).
+
+#### Additional
+
+For any content explicitly covered by special statements or restrictions in this repository, users are still allowed to use, modify, or redistribute the code **as long as they comply with the terms of the open-source license under which it is provided**. These special statements only restrict specific use cases, such as participation in certain contests, but do not limit other lawful uses permitted by the original license.
+
+##### Unrestricted Components
+
+The following parts of this repository are not restricted and can be freely used under the terms of their respective licenses:
+
+- **TftpServer**: Not restricted. Refer to the header of the code for more details. The Microsoft Public License is applied.
+- **Preliminary test visualizer script (`test_preliminary/visualize_result.py`)**: Not restricted. The MIT License is applied.
+- **Kernel unwinder script (`kernel/unwinder.py`)**: Not restricted. The MIT License is applied.
 
 ## Funky!
 
