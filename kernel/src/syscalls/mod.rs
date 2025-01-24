@@ -42,6 +42,7 @@ const SYSCALL_ID_SENDFILE: usize = 71;
 const SYSCALL_ID_NEWFSTATAT: usize = 79;
 const SYSCALL_ID_NEWFSTAT: usize = 80;
 const SYSCALL_ID_EXIT: usize = 93;
+const SYSCALL_ID_EXIT_GROUP: usize = 94;
 const SYSCALL_ID_NANOSLEEP: usize = 101;
 const SYSCALL_ID_SCHED_YIELD: usize = 124;
 const SYSCALL_ID_TIMES: usize = 153;
@@ -88,6 +89,7 @@ impl SyscallDispatcher {
         match id {
             SYSCALL_ID_GETCWD => Some(&GetCwdSyscall),
             SYSCALL_ID_EXIT => Some(&ExitSyscall),
+            SYSCALL_ID_EXIT_GROUP => Some(&ExitSyscall),
             SYSCALL_ID_TIMES => Some(&TimesSyscall),
             SYSCALL_ID_UNAME => Some(&UnameSyscall),
             SYSCALL_ID_GETTIMEOFDAY => Some(&GetTimeOfDaySyscall),
