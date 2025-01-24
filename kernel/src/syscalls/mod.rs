@@ -53,7 +53,7 @@ const SYSCALL_ID_CLONE: usize = 220;
 const SYSCALL_ID_EXECVE: usize = 221;
 const SYSCALL_ID_MMAP: usize = 222;
 const STSCALL_ID_WAIT4: usize = 260;
-const SYSCALL_ID_CLOCK_GETTIME: usize = 403;
+const SYSCALL_ID_CLOCK_GETTIME: usize = 113;
 
 pub trait ISyscallResult {
     fn to_ret(self) -> isize;
