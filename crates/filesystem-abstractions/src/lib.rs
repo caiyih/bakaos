@@ -14,12 +14,14 @@ mod file;
 mod inode;
 mod pipe;
 mod stdio;
+mod tree;
 
 pub use caching::*;
 pub use file::*;
 pub use inode::*;
 pub use pipe::*;
 pub use stdio::*;
+pub use tree::{global_mount, global_open, global_umount, DirectoryTreeNode, MountError};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FileSystemError {
