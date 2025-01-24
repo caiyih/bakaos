@@ -160,4 +160,3 @@ impl FileCacheAccessor {
         MutexGuard::map(caches, |caches| caches[self.file_id].as_mut().unwrap())
     }
 }
-
