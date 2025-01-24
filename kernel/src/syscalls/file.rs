@@ -80,7 +80,7 @@ impl ISyncSyscallHandler for OpenAtSyscall {
             .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
         {
             Some(guard) => {
-                let dir_inode: Arc<dyn IInode> = if dirfd == FileDescriptor::AT_FDCWD {
+                let dir_inode = if dirfd == FileDescriptor::AT_FDCWD {
                     let cwd = unsafe { ctx.cwd.get().as_ref().unwrap() };
                     filesystem_abstractions::global_open(cwd, None)
                         .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
@@ -96,7 +96,7 @@ impl ISyncSyscallHandler for OpenAtSyscall {
                 let path = path::remove_relative_segments(path);
                 let filename = path::get_filename(&path);
 
-                let inode: Arc<dyn IInode> = if path::is_path_fully_qualified(&path) {
+                let inode = if path::is_path_fully_qualified(&path) {
                     filesystem_abstractions::global_open(&path, None)
                         .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
                 } else {
@@ -104,20 +104,29 @@ impl ISyncSyscallHandler for OpenAtSyscall {
                         path::get_directory_name(&path).ok_or(ErrNo::InvalidArgument)?;
 
                     match (
-                        dir_inode.lookup_recursive(&path),
+                        filesystem_abstractions::global_open(&path, Some(&dir_inode)),
                         flags.contains(OpenFlags::O_CREAT),
                     ) {
                         (Ok(i), _) => i,
-                        (Err(_), true) => dir_inode
-                            .lookup_recursive(parent_inode_path)
-                            .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
-                            .touch(filename)
-                            .map_err(|_| ErrNo::OperationNotPermitted)?,
+                        (Err(_), true) => {
+                            let parent_inode = filesystem_abstractions::global_open(
+                                parent_inode_path,
+                                Some(&dir_inode),
+                            )
+                            .map_err(|_| ErrNo::NoSuchFileOrDirectory)?;
+
+                            parent_inode
+                                .touch(filename)
+                                .map_err(|_| ErrNo::OperationNotPermitted)?;
+
+                            filesystem_abstractions::global_open(filename, Some(&parent_inode))
+                                .map_err(|_| ErrNo::OperationCanceled)?
+                        }
                         _ => return SyscallError::NoSuchFileOrDirectory,
                     }
                 };
 
-                let opened_file = filesystem_abstractions::open_file(inode, flags, 0).clear_type();
+                let opened_file = inode.open_as_file(flags, 0).clear_type();
 
                 let accessor = opened_file.cache_as_arc_accessor();
 
@@ -318,7 +327,7 @@ impl ISyncSyscallHandler for MkdirAtSyscall {
             .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
         {
             Some(guard) => {
-                let dir_inode: Arc<dyn IInode> = if dirfd == FileDescriptor::AT_FDCWD {
+                let dir_inode = if dirfd == FileDescriptor::AT_FDCWD {
                     let cwd = unsafe { ctx.cwd.get().as_ref().unwrap() };
                     filesystem_abstractions::global_open(cwd, None)
                         .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
@@ -336,9 +345,9 @@ impl ISyncSyscallHandler for MkdirAtSyscall {
                 let parent_inode_path =
                     path::get_directory_name(&path).ok_or(ErrNo::InvalidArgument)?;
 
-                let parent_inode = dir_inode
-                    .lookup_recursive(parent_inode_path)
-                    .map_err(|_| ErrNo::NoSuchFileOrDirectory)?;
+                let parent_inode =
+                    filesystem_abstractions::global_open(parent_inode_path, Some(&dir_inode))
+                        .map_err(|_| ErrNo::NoSuchFileOrDirectory)?;
 
                 parent_inode
                     .mkdir(filename)
@@ -378,7 +387,7 @@ impl ISyncSyscallHandler for NewFstatatSyscall {
                 .with_write(),
         ) {
             (Some(path_guard), Some(mut buf_guard)) => {
-                let dir_inode: Arc<dyn IInode> = if dirfd == FileDescriptor::AT_FDCWD {
+                let dir_inode = if dirfd == FileDescriptor::AT_FDCWD {
                     let cwd = unsafe { ctx.cwd.get().as_ref().unwrap() };
                     filesystem_abstractions::global_open(cwd, None)
                         .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
@@ -393,12 +402,11 @@ impl ISyncSyscallHandler for NewFstatatSyscall {
                 let path = core::str::from_utf8(&path_guard).map_err(|_| ErrNo::InvalidArgument)?;
                 let path = path::remove_relative_segments(path);
 
-                let inode: Arc<dyn IInode> = if path::is_path_fully_qualified(&path) {
+                let inode = if path::is_path_fully_qualified(&path) {
                     filesystem_abstractions::global_open(&path, None)
                         .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
                 } else {
-                    dir_inode
-                        .lookup_recursive(&path)
+                    filesystem_abstractions::global_open(&path, Some(&dir_inode))
                         .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
                 };
 
@@ -566,7 +574,7 @@ impl ISyncSyscallHandler for UnlinkAtSyscall {
             .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
         {
             Some(guard) => {
-                let dir_inode: Arc<dyn IInode> = if dirfd == FileDescriptor::AT_FDCWD {
+                let dir_inode = if dirfd == FileDescriptor::AT_FDCWD {
                     let cwd = unsafe { ctx.cwd.get().as_ref().unwrap() };
                     filesystem_abstractions::global_open(cwd, None)
                         .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
@@ -582,9 +590,9 @@ impl ISyncSyscallHandler for UnlinkAtSyscall {
                 let parent_path = path::get_directory_name(path).ok_or(ErrNo::InvalidArgument)?;
                 let filename = path::get_filename(path);
 
-                let parent_inode = dir_inode
-                    .lookup_recursive(parent_path)
-                    .map_err(|_| ErrNo::NoSuchFileOrDirectory)?;
+                let parent_inode =
+                    filesystem_abstractions::global_open(parent_path, Some(&dir_inode))
+                        .map_err(|_| ErrNo::NoSuchFileOrDirectory)?;
 
                 parent_inode
                     .remove(filename)
