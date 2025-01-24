@@ -105,10 +105,12 @@ pub trait IInode: DowncastSync + Send + Sync {
         Err(FileSystemError::NotADirectory)
     }
 
+    #[deprecated = "This is an internal method, use global_open or DirectoryTreeNode::open"]
     fn lookup(&self, _name: &str) -> FileSystemResult<Arc<dyn IInode>> {
         Err(FileSystemError::NotADirectory)
     }
 
+    #[deprecated = "This is an internal method, use global_open or DirectoryTreeNode::open"]
     fn lookup_recursive(&self, path: &str) -> FileSystemResult<Arc<dyn IInode>> {
         let mut subs = path
             .trim_end_matches(path::SEPARATOR) // Remove trailing separator, if any
@@ -116,6 +118,7 @@ pub trait IInode: DowncastSync + Send + Sync {
 
         match subs.next() {
             Some(curr) => {
+                #[allow(deprecated)]
                 let inode = self.lookup(curr)?;
                 match subs.clone().next() {
                     Some(next) => {
