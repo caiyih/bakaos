@@ -132,7 +132,7 @@ fn run_final_tests() {
     use scheduling::spawn_task;
     use tasks::TaskControlBlock;
 
-    filesystem::setup_root_filesystem(kernel::get().machine().create_ext4_filesystem_at_bus(0));
+    filesystem::setup_root_filesystem(&kernel::get().machine().create_ext4_filesystem_at_bus(0));
 
     let busybox = filesystem_abstractions::global_open("/busybox", None).unwrap();
     let busybox = busybox.readall().unwrap();
@@ -175,7 +175,7 @@ fn run_preliminary_tests() {
         threading::run_tasks();
     }
 
-    filesystem::setup_root_filesystem(kernel::get().machine().create_fat32_filesystem_at_bus(0));
+    filesystem::setup_root_filesystem(&kernel::get().machine().create_fat32_filesystem_at_bus(0));
 
     preliminary_test("/uname", None, None);
     preliminary_test("/write", None, None);

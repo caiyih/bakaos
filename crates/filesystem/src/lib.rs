@@ -16,7 +16,8 @@ pub use fatfs_impl::Fat32FileSystem;
 use filesystem_abstractions::{global_mount, IFileSystem, IInode};
 // pub use lwext4rs_impl::Lwext4FileSystem;
 
-pub fn setup_root_filesystem(fs: impl IFileSystem) {
+pub fn setup_root_filesystem(fs: &impl IFileSystem) {
+    log::debug!("Mounting {} at /", fs.name());
     let root_inode = fs.root_dir();
     global_mount(&root_inode, "/", None).expect("Failed to mount root filesystem");
 }
