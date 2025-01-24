@@ -23,7 +23,7 @@ pub enum MountError {
 }
 
 impl MountError {
-    fn to_filesystem_error(&self) -> FileSystemError {
+    fn to_filesystem_error(self) -> FileSystemError {
         match self {
             MountError::InvalidInput => FileSystemError::InvalidInput,
             MountError::NotADirectory => FileSystemError::NotADirectory,
