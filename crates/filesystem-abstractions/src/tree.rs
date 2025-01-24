@@ -226,6 +226,13 @@ impl DirectoryTreeNode {
 
     pub fn open(
         self: &Arc<DirectoryTreeNode>,
+        path: &str,
+    ) -> FileSystemResult<Arc<DirectoryTreeNode>> {
+        global_open(path, Some(self))
+    }
+
+    pub fn open_child(
+        self: &Arc<DirectoryTreeNode>,
         name: &str,
     ) -> FileSystemResult<Arc<DirectoryTreeNode>> {
         // prevent dead lock in lookup method
@@ -461,7 +468,7 @@ pub fn global_open(
 
     let mut current = root;
     for part in parts {
-        current = current.open(part)?;
+        current = current.open_child(part)?;
     }
 
     Ok(current)
