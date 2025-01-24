@@ -147,8 +147,6 @@ impl DirectoryTreeNode {
         inode: &Arc<dyn IInode>,
         name: Option<&str>,
     ) -> Result<Arc<dyn IInode>, MountError> {
-        let mut inner = self.inner.lock();
-
         let name = match name {
             Some(n) => n,
             None => {
@@ -158,7 +156,7 @@ impl DirectoryTreeNode {
             }
         };
 
-        if inner.is_mounted(name) {
+        if self.inner.lock().is_mounted(name) {
             return Err(MountError::FileExists);
         }
 
@@ -190,7 +188,8 @@ impl DirectoryTreeNode {
         let inode = Self::from_inode(Some(self.clone()), inode, inode.metadata().as_ref().ok());
 
         let inode_ref = &inode;
-        inner
+        self.inner
+            .lock()
             .mounted
             .insert(name.to_string(), inode.clone())
             .map_or_else(
@@ -403,9 +402,12 @@ impl IInode for DirectoryTreeNode {
 
     fn read_dir(&self) -> FileSystemResult<Vec<DirectoryEntry>> {
         let inner = self.inner.lock();
+
+        // If the directory itself was mounted as its child, we have to be care of potential deadlock,
+        // so we copy a list of the list.
+        let mounted = inner.mounted.clone();
         let mounted_entries =
-            inner
-                .mounted
+            mounted
                 .iter()
                 .map(|(name, mounted)| match &mounted.inner.lock().meta {
                     DirectoryTreeNodeMetadata::Inode { inode } => {
@@ -426,6 +428,9 @@ impl IInode for DirectoryTreeNode {
 
         match &inner.meta {
             DirectoryTreeNodeMetadata::Inode { inode } => {
+                let inode = inode.clone();
+                drop(inner); // release lock, in case the node it self is mounted as its children
+
                 let mut entries = inode.read_dir()?;
 
                 for entry in mounted_entries {
