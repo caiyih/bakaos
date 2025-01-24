@@ -8,7 +8,8 @@ use drivers::DiskDriver;
 
 use fatfs::{Dir, Error, File, LossyOemCpConverter, NullTimeProvider, Read, Seek, SeekFrom, Write};
 use filesystem_abstractions::{
-    FileStatistics, FileStatisticsMode, FileSystemError, FileSystemResult, IFileSystem, IInode,
+    DirectoryEntryType, FileStatistics, FileStatisticsMode, FileSystemError, FileSystemResult,
+    IFileSystem, IInode,
 };
 use hermit_sync::SpinMutex;
 use log::warn;
@@ -320,33 +321,17 @@ impl IInode for FatDirectoryInode {
                     let filename = entry.file_name();
                     let size = entry.len();
 
-                    if entry.is_dir() {
-                        entries.push(filesystem_abstractions::DirectoryEntry {
-                            // Copy the filename so that the filename below can reuse the local variable above
-                            filename: String::from(&filename),
-                            entry_type: filesystem_abstractions::DirectoryEntryType::Directory,
-                            size: size as usize,
-                            inode: Some(Arc::new(FatDirectoryInode {
-                                filename,
-                                inner: entry.to_dir(),
-                            })),
-                        });
-                    } else if entry.is_file() {
-                        entries.push(filesystem_abstractions::DirectoryEntry {
-                            filename: String::from(&filename),
-                            size: size as usize,
-                            entry_type: filesystem_abstractions::DirectoryEntryType::File,
-                            inode: Some(Arc::new(FatFileInode {
-                                filename,
-                                inner: SpinMutex::new(FatFileInodeInner {
-                                    inner: entry.to_file(),
-                                    size: size as usize,
-                                }),
-                            })),
-                        });
+                    let entry_type = if entry.is_dir() {
+                        DirectoryEntryType::Directory
                     } else {
-                        warn!("Unknown entry type: {} at: {}", filename, self.filename);
-                    }
+                        DirectoryEntryType::File
+                    };
+
+                    entries.push(filesystem_abstractions::DirectoryEntry {
+                        filename: filename,
+                        entry_type,
+                        size: size as usize,
+                    });
                 }
                 Err(err) => {
                     warn!("Error while iterating over directory: {:?}", err);

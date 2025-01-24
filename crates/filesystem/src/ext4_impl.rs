@@ -214,7 +214,6 @@ impl IInode for Ext4Inode {
             result.push(filesystem_abstractions::DirectoryEntry {
                 filename: entry.get_name(),
                 size: inode_ref.inode.size() as usize,
-                inode: None, // TODO: Implement this
                 entry_type: inode_ref.inode.file_type().to_entry_type(),
             });
         }
