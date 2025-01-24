@@ -24,6 +24,8 @@ mod task_async;
 const SYSCALL_ID_GETCWD: usize = 17;
 const SYSCALL_ID_DUP: usize = 23;
 const SYSCALL_ID_DUP3: usize = 24;
+const SYSCALL_ID_FCNTL64: usize = 25;
+const SYSCALL_ID_IOCTL: usize = 29;
 const SYSCALL_ID_MKDIRAT: usize = 34;
 const SYSCALL_ID_UNLINKAT: usize = 35;
 const SYSCALL_ID_UMOUNT: usize = 39;
@@ -110,6 +112,8 @@ impl SyscallDispatcher {
             SYSCALL_ID_MMAP => Some(&MmapSyscall),
             SYSCALL_ID_MUNMAP => Some(&MunmapSyscall),
             SYSCALL_ID_CLOCK_GETTIME => Some(&ClockGetTimeSyscall),
+            SYSCALL_ID_FCNTL64 => Some(&file::FileControlSyscall),
+            SYSCALL_ID_IOCTL => Some(&file::IoControlSyscall),
             _ => None,
         }
     }
