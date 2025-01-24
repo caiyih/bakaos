@@ -179,11 +179,14 @@ impl DirectoryTreeNode {
         // as the 'mount' operation always gives a new name to it, which is the key of the mount list
         let inode = Self::from_inode(Some(self.clone()), inode, inode.metadata().as_ref().ok());
 
+        let inode_ref = &inode;
         inner
             .mounted
-            .insert(name.to_string(), inode)
-            .map(|n| n as Arc<dyn IInode>)
-            .ok_or(MountError::FileExists)
+            .insert(name.to_string(), inode.clone())
+            .map_or_else(
+                || Ok(inode_ref.clone() as Arc<dyn IInode>),
+                |_| Err(MountError::FileExists),
+            )
     }
 
     pub fn umount_at(&self, name: &str) -> Result<Arc<DirectoryTreeNode>, MountError> {
