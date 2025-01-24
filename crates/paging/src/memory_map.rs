@@ -9,8 +9,8 @@ use address::{
 use allocation::TrackedFrame;
 use bitflags::bitflags;
 use filesystem_abstractions::{
-    DirectoryEntryType, FileCacheAccessor, FileDescriptor, FileMetadata, ICacheableFile, IFile,
-    IInode,
+    DirectoryEntryType, DirectoryTreeNode, FileCacheAccessor, FileDescriptor, FileMetadata,
+    ICacheableFile, IFile, IInode,
 };
 
 use crate::PageTableEntryFlags;
@@ -434,7 +434,7 @@ impl IFile for MemoryMappedFile {
         true
     }
 
-    fn inode(&self) -> Option<Arc<dyn IInode>> {
+    fn inode(&self) -> Option<Arc<DirectoryTreeNode>> {
         // Prevent access to the inode before we completely restore the file
         None
     }

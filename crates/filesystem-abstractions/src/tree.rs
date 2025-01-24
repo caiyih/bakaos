@@ -10,8 +10,8 @@ use core::{cell::UnsafeCell, usize};
 use hermit_sync::SpinMutex;
 
 use crate::{
-    DirectoryEntry, DirectoryEntryType, FileStatistics, FileSystemError, FileSystemResult, IInode,
-    InodeMetadata,
+    DirectoryEntry, DirectoryEntryType, FileMetadata, FileStatistics, FileSystemError,
+    FileSystemResult, IInode, InodeMetadata, OpenFlags, OpenedDiskInode,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -77,6 +77,16 @@ unsafe impl Send for DirectoryTreeNode {}
 unsafe impl Sync for DirectoryTreeNode {}
 
 impl DirectoryTreeNode {
+    pub fn open_as_file(
+        self: Arc<DirectoryTreeNode>,
+        flags: OpenFlags,
+        offset: usize,
+    ) -> Arc<OpenedDiskInode> {
+        Arc::new(OpenedDiskInode {
+            metadata: Arc::new(FileMetadata::open(self, flags, offset)),
+        })
+    }
+
     fn set_weak(self: &Arc<DirectoryTreeNode>) {
         unsafe { *self.weak_self.get().as_mut().unwrap() = Arc::downgrade(self) }
     }

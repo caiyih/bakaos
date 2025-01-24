@@ -1,7 +1,10 @@
 use core::ops::Deref;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
-use crate::{DirectoryEntryType, FileCacheAccessor, IInode, OpenFlags, TeleTypewriterBuilder};
+use crate::{
+    DirectoryEntryType, DirectoryTreeNode, FileCacheAccessor, IInode, OpenFlags,
+    TeleTypewriterBuilder,
+};
 use alloc::sync::Arc;
 use alloc::sync::Weak;
 use alloc::vec::Vec;
@@ -12,11 +15,11 @@ use lock_api::MutexGuard;
 pub struct FileMetadata {
     open_offset: AtomicUsize,
     open_flags: SpinMutex<OpenFlags>,
-    inode: Arc<dyn IInode>,
+    inode: Arc<DirectoryTreeNode>,
 }
 
 impl FileMetadata {
-    pub fn open(inode: Arc<dyn IInode>, flags: OpenFlags, offset: usize) -> Self {
+    pub fn open(inode: Arc<DirectoryTreeNode>, flags: OpenFlags, offset: usize) -> Self {
         Self {
             open_offset: AtomicUsize::new(offset),
             open_flags: SpinMutex::new(flags),
@@ -40,7 +43,7 @@ impl FileMetadata {
         *self.open_flags.lock() = new_flags
     }
 
-    pub fn inode(&self) -> Arc<dyn IInode> {
+    pub fn inode(&self) -> Arc<DirectoryTreeNode> {
         self.inode.clone()
     }
 }
@@ -83,7 +86,7 @@ pub trait IFile: DowncastSync + Send + Sync {
         }
     }
 
-    fn inode(&self) -> Option<Arc<dyn IInode>> {
+    fn inode(&self) -> Option<Arc<DirectoryTreeNode>> {
         self.metadata().map(|metadata| metadata.inode())
     }
 
@@ -422,7 +425,7 @@ impl FileDescriptorTable {
 }
 
 pub struct OpenedDiskInode {
-    metadata: Arc<FileMetadata>,
+    pub(crate) metadata: Arc<FileMetadata>,
 }
 
 impl IFile for OpenedDiskInode {
@@ -435,10 +438,4 @@ impl OpenedDiskInode {
     pub fn clear_type(self: Arc<Self>) -> Arc<dyn IFile> {
         self
     }
-}
-
-pub fn open_file(inode: Arc<dyn IInode>, flags: OpenFlags, offset: usize) -> Arc<OpenedDiskInode> {
-    Arc::new(OpenedDiskInode {
-        metadata: Arc::new(FileMetadata::open(inode, flags, offset)),
-    })
 }
