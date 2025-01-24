@@ -5,6 +5,7 @@ use alloc::{
     sync::Weak,
     vec::Vec,
 };
+use constants::SyscallError;
 use core::{cell::UnsafeCell, usize};
 use hermit_sync::SpinMutex;
 
@@ -30,6 +31,16 @@ impl MountError {
             MountError::FileExists => FileSystemError::AlreadyExists,
             MountError::FileNotExists => FileSystemError::NotFound,
             MountError::AlreadyMounted => FileSystemError::InvalidInput,
+        }
+    }
+
+    pub fn to_syscall_error(self) -> Result<isize, isize> {
+        match self {
+            MountError::InvalidInput => SyscallError::InvalidArgument,
+            MountError::NotADirectory => SyscallError::NoSuchFileOrDirectory,
+            MountError::FileExists => SyscallError::FileExists,
+            MountError::FileNotExists => SyscallError::NoSuchFileOrDirectory,
+            MountError::AlreadyMounted => SyscallError::DeviceOrResourceBusy,
         }
     }
 }
