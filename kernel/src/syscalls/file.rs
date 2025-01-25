@@ -400,13 +400,12 @@ impl ISyncSyscallHandler for NewFstatatSyscall {
                 };
 
                 let path = core::str::from_utf8(&path_guard).map_err(|_| ErrNo::InvalidArgument)?;
-                let path = path::remove_relative_segments(path);
 
-                let inode = if path::is_path_fully_qualified(&path) {
-                    filesystem_abstractions::global_open(&path, None)
+                let inode = if path::is_path_fully_qualified(path) {
+                    filesystem_abstractions::global_open(path, None)
                         .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
                 } else {
-                    filesystem_abstractions::global_open(&path, Some(&dir_inode))
+                    filesystem_abstractions::global_open(path, Some(&dir_inode))
                         .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
                 };
 
