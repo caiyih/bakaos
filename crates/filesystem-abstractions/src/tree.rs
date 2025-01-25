@@ -469,7 +469,7 @@ pub fn global_open(
         (None, false) => return Err(FileSystemError::InvalidInput),
     };
 
-    let parts = path.split('/').skip_while(|d| d.is_empty());
+    let parts = path.split(path::SEPARATOR).skip_while(|d| d.is_empty());
 
     let mut current = root;
     for part in parts {
@@ -491,7 +491,7 @@ pub fn global_umount(
                 Some(root) => root,
                 None => {
                     // Umount root
-                    if path.trim_start_matches('/').is_empty() {
+                    if path.trim_start_matches(path::SEPARATOR).is_empty() {
                         match root.take() {
                             Some(r) => {
                                 let node = r;
@@ -530,7 +530,7 @@ pub fn global_mount(
                 Some(root) => root,
                 None => {
                     // Mount root
-                    if path.trim_start_matches('/').is_empty() {
+                    if path.trim_start_matches(path::SEPARATOR).is_empty() {
                         let node = DirectoryTreeNode::from_inode(None, inode, None);
                         *root = Some(node.clone());
                         return Ok(node);
