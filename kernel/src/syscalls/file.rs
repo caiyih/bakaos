@@ -4,8 +4,9 @@ use alloc::{slice, string::String, sync::Arc};
 use constants::{ErrNo, SyscallError};
 use filesystem::DummyFileSystem;
 use filesystem_abstractions::{
-    DirectoryEntryType, FileDescriptor, FileDescriptorBuilder, FileMode, FileStatistics,
-    FrozenFileDescriptorBuilder, ICacheableFile, IFileSystem, IInode, OpenFlags, PipeBuilder,
+    DirectoryEntryType, DirectoryTreeNode, FileDescriptor, FileDescriptorBuilder, FileMode,
+    FileStatistics, FrozenFileDescriptorBuilder, ICacheableFile, IFileSystem, IInode, OpenFlags,
+    PipeBuilder,
 };
 use paging::{
     page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, MemoryMapFlags,
@@ -387,32 +388,31 @@ impl ISyncSyscallHandler for NewFstatatSyscall {
                 .with_write(),
         ) {
             (Some(path_guard), Some(mut buf_guard)) => {
-                let dir_inode = if dirfd == FileDescriptor::AT_FDCWD {
-                    let cwd = unsafe { ctx.cwd.get().as_ref().unwrap() };
-                    filesystem_abstractions::global_open(cwd, None)
+                fn stat(
+                    buf: &mut FileStatistics,
+                    path: &str,
+                    relative_to: Option<&Arc<DirectoryTreeNode>>,
+                ) -> SyscallResult {
+                    filesystem_abstractions::global_open(path, relative_to)
                         .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
+                        .stat(buf)
+                        .map(|_| ErrNo::Success)
+                        .map_err(|_| ErrNo::OperationNotPermitted)
+                }
+
+                let path = unsafe { core::str::from_utf8_unchecked(&path_guard) };
+
+                if dirfd == FileDescriptor::AT_FDCWD {
+                    let cwd = unsafe { ctx.cwd.get().as_ref().unwrap() };
+                    let fullpath = path::combine(cwd, path).ok_or(ErrNo::InvalidArgument)?;
+                    stat(&mut buf_guard, &fullpath, None)
                 } else {
                     let fd_table = ctx.fd_table.lock();
-                    let fd = fd_table
+                    let inode = fd_table
                         .get(dirfd as usize)
-                        .ok_or(ErrNo::BadFileDescriptor)?;
-                    fd.access().inode().ok_or(ErrNo::FileDescriptorInBadState)?
-                };
-
-                let path = core::str::from_utf8(&path_guard).map_err(|_| ErrNo::InvalidArgument)?;
-
-                let inode = if path::is_path_fully_qualified(path) {
-                    filesystem_abstractions::global_open(path, None)
-                        .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
-                } else {
-                    filesystem_abstractions::global_open(path, Some(&dir_inode))
-                        .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
-                };
-
-                inode
-                    .stat(&mut buf_guard)
-                    .map_err(|_| ErrNo::OperationNotPermitted)
-                    .map(|_| 0)
+                        .and_then(|fd| fd.access().inode());
+                    stat(&mut buf_guard, path, inode.as_ref())
+                }
             }
             _ => SyscallError::BadAddress,
         }
