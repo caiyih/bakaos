@@ -339,10 +339,12 @@ trait IDirectoryEntryType {
 
 impl IDirectoryEntryType for ext4_rs::InodeFileType {
     fn to_entry_type(&self) -> DirectoryEntryType {
-        match *self {
-            ext4_rs::InodeFileType::S_IFDIR => DirectoryEntryType::Directory,
-            ext4_rs::InodeFileType::S_IFREG => DirectoryEntryType::File,
-            t => panic!("Unsupported file type: {:?}", t),
+        if self.contains(InodeFileType::S_IFDIR) {
+            DirectoryEntryType::Directory
+        } else if self.contains(InodeFileType::S_IFREG) {
+            DirectoryEntryType::File
+        } else {
+            panic!("Unsupported file type: {:?}", self);
         }
     }
 }
