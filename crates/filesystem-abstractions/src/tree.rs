@@ -552,6 +552,11 @@ pub fn global_umount(
             if path.trim_start_matches(path::SEPARATOR).is_empty() {
                 let root_inner = root_node.inner.lock();
 
+                if let DirectoryTreeNodeMetadata::Empty = root_inner.meta {
+                    drop(root_inner);
+                    return Ok(root_node);
+                }
+
                 let new_root = DirectoryTreeNode::from_empty(None, String::new());
                 let mut new_root_inner = new_root.inner.lock();
 
@@ -590,25 +595,30 @@ pub fn global_mount(
             let mut root = unsafe { ROOT.lock() };
 
             let root_node = root.as_ref().unwrap();
-            let root_inner = root_node.inner.lock();
 
-            if let DirectoryTreeNodeMetadata::Empty = root_inner.meta {
-                let new_root = DirectoryTreeNode::from_inode(None, inode, None, None);
-                let mut new_root_inner = new_root.inner.lock();
+            if path.trim_start_matches(path::SEPARATOR).is_empty() {
+                let root_inner = root_node.inner.lock();
 
-                // Transfer mount list and open list
-                new_root_inner.mounted = root_inner.mounted.clone();
-                new_root_inner.opened = root_inner.opened.clone();
+                if let DirectoryTreeNodeMetadata::Empty = root_inner.meta {
+                    let new_root = DirectoryTreeNode::from_inode(None, inode, None, None);
+                    let mut new_root_inner = new_root.inner.lock();
 
-                drop(root_inner);
-                drop(new_root_inner);
+                    // Transfer mount list and open list
+                    new_root_inner.mounted = root_inner.mounted.clone();
+                    new_root_inner.opened = root_inner.opened.clone();
 
-                *root = Some(new_root.clone());
+                    drop(root_inner);
+                    drop(new_root_inner);
 
-                return Ok(new_root);
-            } else {
-                return Err(MountError::AlreadyMounted);
+                    *root = Some(new_root.clone());
+
+                    return Ok(new_root);
+                } else {
+                    return Err(MountError::AlreadyMounted);
+                }
             }
+
+            root_node.clone()
         }
         (Some(root), false) => root.clone(),
         (None, false) => return Err(MountError::InvalidInput),
