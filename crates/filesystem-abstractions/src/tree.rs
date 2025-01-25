@@ -271,12 +271,16 @@ impl DirectoryTreeNode {
         {
             let inner = self.inner.lock();
 
-            if let Some(opened) = inner.opened.get(name).and_then(|weak| weak.upgrade()) {
-                return Ok(opened);
+            if !inner.opened.is_empty() {
+                if let Some(opened) = inner.opened.get(name).and_then(|weak| weak.upgrade()) {
+                    return Ok(opened);
+                }
             }
 
-            if let Some(mounted) = inner.mounted.get(name).cloned() {
-                return Ok(mounted);
+            if !inner.mounted.is_empty() {
+                if let Some(mounted) = inner.mounted.get(name).cloned() {
+                    return Ok(mounted);
+                }
             }
         }
 
