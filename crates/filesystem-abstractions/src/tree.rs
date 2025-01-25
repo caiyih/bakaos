@@ -284,12 +284,14 @@ impl DirectoryTreeNode {
         let inode = self.lookup(name)?;
         let inode_meta = inode.as_ref().metadata()?;
 
-        Ok(Self::from_inode(
-            Some(self.clone()),
-            &inode,
-            Some(&inode_meta),
-            None,
-        ))
+        let opened = Self::from_inode(Some(self.clone()), &inode, Some(&inode_meta), None);
+
+        self.inner
+            .lock()
+            .opened
+            .insert(name.to_string(), Arc::downgrade(&opened));
+
+        Ok(opened)
     }
 
     // if the node was opened in the tree, this returns the full path in the filesystem.
