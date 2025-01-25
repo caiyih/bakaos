@@ -8,6 +8,7 @@ use alloc::{
 use constants::SyscallError;
 use core::{cell::UnsafeCell, usize};
 use hermit_sync::SpinMutex;
+use timing::TimeSpec;
 
 use crate::{
     DirectoryEntry, DirectoryEntryType, FileMetadata, FileStatistics, FileSystemError,
@@ -468,7 +469,24 @@ impl IInode for DirectoryTreeNode {
     fn stat(&self, stat: &mut FileStatistics) -> FileSystemResult<()> {
         match &self.inner.lock().meta {
             DirectoryTreeNodeMetadata::Inode { inode } => inode.stat(stat),
-            DirectoryTreeNodeMetadata::Empty => Err(FileSystemError::Unimplemented), // TODO: do we have to implement this?
+            DirectoryTreeNodeMetadata::Empty => {
+                stat.device_id = 0;
+                stat.inode_id = 0;
+                stat.mode = crate::FileStatisticsMode::DIR;
+                stat.link_count = 1;
+                stat.uid = 0;
+                stat.gid = 0;
+                stat.size = 0;
+                stat.block_size = 512;
+                stat.block_count = 0;
+                stat.rdev = 0;
+
+                stat.ctime = TimeSpec::zero();
+                stat.mtime = TimeSpec::zero();
+                stat.atime = TimeSpec::zero();
+
+                Ok(())
+            }
         }
     }
 }
