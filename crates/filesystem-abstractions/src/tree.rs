@@ -239,13 +239,13 @@ impl DirectoryTreeNode {
     ) -> FileSystemResult<Arc<DirectoryTreeNode>> {
         debug_assert!(!name.contains(path::SEPARATOR));
 
-        if name == path::CURRENT_DIRECTORY {
+        if name == path::CURRENT_DIRECTORY || name.is_empty(){
             return Ok(self.clone());
         }
 
         if name == path::PARENT_DIRECTORY {
             return self.parent.as_ref().map_or_else(
-                || Err(FileSystemError::NotFound),
+                || Ok(self.clone()),
                 |parent| Ok(parent.clone()),
             );
         }
