@@ -121,6 +121,7 @@ impl DirectoryTreeNode {
         parent: Option<Arc<DirectoryTreeNode>>,
         inode: &Arc<dyn IInode>,
         inode_meta: Option<&InodeMetadata>,
+        name: Option<&str>,
     ) -> Arc<DirectoryTreeNode> {
         let arc = Arc::new(DirectoryTreeNode {
             parent,
@@ -129,9 +130,9 @@ impl DirectoryTreeNode {
                 meta: DirectoryTreeNodeMetadata::Inode {
                     inode: inode.clone(),
                 },
-                name: inode_meta
-                    .map(|m| m.filename.to_string())
-                    .unwrap_or_default(),
+                name: name
+                    .unwrap_or(inode_meta.map(|m| m.filename).unwrap_or_default())
+                    .to_string(),
                 mounted: BTreeMap::new(),
                 opened: BTreeMap::new(),
             })),
@@ -185,7 +186,12 @@ impl DirectoryTreeNode {
 
         // We actually don't care what the name of the inode to be mounted is,
         // as the 'mount' operation always gives a new name to it, which is the key of the mount list
-        let inode = Self::from_inode(Some(self.clone()), inode, inode.metadata().as_ref().ok());
+        let inode = Self::from_inode(
+            Some(self.clone()),
+            inode,
+            inode.metadata().as_ref().ok(),
+            Some(name),
+        );
 
         self.inner
             .lock()
@@ -264,6 +270,7 @@ impl DirectoryTreeNode {
             Some(self.clone()),
             &inode,
             Some(&inode_meta),
+            None,
         ))
     }
 
@@ -284,8 +291,11 @@ impl DirectoryTreeNode {
         let mut path = String::with_capacity(size);
 
         while let Some(part) = stack.pop() {
-            path.push_str(path::SEPARATOR_STR);
             path.push_str(part);
+
+            if !stack.is_empty() {
+                path.push_str(path::SEPARATOR_STR);
+            }
         }
 
         path
@@ -541,7 +551,7 @@ pub fn global_mount(
                 None => {
                     // Mount root
                     if path.trim_start_matches(path::SEPARATOR).is_empty() {
-                        let node = DirectoryTreeNode::from_inode(None, inode, None);
+                        let node = DirectoryTreeNode::from_inode(None, inode, None, None);
                         *root = Some(node.clone());
                         return Ok(node);
                     }
