@@ -26,7 +26,7 @@ mod timing;
 mod trap;
 
 use core::{arch::asm, sync::atomic::AtomicBool};
-use filesystem_abstractions::IInode;
+use filesystem_abstractions::{global_mount, IInode};
 use firmwares::console::IConsole;
 use paging::PageTable;
 use sbi_spec::base::impl_id;
@@ -128,25 +128,38 @@ fn main() {
 
 #[allow(unused)]
 fn run_final_tests() {
+    use filesystem_abstractions::IFileSystem;
     use paging::MemorySpaceBuilder;
     use scheduling::spawn_task;
     use tasks::TaskControlBlock;
 
-    filesystem::setup_root_filesystem(&kernel::get().machine().create_ext4_filesystem_at_bus(0));
+    global_mount(
+        &kernel::get()
+            .machine()
+            .create_ext4_filesystem_at_bus(0)
+            .root_dir(),
+        "/mnt",
+        None,
+    )
+    .unwrap();
 
-    let busybox = filesystem_abstractions::global_open("/busybox", None).unwrap();
-    let busybox = busybox.readall().unwrap();
+    run_busybox("/mnt/busybox", &["/mnt/busybox", "--help"], &[]);
 
-    let mut memspace = MemorySpaceBuilder::from_elf(&busybox).unwrap();
+    fn run_busybox(path: &str, args: &[&str], envp: &[&str]) {
+        let busybox = filesystem_abstractions::global_open(path, None).unwrap();
+        let busybox = busybox.readall().unwrap();
 
-    memspace.init_stack(&["/busybox", "--help"], &[]);
-    let task = TaskControlBlock::new(memspace);
-    unsafe {
-        task.cwd.get().as_mut().unwrap().push('/');
-    };
+        let mut memspace = MemorySpaceBuilder::from_elf(&busybox).unwrap();
 
-    spawn_task(task);
-    threading::run_tasks();
+        memspace.init_stack(args, envp);
+        let task = TaskControlBlock::new(memspace);
+        unsafe {
+            task.cwd.get().as_mut().unwrap().push('/');
+        };
+
+        spawn_task(task);
+        threading::run_tasks();
+    }
 }
 
 #[allow(unused)]
@@ -175,7 +188,17 @@ fn run_preliminary_tests() {
         threading::run_tasks();
     }
 
-    filesystem::setup_root_filesystem(&kernel::get().machine().create_fat32_filesystem_at_bus(0));
+    use filesystem_abstractions::IFileSystem;
+
+    filesystem_abstractions::global_mount(
+        &kernel::get()
+            .machine()
+            .create_fat32_filesystem_at_bus(0)
+            .root_dir(),
+        "/",
+        None,
+    )
+    .unwrap();
 
     preliminary_test("/uname", None, None);
     preliminary_test("/write", None, None);

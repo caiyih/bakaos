@@ -588,6 +588,15 @@ pub fn global_mount(
     path: &str,
     relative_to: Option<&Arc<DirectoryTreeNode>>,
 ) -> Result<Arc<DirectoryTreeNode>, MountError> {
+    log::info!(
+        "Mounting {} at {}",
+        inode
+            .metadata()
+            .map(|m| m.filename)
+            .unwrap_or("anonymous inode"),
+        path
+    );
+
     let root = match (relative_to, path::is_path_fully_qualified(path)) {
         (_, true) => {
             let mut root = unsafe { ROOT.lock() };
