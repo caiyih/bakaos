@@ -379,6 +379,8 @@ impl IInode for DirectoryTreeNode {
         match &inner.meta {
             DirectoryTreeNodeMetadata::Inode { inode } => inode.mkdir(name),
             DirectoryTreeNodeMetadata::Empty => {
+                drop(inner); // release lock, as mount operation requires lock
+
                 let self_arc = self.self_arc().expect("Unable to get self arc");
                 let inode = Self::from_empty(Some(self_arc.clone()), String::from(name));
 
