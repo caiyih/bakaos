@@ -62,7 +62,6 @@ pub enum DirectoryEntryType {
 
 pub struct DirectoryEntry {
     pub filename: String,
-    pub size: usize,
     pub entry_type: DirectoryEntryType,
 }
 

@@ -335,7 +335,6 @@ impl IInode for FatDirectoryInode {
             match entry_result {
                 Ok(entry) => {
                     let filename = entry.file_name();
-                    let size = entry.len();
 
                     let entry_type = if entry.is_dir() {
                         DirectoryEntryType::Directory
@@ -346,7 +345,6 @@ impl IInode for FatDirectoryInode {
                     entries.push(filesystem_abstractions::DirectoryEntry {
                         filename,
                         entry_type,
-                        size: size as usize,
                     });
                 }
                 Err(err) => {

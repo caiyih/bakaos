@@ -455,13 +455,11 @@ impl IInode for DirectoryTreeNode {
 
                         DirectoryEntry {
                             filename: name.clone(),
-                            size: inode_meta.size,
                             entry_type: inode_meta.entry_type,
                         }
                     }
                     DirectoryTreeNodeMetadata::Empty => DirectoryEntry {
                         filename: name.clone(),
-                        size: 0,
                         entry_type: DirectoryEntryType::Directory,
                     },
                 });

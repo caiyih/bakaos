@@ -203,6 +203,14 @@ impl IInode for Ext4Inode {
         &self,
     ) -> filesystem_abstractions::FileSystemResult<Vec<filesystem_abstractions::DirectoryEntry>>
     {
+        #[inline(always)]
+        fn to_entry_type(de_type: u8) -> DirectoryEntryType {
+            match de_type {
+                2 => DirectoryEntryType::Directory,
+                _ => DirectoryEntryType::File,
+            }
+        }
+
         self.should_be_directory()?;
 
         let entries = self.fs.dir_get_entries(self.inode_id);
@@ -215,12 +223,9 @@ impl IInode for Ext4Inode {
                 continue;
             }
 
-            let inode_ref = self.fs.get_inode_ref(entry.inode);
-
             result.push(filesystem_abstractions::DirectoryEntry {
                 filename: entry.get_name(),
-                size: inode_ref.inode.size() as usize,
-                entry_type: inode_ref.inode.file_type().to_entry_type(),
+                entry_type: to_entry_type(entry.get_de_type()),
             });
         }
 
