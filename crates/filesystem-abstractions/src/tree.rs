@@ -406,12 +406,10 @@ impl IInode for DirectoryTreeNode {
                 drop(inner); // release lock, as mount operation requires lock
 
                 let self_arc = self.self_arc().expect("Unable to get self arc");
-                let inode = Self::from_empty(Some(self_arc.clone()), String::from(name));
-
                 self_arc
-                    .mount_as(&(inode as Arc<dyn IInode>), Some(name))
+                    .mount_empty(name)
                     .map_err(|e| e.to_filesystem_error())
-                    .map(|i| i as Arc<dyn IInode>)
+                    .map(|inode| inode as Arc<dyn IInode>)
             }
         }
     }
