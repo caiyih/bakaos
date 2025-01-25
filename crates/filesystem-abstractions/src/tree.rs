@@ -234,6 +234,19 @@ impl DirectoryTreeNode {
         self: &Arc<DirectoryTreeNode>,
         name: &str,
     ) -> FileSystemResult<Arc<DirectoryTreeNode>> {
+        debug_assert!(!name.contains(path::SEPARATOR));
+
+        if name == path::CURRENT_DIRECTORY {
+            return Ok(self.clone());
+        }
+
+        if name == path::PARENT_DIRECTORY {
+            return self.parent.as_ref().map_or_else(
+                || Err(FileSystemError::NotFound),
+                |parent| Ok(parent.clone()),
+            );
+        }
+
         // prevent dead lock in lookup method
         {
             let inner = self.inner.lock();

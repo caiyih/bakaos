@@ -21,6 +21,10 @@ pub const ROOT_STR: &str = "/";
 pub const SEPARATOR_STR: &str = "/";
 // dot character in &str
 pub const DOT_STR: &str = ".";
+// Current directory character in &str
+pub const CURRENT_DIRECTORY: &str = ".";
+// Parent directory character in &str
+pub const PARENT_DIRECTORY: &str = "..";
 
 // Directory separator character
 pub const SEPARATOR: char = '/';
