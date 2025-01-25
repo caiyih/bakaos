@@ -521,6 +521,16 @@ static mut ROOT: SpinMutex<Option<Arc<DirectoryTreeNode>>> = SpinMutex::new(None
 
 pub fn initialize() {
     let root = DirectoryTreeNode::from_empty(None, String::new());
+
+    for node in [
+        "boot", "dev", "etc", "home", "root", "opt", "mnt", "proc", "sys", "tmp", "run", "usr",
+        "var",
+    ]
+    .iter()
+    {
+        root.mount_empty(node).unwrap();
+    }
+
     unsafe {
         *ROOT.lock() = Some(root);
     }
