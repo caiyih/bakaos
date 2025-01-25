@@ -209,6 +209,12 @@ impl IInode for Ext4Inode {
 
         let mut result = Vec::with_capacity(entries.len());
         for entry in entries {
+            if entry.compare_name(path::CURRENT_DIRECTORY)
+                || entry.compare_name(path::PARENT_DIRECTORY)
+            {
+                continue;
+            }
+
             let inode_ref = self.fs.get_inode_ref(entry.inode);
 
             result.push(filesystem_abstractions::DirectoryEntry {
