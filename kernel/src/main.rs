@@ -238,6 +238,8 @@ unsafe extern "C" fn __kernel_init() {
     processor::init_processor_pool();
 
     BOOTED.store(true, core::sync::atomic::Ordering::Relaxed);
+
+    filesystem_abstractions::initialize();
 }
 
 #[no_mangle]

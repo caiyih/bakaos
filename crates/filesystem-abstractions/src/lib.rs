@@ -21,7 +21,9 @@ pub use file::*;
 pub use inode::*;
 pub use pipe::*;
 pub use stdio::*;
-pub use tree::{global_mount, global_open, global_umount, DirectoryTreeNode, MountError};
+pub use tree::{
+    global_mount, global_open, global_umount, initialize, DirectoryTreeNode, MountError,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FileSystemError {

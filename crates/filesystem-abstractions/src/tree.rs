@@ -201,6 +201,23 @@ impl DirectoryTreeNode {
             .map_or_else(|| Ok(inode), |_| Err(MountError::FileExists))
     }
 
+    pub fn mount_empty(
+        self: &Arc<DirectoryTreeNode>,
+        name: &str,
+    ) -> Result<Arc<DirectoryTreeNode>, MountError> {
+        let mut inner = self.inner.lock();
+        if inner.is_mounted(name) {
+            return Err(MountError::FileExists);
+        }
+
+        let inode = Self::from_empty(Some(self.clone()), name.to_string());
+
+        inner
+            .mounted
+            .insert(name.to_string(), inode.clone())
+            .map_or_else(|| Ok(inode), |_| Err(MountError::FileExists))
+    }
+
     pub fn umount_at(&self, name: &str) -> Result<Arc<DirectoryTreeNode>, MountError> {
         self.inner
             .lock()
@@ -239,14 +256,14 @@ impl DirectoryTreeNode {
     ) -> FileSystemResult<Arc<DirectoryTreeNode>> {
         debug_assert!(!name.contains(path::SEPARATOR));
 
-        if name == path::CURRENT_DIRECTORY || name.is_empty(){
+        if name == path::CURRENT_DIRECTORY || name.is_empty() {
             return Ok(self.clone());
         }
 
         if name == path::PARENT_DIRECTORY {
             return self.parent.as_ref().map_or_else(
                 || Ok(self.clone()),
-                |parent| Ok(parent.clone()),
+                |parent: &Arc<DirectoryTreeNode>| Ok(parent.clone()),
             );
         }
 
@@ -449,6 +466,8 @@ impl IInode for DirectoryTreeNode {
                     },
                 });
 
+        // FIXME: handle opened files, there may be inodes that were shadowed by other inodes
+
         match &inner.meta {
             DirectoryTreeNodeMetadata::Inode { inode } => {
                 let inode = inode.clone();
@@ -494,17 +513,19 @@ impl IInode for DirectoryTreeNode {
 // The root of the directory tree
 static mut ROOT: SpinMutex<Option<Arc<DirectoryTreeNode>>> = SpinMutex::new(None);
 
+pub fn initialize() {
+    let root = DirectoryTreeNode::from_empty(None, String::new());
+    unsafe {
+        *ROOT.lock() = Some(root);
+    }
+}
+
 pub fn global_open(
     path: &str,
     relative_to: Option<&Arc<DirectoryTreeNode>>,
 ) -> FileSystemResult<Arc<DirectoryTreeNode>> {
     let root = match (relative_to, path::is_path_fully_qualified(path)) {
-        (_, true) => unsafe {
-            ROOT.lock()
-                .as_ref()
-                .cloned()
-                .ok_or(FileSystemError::NotFound)?
-        },
+        (_, true) => unsafe { ROOT.lock().as_ref().unwrap().clone() },
         (Some(root), false) => root.clone(),
         (None, false) => return Err(FileSystemError::InvalidInput),
     };
@@ -527,24 +548,27 @@ pub fn global_umount(
         (_, true) => {
             let mut root = unsafe { ROOT.lock() };
 
-            match root.as_ref().cloned() {
-                Some(root) => root,
-                None => {
-                    // Umount root
-                    if path.trim_start_matches(path::SEPARATOR).is_empty() {
-                        match root.take() {
-                            Some(r) => {
-                                let node = r;
-                                *root = None;
-                                return Ok(node);
-                            }
-                            None => return Err(MountError::FileNotExists),
-                        }
-                    }
+            let root_node = root.as_ref().unwrap().clone();
 
-                    return Err(MountError::InvalidInput);
-                }
+            // Umount root
+            if path.trim_start_matches(path::SEPARATOR).is_empty() {
+                let root_inner = root_node.inner.lock();
+
+                let new_root = DirectoryTreeNode::from_empty(None, String::new());
+                let mut new_root_inner = new_root.inner.lock();
+
+                new_root_inner.mounted = root_inner.mounted.clone();
+                new_root_inner.opened = root_inner.opened.clone();
+
+                drop(root_inner);
+                drop(new_root_inner);
+
+                *root = Some(new_root.clone());
+
+                return Ok(new_root);
             }
+
+            root_node
         }
         (Some(root), false) => root.clone(),
         (None, false) => return Err(MountError::InvalidInput),
@@ -566,18 +590,26 @@ pub fn global_mount(
     let root = match (relative_to, path::is_path_fully_qualified(path)) {
         (_, true) => {
             let mut root = unsafe { ROOT.lock() };
-            match root.as_ref().cloned() {
-                Some(root) => root,
-                None => {
-                    // Mount root
-                    if path.trim_start_matches(path::SEPARATOR).is_empty() {
-                        let node = DirectoryTreeNode::from_inode(None, inode, None, None);
-                        *root = Some(node.clone());
-                        return Ok(node);
-                    }
 
-                    return Err(MountError::InvalidInput);
-                }
+            let root_node = root.as_ref().unwrap();
+            let root_inner = root_node.inner.lock();
+
+            if let DirectoryTreeNodeMetadata::Empty = root_inner.meta {
+                let new_root = DirectoryTreeNode::from_inode(None, inode, None, None);
+                let mut new_root_inner = new_root.inner.lock();
+
+                // Transfer mount list and open list
+                new_root_inner.mounted = root_inner.mounted.clone();
+                new_root_inner.opened = root_inner.opened.clone();
+
+                drop(root_inner);
+                drop(new_root_inner);
+
+                *root = Some(new_root.clone());
+
+                return Ok(new_root);
+            } else {
+                return Err(MountError::AlreadyMounted);
             }
         }
         (Some(root), false) => root.clone(),
