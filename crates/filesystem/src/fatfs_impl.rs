@@ -5,7 +5,7 @@ use alloc::{
     sync::Arc,
     vec::Vec,
 };
-use core::str;
+use core::{ops::Deref, str};
 use drivers::DiskDriver;
 
 use fatfs::{Dir, Error, File, LossyOemCpConverter, NullTimeProvider, Read, Seek, SeekFrom, Write};
@@ -16,12 +16,13 @@ use filesystem_abstractions::{
 use hermit_sync::SpinMutex;
 use log::warn;
 
+const FILESYSTEM_NAME: &str = "Fat32FileSystem";
+
 pub struct Fat32FileSystem {
-    inner: Arc<fatfs::FileSystem<Fat32Disk, NullTimeProvider, LossyOemCpConverter>>,
+    root_dir: Arc<dyn IInode>,
 }
 
 unsafe impl Send for Fat32FileSystem {}
-
 unsafe impl Sync for Fat32FileSystem {}
 
 pub struct Fat32Disk {
@@ -30,24 +31,19 @@ pub struct Fat32Disk {
 
 impl IFileSystem for Fat32FileSystem {
     fn root_dir(&self) -> alloc::sync::Arc<dyn filesystem_abstractions::IInode> {
-        let _holding = self.inner.clone();
-        let pinned = _holding.as_ref()
-            as *const fatfs::FileSystem<Fat32Disk, NullTimeProvider, LossyOemCpConverter>;
-        let inner = unsafe { pinned.as_ref().unwrap().root_dir() };
-
-        let inode = FatDirectoryInode {
-            // Since the "/" is used as separator in the path module and is ignored by the iterator
-            // We use "" as the filename for the root directory
-            filename: String::from(self.name()),
-            inner,
-            _holding,
-        };
-
-        Arc::new(inode)
+        self.root_dir.clone()
     }
 
     fn name(&self) -> &str {
-        "Fat32FileSystem"
+        FILESYSTEM_NAME
+    }
+}
+
+impl Deref for Fat32FileSystem {
+    type Target = Arc<dyn IInode>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.root_dir
     }
 }
 
@@ -58,8 +54,22 @@ impl Fat32FileSystem {
         };
 
         let fs = fatfs::FileSystem::new(disk, fatfs::FsOptions::new())?;
+
+        let _holding = Arc::new(fs);
+        let pinned = _holding.as_ref()
+            as *const fatfs::FileSystem<Fat32Disk, NullTimeProvider, LossyOemCpConverter>;
+        let inner = unsafe { pinned.as_ref().unwrap().root_dir() };
+
+        let inode = FatDirectoryInode {
+            // Since the "/" is used as separator in the path module and is ignored by the iterator
+            // We use "" as the filename for the root directory
+            filename: String::from(FILESYSTEM_NAME),
+            inner,
+            _holding,
+        };
+
         Ok(Fat32FileSystem {
-            inner: Arc::new(fs),
+            root_dir: Arc::new(inode),
         })
     }
 }

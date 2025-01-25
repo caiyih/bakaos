@@ -1,3 +1,4 @@
+use core::ops::Deref;
 use core::{mem::MaybeUninit, panic};
 
 use drivers::DiskDriver;
@@ -49,7 +50,7 @@ impl ext4_rs::BlockDevice for Ext4Disk {
 }
 
 pub struct Ext4FileSystem {
-    root_dir: Arc<Ext4Inode>,
+    root_dir: Arc<dyn IInode>,
 }
 
 unsafe impl Send for Ext4FileSystem {}
@@ -81,6 +82,14 @@ impl IFileSystem for Ext4FileSystem {
 
     fn name(&self) -> &str {
         FILESYSTEM_NAME
+    }
+}
+
+impl Deref for Ext4FileSystem {
+    type Target = Arc<dyn IInode>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.root_dir
     }
 }
 
