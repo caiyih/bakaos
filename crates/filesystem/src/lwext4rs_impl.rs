@@ -278,35 +278,6 @@
 //         }))
 //     }
 
-//     fn lookup_recursive(
-//         &self,
-//         path: &str,
-//     ) -> filesystem_abstractions::FileSystemResult<Arc<dyn IInode>> {
-//         self.should_be_dir()?;
-
-//         let allocated: String;
-//         let path = match path::is_path_fully_qualified(path) {
-//             true => path,
-//             false => {
-//                 allocated = path::combine(&self.inner().path(), path)
-//                     .ok_or(FileSystemError::InvalidInput)?;
-//                 &allocated
-//             }
-//         };
-
-//         let inode = self
-//             .fs
-//             .file_builder()
-//             .open(path)
-//             .map_err(|_| FileSystemError::NotFound)?;
-
-//         Ok(Arc::new(Lwext4Inode {
-//             inner: UnsafeCell::new(inode),
-//             filename: path::get_filename(path).to_string(),
-//             fs: self.fs.clone(),
-//         }))
-//     }
-
 //     fn metadata(
 //         &self,
 //     ) -> filesystem_abstractions::FileSystemResult<filesystem_abstractions::InodeMetadata> {
