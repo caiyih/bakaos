@@ -158,32 +158,15 @@ impl DirectoryTreeNode {
             }
         };
 
-        if self.inner.lock().is_mounted(name) {
-            return Err(MountError::FileExists);
+        if let Some(mounted) = self.inner.lock().get_mounted(name) {
+            let mounted_inner = mounted.inner.lock();
+
+            // Non-ram inode can't be shadowed
+            match mounted_inner.meta {
+                DirectoryTreeNodeMetadata::Empty => (),
+                _ => return Err(MountError::FileExists),
+            }
         }
-
-        // TODO: Figure out whether we should have a directory stub to mount
-        // let is_existed = match &inner.meta {
-        //     DirectoryTreeNodeMetadata::Inode {
-        //         name: _,
-        //         inode: this,
-        //     } => {
-        //         let this_meta = inode
-        //             .metadata()
-        //             .map_err(|_| MountError::MetadataUnavailable)?;
-
-        //         if this_meta.entry_type != DirectoryEntryType::Directory {
-        //             return Err(MountError::NotADirectory);
-        //         }
-
-        //         this.lookup(inode_meta.filename).is_ok()
-        //     }
-        //     DirectoryTreeNodeMetadata::Empty { name: _ } => false, // already checked
-        // };
-
-        // if !is_existed {
-        //     return Err(MountError::FileNotExists);
-        // }
 
         // We actually don't care what the name of the inode to be mounted is,
         // as the 'mount' operation always gives a new name to it, which is the key of the mount list
@@ -193,6 +176,25 @@ impl DirectoryTreeNode {
             inode.metadata().as_ref().ok(),
             Some(name),
         );
+
+        // Transfer mount list and open list
+        {
+            let mut inner = self.inner.lock();
+            if let Some(mounted) = inner.get_mounted(name) {
+                let mounted_inner = mounted.inner.lock();
+
+                let mut inode_inner = inode.inner.lock();
+
+                inode_inner.mounted = mounted_inner.mounted.clone();
+                inode_inner.opened = mounted_inner.opened.clone();
+
+                // explicitly drop to prevent deadlock in drop call
+                let old = inner.mounted.remove(name);
+
+                drop(inner);
+                drop(old); // requires lock to be released
+            }
+        }
 
         self.inner
             .lock()
@@ -206,7 +208,12 @@ impl DirectoryTreeNode {
         name: &str,
     ) -> Result<Arc<DirectoryTreeNode>, MountError> {
         let mut inner = self.inner.lock();
-        if inner.is_mounted(name) {
+        if let Some(mounted) = inner.get_mounted(name) {
+            if let DirectoryTreeNodeMetadata::Empty = mounted.inner.lock().meta {
+                return Ok(mounted.clone());
+            }
+
+            // Non-ram inode can't be shadowed
             return Err(MountError::FileExists);
         }
 
@@ -271,15 +278,16 @@ impl DirectoryTreeNode {
         {
             let inner = self.inner.lock();
 
-            if !inner.opened.is_empty() {
-                if let Some(opened) = inner.opened.get(name).and_then(|weak| weak.upgrade()) {
-                    return Ok(opened);
-                }
-            }
-
+            // mounted node has higher priority, as it can shadow the opened node
             if !inner.mounted.is_empty() {
                 if let Some(mounted) = inner.mounted.get(name).cloned() {
                     return Ok(mounted);
+                }
+            }
+
+            if !inner.opened.is_empty() {
+                if let Some(opened) = inner.opened.get(name).and_then(|weak| weak.upgrade()) {
+                    return Ok(opened);
                 }
             }
         }
@@ -472,7 +480,9 @@ impl IInode for DirectoryTreeNode {
                 let mut entries = inode.read_dir()?;
 
                 for entry in mounted_entries {
-                    entries.push(entry);
+                    if mounted.get(&entry.filename).is_none() {
+                        entries.push(entry);
+                    }
                 }
 
                 Ok(entries)
