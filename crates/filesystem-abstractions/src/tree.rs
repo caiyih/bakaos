@@ -146,7 +146,7 @@ impl DirectoryTreeNode {
         self: &Arc<DirectoryTreeNode>,
         inode: &Arc<dyn IInode>,
         name: Option<&str>,
-    ) -> Result<Arc<dyn IInode>, MountError> {
+    ) -> Result<Arc<DirectoryTreeNode>, MountError> {
         let name = match name {
             Some(n) => n,
             None => {
@@ -187,15 +187,11 @@ impl DirectoryTreeNode {
         // as the 'mount' operation always gives a new name to it, which is the key of the mount list
         let inode = Self::from_inode(Some(self.clone()), inode, inode.metadata().as_ref().ok());
 
-        let inode_ref = &inode;
         self.inner
             .lock()
             .mounted
             .insert(name.to_string(), inode.clone())
-            .map_or_else(
-                || Ok(inode_ref.clone() as Arc<dyn IInode>),
-                |_| Err(MountError::FileExists),
-            )
+            .map_or_else(|| Ok(inode), |_| Err(MountError::FileExists))
     }
 
     pub fn umount_at(&self, name: &str) -> Result<Arc<DirectoryTreeNode>, MountError> {
@@ -379,6 +375,7 @@ impl IInode for DirectoryTreeNode {
                 self_arc
                     .mount_as(&(inode as Arc<dyn IInode>), Some(name))
                     .map_err(|e| e.to_filesystem_error())
+                    .map(|i| i as Arc<dyn IInode>)
             }
         }
     }
@@ -535,7 +532,7 @@ pub fn global_mount(
     inode: &Arc<dyn IInode>,
     path: &str,
     relative_to: Option<&Arc<DirectoryTreeNode>>,
-) -> Result<Arc<dyn IInode>, MountError> {
+) -> Result<Arc<DirectoryTreeNode>, MountError> {
     let root = match (relative_to, path::is_path_fully_qualified(path)) {
         (_, true) => {
             let mut root = unsafe { ROOT.lock() };
