@@ -134,10 +134,7 @@ fn run_final_tests() {
     use tasks::TaskControlBlock;
 
     global_mount(
-        &kernel::get()
-            .machine()
-            .create_ext4_filesystem_at_bus(0)
-            .root_dir(),
+        &kernel::get().machine().create_ext4_filesystem_at_bus(0),
         "/mnt",
         None,
     )
@@ -191,10 +188,7 @@ fn run_preliminary_tests() {
     use filesystem_abstractions::IFileSystem;
 
     filesystem_abstractions::global_mount(
-        &kernel::get()
-            .machine()
-            .create_fat32_filesystem_at_bus(0)
-            .root_dir(),
+        &kernel::get().machine().create_fat32_filesystem_at_bus(0),
         "/",
         None,
     )
