@@ -38,7 +38,7 @@ impl IFileSystem for Fat32FileSystem {
         let inode = FatDirectoryInode {
             // Since the "/" is used as separator in the path module and is ignored by the iterator
             // We use "" as the filename for the root directory
-            filename: String::from(""),
+            filename: String::from(self.name()),
             inner,
             _holding,
         };

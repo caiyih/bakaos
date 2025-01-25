@@ -55,6 +55,8 @@ pub struct Ext4FileSystem {
 unsafe impl Send for Ext4FileSystem {}
 unsafe impl Sync for Ext4FileSystem {}
 
+const FILESYSTEM_NAME: &str = "Ext4FileSystem";
+
 impl Ext4FileSystem {
     pub fn new(device: DiskDriver) -> Ext4FileSystem {
         let inner = Arc::new(Ext4::open(Arc::new(Ext4Disk {
@@ -64,7 +66,7 @@ impl Ext4FileSystem {
         let root_dir = Arc::new(Ext4Inode {
             inode_id: ROOT_INODE,
             fs: inner,
-            filename: String::from(""),
+            filename: String::from(FILESYSTEM_NAME),
             file_type: DirectoryEntryType::Directory,
         });
 
@@ -78,7 +80,7 @@ impl IFileSystem for Ext4FileSystem {
     }
 
     fn name(&self) -> &str {
-        "Ext4FileSystem"
+        FILESYSTEM_NAME
     }
 }
 
