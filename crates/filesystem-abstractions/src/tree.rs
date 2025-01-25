@@ -360,14 +360,6 @@ impl IInode for DirectoryTreeNode {
         // it doesn't mean the inode has to be opened.
         let inner = self.inner.lock();
 
-        if let Some(inode) = inner.get_mounted(name) {
-            return Ok(inode);
-        }
-
-        if let Some(opened) = inner.opened.get(name).and_then(|weak| weak.upgrade()) {
-            return Ok(opened);
-        }
-
         #[allow(deprecated)]
         match &inner.meta {
             DirectoryTreeNodeMetadata::Inode { inode } => inode.lookup(name),
