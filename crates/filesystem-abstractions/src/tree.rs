@@ -743,4 +743,25 @@ impl IInode for RamFileInode {
 
         Ok(current - offset)
     }
+
+    fn stat(&self, stat: &mut FileStatistics) -> FileSystemResult<()> {
+        let inner = self.inner.read();
+
+        stat.device_id = 0;
+        stat.inode_id = 0;
+        stat.mode = crate::FileStatisticsMode::FILE;
+        stat.link_count = 1;
+        stat.uid = 0;
+        stat.gid = 0;
+        stat.size = inner.size as u64;
+        stat.block_size = 4096; // PAGE_SIZE
+        stat.block_count = inner.frames.len() as u64;
+        stat.rdev = 0;
+
+        stat.ctime = TimeSpec::zero();
+        stat.mtime = TimeSpec::zero();
+        stat.atime = TimeSpec::zero();
+
+        Ok(())
+    }
 }
