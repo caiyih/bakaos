@@ -63,17 +63,7 @@ SECTIONS
         KEEP(*(.debug_line))
     }
 
-    /*
-        /DISCARD/ : {
-            *(.eh_frame)
-        }
-    */
-
-    /* Inserting these two lines */
     . = ALIGN(8);
-    /* PROVIDE(__eh_frame = .); */
-    /* before .eh_frame rule */
-    .eh_frame : { KEEP (*(.eh_frame)) *(.eh_frame.*) }
 
     ekernel = .;
 }
