@@ -58,6 +58,7 @@ struct DirectoryTreeNodeInner {
     name: String,
     mounted: BTreeMap<String, Arc<DirectoryTreeNode>>,
     opened: BTreeMap<String, Weak<DirectoryTreeNode>>,
+    shadowed: Option<Arc<DirectoryTreeNode>>,
 }
 
 impl DirectoryTreeNodeInner {
@@ -112,6 +113,7 @@ impl DirectoryTreeNode {
                 name,
                 mounted: BTreeMap::new(),
                 opened: BTreeMap::new(),
+                shadowed: None,
             })),
         });
 
@@ -138,6 +140,7 @@ impl DirectoryTreeNode {
                     .to_string(),
                 mounted: BTreeMap::new(),
                 opened: BTreeMap::new(),
+                shadowed: None,
             })),
         });
 
@@ -160,16 +163,6 @@ impl DirectoryTreeNode {
             }
         };
 
-        if let Some(mounted) = self.inner.lock().get_mounted(name) {
-            let mounted_inner = mounted.inner.lock();
-
-            // Non-ram inode can't be shadowed
-            match mounted_inner.meta {
-                DirectoryTreeNodeMetadata::Empty => (),
-                _ => return Err(MountError::FileExists),
-            }
-        }
-
         // We actually don't care what the name of the inode to be mounted is,
         // as the 'mount' operation always gives a new name to it, which is the key of the mount list
         let inode = Self::from_inode(
@@ -179,23 +172,10 @@ impl DirectoryTreeNode {
             Some(name),
         );
 
-        // Transfer mount list and open list
-        {
-            let mut inner = self.inner.lock();
-            if let Some(mounted) = inner.get_mounted(name) {
-                let mounted_inner = mounted.inner.lock();
+        if let Some(mounted) = self.inner.lock().mounted.remove(name) {
+            let mut new_inner = inode.inner.lock();
 
-                let mut inode_inner = inode.inner.lock();
-
-                inode_inner.mounted = mounted_inner.mounted.clone();
-                inode_inner.opened = mounted_inner.opened.clone();
-
-                // explicitly drop to prevent deadlock in drop call
-                let old = inner.mounted.remove(name);
-
-                drop(inner);
-                drop(old); // requires lock to be released
-            }
+            new_inner.shadowed = Some(mounted);
         }
 
         self.inner
@@ -210,16 +190,14 @@ impl DirectoryTreeNode {
         name: &str,
     ) -> Result<Arc<DirectoryTreeNode>, MountError> {
         let mut inner = self.inner.lock();
-        if let Some(mounted) = inner.get_mounted(name) {
-            if let DirectoryTreeNodeMetadata::Empty = mounted.inner.lock().meta {
-                return Ok(mounted.clone());
-            }
-
-            // Non-ram inode can't be shadowed
-            return Err(MountError::FileExists);
-        }
 
         let inode = Self::from_empty(Some(self.clone()), name.to_string());
+
+        if let Some(mounted) = inner.mounted.remove(name) {
+            let mut new_inner = inode.inner.lock();
+
+            new_inner.shadowed = Some(mounted);
+        }
 
         inner
             .mounted
@@ -228,11 +206,23 @@ impl DirectoryTreeNode {
     }
 
     pub fn umount_at(&self, name: &str) -> Result<Arc<DirectoryTreeNode>, MountError> {
-        self.inner
+        let umounted = self
+            .inner
             .lock()
             .mounted
             .remove(name)
-            .ok_or(MountError::FileNotExists)
+            .ok_or(MountError::FileNotExists)?;
+
+        let shadowed = umounted.inner.lock().shadowed.take();
+
+        if let Some(shadowed) = shadowed {
+            let self_arc = self.self_arc().expect("Unable to get self arc");
+            let mut self_inner = self_arc.inner.lock();
+
+            self_inner.mounted.insert(name.to_string(), shadowed);
+        }
+
+        Ok(umounted)
     }
 
     pub fn name(&self) -> &str {
@@ -576,32 +566,24 @@ pub fn global_umount(
         (_, true) => {
             let mut root = unsafe { ROOT.lock() };
 
-            let root_node = root.as_ref().unwrap().clone();
+            let root_node = root.as_ref().unwrap();
 
-            // Umount root
+            // Umount root, restoring shadowed node
             if path.trim_start_matches(path::SEPARATOR).is_empty() {
-                let root_inner = root_node.inner.lock();
-
-                if let DirectoryTreeNodeMetadata::Empty = root_inner.meta {
-                    drop(root_inner);
-                    return Ok(root_node);
-                }
-
-                let new_root = DirectoryTreeNode::from_empty(None, String::new());
-                let mut new_root_inner = new_root.inner.lock();
-
-                new_root_inner.mounted = root_inner.mounted.clone();
-                new_root_inner.opened = root_inner.opened.clone();
+                let mut root_inner = root_node.inner.lock();
+                let previous_root = root_inner
+                    .shadowed
+                    .take()
+                    .unwrap_or(DirectoryTreeNode::from_empty(None, String::new()));
 
                 drop(root_inner);
-                drop(new_root_inner);
 
-                *root = Some(new_root.clone());
+                *root = Some(previous_root.clone());
 
-                return Ok(new_root);
+                return Ok(previous_root);
             }
 
-            root_node
+            root_node.clone()
         }
         (Some(root), false) => root.clone(),
         (None, false) => return Err(MountError::InvalidInput),
@@ -633,31 +615,17 @@ pub fn global_mount(
         (_, true) => {
             let mut root = unsafe { ROOT.lock() };
 
-            let root_node = root.as_ref().unwrap();
-
+            // new root
             if path.trim_start_matches(path::SEPARATOR).is_empty() {
-                let root_inner = root_node.inner.lock();
+                let new_root = DirectoryTreeNode::from_inode(None, inode, None, None);
+                new_root.inner.lock().shadowed = root.take();
 
-                if let DirectoryTreeNodeMetadata::Empty = root_inner.meta {
-                    let new_root = DirectoryTreeNode::from_inode(None, inode, None, None);
-                    let mut new_root_inner = new_root.inner.lock();
+                *root = Some(new_root.clone());
 
-                    // Transfer mount list and open list
-                    new_root_inner.mounted = root_inner.mounted.clone();
-                    new_root_inner.opened = root_inner.opened.clone();
-
-                    drop(root_inner);
-                    drop(new_root_inner);
-
-                    *root = Some(new_root.clone());
-
-                    return Ok(new_root);
-                } else {
-                    return Err(MountError::AlreadyMounted);
-                }
+                return Ok(new_root);
             }
 
-            root_node.clone()
+            root.as_ref().unwrap().clone()
         }
         (Some(root), false) => root.clone(),
         (None, false) => return Err(MountError::InvalidInput),
