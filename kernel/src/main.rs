@@ -254,7 +254,9 @@ unsafe extern "C" fn __kernel_init() {
     filesystem::global_mount_device("/dev/sda", "/mnt", None).unwrap();
 
     let tick = machine.get_board_tick();
-    let seed = tick as u64 | machine.clock_freq();
+    let seed = (((tick as u64) << 32) | machine.clock_freq()) ^ 0xdeadbeef;
+
+    log::info!("Setting up global rng with seed: {}", seed);
 
     rng::initialize(seed);
 }
