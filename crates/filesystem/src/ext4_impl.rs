@@ -57,7 +57,7 @@ unsafe impl Sync for Ext4FileSystem {}
 const FILESYSTEM_NAME: &str = "Ext4FileSystem";
 
 impl Ext4FileSystem {
-    pub fn new(device: DiskDriver) -> Result<Ext4FileSystem, ()> {
+    pub fn new(device: DiskDriver) -> Result<Ext4FileSystem, &'static str> {
         let inner = Arc::new(Ext4::open(Arc::new(Ext4Disk {
             driver: SpinMutex::new(device),
         })));
@@ -67,7 +67,8 @@ impl Ext4FileSystem {
 
         // Ext magic number
         if magic != 0xEF53 {
-            return Err(());
+            // The clippy bawls at me for using Err(()) here
+            return Err("Invalid magic number");
         }
 
         let root_dir = Arc::new(Ext4Inode {

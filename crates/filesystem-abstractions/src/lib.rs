@@ -66,9 +66,9 @@ pub enum DirectoryEntryType {
     // Socket = 12,
 }
 
-impl Into<FileStatisticsMode> for DirectoryEntryType {
-    fn into(self) -> FileStatisticsMode {
-        match self {
+impl From<DirectoryEntryType> for FileStatisticsMode {
+    fn from(val: DirectoryEntryType) -> Self {
+        match val {
             DirectoryEntryType::Unknown => FileStatisticsMode::NULL,
             DirectoryEntryType::File => FileStatisticsMode::FILE,
             DirectoryEntryType::Directory => FileStatisticsMode::DIR,
