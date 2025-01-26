@@ -13,6 +13,7 @@ use hermit_sync::{RwSpinLock, SpinMutex};
 use timing::TimeSpec;
 
 use crate::{
+    special_inode::{RandomInode, UnblockedRandomInode},
     DirectoryEntry, DirectoryEntryType, FileMetadata, FileStatistics, FileSystemError,
     FileSystemResult, IInode, InodeMetadata, NullInode, OpenFlags, OpenedDiskInode,
     TeleTypewriterInode, ZeroInode,
@@ -667,6 +668,8 @@ pub fn initialize() {
     global_mount(&TeleTypewriterInode::new(), "/dev/tty", None).unwrap();
     global_mount(&NullInode::new(), "/dev/null", None).unwrap();
     global_mount(&ZeroInode::new(), "/dev/zero", None).unwrap();
+    global_mount(&RandomInode::new(), "/dev/random", None).unwrap();
+    global_mount(&UnblockedRandomInode::new(), "/dev/urandom", None).unwrap();
 }
 
 pub fn global_open(
