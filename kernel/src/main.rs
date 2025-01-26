@@ -134,13 +134,6 @@ fn run_final_tests() {
     use scheduling::spawn_task;
     use tasks::TaskControlBlock;
 
-    global_mount(
-        &kernel::get().machine().create_ext4_filesystem_at_bus(0),
-        "/mnt",
-        None,
-    )
-    .unwrap();
-
     run_busybox("/mnt/busybox", &["/mnt/busybox", "--help"], &[]);
 
     fn run_busybox(path: &str, args: &[&str], envp: &[&str]) {
