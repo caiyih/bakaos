@@ -5,9 +5,15 @@ extern crate std;
 
 extern crate alloc;
 
+use alloc::sync::Arc;
+
 use alloc::boxed::Box;
+use filesystem_abstractions::{
+    DirectoryEntryType, FileStatistics, FileStatisticsMode, FileSystemResult, IInode, InodeMetadata,
+};
 
 pub mod vf2;
+use hermit_sync::SpinMutex;
 pub use vf2::{VisionFive2Disk, VisionFive2SdMMIO};
 pub mod virt;
 pub use virt::VirtioDiskDriver;
@@ -28,15 +34,11 @@ pub trait IRawDiskDevice: Sync + Send {
     }
 }
 
-pub struct DiskDriver {
+struct DiskDriver {
     device: Box<dyn IRawDiskDevice>,
 }
 
 impl DiskDriver {
-    pub fn new(device: Box<dyn IRawDiskDevice>) -> Self {
-        DiskDriver { device }
-    }
-
     fn read_512(&mut self, buf: &mut [u8]) -> Result<usize, ()> {
         let len = buf.len();
 
@@ -149,10 +151,6 @@ impl DiskDriver {
         }
     }
 
-    pub fn get_position(&self) -> usize {
-        self.device.get_position()
-    }
-
     /// Set the position of the disk driver
     /// # Safety
     /// This function is unsafe because you have to lock the disk driver since
@@ -160,12 +158,61 @@ impl DiskDriver {
     pub unsafe fn set_position(&mut self, position: usize) {
         self.device.set_position(position);
     }
+}
 
-    /// Move the position of the disk driver
-    /// # Safety
-    /// This function is unsafe because you have to lock the disk driver since
-    /// set_position call and read/write calls are not atomic
-    pub unsafe fn move_forward(&mut self, amount: i64) -> usize {
-        self.device.move_forward(amount)
+pub struct BlockDeviceInode {
+    inner: SpinMutex<DiskDriver>,
+}
+
+impl BlockDeviceInode {
+    #[allow(clippy::new_ret_no_self)]
+    pub fn new(device: Box<dyn IRawDiskDevice>) -> Arc<dyn IInode> {
+        Arc::new(Self {
+            inner: SpinMutex::new(DiskDriver { device }),
+        })
+    }
+}
+
+impl IInode for BlockDeviceInode {
+    fn metadata(&self) -> FileSystemResult<InodeMetadata> {
+        Ok(InodeMetadata {
+            filename: "Block device",
+            entry_type: DirectoryEntryType::BlockDevice,
+            size: 0,
+            children_count: 0,
+        })
+    }
+
+    fn stat(&self, stat: &mut FileStatistics) -> FileSystemResult<()> {
+        stat.device_id = 0;
+        stat.inode_id = 0;
+        stat.mode = FileStatisticsMode::BLOCK;
+        stat.link_count = 1;
+        stat.uid = 0;
+        stat.gid = 0;
+        stat.size = 0;
+        stat.block_size = 512;
+        stat.block_count = 0;
+        stat.rdev = 0;
+
+        // stat.ctime = TimeSpec::zero();
+        // stat.mtime = TimeSpec::zero();
+        // stat.atime = TimeSpec::zero();
+
+        Ok(())
+    }
+
+    fn readat(&self, offset: usize, buffer: &mut [u8]) -> FileSystemResult<usize> {
+        let mut inner = self.inner.lock();
+
+        unsafe { inner.set_position(offset) };
+        unsafe { Ok(inner.read_at(buffer).unwrap()) }
+    }
+
+    fn writeat(&self, offset: usize, buffer: &[u8]) -> FileSystemResult<usize> {
+        let mut inner = self.inner.lock();
+
+        unsafe { inner.set_position(offset) };
+        unsafe { Ok(inner.write_at(buffer).unwrap()) }
     }
 }
