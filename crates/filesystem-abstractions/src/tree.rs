@@ -13,7 +13,9 @@ use hermit_sync::{RwSpinLock, SpinMutex};
 use timing::TimeSpec;
 
 use crate::{
-    DirectoryEntry, DirectoryEntryType, FileMetadata, FileStatistics, FileSystemError, FileSystemResult, IInode, InodeMetadata, NullInode, OpenFlags, OpenedDiskInode, TeleTypewriterInode, ZeroInode
+    DirectoryEntry, DirectoryEntryType, FileMetadata, FileStatistics, FileSystemError,
+    FileSystemResult, IInode, InodeMetadata, NullInode, OpenFlags, OpenedDiskInode,
+    TeleTypewriterInode, ZeroInode,
 };
 
 struct RamFileInode {

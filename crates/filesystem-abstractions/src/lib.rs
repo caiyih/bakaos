@@ -9,6 +9,8 @@ extern crate std;
 
 extern crate alloc;
 
+use special_inode::{NullInode, ZeroInode};
+
 mod caching;
 mod file;
 mod inode;
@@ -21,7 +23,6 @@ pub use caching::*;
 pub use file::*;
 pub use inode::*;
 pub use pipe::*;
-pub use special_inode::{NullInode, ZeroInode};
 pub use stdio::*;
 pub use tree::{
     global_mount, global_open, global_umount, initialize, DirectoryTreeNode, MountError,
