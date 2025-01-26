@@ -2,9 +2,8 @@ use alloc::boxed::Box;
 use core::ptr::NonNull;
 use drivers::{
     virt::{VirtHal, VirtioDisk},
-    DiskDriver,
+    BlockDeviceInode,
 };
-use filesystem::{Ext4FileSystem, Fat32FileSystem};
 use virtio_drivers::{
     device::blk::VirtIOBlk,
     transport::mmio::{MmioTransport, VirtIOHeader},
@@ -14,22 +13,6 @@ use super::machine::IMachine;
 
 #[derive(Clone, Copy)]
 pub struct VirtBoard;
-
-impl VirtBoard {
-    fn create_block_driver_at_bus(&self, device_id: usize) -> DiskDriver {
-        let mmio_pa = self.mmc_driver(device_id);
-        let mmio_va = mmio_pa | constants::VIRT_ADDR_OFFSET;
-
-        let ptr = unsafe { NonNull::new_unchecked(mmio_va as *mut VirtIOHeader) };
-        let mmio_transport =
-            unsafe { MmioTransport::new(ptr).expect("Failed to initialize virtio mmio transport") };
-        let virt_blk = VirtIOBlk::<VirtHal, _>::new(mmio_transport)
-            .expect("Failed to initialize virtio block device");
-        let virt_disk = VirtioDisk::new(virt_blk);
-
-        DiskDriver::new(Box::new(virt_disk))
-    }
-}
 
 impl IMachine for VirtBoard {
     fn name(&self) -> &'static str {
@@ -61,13 +44,20 @@ impl IMachine for VirtBoard {
         0x1000
     }
 
-    fn create_fat32_filesystem_at_bus(&self, device_id: usize) -> filesystem::Fat32FileSystem {
-        Fat32FileSystem::new(self.create_block_driver_at_bus(device_id))
-            .expect("Failed to initialize FAT32 filesystem on VirtIOBlk")
-    }
+    fn create_block_device_at(
+        &self,
+        device_id: usize,
+    ) -> alloc::sync::Arc<dyn filesystem_abstractions::IInode> {
+        let mmio_pa = self.mmc_driver(device_id);
+        let mmio_va = mmio_pa | constants::VIRT_ADDR_OFFSET;
 
-    fn create_ext4_filesystem_at_bus(&self, device_id: usize) -> filesystem::Ext4FileSystem {
-        Ext4FileSystem::new(self.create_block_driver_at_bus(device_id))
-            .expect("Failed to initialize EXT4 filesystem on VirtIOBlk")
+        let ptr = unsafe { NonNull::new_unchecked(mmio_va as *mut VirtIOHeader) };
+        let mmio_transport =
+            unsafe { MmioTransport::new(ptr).expect("Failed to initialize virtio mmio transport") };
+        let virt_blk = VirtIOBlk::<VirtHal, _>::new(mmio_transport)
+            .expect("Failed to initialize virtio block device");
+        let virt_disk = VirtioDisk::new(virt_blk);
+
+        BlockDeviceInode::new(Box::new(virt_disk))
     }
 }

@@ -1,8 +1,8 @@
 use abstractions::IUsizeAlias;
 use address::PhysicalAddress;
-use alloc::boxed::Box;
-use drivers::{DiskDriver, VisionFive2Disk};
-use filesystem::{Ext4FileSystem, Fat32FileSystem};
+use alloc::{boxed::Box, sync::Arc};
+use drivers::{BlockDeviceInode, VisionFive2Disk};
+use filesystem_abstractions::IInode;
 
 use super::machine::IMachine;
 
@@ -39,22 +39,10 @@ impl IMachine for VF2Machine {
         0x1_0000
     }
 
-    fn create_fat32_filesystem_at_bus(&self, device_id: usize) -> filesystem::Fat32FileSystem {
-        Fat32FileSystem::new(self.create_block_driver_at_bus(device_id))
-            .expect("Failed to initialize FAT32 filesystem on VisionFive2Disk")
-    }
-
-    fn create_ext4_filesystem_at_bus(&self, device_id: usize) -> filesystem::Ext4FileSystem {
-        Ext4FileSystem::new(self.create_block_driver_at_bus(device_id))
-            .expect("Failed to initialize EXT4 filesystem on VisionFive2Disk")
-    }
-}
-
-impl VF2Machine {
-    fn create_block_driver_at_bus(&self, device_id: usize) -> DiskDriver {
+    fn create_block_device_at(&self, device_id: usize) -> Arc<dyn IInode> {
         let mmio_pa = PhysicalAddress::from_usize(self.bus0() + device_id * self.bus_width());
         let mmio = drivers::VisionFive2SdMMIO::new(mmio_pa.to_high_virtual());
 
-        DiskDriver::new(Box::new(VisionFive2Disk::new(mmio)))
+        BlockDeviceInode::new(Box::new(VisionFive2Disk::new(mmio)))
     }
 }
