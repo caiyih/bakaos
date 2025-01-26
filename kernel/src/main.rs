@@ -250,6 +250,7 @@ unsafe extern "C" fn __kernel_init() {
 
     let sda = machine.create_block_device_at(0);
     filesystem_abstractions::global_mount(&sda, "/dev/sda", None).unwrap();
+    filesystem_abstractions::global_mount(&TeleTypewriterInode::new(), "/dev/tty", None).unwrap();
 
     filesystem::global_mount_device("/dev/sda", "/mnt", None).unwrap();
 }
