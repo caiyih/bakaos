@@ -357,10 +357,12 @@ impl DirectoryTreeNode {
     pub fn close(&self, name: &str) -> (bool, bool) {
         let mut inner = self.inner.lock();
 
-        let closed = inner.opened.remove(name).is_some();
-        let unmounted = inner.mounted.remove(name).is_some();
+        let closed = inner.opened.remove(name);
+        let unmounted = inner.mounted.remove(name);
 
-        (closed, unmounted)
+        drop(inner); // prevent deadlock in recursive close
+
+        (closed.is_some(), unmounted.is_some())
     }
 
     pub fn open(
