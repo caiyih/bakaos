@@ -68,5 +68,6 @@ impl IMachine for VirtBoard {
 
     fn create_ext4_filesystem_at_bus(&self, device_id: usize) -> filesystem::Ext4FileSystem {
         Ext4FileSystem::new(self.create_block_driver_at_bus(device_id))
+            .expect("Failed to initialize EXT4 filesystem on VirtIOBlk")
     }
 }

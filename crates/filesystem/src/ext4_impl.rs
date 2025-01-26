@@ -3,9 +3,7 @@ use core::{mem::MaybeUninit, panic};
 
 use drivers::DiskDriver;
 use ext4_rs::{Ext4, InodeFileType};
-use filesystem_abstractions::{
-    DirectoryEntryType, FileSystemError, IFileSystem, IInode,
-};
+use filesystem_abstractions::{DirectoryEntryType, FileSystemError, IFileSystem, IInode};
 
 use alloc::string::{String, ToString};
 use alloc::sync::Arc;
@@ -59,10 +57,18 @@ unsafe impl Sync for Ext4FileSystem {}
 const FILESYSTEM_NAME: &str = "Ext4FileSystem";
 
 impl Ext4FileSystem {
-    pub fn new(device: DiskDriver) -> Ext4FileSystem {
+    pub fn new(device: DiskDriver) -> Result<Ext4FileSystem, ()> {
         let inner = Arc::new(Ext4::open(Arc::new(Ext4Disk {
             driver: SpinMutex::new(device),
         })));
+
+        let p_super_block = &inner.super_block as *const _ as *const u8;
+        let magic = unsafe { p_super_block.add(0x38).cast::<u16>().read_volatile() };
+
+        // Ext magic number
+        if magic != 0xEF53 {
+            return Err(());
+        }
 
         let root_dir = Arc::new(Ext4Inode {
             inode_id: ROOT_INODE,
@@ -71,7 +77,7 @@ impl Ext4FileSystem {
             file_type: DirectoryEntryType::Directory,
         });
 
-        Ext4FileSystem { root_dir }
+        Ok(Ext4FileSystem { root_dir })
     }
 }
 
