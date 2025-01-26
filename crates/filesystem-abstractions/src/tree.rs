@@ -660,13 +660,13 @@ pub fn initialize() {
         root.mount_empty(node).unwrap();
     }
 
-    global_mount(&TeleTypewriterInode::new(), "/dev/tty", None).unwrap();
-    global_mount(&NullInode::new(), "/dev/null", None).unwrap();
-    global_mount(&ZeroInode::new(), "/dev/zero", None).unwrap();
-
     unsafe {
         *ROOT.lock() = MaybeUninit::new(root);
     }
+
+    global_mount(&TeleTypewriterInode::new(), "/dev/tty", None).unwrap();
+    global_mount(&NullInode::new(), "/dev/null", None).unwrap();
+    global_mount(&ZeroInode::new(), "/dev/zero", None).unwrap();
 }
 
 pub fn global_open(
