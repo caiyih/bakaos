@@ -133,11 +133,6 @@ fn write(buf: &[u8]) -> usize {
     let mut written_bytes = 0;
 
     for &ch in buf {
-        // TODO: Figure out whether we should break on null byte
-        if ch == 0 {
-            break;
-        }
-
         putchar_to_serial(ch);
         written_bytes += 1;
     }
