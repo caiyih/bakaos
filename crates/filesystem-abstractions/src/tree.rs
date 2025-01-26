@@ -8,7 +8,7 @@ use alloc::{
 };
 use allocation::TrackedFrame;
 use constants::SyscallError;
-use core::{cell::UnsafeCell, usize};
+use core::{cell::UnsafeCell, mem::MaybeUninit, usize};
 use hermit_sync::{RwSpinLock, SpinMutex};
 use timing::TimeSpec;
 
@@ -644,7 +644,8 @@ impl IInode for DirectoryTreeNode {
 }
 
 // The root of the directory tree
-static mut ROOT: SpinMutex<Option<Arc<DirectoryTreeNode>>> = SpinMutex::new(None);
+static mut ROOT: SpinMutex<MaybeUninit<Arc<DirectoryTreeNode>>> =
+    SpinMutex::new(MaybeUninit::uninit());
 
 pub fn initialize() {
     let root = DirectoryTreeNode::from_empty(None, String::new());
@@ -659,7 +660,7 @@ pub fn initialize() {
     }
 
     unsafe {
-        *ROOT.lock() = Some(root);
+        *ROOT.lock() = MaybeUninit::new(root);
     }
 }
 
@@ -668,7 +669,7 @@ pub fn global_open(
     relative_to: Option<&Arc<DirectoryTreeNode>>,
 ) -> FileSystemResult<Arc<DirectoryTreeNode>> {
     let root = match (relative_to, path::is_path_fully_qualified(path)) {
-        (_, true) => unsafe { ROOT.lock().as_ref().unwrap().clone() },
+        (_, true) => unsafe { ROOT.lock().assume_init_ref().clone() },
         (Some(root), false) => root.clone(),
         (None, false) => return Err(FileSystemError::InvalidInput),
     };
@@ -691,7 +692,7 @@ pub fn global_umount(
         (_, true) => {
             let mut root = unsafe { ROOT.lock() };
 
-            let root_node = root.as_ref().unwrap();
+            let root_node = unsafe { root.assume_init_ref() };
 
             // Umount root, restoring shadowed node
             if path.trim_start_matches(path::SEPARATOR).is_empty() {
@@ -703,7 +704,7 @@ pub fn global_umount(
 
                 drop(root_inner);
 
-                *root = Some(previous_root.clone());
+                *root = MaybeUninit::new(previous_root.clone());
 
                 return Ok(previous_root);
             }
@@ -743,14 +744,14 @@ pub fn global_mount(
             // new root
             if path.trim_start_matches(path::SEPARATOR).is_empty() {
                 let new_root = DirectoryTreeNode::from_inode(None, inode, None, None);
-                new_root.inner.lock().shadowed = root.take();
+                new_root.inner.lock().shadowed = Some(unsafe { root.assume_init_ref().clone() });
 
-                *root = Some(new_root.clone());
+                *root = MaybeUninit::new(new_root.clone());
 
                 return Ok(new_root);
             }
 
-            root.as_ref().unwrap().clone()
+            unsafe { root.assume_init_ref().clone() }
         }
         (Some(root), false) => root.clone(),
         (None, false) => return Err(MountError::InvalidInput),
