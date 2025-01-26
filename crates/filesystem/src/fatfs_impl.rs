@@ -6,7 +6,6 @@ use alloc::{
     vec::Vec,
 };
 use core::{ops::Deref, str};
-use drivers::DiskDriver;
 
 use fatfs::{Dir, Error, File, LossyOemCpConverter, NullTimeProvider, Read, Seek, SeekFrom, Write};
 use filesystem_abstractions::{
@@ -26,7 +25,7 @@ unsafe impl Send for Fat32FileSystem {}
 unsafe impl Sync for Fat32FileSystem {}
 
 pub struct Fat32Disk {
-    driver: SpinMutex<DiskDriver>,
+    inner: SpinMutex<(Arc<dyn IInode>, u64)>,
 }
 
 impl IFileSystem for Fat32FileSystem {
@@ -48,9 +47,9 @@ impl Deref for Fat32FileSystem {
 }
 
 impl Fat32FileSystem {
-    pub fn new(device: DiskDriver) -> Result<Self, Error<()>> {
+    pub fn new(device: Arc<dyn IInode>) -> Result<Self, Error<()>> {
         let disk = Fat32Disk {
-            driver: SpinMutex::new(device),
+            inner: SpinMutex::new((device, 0)),
         };
 
         let fs = fatfs::FileSystem::new(disk, fatfs::FsOptions::new())?;
@@ -80,13 +79,25 @@ impl fatfs::IoBase for Fat32Disk {
 
 impl fatfs::Read for Fat32Disk {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, ()> {
-        unsafe { self.driver.lock().read_at(buf).map_err(|_| ()) }
+        let mut inner = self.inner.lock();
+
+        let bytes_read = inner.0.readat(inner.1 as usize, buf).map_err(|_| ())?;
+
+        inner.1 += bytes_read as u64;
+
+        Ok(bytes_read)
     }
 }
 
 impl fatfs::Write for Fat32Disk {
     fn write(&mut self, buf: &[u8]) -> Result<usize, ()> {
-        unsafe { self.driver.lock().write_at(buf).map_err(|_| ()) }
+        let mut inner = self.inner.lock();
+
+        let bytes_written = inner.0.writeat(inner.1 as usize, buf).map_err(|_| ())?;
+
+        inner.1 += bytes_written as u64;
+
+        Ok(bytes_written)
     }
 
     fn flush(&mut self) -> Result<(), Self::Error> {
@@ -96,15 +107,14 @@ impl fatfs::Write for Fat32Disk {
 
 impl fatfs::Seek for Fat32Disk {
     fn seek(&mut self, pos: SeekFrom) -> Result<u64, Self::Error> {
-        let mut driver = self.driver.lock();
+        let mut inner = self.inner.lock();
         match pos {
-            fatfs::SeekFrom::Start(i) => {
-                unsafe { driver.set_position(i as usize) };
-                Ok(i)
-            }
-            fatfs::SeekFrom::Current(i) => Ok(unsafe { driver.move_forward(i) as u64 }),
+            fatfs::SeekFrom::Start(i) => inner.1 = i,
+            fatfs::SeekFrom::Current(i) => inner.1 = (inner.1 as i64 + i) as u64,
             fatfs::SeekFrom::End(_) => unreachable!(),
         }
+
+        Ok(inner.1)
     }
 }
 

@@ -1,7 +1,6 @@
 use core::ops::Deref;
 use core::{mem::MaybeUninit, panic};
 
-use drivers::DiskDriver;
 use ext4_rs::{Ext4, InodeFileType};
 use filesystem_abstractions::{DirectoryEntryType, FileSystemError, IFileSystem, IInode};
 
@@ -9,41 +8,36 @@ use alloc::string::{String, ToString};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 
-use hermit_sync::SpinMutex;
 use timing::TimeSpec;
 
 const ROOT_INODE: u32 = 2; // ext4_rs/src/ext4_defs/consts.rs#L11
 
 struct Ext4Disk {
-    driver: SpinMutex<DiskDriver>,
+    inner: Arc<dyn IInode>,
 }
 
 impl ext4_rs::BlockDevice for Ext4Disk {
     fn read_offset(&self, offset: usize) -> Vec<u8> {
-        let mut device = self.driver.lock();
+        // let mut device = self.driver.lock();
 
-        unsafe { device.set_position(offset) };
+        // unsafe { device.set_position(offset) };
 
         let mut buffer = Vec::<MaybeUninit<u8>>::with_capacity(ext4_rs::BLOCK_SIZE);
         unsafe { buffer.set_len(ext4_rs::BLOCK_SIZE) };
 
         let mut buf = unsafe { core::mem::transmute::<Vec<MaybeUninit<u8>>, Vec<u8>>(buffer) };
-        unsafe {
-            device
-                .read_at(&mut buf)
-                .expect("Failed to read data from disk")
-        };
+
+        self.inner
+            .readat(offset, &mut buf)
+            .expect("Failed to read data from disk");
 
         buf
     }
 
     fn write_offset(&self, offset: usize, data: &[u8]) {
-        let mut device = self.driver.lock();
-
-        unsafe {
-            device.set_position(offset);
-            device.write_at(data).expect("Failed to write data to disk");
-        };
+        self.inner
+            .writeat(offset, data)
+            .expect("Failed to write data to disk");
     }
 }
 
@@ -57,10 +51,8 @@ unsafe impl Sync for Ext4FileSystem {}
 const FILESYSTEM_NAME: &str = "Ext4FileSystem";
 
 impl Ext4FileSystem {
-    pub fn new(device: DiskDriver) -> Result<Ext4FileSystem, &'static str> {
-        let inner = Arc::new(Ext4::open(Arc::new(Ext4Disk {
-            driver: SpinMutex::new(device),
-        })));
+    pub fn new(device: Arc<dyn IInode>) -> Result<Ext4FileSystem, &'static str> {
+        let inner = Arc::new(Ext4::open(Arc::new(Ext4Disk { inner: device })));
 
         let p_super_block = &inner.super_block as *const _ as *const u8;
         let magic = unsafe { p_super_block.add(0x38).cast::<u16>().read_volatile() };
