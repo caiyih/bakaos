@@ -25,8 +25,8 @@ mod system;
 mod timing;
 mod trap;
 
-use core::{arch::asm, sync::atomic::AtomicBool};
 use alloc::sync::Arc;
+use core::{arch::asm, sync::atomic::AtomicBool};
 use filesystem_abstractions::{global_open, IInode};
 use firmwares::console::IConsole;
 use paging::PageTable;
