@@ -2,7 +2,7 @@ use core::mem::MaybeUninit;
 
 use alloc::sync::Arc;
 use constants::{ErrNo, SyscallError};
-use filesystem_abstractions::{FileMetadata, IInode};
+use filesystem_abstractions::{DirectoryEntryType, FileMetadata, IInode};
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
 use threading::yield_now;
 
@@ -187,7 +187,9 @@ async_syscall!(sys_sendfile_async, ctx, {
             file_meta.set_offset(offset);
 
             if let Ok(inode_meta) = file_meta.inode().metadata() {
-                return usize::min(inode_meta.size - offset, size);
+                if inode_meta.entry_type != DirectoryEntryType::CharDevice {
+                    return usize::min(inode_meta.size - offset, size);
+                }
             };
         }
 
@@ -203,6 +205,16 @@ async_syscall!(sys_sendfile_async, ctx, {
         .map(|p| *p);
 
     let in_meta = in_file.metadata();
+
+    // Should use read/write
+    if let Some(ref in_meta) = in_meta {
+        if let Ok(in_inode) = in_meta.inode().metadata() {
+            if in_inode.entry_type == DirectoryEntryType::CharDevice {
+                return SyscallError::InvalidArgument;
+            }
+        }
+    }
+
     let size = ctx.arg3::<usize>();
     let mut remaining_bytes = calculate_size(&in_meta, offset, size);
 
