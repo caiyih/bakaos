@@ -451,7 +451,7 @@ impl IInode for DirectoryTreeNode {
                 let ram_inode: Arc<dyn IInode> = Arc::new(RamFileInode::new(name));
 
                 self_arc
-                    .mount_as(&ram_inode, Some(&name))
+                    .mount_as(&ram_inode, Some(name))
                     .map_err(|e| e.to_filesystem_error())
                     .map(|inode| inode as Arc<dyn IInode>)
             }
