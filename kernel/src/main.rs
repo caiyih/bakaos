@@ -252,6 +252,11 @@ unsafe extern "C" fn __kernel_init() {
     filesystem_abstractions::global_mount(&sda, "/dev/sda", None).unwrap();
 
     filesystem::global_mount_device("/dev/sda", "/mnt", None).unwrap();
+
+    let tick = machine.get_board_tick();
+    let seed = tick as u64 | machine.clock_freq();
+
+    rng::initialize(seed);
 }
 
 #[no_mangle]
