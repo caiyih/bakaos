@@ -189,43 +189,43 @@ fn run_preliminary_tests() {
 
     filesystem_abstractions::global_mount(
         &kernel::get().machine().create_fat32_filesystem_at_bus(0),
-        "/",
+        "/mnt",
         None,
     )
     .unwrap();
 
-    preliminary_test("/uname", None, None);
-    preliminary_test("/write", None, None);
-    preliminary_test("/times", None, None);
-    preliminary_test("/brk", None, None);
-    preliminary_test("/gettimeofday", None, None);
-    preliminary_test("/getpid", None, None);
-    preliminary_test("/getppid", None, None);
-    preliminary_test("/getcwd", None, None);
-    preliminary_test("/sleep", None, None);
-    preliminary_test("/fork", None, None);
-    preliminary_test("/clone", None, None);
-    preliminary_test("/yield", None, None);
-    preliminary_test("/exit", None, None);
-    preliminary_test("/wait", None, None);
-    preliminary_test("/waitpid", None, None);
-    preliminary_test("/execve", None, None);
-    preliminary_test("/pipe", None, None);
-    preliminary_test("/dup", None, None);
-    preliminary_test("/dup2", None, None);
-    preliminary_test("/openat", None, None);
-    preliminary_test("/open", None, None);
-    preliminary_test("/close", None, None);
-    preliminary_test("/read", None, None);
-    preliminary_test("/mount", None, None);
-    preliminary_test("/umount", None, None);
-    preliminary_test("/mkdir_", None, None);
-    preliminary_test("/chdir", None, None);
-    preliminary_test("/fstat", None, None);
-    preliminary_test("/getdents", None, None);
-    preliminary_test("/unlink", None, None);
-    preliminary_test("/mmap", None, None);
-    preliminary_test("/munmap", None, None);
+    preliminary_test("/mnt/uname", None, None);
+    preliminary_test("/mnt/write", None, None);
+    preliminary_test("/mnt/times", None, None);
+    preliminary_test("/mnt/brk", None, None);
+    preliminary_test("/mnt/gettimeofday", None, None);
+    preliminary_test("/mnt/getpid", None, None);
+    preliminary_test("/mnt/getppid", None, None);
+    preliminary_test("/mnt/getcwd", None, None);
+    preliminary_test("/mnt/sleep", None, None);
+    preliminary_test("/mnt/fork", None, None);
+    preliminary_test("/mnt/clone", None, None);
+    preliminary_test("/mnt/yield", None, None);
+    preliminary_test("/mnt/exit", None, None);
+    preliminary_test("/mnt/wait", None, None);
+    preliminary_test("/mnt/waitpid", None, None);
+    preliminary_test("/mnt/execve", None, None);
+    preliminary_test("/mnt/pipe", None, None);
+    preliminary_test("/mnt/dup", None, None);
+    preliminary_test("/mnt/dup2", None, None);
+    preliminary_test("/mnt/openat", None, None);
+    preliminary_test("/mnt/open", None, None);
+    preliminary_test("/mnt/close", None, None);
+    preliminary_test("/mnt/read", None, None);
+    preliminary_test("/mnt/mount", None, None);
+    preliminary_test("/mnt/umount", None, None);
+    preliminary_test("/mnt/mkdir_", None, None);
+    preliminary_test("/mnt/chdir", None, None);
+    preliminary_test("/mnt/fstat", None, None);
+    preliminary_test("/mnt/getdents", None, None);
+    preliminary_test("/mnt/unlink", None, None);
+    preliminary_test("/mnt/mmap", None, None);
+    preliminary_test("/mnt/munmap", None, None);
 }
 
 static mut BOOTED: AtomicBool = AtomicBool::new(false);
