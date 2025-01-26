@@ -336,14 +336,18 @@ impl DirectoryTreeNode {
             .remove(name)
             .ok_or(MountError::FileNotExists)?;
 
-        let shadowed = umounted.inner.lock().shadowed.take();
+        let mut umounted_inner = umounted.inner.lock();
 
-        if let Some(shadowed) = shadowed {
+        if let Some(shadowed) = umounted_inner.shadowed.take() {
             let self_arc = self.self_arc().expect("Unable to get self arc");
             let mut self_inner = self_arc.inner.lock();
 
             self_inner.mounted.insert(name.to_string(), shadowed);
         }
+
+        umounted_inner.mounted.clear(); // prevent memory leak caused by loop reference
+
+        drop(umounted_inner);
 
         Ok(umounted)
     }
@@ -709,6 +713,8 @@ pub fn global_umount(
                     .shadowed
                     .take()
                     .unwrap_or(DirectoryTreeNode::from_empty(None, String::new()));
+
+                root_inner.mounted.clear(); // prevent memory leak cuz the mounted nodes and root hold reference to each other
 
                 drop(root_inner);
 
