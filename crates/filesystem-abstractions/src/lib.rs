@@ -56,8 +56,29 @@ pub trait IFileSystem: Send + Sync {
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum DirectoryEntryType {
-    File,
-    Directory,
+    Unknown = 0,
+    NamedPipe = 1,
+    CharDevice = 2,
+    Directory = 4,
+    BlockDevice = 6,
+    File = 8,
+    // Symlink = 10,
+    // Socket = 12,
+}
+
+impl Into<FileStatisticsMode> for DirectoryEntryType {
+    fn into(self) -> FileStatisticsMode {
+        match self {
+            DirectoryEntryType::Unknown => FileStatisticsMode::NULL,
+            DirectoryEntryType::File => FileStatisticsMode::FILE,
+            DirectoryEntryType::Directory => FileStatisticsMode::DIR,
+            DirectoryEntryType::BlockDevice => FileStatisticsMode::BLOCK,
+            DirectoryEntryType::CharDevice => FileStatisticsMode::CHAR,
+            DirectoryEntryType::NamedPipe => FileStatisticsMode::FIFO,
+            // DirectoryEntryType::Socket => FileStatisticsMode::SOCKET,
+            // DirectoryEntryType::Symlink => FileStatisticsMode::LINK,
+        }
+    }
 }
 
 pub struct DirectoryEntry {

@@ -4,7 +4,7 @@ use alloc::{slice, string::String, sync::Arc};
 use constants::{ErrNo, SyscallError};
 use filesystem::DummyFileSystem;
 use filesystem_abstractions::{
-    DirectoryEntryType, DirectoryTreeNode, FileDescriptor, FileDescriptorBuilder, FileMode,
+    DirectoryTreeNode, FileDescriptor, FileDescriptorBuilder, FileMode,
     FileStatistics, FrozenFileDescriptorBuilder, ICacheableFile, IFileSystem, IInode, OpenFlags,
     PipeBuilder,
 };
@@ -527,11 +527,7 @@ impl ISyncSyscallHandler for GetDents64Syscall {
                     p_entry.inode_id = idx as u64;
                     p_entry.doffsset = offset as u64; // no meaning for user space
                     p_entry.entry_len = entry_size as u16;
-                    p_entry.file_type = match entry.entry_type {
-                        // magic number is bad, but this is not used in other places, so keep it for now
-                        DirectoryEntryType::File => 1,      // REG
-                        DirectoryEntryType::Directory => 2, // DIR
-                    };
+                    p_entry.file_type = entry.entry_type as u8;
 
                     let name_slice =
                         unsafe { slice::from_raw_parts_mut(p_entry.name.as_mut_ptr(), name.len()) };

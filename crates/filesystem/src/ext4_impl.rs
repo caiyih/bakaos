@@ -4,7 +4,7 @@ use core::{mem::MaybeUninit, panic};
 use drivers::DiskDriver;
 use ext4_rs::{Ext4, InodeFileType};
 use filesystem_abstractions::{
-    DirectoryEntryType, FileStatisticsMode, FileSystemError, IFileSystem, IInode,
+    DirectoryEntryType, FileSystemError, IFileSystem, IInode,
 };
 
 use alloc::string::{String, ToString};
@@ -294,10 +294,7 @@ impl IInode for Ext4Inode {
 
         stat.device_id = 0;
         stat.inode_id = self.inode_id as u64;
-        stat.mode = match self.file_type {
-            DirectoryEntryType::File => FileStatisticsMode::FILE,
-            DirectoryEntryType::Directory => FileStatisticsMode::DIR,
-        };
+        stat.mode = self.file_type.into();
         stat.link_count = inode_ref.inode.links_count() as u32;
         stat.uid = inode_ref.inode.uid() as u32;
         stat.gid = inode_ref.inode.gid() as u32;
