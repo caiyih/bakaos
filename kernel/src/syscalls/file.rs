@@ -2,10 +2,9 @@ use abstractions::IUsizeAlias;
 use address::VirtualAddress;
 use alloc::{slice, string::String, sync::Arc};
 use constants::{ErrNo, SyscallError};
-use filesystem::DummyFileSystem;
 use filesystem_abstractions::{
     DirectoryTreeNode, FileDescriptor, FileDescriptorBuilder, FileMode, FileStatistics,
-    FrozenFileDescriptorBuilder, ICacheableFile, IFileSystem, IInode, OpenFlags, PipeBuilder,
+    FrozenFileDescriptorBuilder, ICacheableFile, IInode, OpenFlags, PipeBuilder,
 };
 use paging::{
     page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, MemoryMapFlags,
@@ -231,37 +230,49 @@ pub struct MountSyscall;
 
 impl ISyncSyscallHandler for MountSyscall {
     fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
-        let _source = ctx.arg0::<*const u8>();
+        let source = ctx.arg0::<*const u8>();
         let target = ctx.arg1::<*const u8>();
         let _filesystemtype = ctx.arg2::<*const u8>();
         let _flags = ctx.arg3::<usize>();
         let _data = ctx.arg4::<*const u8>();
 
-        match ctx
-            .borrow_page_table()
-            .guard_cstr(target, 1024)
-            .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
-        {
-            Some(guard) => {
+        let pt = ctx.borrow_page_table();
+
+        match (
+            pt.guard_cstr(source, 1024)
+                .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable),
+            pt.guard_cstr(target, 1024)
+                .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable),
+        ) {
+            (Some(source_guard), Some(target_guard)) => {
+                let source_path =
+                    core::str::from_utf8(&source_guard).map_err(|_| ErrNo::InvalidArgument)?;
+
+                // TODO: get_fullpath with cwd
+                if !path::is_path_fully_qualified(source_path) {
+                    return SyscallError::InvalidArgument;
+                }
+
                 let mut target_path =
-                    core::str::from_utf8(&guard).map_err(|_| ErrNo::InvalidArgument)?;
+                    core::str::from_utf8(&target_guard).map_err(|_| ErrNo::InvalidArgument)?;
 
                 let fully_qualified: String;
                 if !path::is_path_fully_qualified(target_path) {
                     let cwd = unsafe { ctx.cwd.get().as_ref().unwrap() };
-                    let full_path = path::get_full_path(target_path, Some(cwd))
+                    fully_qualified = path::get_full_path(target_path, Some(cwd))
                         .ok_or(ErrNo::InvalidArgument)?;
-                    fully_qualified = path::remove_relative_segments(&full_path);
                     target_path = &fully_qualified;
                 }
 
-                let fs: Arc<dyn IFileSystem> = Arc::new(DummyFileSystem);
+                let device: Arc<dyn IInode> =
+                    filesystem_abstractions::global_open(source_path, None)
+                        .map_err(|_| ErrNo::NoSuchDevice)?;
 
-                filesystem_abstractions::global_mount(&fs.root_dir(), target_path, None)
+                filesystem::global_mount_device_inode(&device, target_path, None)
                     .map(|_| 0isize)
                     .map_err(|e| e.to_syscall_error().unwrap_err())
             }
-            None => SyscallError::BadAddress,
+            _ => SyscallError::BadAddress,
         }
     }
 
