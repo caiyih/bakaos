@@ -63,25 +63,3 @@ fn mount_block_device(
 
     global_mount(&fs.root_dir(), path, relative_to)
 }
-
-pub struct DummyInode;
-
-impl IInode for DummyInode {}
-
-pub struct DummyFileSystem;
-
-impl Default for DummyFileSystem {
-    fn default() -> Self {
-        DummyFileSystem
-    }
-}
-
-impl IFileSystem for DummyFileSystem {
-    fn root_dir(&self) -> Arc<dyn IInode> {
-        Arc::new(DummyInode)
-    }
-
-    fn name(&self) -> &str {
-        "DummyFileSystem"
-    }
-}
