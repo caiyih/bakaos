@@ -13,6 +13,7 @@ mod caching;
 mod file;
 mod inode;
 mod pipe;
+mod special_inode;
 mod stdio;
 mod tree;
 
@@ -20,6 +21,7 @@ pub use caching::*;
 pub use file::*;
 pub use inode::*;
 pub use pipe::*;
+pub use special_inode::{NullInode, ZeroInode};
 pub use stdio::*;
 pub use tree::{
     global_mount, global_open, global_umount, initialize, DirectoryTreeNode, MountError,

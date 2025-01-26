@@ -13,8 +13,7 @@ use hermit_sync::{RwSpinLock, SpinMutex};
 use timing::TimeSpec;
 
 use crate::{
-    DirectoryEntry, DirectoryEntryType, FileMetadata, FileStatistics, FileSystemError,
-    FileSystemResult, IInode, InodeMetadata, OpenFlags, OpenedDiskInode,
+    DirectoryEntry, DirectoryEntryType, FileMetadata, FileStatistics, FileSystemError, FileSystemResult, IInode, InodeMetadata, NullInode, OpenFlags, OpenedDiskInode, TeleTypewriterInode, ZeroInode
 };
 
 struct RamFileInode {
@@ -658,6 +657,10 @@ pub fn initialize() {
     {
         root.mount_empty(node).unwrap();
     }
+
+    global_mount(&TeleTypewriterInode::new(), "/dev/tty", None).unwrap();
+    global_mount(&NullInode::new(), "/dev/null", None).unwrap();
+    global_mount(&ZeroInode::new(), "/dev/zero", None).unwrap();
 
     unsafe {
         *ROOT.lock() = MaybeUninit::new(root);
