@@ -26,7 +26,8 @@ mod timing;
 mod trap;
 
 use core::{arch::asm, sync::atomic::AtomicBool};
-use filesystem_abstractions::{global_mount, IInode};
+use alloc::sync::Arc;
+use filesystem_abstractions::{global_open, IInode};
 use firmwares::console::IConsole;
 use paging::PageTable;
 use sbi_spec::base::impl_id;
@@ -185,14 +186,10 @@ fn run_preliminary_tests() {
         threading::run_tasks();
     }
 
-    use filesystem_abstractions::IFileSystem;
-
-    filesystem_abstractions::global_mount(
-        &kernel::get().machine().create_fat32_filesystem_at_bus(0),
-        "/mnt",
-        None,
-    )
-    .unwrap();
+    // mount and umount tests requires '/dev/vda2'.
+    // so we just use a copy of the sdcard's block device
+    let sdcard: Arc<dyn IInode> = global_open("/dev/sda", None).unwrap();
+    filesystem_abstractions::global_mount(&sdcard, "/dev/vda2", None).unwrap();
 
     preliminary_test("/mnt/uname", None, None);
     preliminary_test("/mnt/write", None, None);
@@ -257,6 +254,11 @@ unsafe extern "C" fn __kernel_init() {
     BOOTED.store(true, core::sync::atomic::Ordering::Relaxed);
 
     filesystem_abstractions::initialize();
+
+    let sda = machine.create_block_device_at(0);
+    filesystem_abstractions::global_mount(&sda, "/dev/sda", None).unwrap();
+
+    filesystem::global_mount_device("/dev/sda", "/mnt", None).unwrap();
 }
 
 #[no_mangle]
