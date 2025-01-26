@@ -344,6 +344,13 @@ impl IInode for FatDirectoryInode {
         for entry_result in self.inner.iter() {
             match entry_result {
                 Ok(entry) => {
+                    let short_name = entry.short_file_name_as_bytes();
+
+                    // skip path::CURRENT_DIRECTORY and path::PARENT_DIRECTORY
+                    if short_name == b"." || short_name == b".." {
+                        continue;
+                    }
+
                     let filename = entry.file_name();
 
                     let entry_type = if entry.is_dir() {

@@ -572,6 +572,8 @@ impl IInode for DirectoryTreeNode {
     fn read_dir(&self) -> FileSystemResult<Vec<DirectoryEntry>> {
         let inner = self.inner.lock();
 
+        // TODO: handle "." and ".." entries
+
         // If the directory itself was mounted as its child, we have to be care of potential deadlock,
         // so we copy a list of the list.
         let mounted = inner.mounted.clone();
