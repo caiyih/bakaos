@@ -17,6 +17,127 @@ use crate::{
     FileSystemResult, IInode, InodeMetadata, OpenFlags, OpenedDiskInode,
 };
 
+struct RamFileInode {
+    inner: RwSpinLock<RamFileInodeInner>,
+}
+
+impl RamFileInode {
+    fn new(filename: &str) -> Self {
+        RamFileInode {
+            inner: RwSpinLock::new(RamFileInodeInner {
+                frames: Vec::new(),
+                size: 0,
+                filename: filename.to_string(),
+            }),
+        }
+    }
+}
+
+impl IInode for RamFileInode {
+    fn metadata(&self) -> FileSystemResult<InodeMetadata> {
+        let inner = unsafe { self.inner.data_ptr().as_ref().unwrap() };
+
+        Ok(InodeMetadata {
+            filename: &inner.filename,
+            entry_type: DirectoryEntryType::File,
+            size: inner.size,
+            children_count: 0,
+        })
+    }
+
+    fn writeat(&self, offset: usize, buffer: &[u8]) -> FileSystemResult<usize> {
+        let mut inner = self.inner.write();
+
+        let end_size = offset + buffer.len();
+
+        if end_size > inner.size {
+            let required_pages = (end_size + 4095) / 4096;
+            inner.frames.resize_with(required_pages, || {
+                // TODO: do we have to zero the memory?
+                allocation::alloc_frame().expect("Out of memory")
+            });
+            inner.size = end_size;
+        }
+
+        let mut current = offset;
+        for frame in &inner.frames[offset / 4096..end_size / 4096 + 1] {
+            let in_page_start = current % 4096;
+            let in_page_len = usize::min(4096, end_size - current);
+
+            let data_ptr = unsafe {
+                frame
+                    .ppn()
+                    .start_addr::<PhysicalAddress>()
+                    .to_high_virtual()
+                    .as_mut_ptr::<u8>()
+            };
+            let data_slice = unsafe {
+                core::slice::from_raw_parts_mut(data_ptr.add(in_page_start), in_page_len)
+            };
+
+            data_slice.copy_from_slice(&buffer[current - offset..current - offset + in_page_len]);
+
+            current += in_page_len;
+        }
+
+        Ok(current - offset)
+    }
+
+    fn readat(&self, offset: usize, buffer: &mut [u8]) -> FileSystemResult<usize> {
+        let inner = self.inner.read();
+
+        if offset >= inner.size {
+            return Ok(0);
+        }
+
+        let end_size = usize::min(inner.size, offset + buffer.len());
+
+        let mut current = offset;
+        while current < end_size {
+            let frame = &inner.frames[current / 4096];
+            let in_page_start = current % 4096;
+            let in_page_len = usize::min(4096, end_size - current);
+
+            let data_ptr = unsafe {
+                frame
+                    .ppn()
+                    .start_addr::<PhysicalAddress>()
+                    .to_high_virtual()
+                    .as_ptr::<u8>()
+            };
+            let data_slice =
+                unsafe { core::slice::from_raw_parts(data_ptr.add(in_page_start), in_page_len) };
+
+            buffer[current - offset..current - offset + in_page_len].copy_from_slice(data_slice);
+
+            current += in_page_len;
+        }
+
+        Ok(current - offset)
+    }
+
+    fn stat(&self, stat: &mut FileStatistics) -> FileSystemResult<()> {
+        let inner = self.inner.read();
+
+        stat.device_id = 0;
+        stat.inode_id = 0;
+        stat.mode = crate::FileStatisticsMode::FILE;
+        stat.link_count = 1;
+        stat.uid = 0;
+        stat.gid = 0;
+        stat.size = inner.size as u64;
+        stat.block_size = 4096; // PAGE_SIZE
+        stat.block_count = inner.frames.len() as u64;
+        stat.rdev = 0;
+
+        stat.ctime = TimeSpec::zero();
+        stat.mtime = TimeSpec::zero();
+        stat.atime = TimeSpec::zero();
+
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum MountError {
     InvalidInput,
@@ -643,125 +764,4 @@ struct RamFileInodeInner {
     frames: Vec<TrackedFrame>,
     size: usize,
     filename: String,
-}
-
-struct RamFileInode {
-    inner: RwSpinLock<RamFileInodeInner>,
-}
-
-impl RamFileInode {
-    fn new(filename: &str) -> Self {
-        RamFileInode {
-            inner: RwSpinLock::new(RamFileInodeInner {
-                frames: Vec::new(),
-                size: 0,
-                filename: filename.to_string(),
-            }),
-        }
-    }
-}
-
-impl IInode for RamFileInode {
-    fn metadata(&self) -> FileSystemResult<InodeMetadata> {
-        let inner = unsafe { self.inner.data_ptr().as_ref().unwrap() };
-
-        Ok(InodeMetadata {
-            filename: &inner.filename,
-            entry_type: DirectoryEntryType::File,
-            size: inner.size,
-            children_count: 0,
-        })
-    }
-
-    fn writeat(&self, offset: usize, buffer: &[u8]) -> FileSystemResult<usize> {
-        let mut inner = self.inner.write();
-
-        let end_size = offset + buffer.len();
-
-        if end_size > inner.size {
-            let required_pages = (end_size + 4095) / 4096;
-            inner.frames.resize_with(required_pages, || {
-                // TODO: do we have to zero the memory?
-                allocation::alloc_frame().expect("Out of memory")
-            });
-            inner.size = end_size;
-        }
-
-        let mut current = offset;
-        for frame in &inner.frames[offset / 4096..end_size / 4096 + 1] {
-            let in_page_start = current % 4096;
-            let in_page_len = usize::min(4096, end_size - current);
-
-            let data_ptr = unsafe {
-                frame
-                    .ppn()
-                    .start_addr::<PhysicalAddress>()
-                    .to_high_virtual()
-                    .as_mut_ptr::<u8>()
-            };
-            let data_slice = unsafe {
-                core::slice::from_raw_parts_mut(data_ptr.add(in_page_start), in_page_len)
-            };
-
-            data_slice.copy_from_slice(&buffer[current - offset..current - offset + in_page_len]);
-
-            current += in_page_len;
-        }
-
-        Ok(current - offset)
-    }
-
-    fn readat(&self, offset: usize, buffer: &mut [u8]) -> FileSystemResult<usize> {
-        let inner = self.inner.read();
-
-        if offset >= inner.size {
-            return Ok(0);
-        }
-
-        let end_size = usize::min(inner.size, offset + buffer.len());
-
-        let mut current = offset;
-        while current < end_size {
-            let frame = &inner.frames[current / 4096];
-            let in_page_start = current % 4096;
-            let in_page_len = usize::min(4096, end_size - current);
-
-            let data_ptr = unsafe {
-                frame
-                    .ppn()
-                    .start_addr::<PhysicalAddress>()
-                    .to_high_virtual()
-                    .as_ptr::<u8>()
-            };
-            let data_slice =
-                unsafe { core::slice::from_raw_parts(data_ptr.add(in_page_start), in_page_len) };
-
-            buffer[current - offset..current - offset + in_page_len].copy_from_slice(data_slice);
-
-            current += in_page_len;
-        }
-
-        Ok(current - offset)
-    }
-
-    fn stat(&self, stat: &mut FileStatistics) -> FileSystemResult<()> {
-        let inner = self.inner.read();
-
-        stat.device_id = 0;
-        stat.inode_id = 0;
-        stat.mode = crate::FileStatisticsMode::FILE;
-        stat.link_count = 1;
-        stat.uid = 0;
-        stat.gid = 0;
-        stat.size = inner.size as u64;
-        stat.block_size = 4096; // PAGE_SIZE
-        stat.block_count = inner.frames.len() as u64;
-        stat.rdev = 0;
-
-        stat.ctime = TimeSpec::zero();
-        stat.mtime = TimeSpec::zero();
-        stat.atime = TimeSpec::zero();
-
-        Ok(())
-    }
 }
