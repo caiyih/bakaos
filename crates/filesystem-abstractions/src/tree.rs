@@ -176,11 +176,13 @@ impl MountError {
     }
 }
 
+#[derive(Clone)]
 enum DirectoryTreeNodeMetadata {
     Inode { inode: Arc<dyn IInode> },
     Empty,
 }
 
+#[derive(Clone)]
 struct DirectoryTreeNodeInner {
     meta: DirectoryTreeNodeMetadata,
     name: String,
@@ -253,12 +255,30 @@ impl DirectoryTreeNode {
         })
     }
 
-    pub fn mount_as(
+    fn mount_internal(
         self: &Arc<DirectoryTreeNode>,
         node: Arc<DirectoryTreeNode>,
-        name: Option<&str>,
+        name: &str,
     ) -> Result<Arc<DirectoryTreeNode>, MountError> {
-        let name = name.unwrap_or(node.name());
+        #[cfg(debug_assertions)]
+        {
+            fn get_raw_name(node: &Arc<DirectoryTreeNode>) -> &str {
+                if let DirectoryTreeNodeMetadata::Inode { inode } =
+                    unsafe { &node.inner.data_ptr().as_ref().unwrap().meta }
+                {
+                    return inode.metadata().filename;
+                }
+
+                node.metadata().filename
+            }
+
+            log::info!(
+                "Mounting {} at {}/{}",
+                get_raw_name(&node),
+                self.fullpath(),
+                name
+            );
+        }
 
         if let Some(mounted) = self.inner.lock().mounted.remove(name) {
             let mut new_inner = node.inner.lock();
@@ -273,13 +293,34 @@ impl DirectoryTreeNode {
             .map_or_else(|| Ok(node.clone()), |_| Err(MountError::FileExists))
     }
 
+    pub fn mount_as(
+        self: &Arc<DirectoryTreeNode>,
+        node: Arc<DirectoryTreeNode>,
+        name: Option<&str>,
+    ) -> Result<Arc<DirectoryTreeNode>, MountError> {
+        let name = name.unwrap_or(node.name());
+
+        let new = if node.parent.is_none()
+            || !Arc::ptr_eq(self, unsafe { node.parent.as_ref().unwrap_unchecked() })
+        {
+            Arc::new(DirectoryTreeNode {
+                parent: Some(self.clone()),
+                inner: Arc::new(SpinMutex::new(node.inner.lock().clone())),
+            })
+        } else {
+            node.clone()
+        };
+
+        self.mount_internal(new, name)
+    }
+
     pub fn mount_empty(
         self: &Arc<DirectoryTreeNode>,
         name: &str,
     ) -> Result<Arc<DirectoryTreeNode>, MountError> {
         let node = Self::from_empty(Some(self.clone()), name.to_string());
 
-        self.mount_as(node, Some(name))
+        self.mount_internal(node, name)
     }
 
     pub fn umount_at(&self, name: &str) -> Result<Arc<DirectoryTreeNode>, MountError> {
@@ -748,33 +789,7 @@ pub fn global_mount(
     path: &str,
     relative_to: Option<&Arc<DirectoryTreeNode>>,
 ) -> Result<Arc<DirectoryTreeNode>, MountError> {
-    log::info!("Mounting {} at {}", node.metadata().filename, path);
-
-    let root = match (relative_to, path::is_path_fully_qualified(path)) {
-        (_, true) => {
-            let mut root = unsafe { ROOT.lock() };
-
-            // new root
-            if path.trim_start_matches(path::SEPARATOR).is_empty() {
-                node.inner.lock().shadowed = Some(unsafe { root.assume_init_ref().clone() });
-
-                *root = MaybeUninit::new(node.clone());
-
-                return Ok(node.clone());
-            }
-
-            unsafe { root.assume_init_ref().clone() }
-        }
-        (Some(root), false) => root.clone(),
-        (None, false) => return Err(MountError::InvalidInput),
-    };
-
-    let parent_path = path::get_directory_name(path).unwrap_or("");
-    let name = path::get_filename(path);
-
-    let parent = global_open(parent_path, Some(&root)).map_err(|_| MountError::FileNotExists)?;
-
-    parent.mount_as(node.clone(), Some(name))
+    global_mount_internal(path, relative_to, |_, _| node.clone())
 }
 
 pub fn global_mount_inode(
@@ -782,13 +797,23 @@ pub fn global_mount_inode(
     path: &str,
     relative_to: Option<&Arc<DirectoryTreeNode>>,
 ) -> Result<Arc<DirectoryTreeNode>, MountError> {
+    global_mount_internal(path, relative_to, |parent, name| {
+        DirectoryTreeNode::from_inode(parent.cloned(), inode, Some(name))
+    })
+}
+
+fn global_mount_internal(
+    path: &str,
+    relative_to: Option<&Arc<DirectoryTreeNode>>,
+    get_node: impl FnOnce(Option<&Arc<DirectoryTreeNode>>, &str) -> Arc<DirectoryTreeNode>,
+) -> Result<Arc<DirectoryTreeNode>, MountError> {
     let root = match (relative_to, path::is_path_fully_qualified(path)) {
         (_, true) => {
             let mut root = unsafe { ROOT.lock() };
 
             // new root
             if path.trim_start_matches(path::SEPARATOR).is_empty() {
-                let new_root = DirectoryTreeNode::from_inode(None, inode, None);
+                let new_root = get_node(None, "");
                 new_root.inner.lock().shadowed = Some(unsafe { root.assume_init_ref().clone() });
 
                 *root = MaybeUninit::new(new_root.clone());
@@ -807,9 +832,7 @@ pub fn global_mount_inode(
 
     let parent = global_open(parent_path, Some(&root)).map_err(|_| MountError::FileNotExists)?;
 
-    // We actually don't care what the name of the inode to be mounted is,
-    // as the 'mount' operation always gives a new name to it, which is the key of the mount list
-    let node = DirectoryTreeNode::from_inode(Some(parent.clone()), inode, Some(name));
+    let node = get_node(Some(&parent), name);
 
     parent.mount_as(node, Some(name))
 }
