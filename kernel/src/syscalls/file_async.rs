@@ -2,7 +2,7 @@ use core::mem::MaybeUninit;
 
 use alloc::sync::Arc;
 use constants::{ErrNo, SyscallError};
-use filesystem_abstractions::{DirectoryEntryType, FileMetadata, IInode};
+use filesystem_abstractions::{DirectoryEntryType, FileMetadata};
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
 use threading::yield_now;
 

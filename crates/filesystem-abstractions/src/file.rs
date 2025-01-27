@@ -2,8 +2,7 @@ use core::ops::Deref;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::{
-    DirectoryEntryType, DirectoryTreeNode, FileCacheAccessor, IInode, OpenFlags,
-    TeleTypewriterBuilder,
+    DirectoryEntryType, DirectoryTreeNode, FileCacheAccessor, OpenFlags, TeleTypewriterBuilder,
 };
 use alloc::sync::Arc;
 use alloc::sync::Weak;

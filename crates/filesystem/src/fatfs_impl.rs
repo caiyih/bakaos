@@ -9,8 +9,8 @@ use core::{ops::Deref, str};
 
 use fatfs::{Dir, Error, File, LossyOemCpConverter, NullTimeProvider, Read, Seek, SeekFrom, Write};
 use filesystem_abstractions::{
-    DirectoryEntryType, FileStatistics, FileStatisticsMode, FileSystemError, FileSystemResult,
-    IFileSystem, IInode, InodeMetadata,
+    DirectoryEntryType, DirectoryTreeNode, FileStatistics, FileStatisticsMode, FileSystemError,
+    FileSystemResult, IFileSystem, IInode, InodeMetadata,
 };
 use hermit_sync::SpinMutex;
 use log::warn;
@@ -25,7 +25,7 @@ unsafe impl Send for Fat32FileSystem {}
 unsafe impl Sync for Fat32FileSystem {}
 
 pub struct Fat32Disk {
-    inner: SpinMutex<(Arc<dyn IInode>, u64)>,
+    inner: SpinMutex<(Arc<DirectoryTreeNode>, u64)>,
 }
 
 impl IFileSystem for Fat32FileSystem {
@@ -47,7 +47,7 @@ impl Deref for Fat32FileSystem {
 }
 
 impl Fat32FileSystem {
-    pub fn new(device: Arc<dyn IInode>) -> Result<Self, Error<()>> {
+    pub fn new(device: Arc<DirectoryTreeNode>) -> Result<Self, Error<()>> {
         let disk = Fat32Disk {
             inner: SpinMutex::new((device, 0)),
         };

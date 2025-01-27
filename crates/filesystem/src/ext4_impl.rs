@@ -3,7 +3,7 @@ use core::{mem::MaybeUninit, panic};
 
 use ext4_rs::{Ext4, InodeFileType};
 use filesystem_abstractions::{
-    DirectoryEntryType, FileSystemError, IFileSystem, IInode, InodeMetadata,
+    DirectoryEntryType, DirectoryTreeNode, FileSystemError, IFileSystem, IInode, InodeMetadata,
 };
 
 use alloc::string::{String, ToString};
@@ -15,7 +15,7 @@ use timing::TimeSpec;
 const ROOT_INODE: u32 = 2; // ext4_rs/src/ext4_defs/consts.rs#L11
 
 struct Ext4Disk {
-    inner: Arc<dyn IInode>,
+    inner: Arc<DirectoryTreeNode>,
 }
 
 impl ext4_rs::BlockDevice for Ext4Disk {
@@ -53,7 +53,7 @@ unsafe impl Sync for Ext4FileSystem {}
 const FILESYSTEM_NAME: &str = "Ext4FileSystem";
 
 impl Ext4FileSystem {
-    pub fn new(device: Arc<dyn IInode>) -> Result<Ext4FileSystem, &'static str> {
+    pub fn new(device: Arc<DirectoryTreeNode>) -> Result<Ext4FileSystem, &'static str> {
         let inner = Arc::new(Ext4::open(Arc::new(Ext4Disk { inner: device })));
 
         let p_super_block = &inner.super_block as *const _ as *const u8;

@@ -10,7 +10,7 @@ use allocation::TrackedFrame;
 use bitflags::bitflags;
 use filesystem_abstractions::{
     DirectoryEntryType, DirectoryTreeNode, FileCacheAccessor, FileDescriptor, FileMetadata,
-    ICacheableFile, IFile, IInode,
+    ICacheableFile, IFile,
 };
 
 use crate::PageTableEntryFlags;
@@ -347,7 +347,7 @@ impl MemoryMappedFile {
     }
 
     // Since we have to replace the whole file, we have to copy all the content from the inode to the frames
-    fn allocate_named(inode: Arc<dyn IInode>) -> Option<Vec<TrackedFrame>> {
+    fn allocate_named(inode: Arc<DirectoryTreeNode>) -> Option<Vec<TrackedFrame>> {
         let metadata = inode.metadata();
 
         if metadata.entry_type != DirectoryEntryType::File {

@@ -4,7 +4,7 @@ use alloc::{slice, string::String, sync::Arc};
 use constants::{ErrNo, SyscallError};
 use filesystem_abstractions::{
     DirectoryTreeNode, FileDescriptor, FileDescriptorBuilder, FileMode, FileStatistics,
-    FrozenFileDescriptorBuilder, ICacheableFile, IInode, OpenFlags, PipeBuilder,
+    FrozenFileDescriptorBuilder, ICacheableFile, OpenFlags, PipeBuilder,
 };
 use paging::{
     page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, MemoryMapFlags,
@@ -264,11 +264,10 @@ impl ISyncSyscallHandler for MountSyscall {
                     target_path = &fully_qualified;
                 }
 
-                let device: Arc<dyn IInode> =
-                    filesystem_abstractions::global_open(source_path, None)
-                        .map_err(|_| ErrNo::NoSuchDevice)?;
+                let device = filesystem_abstractions::global_open(source_path, None)
+                    .map_err(|_| ErrNo::NoSuchDevice)?;
 
-                filesystem::global_mount_device_inode(&device, target_path, None)
+                filesystem::global_mount_device_node(&device, target_path, None)
                     .map(|_| 0isize)
                     .map_err(|e| e.to_syscall_error().unwrap_err())
             }

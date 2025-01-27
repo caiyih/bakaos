@@ -14,7 +14,8 @@ use alloc::{boxed::Box, sync::Arc};
 pub use ext4_impl::Ext4FileSystem;
 pub use fatfs_impl::Fat32FileSystem;
 use filesystem_abstractions::{
-    global_mount, DirectoryEntryType, DirectoryTreeNode, IFileSystem, IInode, MountError,
+    global_mount, global_mount_inode, DirectoryEntryType, DirectoryTreeNode, IFileSystem,
+    MountError,
 };
 // pub use lwext4rs_impl::Lwext4FileSystem;
 
@@ -23,26 +24,29 @@ pub fn global_mount_device(
     mount_at: &str,
     relative_to: Option<&Arc<DirectoryTreeNode>>,
 ) -> Result<Arc<DirectoryTreeNode>, MountError> {
-    let inode: Arc<dyn IInode> = filesystem_abstractions::global_open(path, relative_to)
+    let node = filesystem_abstractions::global_open(path, relative_to)
         .map_err(|_| MountError::FileNotExists)?;
 
-    global_mount_device_inode(&inode, mount_at, relative_to)
+    global_mount_device_node(&node, mount_at, relative_to)
 }
 
-pub fn global_mount_device_inode(
-    inode: &Arc<dyn IInode>,
+pub fn global_mount_device_node(
+    node: &Arc<DirectoryTreeNode>,
     path: &str,
     relative_to: Option<&Arc<DirectoryTreeNode>>,
 ) -> Result<Arc<DirectoryTreeNode>, MountError> {
-    let metadata = inode.metadata();
+    let metadata = node.metadata();
 
     match metadata.entry_type {
-        DirectoryEntryType::BlockDevice => mount_block_device(inode, path, relative_to),
-        _ => global_mount(inode, path, relative_to),
+        DirectoryEntryType::Directory
+        | DirectoryEntryType::Unknown
+        | DirectoryEntryType::NamedPipe
+        | DirectoryEntryType::CharDevice => global_mount(node, path, relative_to),
+        _ => mount_block_device(node, path, relative_to),
     }
 }
 
-fn create_filesystem(device: Arc<dyn IInode>) -> Result<Box<dyn IFileSystem>, MountError> {
+fn create_filesystem(device: Arc<DirectoryTreeNode>) -> Result<Box<dyn IFileSystem>, MountError> {
     if let Ok(ext4) = Ext4FileSystem::new(device.clone()) {
         return Ok(Box::new(ext4));
     }
@@ -55,11 +59,11 @@ fn create_filesystem(device: Arc<dyn IInode>) -> Result<Box<dyn IFileSystem>, Mo
 }
 
 fn mount_block_device(
-    device: &Arc<dyn IInode>,
+    device: &Arc<DirectoryTreeNode>,
     path: &str,
     relative_to: Option<&Arc<DirectoryTreeNode>>,
 ) -> Result<Arc<DirectoryTreeNode>, MountError> {
     let fs = create_filesystem(device.clone())?;
 
-    global_mount(&fs.root_dir(), path, relative_to)
+    global_mount_inode(&fs.root_dir(), path, relative_to)
 }

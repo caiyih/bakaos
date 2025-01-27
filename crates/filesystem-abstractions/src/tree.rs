@@ -8,7 +8,7 @@ use alloc::{
 };
 use allocation::TrackedFrame;
 use constants::SyscallError;
-use core::{cell::UnsafeCell, mem::MaybeUninit, usize};
+use core::{mem::MaybeUninit, usize};
 use hermit_sync::{RwSpinLock, SpinMutex};
 use timing::TimeSpec;
 
@@ -201,7 +201,6 @@ impl DirectoryTreeNodeInner {
 
 pub struct DirectoryTreeNode {
     parent: Option<Arc<DirectoryTreeNode>>,
-    weak_self: UnsafeCell<Weak<DirectoryTreeNode>>,
     inner: Arc<SpinMutex<DirectoryTreeNodeInner>>,
 }
 
@@ -219,23 +218,12 @@ impl DirectoryTreeNode {
         })
     }
 
-    fn set_weak(self: &Arc<DirectoryTreeNode>) {
-        unsafe { *self.weak_self.get().as_mut().unwrap() = Arc::downgrade(self) }
-    }
-
-    fn self_arc(&self) -> Arc<DirectoryTreeNode> {
-        unsafe { self.weak_self.get().as_ref() }
-            .and_then(|weak| weak.upgrade())
-            .expect("Unable to get self arc")
-    }
-
     pub fn from_empty(
         parent: Option<Arc<DirectoryTreeNode>>,
         name: String,
     ) -> Arc<DirectoryTreeNode> {
-        let arc = Arc::new(DirectoryTreeNode {
+        Arc::new(DirectoryTreeNode {
             parent,
-            weak_self: UnsafeCell::new(Weak::new()),
             inner: Arc::new(SpinMutex::new(DirectoryTreeNodeInner {
                 meta: DirectoryTreeNodeMetadata::Empty,
                 name,
@@ -243,11 +231,7 @@ impl DirectoryTreeNode {
                 opened: BTreeMap::new(),
                 shadowed: None,
             })),
-        });
-
-        arc.set_weak();
-
-        arc
+        })
     }
 
     pub fn from_inode(
@@ -255,9 +239,8 @@ impl DirectoryTreeNode {
         inode: &Arc<dyn IInode>,
         name: Option<&str>,
     ) -> Arc<DirectoryTreeNode> {
-        let arc = Arc::new(DirectoryTreeNode {
+        Arc::new(DirectoryTreeNode {
             parent,
-            weak_self: UnsafeCell::new(Weak::new()),
             inner: Arc::new(SpinMutex::new(DirectoryTreeNodeInner {
                 meta: DirectoryTreeNodeMetadata::Inode {
                     inode: inode.clone(),
@@ -267,29 +250,18 @@ impl DirectoryTreeNode {
                 opened: BTreeMap::new(),
                 shadowed: None,
             })),
-        });
-
-        arc.set_weak();
-
-        arc
+        })
     }
 
     pub fn mount_as(
         self: &Arc<DirectoryTreeNode>,
-        inode: &Arc<dyn IInode>,
+        node: Arc<DirectoryTreeNode>,
         name: Option<&str>,
     ) -> Result<Arc<DirectoryTreeNode>, MountError> {
-        let name = match name {
-            Some(n) => n,
-            None => inode.metadata().filename,
-        };
-
-        // We actually don't care what the name of the inode to be mounted is,
-        // as the 'mount' operation always gives a new name to it, which is the key of the mount list
-        let inode = Self::from_inode(Some(self.clone()), inode, Some(name));
+        let name = name.unwrap_or(node.name());
 
         if let Some(mounted) = self.inner.lock().mounted.remove(name) {
-            let mut new_inner = inode.inner.lock();
+            let mut new_inner = node.inner.lock();
 
             new_inner.shadowed = Some(mounted);
         }
@@ -297,8 +269,8 @@ impl DirectoryTreeNode {
         self.inner
             .lock()
             .mounted
-            .insert(name.to_string(), inode.clone())
-            .map_or_else(|| Ok(inode), |_| Err(MountError::FileExists))
+            .insert(name.to_string(), node.clone())
+            .map_or_else(|| Ok(node.clone()), |_| Err(MountError::FileExists))
     }
 
     pub fn mount_empty(
@@ -332,8 +304,7 @@ impl DirectoryTreeNode {
         let mut umounted_inner = umounted.inner.lock();
 
         if let Some(shadowed) = umounted_inner.shadowed.take() {
-            let self_arc = self.self_arc();
-            let mut self_inner = self_arc.inner.lock();
+            let mut self_inner = self.inner.lock();
 
             self_inner.mounted.insert(name.to_string(), shadowed);
         }
@@ -421,10 +392,10 @@ impl DirectoryTreeNode {
 
     // if the node was opened in the tree, this returns the full path in the filesystem.
     // if not, the root is considered the deepest node without parent
-    pub fn fullpath(&self) -> String {
+    pub fn fullpath(self: &Arc<DirectoryTreeNode>) -> String {
         let mut stack = Vec::new();
 
-        let mut current = self.self_arc();
+        let mut current = self.clone();
         stack.push(current.name_internal());
 
         while let Some(parent) = &current.parent {
@@ -448,15 +419,19 @@ impl DirectoryTreeNode {
 }
 
 impl DirectoryTreeNode {
-    pub fn readall(&self) -> FileSystemResult<Vec<u8>> {
+    pub fn readall(self: &Arc<DirectoryTreeNode>) -> FileSystemResult<Vec<u8>> {
         self.readrest_at(0)
     }
 
-    pub fn readrest_at(&self, offset: usize) -> FileSystemResult<Vec<u8>> {
+    pub fn readrest_at(self: &Arc<DirectoryTreeNode>, offset: usize) -> FileSystemResult<Vec<u8>> {
         self.readvec_at(offset, usize::MAX)
     }
 
-    pub fn readvec_at(&self, offset: usize, max_length: usize) -> FileSystemResult<Vec<u8>> {
+    pub fn readvec_at(
+        self: &Arc<DirectoryTreeNode>,
+        offset: usize,
+        max_length: usize,
+    ) -> FileSystemResult<Vec<u8>> {
         let metadata = self.metadata();
         let len = Ord::min(metadata.size - offset, max_length);
         let mut buf = Vec::<MaybeUninit<u8>>::with_capacity(len);
@@ -479,8 +454,8 @@ impl Drop for DirectoryTreeNode {
     }
 }
 
-impl IInode for DirectoryTreeNode {
-    fn metadata(&self) -> InodeMetadata {
+impl DirectoryTreeNode {
+    pub fn metadata<'a>(self: &'a Arc<DirectoryTreeNode>) -> InodeMetadata<'a> {
         let inner = self.inner.lock();
         let filename = self.name();
 
@@ -502,7 +477,7 @@ impl IInode for DirectoryTreeNode {
         }
     }
 
-    fn lookup(&self, name: &str) -> FileSystemResult<Arc<dyn IInode>> {
+    pub fn lookup(self: &Arc<DirectoryTreeNode>, name: &str) -> FileSystemResult<Arc<dyn IInode>> {
         // We dont't use DirectoryTreeNode::open because this method only cares the lookup process,
         // it doesn't mean the inode has to be opened.
         let inner = self.inner.lock();
@@ -514,34 +489,39 @@ impl IInode for DirectoryTreeNode {
         }
     }
 
-    fn readat(&self, offset: usize, buffer: &mut [u8]) -> FileSystemResult<usize> {
+    pub fn readat(
+        self: &Arc<DirectoryTreeNode>,
+        offset: usize,
+        buffer: &mut [u8],
+    ) -> FileSystemResult<usize> {
         match &self.inner.lock().meta {
             DirectoryTreeNodeMetadata::Inode { inode } => inode.readat(offset, buffer),
             DirectoryTreeNodeMetadata::Empty => Err(FileSystemError::NotAFile),
         }
     }
 
-    fn writeat(&self, offset: usize, buffer: &[u8]) -> FileSystemResult<usize> {
+    pub fn writeat(&self, offset: usize, buffer: &[u8]) -> FileSystemResult<usize> {
         match &self.inner.lock().meta {
             DirectoryTreeNodeMetadata::Inode { inode } => inode.writeat(offset, buffer),
             DirectoryTreeNodeMetadata::Empty => Err(FileSystemError::NotAFile),
         }
     }
 
-    fn mkdir(&self, name: &str) -> FileSystemResult<Arc<dyn IInode>> {
+    pub fn mkdir(
+        self: &Arc<DirectoryTreeNode>,
+        name: &str,
+    ) -> FileSystemResult<Arc<DirectoryTreeNode>> {
         let mut inner = self.inner.lock();
 
         if inner.is_mounted(name) {
             return Err(FileSystemError::AlreadyExists);
         }
 
-        let self_arc = self.self_arc();
-
         match &inner.meta {
             DirectoryTreeNodeMetadata::Inode { inode } => {
                 let made = inode.mkdir(name)?;
 
-                let wrapped = Self::from_inode(Some(self_arc.clone()), &made, None);
+                let wrapped = Self::from_inode(Some(self.clone()), &made, None);
 
                 inner
                     .opened
@@ -553,15 +533,12 @@ impl IInode for DirectoryTreeNode {
             DirectoryTreeNodeMetadata::Empty => {
                 drop(inner); // release lock, as mount operation requires lock
 
-                self_arc
-                    .mount_empty(name)
-                    .map_err(|e| e.to_filesystem_error())
-                    .map(|inode| inode as Arc<dyn IInode>)
+                self.mount_empty(name).map_err(|e| e.to_filesystem_error())
             }
         }
     }
 
-    fn rmdir(&self, name: &str) -> FileSystemResult<()> {
+    pub fn rmdir(self: &Arc<DirectoryTreeNode>, name: &str) -> FileSystemResult<()> {
         // FIXME: Do we have to check if it's a directory?
         if self.close(name).1 {
             return Ok(());
@@ -573,7 +550,7 @@ impl IInode for DirectoryTreeNode {
         }
     }
 
-    fn remove(&self, name: &str) -> FileSystemResult<()> {
+    pub fn remove(self: &Arc<DirectoryTreeNode>, name: &str) -> FileSystemResult<()> {
         if self.close(name).1 {
             return Ok(());
         }
@@ -584,16 +561,17 @@ impl IInode for DirectoryTreeNode {
         }
     }
 
-    fn touch(&self, name: &str) -> FileSystemResult<Arc<dyn IInode>> {
+    pub fn touch(
+        self: &Arc<DirectoryTreeNode>,
+        name: &str,
+    ) -> FileSystemResult<Arc<DirectoryTreeNode>> {
         let mut inner = self.inner.lock();
-
-        let self_arc = self.self_arc();
 
         match &inner.meta {
             DirectoryTreeNodeMetadata::Inode { inode } => {
                 let touched = inode.touch(name)?;
 
-                let wrapped = DirectoryTreeNode::from_inode(Some(self_arc.clone()), &touched, None);
+                let wrapped = DirectoryTreeNode::from_inode(Some(self.clone()), &touched, None);
 
                 inner
                     .opened
@@ -606,15 +584,13 @@ impl IInode for DirectoryTreeNode {
 
                 let ram_inode: Arc<dyn IInode> = Arc::new(RamFileInode::new(name));
 
-                self_arc
-                    .mount_as(&ram_inode, Some(name))
+                global_mount_inode(&ram_inode, name, Some(self))
                     .map_err(|e| e.to_filesystem_error())
-                    .map(|inode| inode as Arc<dyn IInode>)
             }
         }
     }
 
-    fn read_dir(&self) -> FileSystemResult<Vec<DirectoryEntry>> {
+    pub fn read_dir(self: &Arc<DirectoryTreeNode>) -> FileSystemResult<Vec<DirectoryEntry>> {
         fn to_directory_entry(name: &str, node: &Arc<DirectoryTreeNode>) -> DirectoryEntry {
             let entry_type = match &node.inner.lock().meta {
                 DirectoryTreeNodeMetadata::Inode { inode } => inode.metadata().entry_type,
@@ -660,15 +636,12 @@ impl IInode for DirectoryTreeNode {
             entries.push(to_directory_entry(path::PARENT_DIRECTORY, parent));
         }
 
-        entries.push(to_directory_entry(
-            path::CURRENT_DIRECTORY,
-            &self.self_arc(),
-        ));
+        entries.push(to_directory_entry(path::CURRENT_DIRECTORY, self));
 
         Ok(entries)
     }
 
-    fn stat(&self, stat: &mut FileStatistics) -> FileSystemResult<()> {
+    pub fn stat(self: &Arc<DirectoryTreeNode>, stat: &mut FileStatistics) -> FileSystemResult<()> {
         match &self.inner.lock().meta {
             DirectoryTreeNodeMetadata::Inode { inode } => inode.stat(stat),
             DirectoryTreeNodeMetadata::Empty => {
@@ -713,11 +686,11 @@ pub fn initialize() {
         *ROOT.lock() = MaybeUninit::new(root);
     }
 
-    global_mount(&TeleTypewriterInode::new(), "/dev/tty", None).unwrap();
-    global_mount(&NullInode::new(), "/dev/null", None).unwrap();
-    global_mount(&ZeroInode::new(), "/dev/zero", None).unwrap();
-    global_mount(&RandomInode::new(), "/dev/random", None).unwrap();
-    global_mount(&UnblockedRandomInode::new(), "/dev/urandom", None).unwrap();
+    global_mount_inode(&TeleTypewriterInode::new(), "/dev/tty", None).unwrap();
+    global_mount_inode(&NullInode::new(), "/dev/null", None).unwrap();
+    global_mount_inode(&ZeroInode::new(), "/dev/zero", None).unwrap();
+    global_mount_inode(&RandomInode::new(), "/dev/random", None).unwrap();
+    global_mount_inode(&UnblockedRandomInode::new(), "/dev/urandom", None).unwrap();
 }
 
 pub fn global_open(
@@ -782,12 +755,44 @@ pub fn global_umount(
 }
 
 pub fn global_mount(
+    node: &Arc<DirectoryTreeNode>,
+    path: &str,
+    relative_to: Option<&Arc<DirectoryTreeNode>>,
+) -> Result<Arc<DirectoryTreeNode>, MountError> {
+    log::info!("Mounting {} at {}", node.metadata().filename, path);
+
+    let root = match (relative_to, path::is_path_fully_qualified(path)) {
+        (_, true) => {
+            let mut root = unsafe { ROOT.lock() };
+
+            // new root
+            if path.trim_start_matches(path::SEPARATOR).is_empty() {
+                node.inner.lock().shadowed = Some(unsafe { root.assume_init_ref().clone() });
+
+                *root = MaybeUninit::new(node.clone());
+
+                return Ok(node.clone());
+            }
+
+            unsafe { root.assume_init_ref().clone() }
+        }
+        (Some(root), false) => root.clone(),
+        (None, false) => return Err(MountError::InvalidInput),
+    };
+
+    let parent_path = path::get_directory_name(path).unwrap_or("");
+    let name = path::get_filename(path);
+
+    let parent = global_open(parent_path, Some(&root)).map_err(|_| MountError::FileNotExists)?;
+
+    parent.mount_as(node.clone(), Some(name))
+}
+
+pub fn global_mount_inode(
     inode: &Arc<dyn IInode>,
     path: &str,
     relative_to: Option<&Arc<DirectoryTreeNode>>,
 ) -> Result<Arc<DirectoryTreeNode>, MountError> {
-    log::info!("Mounting {} at {}", inode.metadata().filename, path);
-
     let root = match (relative_to, path::is_path_fully_qualified(path)) {
         (_, true) => {
             let mut root = unsafe { ROOT.lock() };
@@ -813,5 +818,9 @@ pub fn global_mount(
 
     let parent = global_open(parent_path, Some(&root)).map_err(|_| MountError::FileNotExists)?;
 
-    parent.mount_as(inode, Some(name))
+    // We actually don't care what the name of the inode to be mounted is,
+    // as the 'mount' operation always gives a new name to it, which is the key of the mount list
+    let node = DirectoryTreeNode::from_inode(Some(parent.clone()), inode, Some(name));
+
+    parent.mount_as(node, Some(name))
 }

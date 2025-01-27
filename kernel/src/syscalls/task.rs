@@ -4,7 +4,7 @@ use abstractions::operations::IUsizeAlias;
 use address::{IPageNum, IToPageNum, VirtualAddress};
 use alloc::vec::Vec;
 use constants::{ErrNo, SyscallError};
-use filesystem_abstractions::{DirectoryEntryType, IInode};
+use filesystem_abstractions::DirectoryEntryType;
 use log::debug;
 use paging::{
     page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, PageTable,
