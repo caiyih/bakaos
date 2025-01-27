@@ -203,7 +203,7 @@ impl DirectoryTreeNodeInner {
 
 pub struct DirectoryTreeNode {
     parent: Option<Arc<DirectoryTreeNode>>,
-    inner: Arc<SpinMutex<DirectoryTreeNodeInner>>,
+    inner: SpinMutex<DirectoryTreeNodeInner>,
 }
 
 unsafe impl Send for DirectoryTreeNode {}
@@ -219,7 +219,7 @@ impl DirectoryTreeNode {
 
         let previous = Arc::new(DirectoryTreeNode {
             parent: None, // Not needed
-            inner: Arc::new(SpinMutex::new(node_inner.clone())),
+            inner: SpinMutex::new(node_inner.clone()),
         });
 
         *node_inner = new.inner.lock().clone();
@@ -257,13 +257,13 @@ impl DirectoryTreeNode {
     ) -> Arc<DirectoryTreeNode> {
         Arc::new(DirectoryTreeNode {
             parent,
-            inner: Arc::new(SpinMutex::new(DirectoryTreeNodeInner {
+            inner: SpinMutex::new(DirectoryTreeNodeInner {
                 meta: DirectoryTreeNodeMetadata::Empty,
                 name,
                 mounted: BTreeMap::new(),
                 opened: BTreeMap::new(),
                 shadowed: None,
-            })),
+            }),
         })
     }
 
@@ -274,7 +274,7 @@ impl DirectoryTreeNode {
     ) -> Arc<DirectoryTreeNode> {
         Arc::new(DirectoryTreeNode {
             parent,
-            inner: Arc::new(SpinMutex::new(DirectoryTreeNodeInner {
+            inner: SpinMutex::new(DirectoryTreeNodeInner {
                 meta: DirectoryTreeNodeMetadata::Inode {
                     inode: inode.clone(),
                 },
@@ -282,7 +282,7 @@ impl DirectoryTreeNode {
                 mounted: BTreeMap::new(),
                 opened: BTreeMap::new(),
                 shadowed: None,
-            })),
+            }),
         })
     }
 
@@ -336,7 +336,7 @@ impl DirectoryTreeNode {
         {
             Arc::new(DirectoryTreeNode {
                 parent: Some(self.clone()),
-                inner: Arc::new(SpinMutex::new(node.inner.lock().clone())),
+                inner: SpinMutex::new(node.inner.lock().clone()),
             })
         } else {
             node.clone()
