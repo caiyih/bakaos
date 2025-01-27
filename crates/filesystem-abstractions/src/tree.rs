@@ -223,10 +223,10 @@ impl DirectoryTreeNode {
         unsafe { *self.weak_self.get().as_mut().unwrap() = Arc::downgrade(self) }
     }
 
-    fn self_arc(&self) -> Option<Arc<DirectoryTreeNode>> {
-        let weak = unsafe { self.weak_self.get().as_ref() }?;
-
-        weak.upgrade()
+    fn self_arc(&self) -> Arc<DirectoryTreeNode> {
+        unsafe { self.weak_self.get().as_ref() }
+            .and_then(|weak| weak.upgrade())
+            .expect("Unable to get self arc")
     }
 
     pub fn from_empty(
@@ -344,7 +344,7 @@ impl DirectoryTreeNode {
         let mut umounted_inner = umounted.inner.lock();
 
         if let Some(shadowed) = umounted_inner.shadowed.take() {
-            let self_arc = self.self_arc().expect("Unable to get self arc");
+            let self_arc = self.self_arc();
             let mut self_inner = self_arc.inner.lock();
 
             self_inner.mounted.insert(name.to_string(), shadowed);
@@ -437,7 +437,7 @@ impl DirectoryTreeNode {
     pub fn fullpath(&self) -> String {
         let mut stack = Vec::new();
 
-        let mut current = self.self_arc().expect("Unable to get self arc");
+        let mut current = self.self_arc();
         stack.push(current.name_internal());
 
         while let Some(parent) = &current.parent {
@@ -524,7 +524,7 @@ impl IInode for DirectoryTreeNode {
             return Err(FileSystemError::AlreadyExists);
         }
 
-        let self_arc = self.self_arc().expect("Unable to get self arc");
+        let self_arc = self.self_arc();
 
         match &inner.meta {
             DirectoryTreeNodeMetadata::Inode { inode } => {
@@ -576,7 +576,7 @@ impl IInode for DirectoryTreeNode {
     fn touch(&self, name: &str) -> FileSystemResult<Arc<dyn IInode>> {
         let mut inner = self.inner.lock();
 
-        let self_arc = self.self_arc().expect("Unable to get self arc");
+        let self_arc = self.self_arc();
 
         match &inner.meta {
             DirectoryTreeNodeMetadata::Inode { inode } => {
@@ -605,50 +605,62 @@ impl IInode for DirectoryTreeNode {
     }
 
     fn read_dir(&self) -> FileSystemResult<Vec<DirectoryEntry>> {
-        let inner = self.inner.lock();
+        fn to_directory_entry(name: &str, node: &Arc<DirectoryTreeNode>) -> DirectoryEntry {
+            match &node.inner.lock().meta {
+                DirectoryTreeNodeMetadata::Inode { inode } => {
+                    let inode_meta = inode.metadata().expect("Mounted node with no metadata");
 
-        // TODO: handle "." and ".." entries
-
-        // If the directory itself was mounted as its child, we have to be care of potential deadlock,
-        // so we copy a list of the list.
-        let mounted = inner.mounted.clone();
-        let mounted_entries =
-            mounted
-                .iter()
-                .map(|(name, mounted)| match &mounted.inner.lock().meta {
-                    DirectoryTreeNodeMetadata::Inode { inode } => {
-                        let inode_meta = inode.metadata().expect("Mounted node with no metadata");
-
-                        DirectoryEntry {
-                            filename: name.clone(),
-                            entry_type: inode_meta.entry_type,
-                        }
-                    }
-                    DirectoryTreeNodeMetadata::Empty => DirectoryEntry {
-                        filename: name.clone(),
-                        entry_type: DirectoryEntryType::Directory,
-                    },
-                });
-
-        // FIXME: handle opened files, there may be inodes that were shadowed by other inodes
-
-        match &inner.meta {
-            DirectoryTreeNodeMetadata::Inode { inode } => {
-                let inode = inode.clone();
-                drop(inner); // release lock, in case the node it self is mounted as its children
-
-                let mut entries = inode.read_dir()?;
-
-                for entry in mounted_entries {
-                    if mounted.get(&entry.filename).is_none() {
-                        entries.push(entry);
+                    DirectoryEntry {
+                        filename: name.to_string(),
+                        entry_type: inode_meta.entry_type,
                     }
                 }
-
-                Ok(entries)
+                DirectoryTreeNodeMetadata::Empty => DirectoryEntry {
+                    filename: name.to_string(),
+                    entry_type: DirectoryEntryType::Directory,
+                },
             }
-            DirectoryTreeNodeMetadata::Empty => Ok(mounted_entries.collect()),
         }
+
+        let mut entries = {
+            let inner = self.inner.lock();
+
+            // If the directory itself was mounted as its child, we have to be care of potential deadlock,
+            // so we copy a list of the list.
+            let mounted = inner.mounted.clone();
+            let mounted_entries = mounted
+                .iter()
+                .map(|(name, mounted)| to_directory_entry(name, mounted));
+
+            match &inner.meta {
+                DirectoryTreeNodeMetadata::Inode { inode } => {
+                    let inode = inode.clone();
+                    drop(inner); // release lock, in case the node it self is mounted as its children
+
+                    let mut entries = inode.read_dir()?;
+
+                    for entry in mounted_entries {
+                        if mounted.get(&entry.filename).is_none() {
+                            entries.push(entry);
+                        }
+                    }
+
+                    entries
+                }
+                DirectoryTreeNodeMetadata::Empty => mounted_entries.collect(),
+            }
+        };
+
+        if let Some(ref parent) = self.parent {
+            entries.push(to_directory_entry(path::PARENT_DIRECTORY, parent));
+        }
+
+        entries.push(to_directory_entry(
+            path::CURRENT_DIRECTORY,
+            &self.self_arc(),
+        ));
+
+        Ok(entries)
     }
 
     fn stat(&self, stat: &mut FileStatistics) -> FileSystemResult<()> {
