@@ -4,7 +4,7 @@ use alloc::{sync::Arc, vec::Vec};
 use downcast_rs::{impl_downcast, DowncastSync};
 
 use crate::{
-    DirectoryEntry, FileStatistics, FileSystemError, FileSystemResult, InodeMetadata, OpenFlags,
+    DirectoryEntry, FileStatistics, FileSystemError, FileSystemResult, InodeMetadata,
 };
 
 pub trait IInode: DowncastSync + Send + Sync {
@@ -107,10 +107,6 @@ pub trait IInode: DowncastSync + Send + Sync {
 
     #[deprecated = "This is an internal method, use global_open or DirectoryTreeNode::open"]
     fn lookup(&self, _name: &str) -> FileSystemResult<Arc<dyn IInode>> {
-        Err(FileSystemError::NotADirectory)
-    }
-
-    fn open(&self, _name: &str, _flags: OpenFlags) -> FileSystemResult<Arc<dyn IInode>> {
         Err(FileSystemError::NotADirectory)
     }
 
