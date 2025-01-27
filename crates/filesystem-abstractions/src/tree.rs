@@ -518,18 +518,30 @@ impl IInode for DirectoryTreeNode {
     }
 
     fn mkdir(&self, name: &str) -> FileSystemResult<Arc<dyn IInode>> {
-        let inner = self.inner.lock();
+        let mut inner = self.inner.lock();
 
         if inner.is_mounted(name) {
             return Err(FileSystemError::AlreadyExists);
         }
 
+        let self_arc = self.self_arc().expect("Unable to get self arc");
+
         match &inner.meta {
-            DirectoryTreeNodeMetadata::Inode { inode } => inode.mkdir(name),
+            DirectoryTreeNodeMetadata::Inode { inode } => {
+                let made = inode.mkdir(name)?;
+
+                let wrapped = Self::from_inode(Some(self_arc.clone()), &made, None, None);
+
+                inner
+                    .opened
+                    .insert(wrapped.name().to_string(), Arc::downgrade(&wrapped));
+
+                // TODO: return value is not concret type, need refactor, same as touch
+                Ok(wrapped)
+            }
             DirectoryTreeNodeMetadata::Empty => {
                 drop(inner); // release lock, as mount operation requires lock
 
-                let self_arc = self.self_arc().expect("Unable to get self arc");
                 self_arc
                     .mount_empty(name)
                     .map_err(|e| e.to_filesystem_error())
@@ -562,14 +574,26 @@ impl IInode for DirectoryTreeNode {
     }
 
     fn touch(&self, name: &str) -> FileSystemResult<Arc<dyn IInode>> {
-        let inner = self.inner.lock();
+        let mut inner = self.inner.lock();
+
+        let self_arc = self.self_arc().expect("Unable to get self arc");
 
         match &inner.meta {
-            DirectoryTreeNodeMetadata::Inode { inode } => inode.touch(name),
+            DirectoryTreeNodeMetadata::Inode { inode } => {
+                let touched = inode.touch(name)?;
+
+                let wrapped =
+                    DirectoryTreeNode::from_inode(Some(self_arc.clone()), &touched, None, None);
+
+                inner
+                    .opened
+                    .insert(wrapped.name().to_string(), Arc::downgrade(&wrapped));
+
+                Ok(wrapped)
+            }
             DirectoryTreeNodeMetadata::Empty => {
                 drop(inner); // release lock, as mount operation requires lock
 
-                let self_arc = self.self_arc().expect("Unable to get self arc");
                 let ram_inode: Arc<dyn IInode> = Arc::new(RamFileInode::new(name));
 
                 self_arc
