@@ -19,6 +19,12 @@ use crate::{
     TeleTypewriterInode, ZeroInode,
 };
 
+struct RamFileInodeInner {
+    frames: Vec<TrackedFrame>,
+    size: usize,
+    filename: String,
+}
+
 struct RamFileInode {
     inner: RwSpinLock<RamFileInodeInner>,
 }
@@ -774,10 +780,4 @@ pub fn global_mount(
     let parent = global_open(parent_path, Some(&root)).map_err(|_| MountError::FileNotExists)?;
 
     parent.mount_as(inode, Some(name))
-}
-
-struct RamFileInodeInner {
-    frames: Vec<TrackedFrame>,
-    size: usize,
-    filename: String,
 }
