@@ -210,6 +210,37 @@ unsafe impl Send for DirectoryTreeNode {}
 unsafe impl Sync for DirectoryTreeNode {}
 
 impl DirectoryTreeNode {
+    pub fn shadow_with(self: &Arc<DirectoryTreeNode>, new: &Arc<DirectoryTreeNode>) {
+        if Arc::ptr_eq(self, new) {
+            return;
+        }
+
+        let mut node_inner = self.inner.lock();
+
+        let previous = Arc::new(DirectoryTreeNode {
+            parent: None, // Not needed
+            inner: Arc::new(SpinMutex::new(node_inner.clone())),
+        });
+
+        *node_inner = new.inner.lock().clone();
+        node_inner.shadowed = Some(previous);
+    }
+
+    pub fn restore_shadow(self: &Arc<DirectoryTreeNode>) {
+        let mut inner = self.inner.lock();
+
+        let shadowed = inner.shadowed.clone();
+        if let Some(shadowed) = shadowed {
+            debug_assert!(!Arc::ptr_eq(self, &shadowed));
+
+            *inner = shadowed.inner.lock().clone();
+        }
+
+        inner.shadowed = None;
+    }
+}
+
+impl DirectoryTreeNode {
     pub fn open_as_file(
         self: Arc<DirectoryTreeNode>,
         flags: OpenFlags,
