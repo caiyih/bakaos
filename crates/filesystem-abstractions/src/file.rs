@@ -91,9 +91,7 @@ pub trait IFile: DowncastSync + Send + Sync {
     }
 
     fn is_dir(&self) -> bool {
-        self.inode().unwrap().metadata().map_or(false, |metadata| {
-            metadata.entry_type == DirectoryEntryType::Directory
-        })
+        self.inode().unwrap().metadata().entry_type == DirectoryEntryType::Directory
     }
 
     fn lseek(&self, offset: usize) -> usize {

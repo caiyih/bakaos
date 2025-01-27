@@ -10,7 +10,7 @@ use core::{ops::Deref, str};
 use fatfs::{Dir, Error, File, LossyOemCpConverter, NullTimeProvider, Read, Seek, SeekFrom, Write};
 use filesystem_abstractions::{
     DirectoryEntryType, FileStatistics, FileStatisticsMode, FileSystemError, FileSystemResult,
-    IFileSystem, IInode,
+    IFileSystem, IInode, InodeMetadata,
 };
 use hermit_sync::SpinMutex;
 use log::warn;
@@ -150,14 +150,12 @@ unsafe impl Sync for FatFileInode {}
 unsafe impl Send for FatFileInode {}
 
 impl IInode for FatFileInode {
-    fn metadata(
-        &self,
-    ) -> filesystem_abstractions::FileSystemResult<filesystem_abstractions::InodeMetadata> {
-        Ok(filesystem_abstractions::InodeMetadata {
+    fn metadata(&self) -> InodeMetadata {
+        InodeMetadata {
             filename: &self.filename,
-            entry_type: filesystem_abstractions::DirectoryEntryType::File,
+            entry_type: DirectoryEntryType::File,
             size: unsafe { self.inner.make_guard_unchecked().size },
-        })
+        }
     }
 
     fn readat(
@@ -257,14 +255,12 @@ unsafe impl Sync for FatDirectoryInode {}
 unsafe impl Send for FatDirectoryInode {}
 
 impl IInode for FatDirectoryInode {
-    fn metadata(
-        &self,
-    ) -> filesystem_abstractions::FileSystemResult<filesystem_abstractions::InodeMetadata> {
-        Ok(filesystem_abstractions::InodeMetadata {
+    fn metadata(&self) -> InodeMetadata {
+        InodeMetadata {
             filename: &self.filename,
-            entry_type: filesystem_abstractions::DirectoryEntryType::Directory,
+            entry_type: DirectoryEntryType::Directory,
             size: 0,
-        })
+        }
     }
 
     fn mkdir(&self, name: &str) -> filesystem_abstractions::FileSystemResult<Arc<dyn IInode>> {

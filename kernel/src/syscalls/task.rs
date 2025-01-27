@@ -415,7 +415,7 @@ impl ISyncSyscallHandler for ChdirSyscall {
                         let inode = filesystem_abstractions::global_open(&processed_path, None)
                             .map_err(|_| ErrNo::NoSuchFileOrDirectory)?;
 
-                        let inode_metadata = inode.metadata().map_err(|_| ErrNo::NotADirectory)?;
+                        let inode_metadata = inode.metadata();
 
                         match inode_metadata.entry_type {
                             DirectoryEntryType::Directory => {

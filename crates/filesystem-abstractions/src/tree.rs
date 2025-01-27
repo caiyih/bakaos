@@ -42,14 +42,14 @@ impl RamFileInode {
 }
 
 impl IInode for RamFileInode {
-    fn metadata(&self) -> FileSystemResult<InodeMetadata> {
+    fn metadata(&self) -> InodeMetadata {
         let inner = unsafe { self.inner.data_ptr().as_ref().unwrap() };
 
-        Ok(InodeMetadata {
+        InodeMetadata {
             filename: &inner.filename,
             entry_type: DirectoryEntryType::File,
             size: inner.size,
-        })
+        }
     }
 
     fn writeat(&self, offset: usize, buffer: &[u8]) -> FileSystemResult<usize> {
@@ -253,7 +253,6 @@ impl DirectoryTreeNode {
     pub fn from_inode(
         parent: Option<Arc<DirectoryTreeNode>>,
         inode: &Arc<dyn IInode>,
-        inode_meta: Option<&InodeMetadata>,
         name: Option<&str>,
     ) -> Arc<DirectoryTreeNode> {
         let arc = Arc::new(DirectoryTreeNode {
@@ -263,9 +262,7 @@ impl DirectoryTreeNode {
                 meta: DirectoryTreeNodeMetadata::Inode {
                     inode: inode.clone(),
                 },
-                name: name
-                    .unwrap_or(inode_meta.map(|m| m.filename).unwrap_or_default())
-                    .to_string(),
+                name: name.unwrap_or(inode.metadata().filename).to_string(),
                 mounted: BTreeMap::new(),
                 opened: BTreeMap::new(),
                 shadowed: None,
@@ -284,21 +281,12 @@ impl DirectoryTreeNode {
     ) -> Result<Arc<DirectoryTreeNode>, MountError> {
         let name = match name {
             Some(n) => n,
-            None => {
-                let inode_meta = inode.metadata().map_err(|_| MountError::InvalidInput)?;
-
-                inode_meta.filename
-            }
+            None => inode.metadata().filename,
         };
 
         // We actually don't care what the name of the inode to be mounted is,
         // as the 'mount' operation always gives a new name to it, which is the key of the mount list
-        let inode = Self::from_inode(
-            Some(self.clone()),
-            inode,
-            inode.metadata().as_ref().ok(),
-            Some(name),
-        );
+        let inode = Self::from_inode(Some(self.clone()), inode, Some(name));
 
         if let Some(mounted) = self.inner.lock().mounted.remove(name) {
             let mut new_inner = inode.inner.lock();
@@ -420,9 +408,8 @@ impl DirectoryTreeNode {
 
         #[allow(deprecated)]
         let inode = self.lookup(name)?;
-        let inode_meta = inode.as_ref().metadata()?;
 
-        let opened = Self::from_inode(Some(self.clone()), &inode, Some(&inode_meta), None);
+        let opened = Self::from_inode(Some(self.clone()), &inode, None);
 
         self.inner
             .lock()
@@ -460,6 +447,30 @@ impl DirectoryTreeNode {
     }
 }
 
+impl DirectoryTreeNode {
+    pub fn readall(&self) -> FileSystemResult<Vec<u8>> {
+        self.readrest_at(0)
+    }
+
+    pub fn readrest_at(&self, offset: usize) -> FileSystemResult<Vec<u8>> {
+        self.readvec_at(offset, usize::MAX)
+    }
+
+    pub fn readvec_at(&self, offset: usize, max_length: usize) -> FileSystemResult<Vec<u8>> {
+        let metadata = self.metadata();
+        let len = Ord::min(metadata.size - offset, max_length);
+        let mut buf = Vec::<MaybeUninit<u8>>::with_capacity(len);
+        unsafe { buf.set_len(len) };
+
+        // Cast &mut [MaybeUninit<u8>] to &mut [u8] to shut up the clippy
+        let slice = unsafe { core::mem::transmute::<&mut [MaybeUninit<u8>], &mut [u8]>(&mut buf) };
+        self.readat(offset, slice)?;
+
+        // Cast back to Vec<u8>
+        Ok(unsafe { core::mem::transmute::<Vec<MaybeUninit<u8>>, Vec<u8>>(buf) })
+    }
+}
+
 impl Drop for DirectoryTreeNode {
     fn drop(&mut self) {
         if let Some(ref parent) = self.parent {
@@ -469,25 +480,25 @@ impl Drop for DirectoryTreeNode {
 }
 
 impl IInode for DirectoryTreeNode {
-    fn metadata(&self) -> FileSystemResult<InodeMetadata> {
+    fn metadata(&self) -> InodeMetadata {
         let inner = self.inner.lock();
         let filename = self.name();
 
         match &inner.meta {
             DirectoryTreeNodeMetadata::Inode { inode } => {
-                let meta = inode.metadata()?;
+                let meta = inode.metadata();
 
-                Ok(InodeMetadata {
+                InodeMetadata {
                     filename,
                     entry_type: meta.entry_type,
                     size: meta.size,
-                })
+                }
             }
-            DirectoryTreeNodeMetadata::Empty => Ok(InodeMetadata {
+            DirectoryTreeNodeMetadata::Empty => InodeMetadata {
                 filename,
                 entry_type: DirectoryEntryType::Directory,
                 size: 0,
-            }),
+            },
         }
     }
 
@@ -530,7 +541,7 @@ impl IInode for DirectoryTreeNode {
             DirectoryTreeNodeMetadata::Inode { inode } => {
                 let made = inode.mkdir(name)?;
 
-                let wrapped = Self::from_inode(Some(self_arc.clone()), &made, None, None);
+                let wrapped = Self::from_inode(Some(self_arc.clone()), &made, None);
 
                 inner
                     .opened
@@ -582,8 +593,7 @@ impl IInode for DirectoryTreeNode {
             DirectoryTreeNodeMetadata::Inode { inode } => {
                 let touched = inode.touch(name)?;
 
-                let wrapped =
-                    DirectoryTreeNode::from_inode(Some(self_arc.clone()), &touched, None, None);
+                let wrapped = DirectoryTreeNode::from_inode(Some(self_arc.clone()), &touched, None);
 
                 inner
                     .opened
@@ -606,19 +616,14 @@ impl IInode for DirectoryTreeNode {
 
     fn read_dir(&self) -> FileSystemResult<Vec<DirectoryEntry>> {
         fn to_directory_entry(name: &str, node: &Arc<DirectoryTreeNode>) -> DirectoryEntry {
-            match &node.inner.lock().meta {
-                DirectoryTreeNodeMetadata::Inode { inode } => {
-                    let inode_meta = inode.metadata().expect("Mounted node with no metadata");
+            let entry_type = match &node.inner.lock().meta {
+                DirectoryTreeNodeMetadata::Inode { inode } => inode.metadata().entry_type,
+                DirectoryTreeNodeMetadata::Empty => DirectoryEntryType::Directory,
+            };
 
-                    DirectoryEntry {
-                        filename: name.to_string(),
-                        entry_type: inode_meta.entry_type,
-                    }
-                }
-                DirectoryTreeNodeMetadata::Empty => DirectoryEntry {
-                    filename: name.to_string(),
-                    entry_type: DirectoryEntryType::Directory,
-                },
+            DirectoryEntry {
+                filename: name.to_string(),
+                entry_type,
             }
         }
 
@@ -781,14 +786,7 @@ pub fn global_mount(
     path: &str,
     relative_to: Option<&Arc<DirectoryTreeNode>>,
 ) -> Result<Arc<DirectoryTreeNode>, MountError> {
-    log::info!(
-        "Mounting {} at {}",
-        inode
-            .metadata()
-            .map(|m| m.filename)
-            .unwrap_or("anonymous inode"),
-        path
-    );
+    log::info!("Mounting {} at {}", inode.metadata().filename, path);
 
     let root = match (relative_to, path::is_path_fully_qualified(path)) {
         (_, true) => {
@@ -796,7 +794,7 @@ pub fn global_mount(
 
             // new root
             if path.trim_start_matches(path::SEPARATOR).is_empty() {
-                let new_root = DirectoryTreeNode::from_inode(None, inode, None, None);
+                let new_root = DirectoryTreeNode::from_inode(None, inode, None);
                 new_root.inner.lock().shadowed = Some(unsafe { root.assume_init_ref().clone() });
 
                 *root = MaybeUninit::new(new_root.clone());

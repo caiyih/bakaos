@@ -307,7 +307,7 @@ impl MemoryMappedFile {
         }
 
         let inode = fd.access().metadata()?.inode();
-        let file_size = inode.metadata().ok()?.size;
+        let file_size = inode.metadata().size;
 
         let initialized_frames = Self::allocate_named(inode)?;
 
@@ -348,7 +348,7 @@ impl MemoryMappedFile {
 
     // Since we have to replace the whole file, we have to copy all the content from the inode to the frames
     fn allocate_named(inode: Arc<dyn IInode>) -> Option<Vec<TrackedFrame>> {
-        let metadata = inode.metadata().ok()?;
+        let metadata = inode.metadata();
 
         if metadata.entry_type != DirectoryEntryType::File {
             return None;

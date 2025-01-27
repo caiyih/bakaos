@@ -13,12 +13,12 @@ impl NullInode {
 }
 
 impl IInode for NullInode {
-    fn metadata(&self) -> FileSystemResult<InodeMetadata> {
-        Ok(InodeMetadata {
+    fn metadata(&self) -> InodeMetadata {
+        InodeMetadata {
             filename: "null",
             entry_type: DirectoryEntryType::CharDevice,
             size: 0,
-        })
+        }
     }
 
     fn stat(&self, stat: &mut crate::FileStatistics) -> FileSystemResult<()> {
@@ -59,12 +59,12 @@ impl ZeroInode {
 }
 
 impl IInode for ZeroInode {
-    fn metadata(&self) -> FileSystemResult<InodeMetadata> {
-        Ok(InodeMetadata {
+    fn metadata(&self) -> InodeMetadata {
+        InodeMetadata {
             filename: "null",
             entry_type: DirectoryEntryType::CharDevice,
             size: 0,
-        })
+        }
     }
 
     fn stat(&self, stat: &mut crate::FileStatistics) -> FileSystemResult<()> {
@@ -107,12 +107,12 @@ impl RandomInode {
 }
 
 impl IInode for RandomInode {
-    fn metadata(&self) -> FileSystemResult<InodeMetadata> {
-        Ok(InodeMetadata {
+    fn metadata(&self) -> InodeMetadata {
+        InodeMetadata {
             filename: "random",
             entry_type: DirectoryEntryType::CharDevice,
             size: 0,
-        })
+        }
     }
 
     fn stat(&self, stat: &mut crate::FileStatistics) -> FileSystemResult<()> {
@@ -155,12 +155,12 @@ impl UnblockedRandomInode {
 }
 
 impl IInode for UnblockedRandomInode {
-    fn metadata(&self) -> FileSystemResult<InodeMetadata> {
-        Ok(InodeMetadata {
+    fn metadata(&self) -> InodeMetadata {
+        InodeMetadata {
             filename: "urandom",
             entry_type: DirectoryEntryType::CharDevice,
             size: 0,
-        })
+        }
     }
 
     fn stat(&self, stat: &mut crate::FileStatistics) -> FileSystemResult<()> {

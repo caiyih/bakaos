@@ -34,7 +34,7 @@ pub fn global_mount_device_inode(
     path: &str,
     relative_to: Option<&Arc<DirectoryTreeNode>>,
 ) -> Result<Arc<DirectoryTreeNode>, MountError> {
-    let metadata = inode.metadata().map_err(|_| MountError::InvalidInput)?;
+    let metadata = inode.metadata();
 
     match metadata.entry_type {
         DirectoryEntryType::BlockDevice => mount_block_device(inode, path, relative_to),

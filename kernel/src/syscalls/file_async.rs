@@ -186,11 +186,11 @@ async_syscall!(sys_sendfile_async, ctx, {
             let offset = offset.unwrap_or_else(|| file_meta.offset());
             file_meta.set_offset(offset);
 
-            if let Ok(inode_meta) = file_meta.inode().metadata() {
-                if inode_meta.entry_type != DirectoryEntryType::CharDevice {
-                    return usize::min(inode_meta.size - offset, size);
-                }
-            };
+            let inode = file_meta.inode();
+            let inode_meta = inode.metadata();
+            if inode_meta.entry_type != DirectoryEntryType::CharDevice {
+                return usize::min(inode_meta.size - offset, size);
+            }
         }
 
         SENDFILE_MAX_BYTES
@@ -208,10 +208,10 @@ async_syscall!(sys_sendfile_async, ctx, {
 
     // Should use read/write
     if let Some(ref in_meta) = in_meta {
-        if let Ok(in_inode) = in_meta.inode().metadata() {
-            if in_inode.entry_type == DirectoryEntryType::CharDevice {
-                return SyscallError::InvalidArgument;
-            }
+        let in_inode = in_meta.inode();
+
+        if in_inode.metadata().entry_type == DirectoryEntryType::CharDevice {
+            return SyscallError::InvalidArgument;
         }
     }
 

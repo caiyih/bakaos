@@ -174,12 +174,12 @@ impl BlockDeviceInode {
 }
 
 impl IInode for BlockDeviceInode {
-    fn metadata(&self) -> FileSystemResult<InodeMetadata> {
-        Ok(InodeMetadata {
+    fn metadata(&self) -> InodeMetadata {
+        InodeMetadata {
             filename: "Block device",
             entry_type: DirectoryEntryType::BlockDevice,
             size: 0,
-        })
+        }
     }
 
     fn stat(&self, stat: &mut FileStatistics) -> FileSystemResult<()> {

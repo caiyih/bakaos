@@ -150,12 +150,12 @@ impl TeleTypewriterInode {
 }
 
 impl IInode for TeleTypewriterInode {
-    fn metadata(&self) -> FileSystemResult<InodeMetadata> {
-        Ok(InodeMetadata {
+    fn metadata(&self) -> InodeMetadata {
+        InodeMetadata {
             filename: "tty",
             entry_type: DirectoryEntryType::CharDevice,
             size: 0,
-        })
+        }
     }
 
     fn stat(&self, stat: &mut crate::FileStatistics) -> FileSystemResult<()> {

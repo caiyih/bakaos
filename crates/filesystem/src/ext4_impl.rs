@@ -2,7 +2,9 @@ use core::ops::Deref;
 use core::{mem::MaybeUninit, panic};
 
 use ext4_rs::{Ext4, InodeFileType};
-use filesystem_abstractions::{DirectoryEntryType, FileSystemError, IFileSystem, IInode};
+use filesystem_abstractions::{
+    DirectoryEntryType, FileSystemError, IFileSystem, IInode, InodeMetadata,
+};
 
 use alloc::string::{String, ToString};
 use alloc::sync::Arc;
@@ -129,16 +131,14 @@ impl Clone for Ext4Inode {
 }
 
 impl IInode for Ext4Inode {
-    fn metadata(
-        &self,
-    ) -> filesystem_abstractions::FileSystemResult<filesystem_abstractions::InodeMetadata> {
+    fn metadata(&self) -> InodeMetadata {
         let inode_ref = self.fs.get_inode_ref(self.inode_id);
 
-        Ok(filesystem_abstractions::InodeMetadata {
+        InodeMetadata {
             filename: &self.filename,
             entry_type: self.file_type,
             size: inode_ref.inode.size() as usize,
-        })
+        }
     }
 
     fn mkdir(&self, name: &str) -> filesystem_abstractions::FileSystemResult<Arc<dyn IInode>> {
