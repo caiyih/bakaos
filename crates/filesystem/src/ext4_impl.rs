@@ -288,7 +288,7 @@ impl IInode for Ext4Inode {
         stat.uid = inode_ref.inode.uid() as u32;
         stat.gid = inode_ref.inode.gid() as u32;
         stat.size = inode_ref.inode.size();
-        stat.block_size = 512; // TODO: Figure out if this is correct
+        stat.block_size = 4096;
         stat.block_count = inode_ref.inode.blocks_count();
         stat.rdev = 0;
 
