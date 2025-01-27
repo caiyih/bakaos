@@ -61,7 +61,7 @@ impl ZeroInode {
 impl IInode for ZeroInode {
     fn metadata(&self) -> InodeMetadata {
         InodeMetadata {
-            filename: "null",
+            filename: "zero",
             entry_type: DirectoryEntryType::CharDevice,
             size: 0,
         }
