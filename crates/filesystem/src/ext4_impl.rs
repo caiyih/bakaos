@@ -339,6 +339,32 @@ impl IInode for Ext4Inode {
 
         Ok(bytes_written)
     }
+
+    fn cache_children(&self) -> filesystem_abstractions::FileSystemResult<Vec<Arc<dyn IInode>>> {
+        self.should_be_directory()?;
+
+        #[inline(always)]
+        fn to_entry_type(de_type: u8) -> DirectoryEntryType {
+            match de_type {
+                2 => DirectoryEntryType::Directory,
+                _ => DirectoryEntryType::File,
+            }
+        }
+
+        let mut children: Vec<Arc<dyn IInode>> = Vec::new();
+        let mut entries = self.fs.dir_get_entries(self.inode_id);
+
+        while let Some(entry) = entries.pop() {
+            children.push(Arc::new(Ext4Inode {
+                filename: entry.get_name(),
+                inode_id: entry.inode,
+                file_type: to_entry_type(entry.get_de_type()),
+                fs: self.fs.clone(),
+            }));
+        }
+
+        Ok(children)
+    }
 }
 
 trait IDirectoryEntryType {

@@ -504,9 +504,7 @@ impl ISyncSyscallHandler for GetDents64Syscall {
                 let file = fd.access();
                 let file_meta = file.metadata().ok_or(ErrNo::FileDescriptorInBadState)?;
 
-                let inode = file.inode().ok_or(ErrNo::FileDescriptorInBadState)?;
-
-                let entries = inode.read_dir().map_err(|_| ErrNo::NotADirectory)?;
+                let entries = file_meta.read_dir().ok_or(ErrNo::NotADirectory)?;
 
                 unsafe { slice::from_raw_parts_mut(p_buf, len).fill(0) };
 

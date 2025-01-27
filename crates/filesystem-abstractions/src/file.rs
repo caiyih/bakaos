@@ -1,8 +1,10 @@
+use core::cell::UnsafeCell;
 use core::ops::Deref;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::{
-    DirectoryEntryType, DirectoryTreeNode, FileCacheAccessor, OpenFlags, TeleTypewriterBuilder,
+    DirectoryEntry, DirectoryEntryType, DirectoryTreeNode, FileCacheAccessor, OpenFlags,
+    TeleTypewriterBuilder,
 };
 use alloc::sync::Arc;
 use alloc::sync::Weak;
@@ -15,6 +17,7 @@ pub struct FileMetadata {
     open_offset: AtomicUsize,
     open_flags: SpinMutex<OpenFlags>,
     inode: Arc<DirectoryTreeNode>,
+    children_entries: UnsafeCell<Option<Vec<DirectoryEntry>>>,
 }
 
 impl FileMetadata {
@@ -23,6 +26,7 @@ impl FileMetadata {
             open_offset: AtomicUsize::new(offset),
             open_flags: SpinMutex::new(flags),
             inode,
+            children_entries: UnsafeCell::new(None),
         }
     }
 
@@ -44,6 +48,23 @@ impl FileMetadata {
 
     pub fn inode(&self) -> Arc<DirectoryTreeNode> {
         self.inode.clone()
+    }
+
+    pub fn read_dir(&self) -> Option<&[DirectoryEntry]> {
+        let children_entries = unsafe { self.children_entries.get().as_mut().unwrap() };
+        if let Some(ref children) = children_entries {
+            return Some(children);
+        }
+
+        self.inode.cache_children();
+
+        if let Ok(entries) = self.inode.read_dir() {
+            *children_entries = Some(entries);
+
+            return children_entries.as_deref();
+        }
+
+        None
     }
 }
 

@@ -46,6 +46,10 @@ pub trait IInode: DowncastSync + Send + Sync {
     fn stat(&self, _stat: &mut FileStatistics) -> FileSystemResult<()> {
         Err(FileSystemError::Unimplemented)
     }
+
+    fn cache_children(&self) -> FileSystemResult<Vec<Arc<dyn IInode>>> {
+        Err(FileSystemError::Unimplemented)
+    }
 }
 
 impl_downcast!(sync IInode);
