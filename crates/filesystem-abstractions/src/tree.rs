@@ -538,7 +538,7 @@ impl DirectoryTreeNode {
         }
     }
 
-    pub fn lookup(self: &Arc<DirectoryTreeNode>, name: &str) -> FileSystemResult<Arc<dyn IInode>> {
+    fn lookup(self: &Arc<DirectoryTreeNode>, name: &str) -> FileSystemResult<Arc<dyn IInode>> {
         // We dont't use DirectoryTreeNode::open because this method only cares the lookup process,
         // it doesn't mean the inode has to be opened.
         let inner = self.inner.lock();
