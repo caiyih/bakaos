@@ -277,20 +277,9 @@ impl DirectoryTreeNode {
         self: &Arc<DirectoryTreeNode>,
         name: &str,
     ) -> Result<Arc<DirectoryTreeNode>, MountError> {
-        let mut inner = self.inner.lock();
+        let node = Self::from_empty(Some(self.clone()), name.to_string());
 
-        let inode = Self::from_empty(Some(self.clone()), name.to_string());
-
-        if let Some(mounted) = inner.mounted.remove(name) {
-            let mut new_inner = inode.inner.lock();
-
-            new_inner.shadowed = Some(mounted);
-        }
-
-        inner
-            .mounted
-            .insert(name.to_string(), inode.clone())
-            .map_or_else(|| Ok(inode), |_| Err(MountError::FileExists))
+        self.mount_as(node, Some(name))
     }
 
     pub fn umount_at(&self, name: &str) -> Result<Arc<DirectoryTreeNode>, MountError> {
