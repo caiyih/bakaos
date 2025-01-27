@@ -3,9 +3,7 @@ use core::{cmp::Ordering, mem::MaybeUninit, slice};
 use alloc::{sync::Arc, vec::Vec};
 use downcast_rs::{impl_downcast, DowncastSync};
 
-use crate::{
-    DirectoryEntry, FileStatistics, FileSystemError, FileSystemResult, InodeMetadata,
-};
+use crate::{DirectoryEntry, FileStatistics, FileSystemError, FileSystemResult, InodeMetadata};
 
 pub trait IInode: DowncastSync + Send + Sync {
     fn metadata(&self) -> FileSystemResult<InodeMetadata> {
