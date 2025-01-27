@@ -155,7 +155,6 @@ impl IInode for TeleTypewriterInode {
             filename: "tty",
             entry_type: DirectoryEntryType::CharDevice,
             size: 0,
-            children_count: 0,
         })
     }
 

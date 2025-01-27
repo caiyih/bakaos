@@ -18,7 +18,6 @@ impl IInode for NullInode {
             filename: "null",
             entry_type: DirectoryEntryType::CharDevice,
             size: 0,
-            children_count: 0,
         })
     }
 
@@ -65,7 +64,6 @@ impl IInode for ZeroInode {
             filename: "null",
             entry_type: DirectoryEntryType::CharDevice,
             size: 0,
-            children_count: 0,
         })
     }
 
@@ -114,7 +112,6 @@ impl IInode for RandomInode {
             filename: "random",
             entry_type: DirectoryEntryType::CharDevice,
             size: 0,
-            children_count: 0,
         })
     }
 
@@ -163,7 +160,6 @@ impl IInode for UnblockedRandomInode {
             filename: "urandom",
             entry_type: DirectoryEntryType::CharDevice,
             size: 0,
-            children_count: 0,
         })
     }
 

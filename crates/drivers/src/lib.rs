@@ -179,7 +179,6 @@ impl IInode for BlockDeviceInode {
             filename: "Block device",
             entry_type: DirectoryEntryType::BlockDevice,
             size: 0,
-            children_count: 0,
         })
     }
 

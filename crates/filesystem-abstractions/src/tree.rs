@@ -43,7 +43,6 @@ impl IInode for RamFileInode {
             filename: &inner.filename,
             entry_type: DirectoryEntryType::File,
             size: inner.size,
-            children_count: 0,
         })
     }
 
@@ -476,14 +475,12 @@ impl IInode for DirectoryTreeNode {
                     filename,
                     entry_type: meta.entry_type,
                     size: meta.size,
-                    children_count: meta.children_count,
                 })
             }
             DirectoryTreeNodeMetadata::Empty => Ok(InodeMetadata {
                 filename,
                 entry_type: DirectoryEntryType::Directory,
                 size: 0,
-                children_count: inner.mounted.len(),
             }),
         }
     }

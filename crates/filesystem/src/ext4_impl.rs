@@ -134,16 +134,10 @@ impl IInode for Ext4Inode {
     ) -> filesystem_abstractions::FileSystemResult<filesystem_abstractions::InodeMetadata> {
         let inode_ref = self.fs.get_inode_ref(self.inode_id);
 
-        let children_count = match self.file_type {
-            DirectoryEntryType::Directory => self.fs.dir_get_entries(self.inode_id).len(),
-            _ => 0,
-        };
-
         Ok(filesystem_abstractions::InodeMetadata {
             filename: &self.filename,
             entry_type: self.file_type,
             size: inode_ref.inode.size() as usize,
-            children_count,
         })
     }
 
@@ -183,10 +177,6 @@ impl IInode for Ext4Inode {
 
     fn lookup(&self, name: &str) -> filesystem_abstractions::FileSystemResult<Arc<dyn IInode>> {
         self.should_be_directory()?;
-
-        if name == "." {
-            return Ok(Arc::new(self.clone()));
-        }
 
         let inode_id = self
             .fs

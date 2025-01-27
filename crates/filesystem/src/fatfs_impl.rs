@@ -157,7 +157,6 @@ impl IInode for FatFileInode {
             filename: &self.filename,
             entry_type: filesystem_abstractions::DirectoryEntryType::File,
             size: unsafe { self.inner.make_guard_unchecked().size },
-            children_count: 0,
         })
     }
 
@@ -265,7 +264,6 @@ impl IInode for FatDirectoryInode {
             filename: &self.filename,
             entry_type: filesystem_abstractions::DirectoryEntryType::Directory,
             size: 0,
-            children_count: usize::MAX,
         })
     }
 
@@ -282,14 +280,6 @@ impl IInode for FatDirectoryInode {
     }
 
     fn lookup(&self, name: &str) -> FileSystemResult<Arc<dyn IInode>> {
-        if name.is_empty() || name == "." {
-            return Ok(Arc::new(FatDirectoryInode {
-                filename: self.filename.clone(),
-                inner: self.inner.clone(),
-                _holding: self._holding.clone(),
-            }));
-        }
-
         for entry_result in self.inner.iter() {
             match entry_result {
                 Ok(entry) => {

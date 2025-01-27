@@ -94,7 +94,6 @@ pub struct InodeMetadata<'a> {
     pub filename: &'a str,
     pub entry_type: DirectoryEntryType,
     pub size: usize,
-    pub children_count: usize,
 }
 
 #[repr(C)]
