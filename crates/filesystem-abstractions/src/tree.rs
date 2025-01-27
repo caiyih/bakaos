@@ -588,7 +588,6 @@ impl DirectoryTreeNode {
                     .opened
                     .insert(wrapped.name().to_string(), Arc::downgrade(&wrapped));
 
-                // TODO: return value is not concret type, need refactor, same as touch
                 Ok(wrapped)
             }
             DirectoryTreeNodeMetadata::Empty => {
