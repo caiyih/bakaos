@@ -22,9 +22,9 @@ impl TrackedFrame {
     pub fn zero(&self) {
         let va = self.ppn().start_addr::<PhysicalAddress>().to_high_virtual();
 
-        let ptr = unsafe { va.as_mut_ptr::<u8>() };
+        let ptr = unsafe { va.as_mut_ptr::<u64>() };
 
-        for i in 0..constants::PAGE_SIZE {
+        for i in 0..(constants::PAGE_SIZE / core::mem::size_of::<u64>()) {
             unsafe { ptr.add(i).write_volatile(0) };
         }
     }
