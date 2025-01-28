@@ -357,11 +357,12 @@ impl ISyncSyscallHandler for ExecveSyscall {
         {
             Some(path_guard) => {
                 let path = str::from_utf8(&path_guard).map_err(|_| ErrNo::InvalidArgument)?;
-
-                match {
+                let fullpath = {
                     let pcb = ctx.pcb.lock();
                     path::get_full_path(path, Some(&pcb.cwd))
-                } {
+                };
+
+                match fullpath {
                     Some(fullpath) => {
                         let pt = ctx.borrow_page_table();
 
