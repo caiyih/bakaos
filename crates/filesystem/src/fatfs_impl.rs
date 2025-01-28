@@ -186,13 +186,6 @@ impl IInode for FatFileInode {
             bytes_read = rlen;
         }
 
-        // Add EOF if reached the end
-        if buffer.len() > file_size - offset {
-            const EOF: u8 = 0;
-            buffer[file_size - offset] = EOF;
-            bytes_read += 1;
-        }
-
         Ok(bytes_read)
     }
 
