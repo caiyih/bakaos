@@ -659,15 +659,25 @@ pub struct IoControlSyscall;
 
 impl ISyncSyscallHandler for IoControlSyscall {
     fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        const TIOCGPGRP: i32 = 0x540f;
+        const TIOCGWINSZ: i32 = 0x5413;
+
         let fd = ctx.arg0::<usize>();
-        let _op = ctx.arg1::<usize>();
-        let _argp = ctx.arg2::<*mut u8>();
+        let op = ctx.arg1::<i32>();
+        let argp = ctx.arg2::<*mut u8>();
 
         ctx.fd_table
             .lock()
             .get(fd)
             .ok_or(ErrNo::BadFileDescriptor)
-            .map(|_| 0)
+            .map(|_| 0)?;
+
+        match op {
+            TIOCGPGRP | TIOCGWINSZ => unsafe { *argp = 0 },
+            _ => (),
+        }
+
+        Ok(0)
     }
 
     fn name(&self) -> &str {
