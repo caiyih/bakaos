@@ -22,6 +22,17 @@ pub fn init() {
     }
 }
 
+// Returns in (requested, allocated, total)
+pub fn heap_statistics() -> (usize, usize, usize) {
+    let allocator = GLOBAL_ALLOCATOR.lock();
+
+    (
+        allocator.stats_alloc_user(),
+        allocator.stats_alloc_actual(),
+        allocator.stats_total_bytes(),
+    )
+}
+
 #[alloc_error_handler]
 fn __on_kernel_heap_oom(layout: core::alloc::Layout) -> ! {
     panic!(

@@ -248,3 +248,9 @@ pub fn init_frame_allocator(memory_end: usize) {
         );
     }
 }
+
+pub fn avaliable_frames_count() -> usize {
+    let allocator = unsafe { FRAME_ALLOCATOR.lock() };
+
+    allocator.recycled.len() + (allocator.top - allocator.current + 1).as_usize()
+}
