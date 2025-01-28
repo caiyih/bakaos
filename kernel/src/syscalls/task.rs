@@ -358,7 +358,10 @@ impl ISyncSyscallHandler for ExecveSyscall {
             Some(path_guard) => {
                 let path = str::from_utf8(&path_guard).map_err(|_| ErrNo::InvalidArgument)?;
 
-                match path::get_full_path(path, Some(&ctx.pcb.lock().cwd)) {
+                match {
+                    let pcb = ctx.pcb.lock();
+                    path::get_full_path(path, Some(&pcb.cwd))
+                } {
                     Some(fullpath) => {
                         let pt = ctx.borrow_page_table();
 
@@ -418,7 +421,8 @@ impl ISyncSyscallHandler for ChdirSyscall {
             Some(guard) => {
                 let path = str::from_utf8(&guard).map_err(|_| ErrNo::InvalidArgument)?;
 
-                match path::get_full_path(path, Some(&ctx.pcb.lock().cwd)) {
+                let mut pcb = ctx.pcb.lock();
+                match path::get_full_path(path, Some(&pcb.cwd)) {
                     Some(fullpath) => {
                         let processed_path = path::remove_relative_segments(&fullpath);
                         let inode = filesystem_abstractions::global_open(&processed_path, None)
@@ -428,7 +432,7 @@ impl ISyncSyscallHandler for ChdirSyscall {
 
                         match inode_metadata.entry_type {
                             DirectoryEntryType::Directory => {
-                                ctx.pcb.lock().cwd = processed_path;
+                                pcb.cwd = processed_path;
 
                                 Ok(0)
                             }
