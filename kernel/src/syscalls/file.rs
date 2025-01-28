@@ -508,43 +508,47 @@ impl ISyncSyscallHandler for GetDents64Syscall {
 
                 unsafe { slice::from_raw_parts_mut(p_buf, len).fill(0) };
 
+                let ptr = p_buf as usize;
                 let mut offset: usize = 0;
 
-                let starting_idx = file_meta.offset();
-                for (idx, entry) in entries.iter().enumerate() {
-                    if idx < starting_idx {
-                        continue;
+                let mut idx = file_meta.offset();
+                if idx < entries.len() {
+                    for entry in entries[idx..].iter() {
+                        let name = entry.filename.as_bytes();
+                        let mut entry_size: usize =
+                            core::mem::size_of::<LinuxDirEntry64>() + name.len() + 1;
+                        entry_size = ((entry_size + ptr) | 7) + 1 - ptr; // align to 8 bytes
+
+                        if offset + entry_size > len {
+                            break;
+                        }
+
+                        let p_entry = unsafe {
+                            &mut *guard
+                                .as_mut()
+                                .as_mut_ptr()
+                                .add(offset)
+                                .cast::<LinuxDirEntry64>()
+                        };
+
+                        p_entry.inode_id = idx as u64;
+                        p_entry.doffsset = offset as u64; // no meaning for user space
+                        p_entry.entry_len = entry_size as u16;
+                        p_entry.file_type = entry.entry_type as u8;
+
+                        let name_slice = unsafe {
+                            slice::from_raw_parts_mut(p_entry.name.as_mut_ptr(), name.len())
+                        };
+                        name_slice.copy_from_slice(name);
+
+                        // Add null terminator. Not needed, as the whole buffer is zeroed
+                        // unsafe { p_entry.name.as_mut_ptr().add(name.len()).write_volatile(0) };
+
+                        idx += 1;
+
+                        offset += entry_size;
+                        file_meta.set_offset(idx);
                     }
-
-                    let name = entry.filename.as_bytes();
-                    let entry_size = core::mem::size_of::<LinuxDirEntry64>() + name.len() + 1;
-
-                    if offset + entry_size > len {
-                        break;
-                    }
-
-                    let p_entry = unsafe {
-                        &mut *guard
-                            .as_mut()
-                            .as_mut_ptr()
-                            .add(offset)
-                            .cast::<LinuxDirEntry64>()
-                    };
-
-                    p_entry.inode_id = idx as u64;
-                    p_entry.doffsset = offset as u64; // no meaning for user space
-                    p_entry.entry_len = entry_size as u16;
-                    p_entry.file_type = entry.entry_type as u8;
-
-                    let name_slice =
-                        unsafe { slice::from_raw_parts_mut(p_entry.name.as_mut_ptr(), name.len()) };
-                    name_slice.copy_from_slice(name);
-
-                    // Add null terminator
-                    unsafe { p_entry.name.as_mut_ptr().add(name.len()).write_volatile(0) };
-
-                    offset += entry_size;
-                    file_meta.set_offset(idx + 1);
                 }
 
                 Ok(offset as isize)
