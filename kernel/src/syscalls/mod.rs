@@ -141,6 +141,7 @@ impl SyscallDispatcher {
             STSCALL_ID_WAIT4 => Some(sys_wait4_async(&mut ctx).await),
             SYSCALL_ID_SENDFILE => Some(sys_sendfile_async(&mut ctx).await),
             SYSCALL_ID_WRITEV => Some(sys_writev_async(&mut ctx).await),
+            96 => Some(threading::FromResult::new(Ok(ctx.task_id.id() as isize)).await), // set_tid_address
             _ => None,
         }
     }

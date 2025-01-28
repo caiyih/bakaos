@@ -25,6 +25,7 @@ mod system;
 mod timing;
 mod trap;
 
+use alloc::string::String;
 use core::{arch::asm, sync::atomic::AtomicBool};
 use filesystem_abstractions::global_open;
 use firmwares::console::IConsole;
@@ -144,7 +145,7 @@ fn run_final_tests() {
         memspace.init_stack(args, envp);
         let task = TaskControlBlock::new(memspace);
         unsafe {
-            task.cwd.get().as_mut().unwrap().push('/');
+            task.pcb.lock().cwd = String::from("/");
         };
 
         spawn_task(task);
@@ -172,7 +173,7 @@ fn run_preliminary_tests() {
         let task = TaskControlBlock::new(memspace);
         unsafe {
             let directory = path::get_directory_name(path).unwrap();
-            task.cwd.get().as_mut().unwrap().push_str(directory);
+            task.pcb.lock().cwd = String::from(directory);
         };
         spawn_task(task);
         threading::run_tasks();

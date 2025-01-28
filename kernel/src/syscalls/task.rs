@@ -1,4 +1,4 @@
-use core::{str, sync::atomic::Ordering};
+use core::str;
 
 use abstractions::operations::IUsizeAlias;
 use address::{IPageNum, IToPageNum, VirtualAddress};
@@ -99,7 +99,9 @@ impl ISyncSyscallHandler for BrkSyscall {
     fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
         let brk = ctx.arg0::<usize>();
 
-        let current_brk = ctx.brk_pos.load(Ordering::Relaxed);
+        let mut pcb = ctx.pcb.lock();
+
+        let current_brk = pcb.brk_pos;
 
         if brk == 0 || brk == current_brk {
             return Ok(current_brk as isize);
@@ -109,14 +111,14 @@ impl ISyncSyscallHandler for BrkSyscall {
             return SyscallError::OperationNotPermitted;
         }
 
-        let mut memory_space = ctx.memory_space.lock();
+        let memory_space = &mut pcb.memory_space;
         let brk_area = memory_space.brk_page_range();
 
         // new brk is in the same page, no need to allocate new pages
         // Only update brk position
         let brk_page_end = brk_area.end().start_addr::<VirtualAddress>().as_usize();
         if brk < brk_page_end {
-            ctx.brk_pos.store(brk, Ordering::Relaxed);
+            pcb.brk_pos = brk;
             return Ok(brk as isize);
         }
 
@@ -125,7 +127,7 @@ impl ISyncSyscallHandler for BrkSyscall {
 
         match memory_space.increase_brk(vpn) {
             Ok(_) => {
-                ctx.brk_pos.store(brk, Ordering::Relaxed);
+                pcb.brk_pos = brk;
                 Ok(brk as isize)
             }
             Err(reason) => {
@@ -181,8 +183,14 @@ pub struct GetParentPidSyscall;
 
 impl ISyncSyscallHandler for GetParentPidSyscall {
     fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
-        let parent = ctx.parent.as_ref().map(|p| p.upgrade().unwrap());
-        Ok(parent.map(|p| p.task_id.id()).unwrap_or(1) as isize)
+        Ok(ctx
+            .pcb
+            .lock()
+            .parent
+            .as_ref()
+            .map(|p| p.upgrade().unwrap())
+            .map(|p| p.task_id.id())
+            .unwrap_or(1) as isize)
     }
 
     fn name(&self) -> &str {
@@ -197,7 +205,8 @@ impl ISyncSyscallHandler for GetCwdSyscall {
         let buf = ctx.arg0::<*mut u8>();
         let size = ctx.arg1::<usize>();
 
-        let cwd = unsafe { ctx.cwd.get().as_ref().unwrap().as_bytes() };
+        let pcb = ctx.pcb.lock();
+        let cwd = pcb.cwd.as_bytes();
         let len = cwd.len() + 1;
 
         debug_assert!(len > 0, "cwd remains uninitialized");
@@ -277,7 +286,7 @@ impl ISyncSyscallHandler for CloneSyscall {
             // Copy through higher half address
             ctx.borrow_page_table().activated_copy_val_to_other(
                 VirtualAddress::from_ptr(pctid),
-                &child_pt,
+                child_pt,
                 &new_tid,
             );
         }
@@ -349,14 +358,14 @@ impl ISyncSyscallHandler for ExecveSyscall {
             Some(path_guard) => {
                 let path = str::from_utf8(&path_guard).map_err(|_| ErrNo::InvalidArgument)?;
 
-                match path::get_full_path(path, Some(unsafe { ctx.cwd.get().as_ref().unwrap() })) {
+                match path::get_full_path(path, Some(&ctx.pcb.lock().cwd)) {
                     Some(fullpath) => {
                         let pt = ctx.borrow_page_table();
 
                         let args =
-                            guard_create_unsized_cstr_array(&pt, args).ok_or(ErrNo::BadAddress)?;
+                            guard_create_unsized_cstr_array(pt, args).ok_or(ErrNo::BadAddress)?;
                         let envp =
-                            guard_create_unsized_cstr_array(&pt, envp).ok_or(ErrNo::BadAddress)?;
+                            guard_create_unsized_cstr_array(pt, envp).ok_or(ErrNo::BadAddress)?;
 
                         debug!(
                             "Task {} execve: '{}', args: {:?}, envp: {:?}",
@@ -409,7 +418,7 @@ impl ISyncSyscallHandler for ChdirSyscall {
             Some(guard) => {
                 let path = str::from_utf8(&guard).map_err(|_| ErrNo::InvalidArgument)?;
 
-                match path::get_full_path(path, Some(unsafe { ctx.cwd.get().as_ref().unwrap() })) {
+                match path::get_full_path(path, Some(&ctx.pcb.lock().cwd)) {
                     Some(fullpath) => {
                         let processed_path = path::remove_relative_segments(&fullpath);
                         let inode = filesystem_abstractions::global_open(&processed_path, None)
@@ -419,10 +428,7 @@ impl ISyncSyscallHandler for ChdirSyscall {
 
                         match inode_metadata.entry_type {
                             DirectoryEntryType::Directory => {
-                                let cwd_mut = unsafe { ctx.cwd.get().as_mut().unwrap() };
-
-                                cwd_mut.clear();
-                                cwd_mut.push_str(&processed_path);
+                                ctx.pcb.lock().cwd = processed_path;
 
                                 Ok(0)
                             }

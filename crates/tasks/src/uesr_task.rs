@@ -1,17 +1,14 @@
 use abstractions::operations::IUsizeAlias;
+use alloc::collections::BTreeMap;
 use alloc::{string::String, sync::Arc, sync::Weak, vec::Vec};
-use core::{
-    cell::UnsafeCell,
-    mem::MaybeUninit,
-    sync::atomic::{AtomicI32, AtomicUsize, Ordering},
-    task::Waker,
-};
+use core::mem;
+use core::sync::atomic::AtomicI32;
+use core::{cell::UnsafeCell, mem::MaybeUninit, task::Waker};
 use filesystem_abstractions::FileDescriptorTable;
-use lock_api::MappedMutexGuard;
 use timing::{TimeSpan, TimeSpec};
 
 use address::VirtualAddress;
-use hermit_sync::{RawSpinMutex, SpinMutex, SpinMutexGuard};
+use hermit_sync::SpinMutex;
 use paging::{
     MemoryMapFlags, MemoryMapProt, MemorySpace, MemorySpaceBuilder, PageTable, TaskMemoryMap,
 };
@@ -230,23 +227,49 @@ impl TaskTrapContext {
     }
 }
 
+pub struct ProcessControlBlock {
+    pub parent: Option<Weak<TaskControlBlock>>,
+    pub id: usize,
+    pub brk_pos: usize,
+    pub status: TaskStatus,
+    pub stats: UserTaskStatistics,
+    pub memory_space: MemorySpace,
+    pub cwd: String,
+    pub fd_table: FileDescriptorTable,
+    pub mmaps: TaskMemoryMap,
+    tasks: BTreeMap<usize, Weak<TaskControlBlock>>,
+}
+
+impl ProcessControlBlock {
+    pub fn new(pid: usize, memory_space_builder: MemorySpaceBuilder) -> ProcessControlBlock {
+        let brk_pos = memory_space_builder.memory_space.brk_start().as_usize();
+
+        ProcessControlBlock {
+            parent: None,
+            id: pid,
+            brk_pos,
+            status: TaskStatus::Uninitialized,
+            stats: UserTaskStatistics::default(),
+            cwd: String::new(),
+            fd_table: FileDescriptorTable::new(pid),
+            mmaps: TaskMemoryMap::default(),
+            memory_space: memory_space_builder.memory_space,
+            tasks: BTreeMap::new(),
+        }
+    }
+}
+
 pub struct TaskControlBlock {
     pub task_id: TrackedTaskId,
     pub task_status: SpinMutex<TaskStatus>,
-    pub exit_code: AtomicI32,
-    pub memory_space: Arc<SpinMutex<MemorySpace>>,
-    pub parent: Option<Arc<Weak<TaskControlBlock>>>,
     pub children: SpinMutex<Vec<Arc<TaskControlBlock>>>,
     pub trap_context: UnsafeCell<TaskTrapContext>,
     pub waker: UnsafeCell<MaybeUninit<Waker>>,
-    pub stats: SpinMutex<UserTaskStatistics>,
     pub start_time: UnsafeCell<MaybeUninit<TimeSpec>>,
     pub timer: SpinMutex<UserTaskTimer>,
     pub kernel_timer: SpinMutex<UserTaskTimer>,
-    pub brk_pos: AtomicUsize,
-    pub cwd: UnsafeCell<String>,
-    pub fd_table: SpinMutex<FileDescriptorTable>,
-    pub mmaps: SpinMutex<TaskMemoryMap>,
+    pub exit_code: AtomicI32,
+    pub pcb: Arc<SpinMutex<ProcessControlBlock>>,
 }
 
 unsafe impl Sync for TaskControlBlock {}
@@ -255,27 +278,31 @@ unsafe impl Send for TaskControlBlock {}
 impl TaskControlBlock {
     pub fn new(memory_space_builder: MemorySpaceBuilder) -> Arc<TaskControlBlock> {
         let trap_context = TaskTrapContext::new(&memory_space_builder);
-        let brk_pos = memory_space_builder.memory_space.brk_start().as_usize();
         let task_id = tid::allocate_tid();
         let tid = task_id.id();
-        Arc::new(TaskControlBlock {
+        let created = Arc::new(TaskControlBlock {
             task_id,
             task_status: SpinMutex::new(TaskStatus::Uninitialized),
-            exit_code: AtomicI32::new(0),
-            memory_space: Arc::new(SpinMutex::new(memory_space_builder.memory_space)),
-            parent: None,
             children: SpinMutex::new(Vec::new()),
             trap_context: UnsafeCell::new(trap_context),
             waker: UnsafeCell::new(MaybeUninit::uninit()),
-            stats: SpinMutex::new(UserTaskStatistics::default()),
             start_time: UnsafeCell::new(MaybeUninit::uninit()),
             timer: SpinMutex::new(UserTaskTimer::default()),
             kernel_timer: SpinMutex::new(UserTaskTimer::default()),
-            brk_pos: AtomicUsize::new(brk_pos),
-            cwd: UnsafeCell::new(String::new()),
-            fd_table: SpinMutex::new(FileDescriptorTable::new(tid)),
-            mmaps: SpinMutex::new(TaskMemoryMap::default()),
-        })
+            exit_code: AtomicI32::new(0),
+            pcb: Arc::new(SpinMutex::new(ProcessControlBlock::new(
+                tid,
+                memory_space_builder,
+            ))),
+        });
+
+        created
+            .pcb
+            .lock()
+            .tasks
+            .insert(tid, Arc::downgrade(&created));
+
+        created
     }
 
     pub fn init(&self) {
@@ -287,9 +314,15 @@ impl TaskControlBlock {
         }
     }
 
-    pub fn borrow_page_table(&self) -> MappedMutexGuard<RawSpinMutex, PageTable> {
-        let memsapce = unsafe { self.memory_space.make_guard_unchecked() };
-        SpinMutexGuard::map(memsapce, |m| m.page_table_mut())
+    pub fn borrow_page_table(&self) -> &PageTable {
+        unsafe {
+            self.pcb
+                .data_ptr()
+                .as_ref()
+                .unwrap()
+                .memory_space
+                .page_table()
+        }
     }
 }
 
@@ -330,52 +363,79 @@ impl TaskControlBlock {
 
         *self.mut_trap_ctx() = TaskTrapContext::new(&memory_space_builder);
 
-        self.brk_pos.store(
-            memory_space_builder.memory_space.brk_start().as_usize(),
-            Ordering::Relaxed,
-        );
-
-        self.exit_code.store(0, Ordering::Relaxed);
-        *self.stats.lock() = UserTaskStatistics::default();
-
         *self.timer.lock() = UserTaskTimer::default();
         *self.kernel_timer.lock() = UserTaskTimer::default();
 
-        *self.memory_space.lock() = memory_space_builder.memory_space;
+        let mut pcb = self.pcb.lock();
+        pcb.brk_pos = memory_space_builder.memory_space.brk_start().as_usize();
 
-        // TODO: Handle file descriptor table with FD_CLOEXEC flag
+        pcb.stats = UserTaskStatistics::default();
+
+        pcb.memory_space = memory_space_builder.memory_space;
+
+        let self_tid = self.task_id.id();
+        for (tid, weak) in pcb.tasks.iter() {
+            if *tid == self_tid {
+                continue;
+            }
+
+            if let Some(thread) = weak.upgrade() {
+                *thread.task_status.lock() = TaskStatus::Exited;
+            }
+        }
+
+        pcb.tasks.clear();
+        pcb.tasks.insert(self_tid, Arc::downgrade(self));
 
         unsafe { self.borrow_page_table().activate() };
         self.init();
+
+        // TODO: Handle file descriptor table with FD_CLOEXEC flag
 
         Ok(())
     }
 
     pub fn fork_process(self: &Arc<TaskControlBlock>) -> Arc<TaskControlBlock> {
         let this_trap_ctx = *self.mut_trap_ctx();
-        let this_brk_pos = self.brk_pos.load(Ordering::Relaxed);
-        let memory_space = MemorySpace::clone_existing(&self.memory_space.lock());
+        let this_pcb = self.pcb.lock();
+        let memory_space = MemorySpace::clone_existing(&this_pcb.memory_space);
         let task_id = tid::allocate_tid();
         let tid = task_id.id();
 
-        Arc::new(TaskControlBlock {
+        let forked = Arc::new(TaskControlBlock {
             task_id,
             task_status: SpinMutex::new(TaskStatus::Ready),
-            exit_code: AtomicI32::new(self.exit_code.load(Ordering::Relaxed)),
-            memory_space: Arc::new(SpinMutex::new(memory_space)),
-            parent: Some(Arc::new(Arc::downgrade(self))),
             children: SpinMutex::new(Vec::new()),
             trap_context: UnsafeCell::new(this_trap_ctx),
             waker: UnsafeCell::new(MaybeUninit::uninit()),
-            stats: SpinMutex::new(self.stats.lock().clone()),
+            // stats: SpinMutex::new(self.stats.lock().clone()),
             start_time: UnsafeCell::new(unsafe { *self.start_time.get().as_ref().unwrap() }),
             timer: SpinMutex::new(UserTaskTimer::default()),
             kernel_timer: SpinMutex::new(UserTaskTimer::default()),
-            brk_pos: AtomicUsize::new(this_brk_pos),
-            cwd: UnsafeCell::new(unsafe { self.cwd.get().as_ref().unwrap().clone() }),
-            fd_table: SpinMutex::new(self.fd_table.lock().clone_for(tid)),
-            mmaps: SpinMutex::new(TaskMemoryMap::default()),
-        })
+            exit_code: AtomicI32::new(self.exit_code.load(core::sync::atomic::Ordering::Relaxed)),
+            pcb: Arc::new(SpinMutex::new(ProcessControlBlock {
+                parent: Some(Arc::downgrade(self)),
+                id: tid,
+                brk_pos: this_pcb.brk_pos,
+                status: this_pcb.status,
+                stats: this_pcb.stats.clone(),
+                memory_space,
+                cwd: this_pcb.cwd.clone(),
+                fd_table: this_pcb.fd_table.clone_for(tid),
+                mmaps: TaskMemoryMap::default(),
+                tasks: BTreeMap::new(),
+            })),
+        });
+
+        let mut forked_pcb = forked.pcb.lock();
+
+        forked_pcb.tasks.insert(tid, Arc::downgrade(&forked));
+
+        // FIXME: Spawn other threads and inserts
+
+        drop(forked_pcb);
+
+        forked
     }
 }
 
@@ -388,13 +448,14 @@ impl TaskControlBlock {
         offset: usize,
         length: usize,
     ) -> Option<VirtualAddress> {
-        let fd_table = self.fd_table.lock();
-        let fd = fd_table.get(fd);
+        let mut pcb = self.pcb.lock();
 
-        let mut memory_space = self.memory_space.lock();
-        let page_table = memory_space.page_table_mut();
+        let fd = pcb.fd_table.get(fd);
 
-        let ret = self.mmaps.lock().mmap(
+        let mut pcb_ = unsafe { self.pcb.make_guard_unchecked() };
+        let page_table = pcb_.memory_space.page_table_mut();
+
+        let ret = pcb.mmaps.mmap(
             fd.as_ref(),
             flags,
             prot,
@@ -405,18 +466,24 @@ impl TaskControlBlock {
             },
         );
 
+        mem::forget(pcb);
+
         page_table.flush_tlb();
 
         ret
     }
 
     pub fn munmap(self: &Arc<TaskControlBlock>, addr: VirtualAddress, length: usize) -> bool {
-        let mut memory_space = self.memory_space.lock();
-        let page_table = memory_space.page_table_mut();
+        let mut pcb = self.pcb.lock();
 
-        let ret = self.mmaps.lock().munmap(addr, length, |vpn| {
+        let mut pcb_ = unsafe { self.pcb.make_guard_unchecked() };
+        let page_table = pcb_.memory_space.page_table_mut();
+
+        let ret = pcb.mmaps.munmap(addr, length, |vpn| {
             page_table.unmap_single(vpn);
         });
+
+        mem::forget(pcb);
 
         page_table.flush_tlb();
 

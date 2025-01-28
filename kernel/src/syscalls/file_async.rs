@@ -14,8 +14,9 @@ async_syscall!(sys_write_async, ctx, {
     let len = ctx.arg2::<usize>();
 
     let fd = ctx
-        .fd_table
+        .pcb
         .lock()
+        .fd_table
         .get(fd)
         .ok_or(ErrNo::BadFileDescriptor)?;
 
@@ -53,8 +54,9 @@ async_syscall!(sys_write_async, ctx, {
 async_syscall!(sys_read_async, ctx, {
     let fd = ctx.arg0::<usize>();
     let fd = ctx
-        .fd_table
+        .pcb
         .lock()
+        .fd_table
         .get(fd)
         .ok_or(ErrNo::BadFileDescriptor)?;
 
@@ -102,8 +104,9 @@ async_syscall!(sys_writev_async, ctx, {
 
     let fd = ctx.arg0::<usize>();
     let fd = ctx
-        .fd_table
+        .pcb
         .lock()
+        .fd_table
         .get(fd)
         .ok_or(ErrNo::BadFileDescriptor)?;
 
@@ -160,12 +163,12 @@ async_syscall!(sys_sendfile_async, ctx, {
     const BYTES_PER_LOOP: usize = 512;
 
     let (in_file, out_file) = {
-        let fd_table = ctx.fd_table.lock();
+        let pcb = ctx.pcb.lock();
         let (out_fd, in_fd) = (
-            fd_table
+            pcb.fd_table
                 .get(ctx.arg0::<usize>())
                 .ok_or(ErrNo::BadFileDescriptor)?, // out_fd
-            fd_table
+            pcb.fd_table
                 .get(ctx.arg1::<usize>())
                 .ok_or(ErrNo::BadFileDescriptor)?, // in_fd
         );

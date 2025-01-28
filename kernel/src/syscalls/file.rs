@@ -34,7 +34,8 @@ impl ISyncSyscallHandler for Pipe2Syscall {
             Some(mut guard) => {
                 let pipe_pair = PipeBuilder::open();
 
-                let mut fd_table = ctx.fd_table.lock();
+                let mut pcb = ctx.pcb.lock();
+                let fd_table = &mut pcb.fd_table;
 
                 match fd_table.allocate(pipe_pair.read_end_builder) {
                     Some(read_end) => guard.read_end = read_end as i32,
@@ -79,16 +80,19 @@ impl ISyncSyscallHandler for OpenAtSyscall {
             .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
         {
             Some(guard) => {
-                let dir_inode = if dirfd == FileDescriptor::AT_FDCWD {
-                    let cwd = unsafe { ctx.cwd.get().as_ref().unwrap() };
-                    filesystem_abstractions::global_open(cwd, None)
-                        .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
-                } else {
-                    let fd_table = ctx.fd_table.lock();
-                    let fd = fd_table
-                        .get(dirfd as usize)
-                        .ok_or(ErrNo::BadFileDescriptor)?;
-                    fd.access().inode().ok_or(ErrNo::FileDescriptorInBadState)?
+                let dir_inode = {
+                    let pcb = ctx.pcb.lock();
+
+                    if dirfd == FileDescriptor::AT_FDCWD {
+                        filesystem_abstractions::global_open(&pcb.cwd, None)
+                            .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
+                    } else {
+                        let fd = pcb
+                            .fd_table
+                            .get(dirfd as usize)
+                            .ok_or(ErrNo::BadFileDescriptor)?;
+                        fd.access().inode().ok_or(ErrNo::FileDescriptorInBadState)?
+                    }
                 };
 
                 let path = core::str::from_utf8(&guard).map_err(|_| ErrNo::InvalidArgument)?;
@@ -134,8 +138,7 @@ impl ISyncSyscallHandler for OpenAtSyscall {
                     .set_writable()
                     .freeze();
 
-                let mut fd_table = ctx.fd_table.lock();
-                match fd_table.allocate(builder) {
+                match ctx.pcb.lock().fd_table.allocate(builder) {
                     Some(fd) => Ok(fd as isize),
                     None => SyscallError::BadFileDescriptor,
                 }
@@ -155,8 +158,8 @@ impl ISyncSyscallHandler for CloseSyscall {
     fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
         let fd = ctx.arg0::<usize>();
 
-        ctx.fd_table.lock().remove(fd); // rc to file will be dropped as the fd is removed
-                                        // and when rc is 0, the opened file will be dropped
+        ctx.pcb.lock().fd_table.remove(fd); // rc to file will be dropped as the fd is removed
+                                            // and when rc is 0, the opened file will be dropped
 
         Ok(0)
     }
@@ -172,7 +175,8 @@ impl ISyncSyscallHandler for DupSyscall {
     fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
         let fd = ctx.arg0::<usize>();
 
-        let mut fd_table = ctx.fd_table.lock();
+        let mut pcb = ctx.pcb.lock();
+        let fd_table = &mut pcb.fd_table;
         match fd_table.get(fd) {
             Some(old) => {
                 let builder = FrozenFileDescriptorBuilder::deconstruct(&old);
@@ -202,7 +206,8 @@ impl ISyncSyscallHandler for Dup3Syscall {
             return Ok(newfd as isize);
         }
 
-        let mut fd_table = ctx.fd_table.lock();
+        let mut pcb = ctx.pcb.lock();
+        let fd_table = &mut pcb.fd_table;
         match fd_table.get(oldfd) {
             Some(old) => {
                 let builder = FrozenFileDescriptorBuilder::deconstruct(&old);
@@ -258,8 +263,8 @@ impl ISyncSyscallHandler for MountSyscall {
 
                 let fully_qualified: String;
                 if !path::is_path_fully_qualified(target_path) {
-                    let cwd = unsafe { ctx.cwd.get().as_ref().unwrap() };
-                    fully_qualified = path::get_full_path(target_path, Some(cwd))
+                    let pcb = ctx.pcb.lock();
+                    fully_qualified = path::get_full_path(target_path, Some(&pcb.cwd))
                         .ok_or(ErrNo::InvalidArgument)?;
                     target_path = &fully_qualified;
                 }
@@ -298,8 +303,8 @@ impl ISyncSyscallHandler for UmountSyscall {
 
                 let fully_qualified: String;
                 if !path::is_path_fully_qualified(target_path) {
-                    let cwd = unsafe { ctx.cwd.get().as_ref().unwrap() };
-                    let full_path = path::get_full_path(target_path, Some(cwd))
+                    let pcb = ctx.pcb.lock();
+                    let full_path = path::get_full_path(target_path, Some(&pcb.cwd))
                         .ok_or(ErrNo::InvalidArgument)?;
                     fully_qualified = path::remove_relative_segments(&full_path);
                     target_path = &fully_qualified;
@@ -337,16 +342,19 @@ impl ISyncSyscallHandler for MkdirAtSyscall {
             .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
         {
             Some(guard) => {
-                let dir_inode = if dirfd == FileDescriptor::AT_FDCWD {
-                    let cwd = unsafe { ctx.cwd.get().as_ref().unwrap() };
-                    filesystem_abstractions::global_open(cwd, None)
-                        .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
-                } else {
-                    let fd_table = ctx.fd_table.lock();
-                    let fd = fd_table
-                        .get(dirfd as usize)
-                        .ok_or(ErrNo::BadFileDescriptor)?;
-                    fd.access().inode().ok_or(ErrNo::FileDescriptorInBadState)?
+                let dir_inode = {
+                    let pcb = ctx.pcb.lock();
+
+                    if dirfd == FileDescriptor::AT_FDCWD {
+                        filesystem_abstractions::global_open(&pcb.cwd, None)
+                            .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
+                    } else {
+                        let fd = pcb
+                            .fd_table
+                            .get(dirfd as usize)
+                            .ok_or(ErrNo::BadFileDescriptor)?;
+                        fd.access().inode().ok_or(ErrNo::FileDescriptorInBadState)?
+                    }
                 };
 
                 let path = core::str::from_utf8(&guard).map_err(|_| ErrNo::InvalidArgument)?;
@@ -411,13 +419,13 @@ impl ISyncSyscallHandler for NewFstatatSyscall {
 
                 let path = unsafe { core::str::from_utf8_unchecked(&path_guard) };
 
+                let pcb = ctx.pcb.lock();
                 if dirfd == FileDescriptor::AT_FDCWD {
-                    let cwd = unsafe { ctx.cwd.get().as_ref().unwrap() };
-                    let fullpath = path::combine(cwd, path).ok_or(ErrNo::InvalidArgument)?;
+                    let fullpath = path::combine(&pcb.cwd, path).ok_or(ErrNo::InvalidArgument)?;
                     stat(&mut buf_guard, &fullpath, None)
                 } else {
-                    let fd_table = ctx.fd_table.lock();
-                    let inode = fd_table
+                    let inode = pcb
+                        .fd_table
                         .get(dirfd as usize)
                         .and_then(|fd| fd.access().inode());
                     stat(&mut buf_guard, path, inode.as_ref())
@@ -448,8 +456,9 @@ impl ISyncSyscallHandler for NewFstatSyscall {
         {
             Some(mut guard) => {
                 let fd = ctx
-                    .fd_table
+                    .pcb
                     .lock()
+                    .fd_table
                     .get(fd)
                     .ok_or(ErrNo::BadFileDescriptor)?;
                 fd.access()
@@ -497,8 +506,9 @@ impl ISyncSyscallHandler for GetDents64Syscall {
         {
             Some(mut guard) => {
                 let fd = ctx
-                    .fd_table
+                    .pcb
                     .lock()
+                    .fd_table
                     .get(fd)
                     .ok_or(ErrNo::BadFileDescriptor)?;
                 let file = fd.access();
@@ -580,16 +590,19 @@ impl ISyncSyscallHandler for UnlinkAtSyscall {
             .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
         {
             Some(guard) => {
-                let dir_inode = if dirfd == FileDescriptor::AT_FDCWD {
-                    let cwd = unsafe { ctx.cwd.get().as_ref().unwrap() };
-                    filesystem_abstractions::global_open(cwd, None)
-                        .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
-                } else {
-                    let fd_table = ctx.fd_table.lock();
-                    let fd = fd_table
-                        .get(dirfd as usize)
-                        .ok_or(ErrNo::BadFileDescriptor)?;
-                    fd.access().inode().ok_or(ErrNo::FileDescriptorInBadState)?
+                let dir_inode = {
+                    let pcb = ctx.pcb.lock();
+
+                    if dirfd == FileDescriptor::AT_FDCWD {
+                        filesystem_abstractions::global_open(&pcb.cwd, None)
+                            .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
+                    } else {
+                        let fd = pcb
+                            .fd_table
+                            .get(dirfd as usize)
+                            .ok_or(ErrNo::BadFileDescriptor)?;
+                        fd.access().inode().ok_or(ErrNo::FileDescriptorInBadState)?
+                    }
                 };
 
                 let path = core::str::from_utf8(&guard).map_err(|_| ErrNo::InvalidArgument)?;
@@ -666,8 +679,9 @@ impl ISyncSyscallHandler for IoControlSyscall {
         let op = ctx.arg1::<i32>();
         let argp = ctx.arg2::<*mut u8>();
 
-        ctx.fd_table
+        ctx.pcb
             .lock()
+            .fd_table
             .get(fd)
             .ok_or(ErrNo::BadFileDescriptor)
             .map(|_| 0)?;
@@ -697,7 +711,8 @@ impl ISyncSyscallHandler for FileControlSyscall {
         const F_DUPFD_CLOEXEC: usize = 1030;
 
         let fd_idx = ctx.arg0::<usize>();
-        let mut fd_table = ctx.fd_table.lock();
+        let mut pcb = ctx.pcb.lock();
+        let fd_table = &mut pcb.fd_table;
 
         let arg = ctx.arg2::<usize>();
         match ctx.arg1::<usize>() /* arg */ {

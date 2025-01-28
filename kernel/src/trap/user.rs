@@ -234,7 +234,7 @@ pub async fn user_trap_handler_async(tcb: &Arc<TaskControlBlock>) {
     let scause = unsafe { core::mem::transmute::<_, Trap<Interrupt, Exception>>(scause) };
     match scause {
         Trap::Interrupt(Interrupt::SupervisorTimer) => {
-            tcb.stats.lock().timer_interrupts += 1;
+            tcb.pcb.lock().stats.timer_interrupts += 1;
             panic!("[User trap] [Interrupt::SupervisorTimer] Unimplemented")
         }
         Trap::Interrupt(i) => panic!("[User trap] [Interrupt] Unimplementd: {:?}", i),
@@ -247,8 +247,8 @@ pub async fn user_trap_handler_async(tcb: &Arc<TaskControlBlock>) {
         }
         Trap::Exception(Exception::UserEnvCall) => {
             kstat.on_syscall();
-            tcb.stats.lock().syscalls += 1; // can not hold the lock for too long
-                                            // or we may cause deadlock
+            tcb.pcb.lock().stats.syscalls += 1; // can not hold the lock for too long
+                                                // or we may cause deadlock
 
             let trap_ctx = tcb.mut_trap_ctx();
             let syscall_id = trap_ctx.regs.a7;
@@ -282,7 +282,7 @@ pub async fn user_trap_handler_async(tcb: &Arc<TaskControlBlock>) {
         }
         Trap::Exception(e) => {
             kstat.on_user_exception();
-            tcb.stats.lock().exceptions += 1;
+            tcb.pcb.lock().stats.exceptions += 1;
             // Trap::Exception(Exception::InstructionMisaligned) => (),
             // Trap::Exception(Exception::InstructionFault) => (),
             // Trap::Exception(Exception::IllegalInstruction) => (),
