@@ -2,11 +2,16 @@ use core::{
     future::Future,
     mem::MaybeUninit,
     pin::Pin,
+    ptr,
     sync::atomic::Ordering,
     task::{Poll, Waker},
 };
 
-use alloc::sync::Arc;
+use alloc::{
+    collections::btree_map::BTreeMap,
+    sync::{Arc, Weak},
+};
+use hermit_sync::SpinMutex;
 use log::debug;
 use tasks::{TaskControlBlock, TaskStatus};
 
@@ -45,6 +50,8 @@ async fn task_loop(tcb: Arc<TaskControlBlock>) {
     }
 
     *tcb.task_status.lock() = TaskStatus::Running;
+    add_to_map(&tcb);
+
     while !tcb.is_exited() {
         return_to_user(&tcb);
 
@@ -61,6 +68,8 @@ async fn task_loop(tcb: Arc<TaskControlBlock>) {
         tcb.task_id.id(),
         tcb.exit_code.load(Ordering::Relaxed)
     );
+
+    remove_from_map(&tcb);
 
     // Some cleanup, like dangling child tasks, etc.
 }
@@ -93,6 +102,35 @@ impl<TFut: Future + Send + 'static> Future for TaskFuture<TFut> {
         cpu.pop_staged_task();
         ret
     }
+}
+
+static mut TASKS_MAP: SpinMutex<BTreeMap<usize, Weak<TaskControlBlock>>> =
+    SpinMutex::new(BTreeMap::new());
+
+fn add_to_map(tcb: &Arc<TaskControlBlock>) {
+    let previous = unsafe {
+        TASKS_MAP
+            .lock()
+            .insert(tcb.task_id.id(), Arc::downgrade(tcb))
+    };
+
+    debug_assert!(previous.is_none());
+}
+
+fn remove_from_map(tcb: &Arc<TaskControlBlock>) {
+    let removed = unsafe { TASKS_MAP.lock().remove(&tcb.task_id.id()) };
+
+    debug_assert!(removed.is_some());
+    debug_assert!(ptr::addr_eq(
+        Arc::as_ptr(tcb),
+        Weak::as_ptr(&removed.unwrap())
+    ))
+    // Arc::ptr_eq(this, other)
+}
+
+#[allow(unused)]
+pub fn get_task(tid: usize) -> Option<Arc<TaskControlBlock>> {
+    unsafe { TASKS_MAP.lock().get(&tid).and_then(|weak| weak.upgrade()) }
 }
 
 #[allow(unused)]
