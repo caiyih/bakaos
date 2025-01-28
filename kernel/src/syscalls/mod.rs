@@ -116,6 +116,8 @@ impl SyscallDispatcher {
             SYSCALL_ID_CLOCK_GETTIME => Some(&ClockGetTimeSyscall),
             SYSCALL_ID_FCNTL64 => Some(&file::FileControlSyscall),
             SYSCALL_ID_IOCTL => Some(&file::IoControlSyscall),
+            SYSCALL_ID_GETUID => Some(&GetRealUserIdSyscall),
+            SYSCALL_ID_GETEUID => Some(&GetEffectiveUserIdSyscall),
             _ => None,
         }
     }
@@ -310,3 +312,7 @@ impl ISyncSyscallHandler for UnameSyscall {
         "sys_uname"
     }
 }
+
+sync_syscall!(GetRealUserIdSyscall, "sys_getuid", _ctx, { Ok(0) });
+
+sync_syscall!(GetEffectiveUserIdSyscall, "sys_geteuid", _ctx, { Ok(0) });
