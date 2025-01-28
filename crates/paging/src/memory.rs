@@ -511,7 +511,6 @@ impl MemorySpaceBuilder {
         auxv.push(AuxVecEntry::new(AT_SECURE, 0));
 
         max_end_vpn += 1;
-        debug!("Stack guard base: {:?}", max_end_vpn);
         memory_space.map_area(MappingArea::new(
             VirtualPageNumRange::from_single(max_end_vpn),
             AreaType::UserStackGuardBase,
@@ -525,11 +524,6 @@ impl MemorySpaceBuilder {
 
         let stack_page_count = constants::USER_STACK_SIZE / constants::PAGE_SIZE;
         max_end_vpn += 1;
-        debug!(
-            "Stack: {:?}..{:?}",
-            max_end_vpn,
-            max_end_vpn + stack_page_count
-        );
         memory_space.map_area(MappingArea::new(
             VirtualPageNumRange::from_start_count(max_end_vpn, stack_page_count),
             AreaType::UserStack,
@@ -546,7 +540,6 @@ impl MemorySpaceBuilder {
 
         max_end_vpn += stack_page_count;
         let stack_top = max_end_vpn.start_addr::<VirtualAddress>();
-        debug!("Stack guard top: {:?}", max_end_vpn);
         memory_space.map_area(MappingArea::new(
             VirtualPageNumRange::from_single(max_end_vpn),
             AreaType::UserStackGuardTop,
@@ -559,7 +552,6 @@ impl MemorySpaceBuilder {
         );
 
         max_end_vpn += 1;
-        debug!("Brk at: {:?}", max_end_vpn);
         memory_space.map_area(MappingArea::new(
             VirtualPageNumRange::from_start_count(max_end_vpn, 0),
             AreaType::UserBrk,
@@ -579,6 +571,18 @@ impl MemorySpaceBuilder {
         memory_space.brk_start = max_end_vpn.start_addr::<VirtualAddress>();
 
         let entry_pc = VirtualAddress::from_usize(elf_info.header.pt2.entry_point() as usize);
+
+        #[cfg(debug_assertions)]
+        {
+            for area in &memory_space.mapping_areas {
+                let start = area.range.start().start_addr::<VirtualAddress>();
+                let end = area.range.end().start_addr::<VirtualAddress>();
+
+                let area_type = area.area_type;
+
+                log::debug!("{:?}: {}..{}", area_type, start, end);
+            }
+        }
 
         Ok(MemorySpaceBuilder {
             memory_space,
