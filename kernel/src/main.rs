@@ -135,7 +135,7 @@ fn run_final_tests() {
     use tasks::TaskControlBlock;
 
     let busybox = global_open("/mnt/busybox", None).unwrap();
-    global_mount(&busybox, "/bin/sh", None);
+    filesystem_abstractions::global_mount(&busybox, "/bin/bash", None); // bash a.k.a. baka shell ᗜˬᗜ
 
     run_busybox("/mnt/busybox", &["/mnt/busybox", "--help"], &[]);
 
@@ -255,6 +255,10 @@ unsafe extern "C" fn __kernel_init() {
     filesystem_abstractions::global_mount_inode(&sda, "/dev/sda", None).unwrap();
 
     filesystem::global_mount_device("/dev/sda", "/mnt", None).unwrap();
+
+    let etc = global_open("/etc", None).unwrap();
+    let passwd = etc.touch("passwd").unwrap();
+    passwd.writeat(0, b"cirno:x:0:0::/root:/bin/bash").unwrap();
 
     let tick = machine.get_board_tick();
     let seed = (((tick as u64) << 32) | machine.clock_freq()) ^ 0xdeadbeef;
