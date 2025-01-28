@@ -32,15 +32,21 @@ jobs:
         with:
           tool: cargo-binutils
 
+      - name: Build Kernel
+        run: make
+
       - name: Install Qemu
         run: |
           sudo apt update
           sudo apt install -y qemu-system-misc
           qemu-system-riscv64 --version
 
+      - name: Prepare sdcard image
+        run: make _prepare_sdcard
+
       - name: Run tests
         timeout-minutes: 5
-        run: make test-only
+        run: make _test_internal
 
       - name: Visualizing grading result
         run: make parse
