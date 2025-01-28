@@ -755,7 +755,7 @@ pub fn initialize() {
 
     for node in [
         "boot", "dev", "etc", "home", "root", "opt", "mnt", "proc", "sys", "tmp", "run", "usr",
-        "var",
+        "var", "bin",
     ]
     .iter()
     {

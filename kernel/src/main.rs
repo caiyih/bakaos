@@ -134,6 +134,9 @@ fn run_final_tests() {
     use scheduling::spawn_task;
     use tasks::TaskControlBlock;
 
+    let busybox = global_open("/mnt/busybox", None).unwrap();
+    global_mount(&busybox, "/bin/sh", None);
+
     run_busybox("/mnt/busybox", &["/mnt/busybox", "--help"], &[]);
 
     fn run_busybox(path: &str, args: &[&str], envp: &[&str]) {
