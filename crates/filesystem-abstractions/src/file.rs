@@ -56,8 +56,6 @@ impl FileMetadata {
             return Some(children);
         }
 
-        self.inode.cache_children();
-
         if let Ok(entries) = self.inode.read_dir() {
             *children_entries = Some(entries);
 

@@ -1,3 +1,5 @@
+use alloc::collections::BTreeMap;
+use alloc::string::String;
 use alloc::{sync::Arc, vec::Vec};
 use downcast_rs::{impl_downcast, DowncastSync};
 
@@ -30,7 +32,10 @@ pub trait IInode: DowncastSync + Send + Sync {
         Err(FileSystemError::NotADirectory)
     }
 
-    fn read_dir(&self) -> FileSystemResult<Vec<DirectoryEntry>> {
+    fn read_cache_dir(
+        &self,
+        _caches: &mut BTreeMap<String, Arc<dyn IInode>>,
+    ) -> FileSystemResult<Vec<DirectoryEntry>> {
         Err(FileSystemError::NotADirectory)
     }
 
@@ -44,10 +49,6 @@ pub trait IInode: DowncastSync + Send + Sync {
     }
 
     fn stat(&self, _stat: &mut FileStatistics) -> FileSystemResult<()> {
-        Err(FileSystemError::Unimplemented)
-    }
-
-    fn cache_children(&self) -> FileSystemResult<Vec<Arc<dyn IInode>>> {
         Err(FileSystemError::Unimplemented)
     }
 }

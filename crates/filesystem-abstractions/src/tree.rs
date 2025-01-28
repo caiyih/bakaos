@@ -187,6 +187,7 @@ struct DirectoryTreeNodeInner {
     name: String,
     mounted: BTreeMap<String, Arc<DirectoryTreeNode>>,
     opened: BTreeMap<String, Weak<DirectoryTreeNode>>,
+    children_cache: BTreeMap<String, Arc<dyn IInode>>,
     shadowed: Option<Arc<DirectoryTreeNode>>,
 }
 
@@ -261,6 +262,7 @@ impl DirectoryTreeNode {
                 name,
                 mounted: BTreeMap::new(),
                 opened: BTreeMap::new(),
+                children_cache: BTreeMap::new(),
                 shadowed: None,
             }),
         })
@@ -280,6 +282,7 @@ impl DirectoryTreeNode {
                 name: name.unwrap_or(inode.metadata().filename).to_string(),
                 mounted: BTreeMap::new(),
                 opened: BTreeMap::new(),
+                children_cache: BTreeMap::new(),
                 shadowed: None,
             }),
         })
@@ -421,7 +424,7 @@ impl DirectoryTreeNode {
 
         // prevent dead lock in lookup method
         {
-            let inner = self.inner.lock();
+            let mut inner = self.inner.lock();
 
             // mounted node has higher priority, as it can shadow the opened node
             if !inner.mounted.is_empty() {
@@ -433,6 +436,12 @@ impl DirectoryTreeNode {
             if !inner.opened.is_empty() {
                 if let Some(opened) = inner.opened.get(name).and_then(|weak| weak.upgrade()) {
                     return Ok(opened);
+                }
+            }
+
+            if !inner.children_cache.is_empty() {
+                if let Some(inode) = inner.children_cache.remove(name) {
+                    return Ok(Self::from_inode(Some(self.clone()), &inode, Some(name)));
                 }
             }
         }
@@ -451,16 +460,16 @@ impl DirectoryTreeNode {
     }
 
     pub fn cache_children(self: &Arc<DirectoryTreeNode>) {
-        let mut inner = self.inner.lock();
+        // let mut inner = self.inner.lock();
 
-        if let DirectoryTreeNodeMetadata::Inode { inode } = &inner.meta {
-            if let Ok(children) = inode.cache_children() {
-                for inode in children {
-                    let node = Self::from_inode(Some(self.clone()), &inode, None);
-                    inner.mounted.insert(node.name().to_string(), node);
-                }
-            }
-        }
+        // if let DirectoryTreeNodeMetadata::Inode { inode } = &inner.meta {
+        //     if let Ok(children) = inode.cache_children() {
+        //         for inode in children {
+        //             let node = Self::from_inode(Some(self.clone()), &inode, None);
+        //             inner.mounted.insert(node.name().to_string(), node);
+        //         }
+        //     }
+        // }
     }
 
     // if the node was opened in the tree, this returns the full path in the filesystem.
@@ -676,7 +685,7 @@ impl DirectoryTreeNode {
         }
 
         let mut entries = {
-            let inner = self.inner.lock();
+            let mut inner = self.inner.lock();
 
             // If the directory itself was mounted as its child, we have to be care of potential deadlock,
             // so we copy a list of the list.
@@ -688,9 +697,8 @@ impl DirectoryTreeNode {
             match &inner.meta {
                 DirectoryTreeNodeMetadata::Inode { inode } => {
                     let inode = inode.clone();
-                    drop(inner); // release lock, in case the node it self is mounted as its children
 
-                    let mut entries = inode.read_dir()?;
+                    let mut entries = inode.read_cache_dir(&mut inner.children_cache)?;
 
                     for entry in mounted_entries {
                         if mounted.get(&entry.filename).is_none() {

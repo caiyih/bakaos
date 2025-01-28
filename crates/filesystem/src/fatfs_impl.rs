@@ -1,13 +1,16 @@
 #![allow(clippy::arc_with_non_send_sync)]
 
 use alloc::{
+    collections::BTreeMap,
     string::{String, ToString},
     sync::Arc,
     vec::Vec,
 };
 use core::{ops::Deref, str};
 
-use fatfs::{Dir, Error, File, LossyOemCpConverter, NullTimeProvider, Read, Seek, SeekFrom, Write};
+use fatfs::{
+    Dir, DirEntry, Error, File, LossyOemCpConverter, NullTimeProvider, Read, Seek, SeekFrom, Write,
+};
 use filesystem_abstractions::{
     DirectoryEntryType, DirectoryTreeNode, FileStatistics, FileStatisticsMode, FileSystemError,
     FileSystemResult, IFileSystem, IInode, InodeMetadata,
@@ -284,23 +287,7 @@ impl IInode for FatDirectoryInode {
                         continue;
                     }
 
-                    if entry.is_dir() {
-                        let dir = entry.to_dir();
-                        return Ok(Arc::new(FatDirectoryInode {
-                            filename,
-                            inner: dir,
-                            _holding: self._holding.clone(),
-                        }));
-                    } else if entry.is_file() {
-                        let file = entry.to_file();
-                        return Ok(Arc::new(FatFileInode {
-                            filename,
-                            inner: SpinMutex::new(FatFileInodeInner {
-                                inner: file,
-                                size: entry.len() as usize,
-                            }),
-                        }));
-                    }
+                    return Ok(entry_to_inode(&entry, &self._holding, filename));
                 }
                 Err(err) => {
                     warn!("Error while iterating over directory: {:?}", err);
@@ -334,7 +321,10 @@ impl IInode for FatDirectoryInode {
         self.inner.remove(name).map_err(from_fatfs_error)
     }
 
-    fn read_dir(&self) -> FileSystemResult<Vec<filesystem_abstractions::DirectoryEntry>> {
+    fn read_cache_dir<'a>(
+        &self,
+        caches: &mut BTreeMap<String, Arc<dyn IInode>>,
+    ) -> FileSystemResult<Vec<filesystem_abstractions::DirectoryEntry>> {
         let mut entries = Vec::new();
 
         for entry_result in self.inner.iter() {
@@ -354,6 +344,11 @@ impl IInode for FatDirectoryInode {
                     } else {
                         DirectoryEntryType::File
                     };
+
+                    caches.insert(
+                        filename.clone(),
+                        entry_to_inode(&entry, &self._holding, filename.clone()),
+                    );
 
                     entries.push(filesystem_abstractions::DirectoryEntry {
                         filename,
@@ -382,5 +377,31 @@ impl IInode for FatDirectoryInode {
         stat.rdev = 0;
         // TODO: implement access time, modify time and create time
         Ok(())
+    }
+}
+
+fn entry_to_inode(
+    entry: &DirEntry<'static, Fat32Disk, NullTimeProvider, LossyOemCpConverter>,
+    fs: &Arc<fatfs::FileSystem<Fat32Disk, NullTimeProvider, LossyOemCpConverter>>,
+    filename: String,
+) -> Arc<dyn IInode> {
+    if entry.is_dir() {
+        let dir = entry.to_dir();
+        Arc::new(FatDirectoryInode {
+            filename,
+            inner: dir,
+            _holding: fs.clone(),
+        })
+    } else if entry.is_file() {
+        let file = entry.to_file();
+        Arc::new(FatFileInode {
+            filename,
+            inner: SpinMutex::new(FatFileInodeInner {
+                inner: file,
+                size: entry.len() as usize,
+            }),
+        })
+    } else {
+        panic!("Unknown entry type");
     }
 }

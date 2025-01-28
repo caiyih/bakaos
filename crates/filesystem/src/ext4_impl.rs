@@ -6,6 +6,7 @@ use filesystem_abstractions::{
     DirectoryEntryType, DirectoryTreeNode, FileSystemError, IFileSystem, IInode, InodeMetadata,
 };
 
+use alloc::collections::BTreeMap;
 use alloc::string::{String, ToString};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
@@ -199,8 +200,9 @@ impl IInode for Ext4Inode {
         }
     }
 
-    fn read_dir(
+    fn read_cache_dir(
         &self,
+        caches: &mut BTreeMap<String, Arc<dyn IInode>>,
     ) -> filesystem_abstractions::FileSystemResult<Vec<filesystem_abstractions::DirectoryEntry>>
     {
         #[inline(always)]
@@ -223,9 +225,22 @@ impl IInode for Ext4Inode {
                 continue;
             }
 
+            let filename = entry.get_name();
+            let file_type = to_entry_type(entry.get_de_type());
+
+            caches.insert(
+                filename.clone(),
+                Arc::new(Ext4Inode {
+                    inode_id: entry.inode,
+                    filename: filename.clone(),
+                    file_type,
+                    fs: self.fs.clone(),
+                }),
+            );
+
             result.push(filesystem_abstractions::DirectoryEntry {
-                filename: entry.get_name(),
-                entry_type: to_entry_type(entry.get_de_type()),
+                filename,
+                entry_type: file_type,
             });
         }
 
@@ -338,32 +353,6 @@ impl IInode for Ext4Inode {
             .map_err(|_| FileSystemError::InternalError)?; // TODO: parse the error
 
         Ok(bytes_written)
-    }
-
-    fn cache_children(&self) -> filesystem_abstractions::FileSystemResult<Vec<Arc<dyn IInode>>> {
-        self.should_be_directory()?;
-
-        #[inline(always)]
-        fn to_entry_type(de_type: u8) -> DirectoryEntryType {
-            match de_type {
-                2 => DirectoryEntryType::Directory,
-                _ => DirectoryEntryType::File,
-            }
-        }
-
-        let mut children: Vec<Arc<dyn IInode>> = Vec::new();
-        let mut entries = self.fs.dir_get_entries(self.inode_id);
-
-        while let Some(entry) = entries.pop() {
-            children.push(Arc::new(Ext4Inode {
-                filename: entry.get_name(),
-                inode_id: entry.inode,
-                file_type: to_entry_type(entry.get_de_type()),
-                fs: self.fs.clone(),
-            }));
-        }
-
-        Ok(children)
     }
 }
 
