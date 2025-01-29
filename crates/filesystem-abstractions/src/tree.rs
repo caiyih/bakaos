@@ -14,7 +14,7 @@ use timing::TimeSpec;
 use crate::{
     special_inode::{RandomInode, UnblockedRandomInode},
     DirectoryEntry, DirectoryEntryType, FileMetadata, FileStatistics, FileSystemError,
-    FileSystemResult, IInode, InodeMetadata, NullInode, OpenFlags, OpenedDiskInode,
+    FileSystemResult, IFileSystem, IInode, InodeMetadata, NullInode, OpenFlags, OpenedDiskInode,
     TeleTypewriterInode, ZeroInode,
 };
 
@@ -178,7 +178,18 @@ impl MountError {
 #[derive(Clone)]
 enum DirectoryTreeNodeMetadata {
     Inode { inode: Arc<dyn IInode> },
+    FileSystem { fs: Arc<dyn IFileSystem> },
     Empty,
+}
+
+impl DirectoryTreeNodeMetadata {
+    fn as_inode(&self) -> Option<Arc<dyn IInode>> {
+        match self {
+            DirectoryTreeNodeMetadata::Inode { inode } => Some(inode.clone()),
+            DirectoryTreeNodeMetadata::FileSystem { fs } => Some(fs.root_dir()),
+            DirectoryTreeNodeMetadata::Empty => None,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -280,6 +291,24 @@ impl DirectoryTreeNode {
                     inode: inode.clone(),
                 },
                 name: name.unwrap_or(inode.metadata().filename).to_string(),
+                mounted: BTreeMap::new(),
+                opened: BTreeMap::new(),
+                children_cache: BTreeMap::new(),
+                shadowed: None,
+            }),
+        })
+    }
+
+    pub fn from_filesystem(
+        parent: Option<Arc<DirectoryTreeNode>>,
+        fs: Arc<dyn IFileSystem>,
+        name: Option<&str>,
+    ) -> Arc<DirectoryTreeNode> {
+        Arc::new(DirectoryTreeNode {
+            parent,
+            inner: SpinMutex::new(DirectoryTreeNodeInner {
+                name: name.unwrap_or(fs.name()).to_string(),
+                meta: DirectoryTreeNodeMetadata::FileSystem { fs },
                 mounted: BTreeMap::new(),
                 opened: BTreeMap::new(),
                 children_cache: BTreeMap::new(),
@@ -541,8 +570,8 @@ impl DirectoryTreeNode {
         let inner = self.inner.lock();
         let filename = self.name();
 
-        match &inner.meta {
-            DirectoryTreeNodeMetadata::Inode { inode } => {
+        match inner.meta.as_inode() {
+            Some(inode) => {
                 let meta = inode.metadata();
 
                 InodeMetadata {
@@ -551,7 +580,7 @@ impl DirectoryTreeNode {
                     size: meta.size,
                 }
             }
-            DirectoryTreeNodeMetadata::Empty => InodeMetadata {
+            None => InodeMetadata {
                 filename,
                 entry_type: DirectoryEntryType::Directory,
                 size: 0,
@@ -565,9 +594,9 @@ impl DirectoryTreeNode {
         let inner = self.inner.lock();
 
         #[allow(deprecated)]
-        match &inner.meta {
-            DirectoryTreeNodeMetadata::Inode { inode } => inode.lookup(name),
-            DirectoryTreeNodeMetadata::Empty => Err(FileSystemError::NotFound),
+        match inner.meta.as_inode() {
+            Some(inode) => inode.lookup(name),
+            None => Err(FileSystemError::NotFound),
         }
     }
 
@@ -576,16 +605,16 @@ impl DirectoryTreeNode {
         offset: usize,
         buffer: &mut [u8],
     ) -> FileSystemResult<usize> {
-        match &self.inner.lock().meta {
-            DirectoryTreeNodeMetadata::Inode { inode } => inode.readat(offset, buffer),
-            DirectoryTreeNodeMetadata::Empty => Err(FileSystemError::NotAFile),
+        match self.inner.lock().meta.as_inode() {
+            Some(inode) => inode.readat(offset, buffer),
+            None => Err(FileSystemError::NotAFile),
         }
     }
 
     pub fn writeat(&self, offset: usize, buffer: &[u8]) -> FileSystemResult<usize> {
-        match &self.inner.lock().meta {
-            DirectoryTreeNodeMetadata::Inode { inode } => inode.writeat(offset, buffer),
-            DirectoryTreeNodeMetadata::Empty => Err(FileSystemError::NotAFile),
+        match self.inner.lock().meta.as_inode() {
+            Some(inode) => inode.writeat(offset, buffer),
+            None => Err(FileSystemError::NotAFile),
         }
     }
 
@@ -599,8 +628,8 @@ impl DirectoryTreeNode {
             return Err(FileSystemError::AlreadyExists);
         }
 
-        match &inner.meta {
-            DirectoryTreeNodeMetadata::Inode { inode } => {
+        match inner.meta.as_inode() {
+            Some(inode) => {
                 let made = inode.mkdir(name)?;
 
                 let wrapped = Self::from_inode(Some(self.clone()), &made, None);
@@ -611,7 +640,7 @@ impl DirectoryTreeNode {
 
                 Ok(wrapped)
             }
-            DirectoryTreeNodeMetadata::Empty => {
+            None => {
                 drop(inner); // release lock, as mount operation requires lock
 
                 self.mount_empty(name).map_err(|e| e.to_filesystem_error())
@@ -625,9 +654,9 @@ impl DirectoryTreeNode {
             return Ok(());
         }
 
-        match &self.inner.lock().meta {
-            DirectoryTreeNodeMetadata::Inode { inode } => inode.rmdir(name),
-            DirectoryTreeNodeMetadata::Empty => Ok(()), // same as below
+        match self.inner.lock().meta.as_inode() {
+            Some(inode) => inode.rmdir(name),
+            None => Ok(()), // same as below
         }
     }
 
@@ -636,9 +665,9 @@ impl DirectoryTreeNode {
             return Ok(());
         }
 
-        match &self.inner.lock().meta {
-            DirectoryTreeNodeMetadata::Inode { inode } => inode.remove(name),
-            DirectoryTreeNodeMetadata::Empty => Ok(()), // already removed in close method
+        match self.inner.lock().meta.as_inode() {
+            Some(inode) => inode.remove(name),
+            None => Ok(()), // already removed in close method
         }
     }
 
@@ -648,8 +677,8 @@ impl DirectoryTreeNode {
     ) -> FileSystemResult<Arc<DirectoryTreeNode>> {
         let mut inner = self.inner.lock();
 
-        match &inner.meta {
-            DirectoryTreeNodeMetadata::Inode { inode } => {
+        match inner.meta.as_inode() {
+            Some(inode) => {
                 let touched = inode.touch(name)?;
 
                 let wrapped = DirectoryTreeNode::from_inode(Some(self.clone()), &touched, None);
@@ -660,7 +689,7 @@ impl DirectoryTreeNode {
 
                 Ok(wrapped)
             }
-            DirectoryTreeNodeMetadata::Empty => {
+            None => {
                 drop(inner); // release lock, as mount operation requires lock
 
                 let ram_inode: Arc<dyn IInode> = Arc::new(RamFileInode::new(name));
@@ -673,9 +702,9 @@ impl DirectoryTreeNode {
 
     pub fn read_dir(self: &Arc<DirectoryTreeNode>) -> FileSystemResult<Vec<DirectoryEntry>> {
         fn to_directory_entry(name: &str, node: &Arc<DirectoryTreeNode>) -> DirectoryEntry {
-            let entry_type = match &node.inner.lock().meta {
-                DirectoryTreeNodeMetadata::Inode { inode } => inode.metadata().entry_type,
-                DirectoryTreeNodeMetadata::Empty => DirectoryEntryType::Directory,
+            let entry_type = match node.inner.lock().meta.as_inode() {
+                Some(inode) => inode.metadata().entry_type,
+                None => DirectoryEntryType::Directory,
             };
 
             DirectoryEntry {
@@ -694,8 +723,8 @@ impl DirectoryTreeNode {
                 .iter()
                 .map(|(name, mounted)| to_directory_entry(name, mounted));
 
-            match &inner.meta {
-                DirectoryTreeNodeMetadata::Inode { inode } => {
+            match inner.meta.as_inode() {
+                Some(inode) => {
                     let inode = inode.clone();
 
                     let mut entries = inode.read_cache_dir(&mut inner.children_cache)?;
@@ -708,7 +737,7 @@ impl DirectoryTreeNode {
 
                     entries
                 }
-                DirectoryTreeNodeMetadata::Empty => mounted_entries.collect(),
+                None => mounted_entries.collect(),
             }
         };
 
@@ -722,9 +751,9 @@ impl DirectoryTreeNode {
     }
 
     pub fn stat(self: &Arc<DirectoryTreeNode>, stat: &mut FileStatistics) -> FileSystemResult<()> {
-        match &self.inner.lock().meta {
-            DirectoryTreeNodeMetadata::Inode { inode } => inode.stat(stat),
-            DirectoryTreeNodeMetadata::Empty => {
+        match self.inner.lock().meta.as_inode() {
+            Some(inode) => inode.stat(stat),
+            None => {
                 stat.device_id = 0;
                 stat.inode_id = 0;
                 stat.mode = crate::FileStatisticsMode::DIR;
