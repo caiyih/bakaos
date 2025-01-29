@@ -1004,7 +1004,7 @@ pub fn global_find_containing_filesystem(
         .split(path::SEPARATOR)
         .skip_while(|d| d.is_empty());
 
-    while let Some(component) = path_components.next() {
+    for component in path_components.by_ref() {
         match current.open_child(component) {
             Ok(child) => {
                 current = child;
