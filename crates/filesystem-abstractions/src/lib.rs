@@ -25,8 +25,8 @@ pub use inode::*;
 pub use pipe::*;
 pub use stdio::*;
 pub use tree::{
-    global_mount, global_mount_filesystem, global_mount_inode, global_open, global_umount,
-    initialize, DirectoryTreeNode, MountError,
+    global_find_containing_filesystem, global_mount, global_mount_filesystem, global_mount_inode,
+    global_open, global_umount, initialize, DirectoryTreeNode, MountError,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

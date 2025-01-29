@@ -1,6 +1,6 @@
 use address::{IPageNum, PhysicalAddress};
 use alloc::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     string::{String, ToString},
     sync::{Arc, Weak},
     vec::Vec,
@@ -528,6 +528,31 @@ impl DirectoryTreeNode {
         path
     }
 
+    // Calculate the closest node that's ancestor of both the input node
+    pub fn get_common_parent(
+        lhs: &Arc<DirectoryTreeNode>,
+        rhs: &Arc<DirectoryTreeNode>,
+    ) -> Arc<DirectoryTreeNode> {
+        let mut lhs_ancestors = BTreeSet::new();
+        let mut lhs_current = Some(lhs.clone());
+
+        while let Some(node) = lhs_current {
+            lhs_ancestors.insert(Arc::as_ptr(&node));
+            lhs_current = node.parent.clone();
+        }
+
+        let mut rhs_current = Some(rhs.clone());
+
+        while let Some(node) = rhs_current {
+            if lhs_ancestors.contains(&Arc::as_ptr(&node)) {
+                return node;
+            }
+            rhs_current = node.parent.clone();
+        }
+
+        unreachable!("All nodes should share at least the root node as a common ancestor");
+    }
+
     // Calculate the closest filesystem of this `DirectoryTreeNode`
     // May be the root whose DirectoryTreeNodeMetadata is not an FileSystem
     pub fn get_containing_filesystem(self: &Arc<DirectoryTreeNode>) -> Arc<DirectoryTreeNode> {
@@ -958,4 +983,48 @@ fn global_mount_internal(
     let node = get_node(Some(&parent), name);
 
     parent.mount_as(node, Some(name))
+}
+
+pub fn global_find_containing_filesystem(
+    path: &str,
+    relative_to: Option<&Arc<DirectoryTreeNode>>,
+    require_parent_node: bool,
+) -> Option<Arc<DirectoryTreeNode>> {
+    let search_root = match (relative_to, path::is_path_fully_qualified(path)) {
+        (None, false) => return None,
+        (_, true) => unsafe { ROOT.lock().assume_init_ref().clone() },
+        (Some(relative_to), _) => relative_to.clone(),
+    };
+
+    let mut current = search_root.clone();
+    let mut deepest_fs = current.get_containing_filesystem();
+
+    let mut path_components = path
+        .trim_end_matches(path::SEPARATOR)
+        .split(path::SEPARATOR)
+        .skip_while(|d| d.is_empty());
+
+    while let Some(component) = path_components.next() {
+        match current.open_child(component) {
+            Ok(child) => {
+                current = child;
+                let fs = current.get_containing_filesystem();
+                if !Arc::ptr_eq(&fs, &deepest_fs) {
+                    deepest_fs = fs;
+                }
+            }
+            Err(_) => break,
+        }
+    }
+
+    if require_parent_node {
+        path_components.next(); // skip target node
+
+        // parent node does not exist
+        if path_components.next().is_some() {
+            return None;
+        }
+    }
+
+    Some(deepest_fs)
 }
