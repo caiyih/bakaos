@@ -527,6 +527,40 @@ impl DirectoryTreeNode {
 
         path
     }
+
+    // Calculate the closest filesystem of this `DirectoryTreeNode`
+    // May be the root whose DirectoryTreeNodeMetadata is not an FileSystem
+    pub fn get_containing_filesystem(self: &Arc<DirectoryTreeNode>) -> Arc<DirectoryTreeNode> {
+        fn as_filesystem(this: &Arc<DirectoryTreeNode>) -> Option<Arc<DirectoryTreeNode>> {
+            match unsafe { &this.inner.data_ptr().as_ref().unwrap().meta } {
+                DirectoryTreeNodeMetadata::FileSystem { fs: _ } => Some(this.clone()),
+                _ => None,
+            }
+        }
+
+        let mut current = self.clone();
+
+        loop {
+            if let Some(fs_node) = as_filesystem(&current) {
+                return fs_node;
+            }
+
+            if let Some(ref parent) = current.parent {
+                current = parent.clone();
+                continue;
+            }
+
+            #[cfg(debug_assertions)]
+            {
+                debug_assert!(current.fullpath() == path::ROOT_STR);
+                debug_assert!(Arc::ptr_eq(&current, unsafe {
+                    ROOT.lock().assume_init_ref()
+                }))
+            }
+
+            return current;
+        }
+    }
 }
 
 impl DirectoryTreeNode {
