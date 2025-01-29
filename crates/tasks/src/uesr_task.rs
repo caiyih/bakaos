@@ -231,6 +231,7 @@ pub struct ProcessControlBlock {
     pub parent: Option<Weak<TaskControlBlock>>,
     pub id: usize,
     pub brk_pos: usize,
+    pub exit_code: i32,
     pub status: TaskStatus,
     pub stats: UserTaskStatistics,
     pub memory_space: MemorySpace,
@@ -238,7 +239,7 @@ pub struct ProcessControlBlock {
     pub fd_table: FileDescriptorTable,
     pub mmaps: TaskMemoryMap,
     pub futex_queue: FutexQueue,
-    tasks: BTreeMap<usize, Weak<TaskControlBlock>>,
+    pub tasks: BTreeMap<usize, Weak<TaskControlBlock>>,
 }
 
 impl ProcessControlBlock {
@@ -249,6 +250,7 @@ impl ProcessControlBlock {
             parent: None,
             id: pid,
             brk_pos,
+            exit_code: 0,
             status: TaskStatus::Uninitialized,
             stats: UserTaskStatistics::default(),
             cwd: String::new(),
@@ -424,6 +426,7 @@ impl TaskControlBlock {
                 parent: Some(Arc::downgrade(self)),
                 id: tid,
                 brk_pos: this_pcb.brk_pos,
+                exit_code: this_pcb.exit_code,
                 status: this_pcb.status,
                 stats: this_pcb.stats.clone(),
                 memory_space,
