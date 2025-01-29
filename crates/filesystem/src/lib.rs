@@ -9,13 +9,12 @@ mod ext4_impl;
 mod fatfs_impl;
 // mod lwext4rs_impl;
 
-use alloc::{boxed::Box, sync::Arc};
+use alloc::sync::Arc;
 
 pub use ext4_impl::Ext4FileSystem;
 pub use fatfs_impl::Fat32FileSystem;
 use filesystem_abstractions::{
-    global_mount, global_mount_inode, DirectoryEntryType, DirectoryTreeNode, IFileSystem,
-    MountError,
+    global_mount, global_mount_filesystem, DirectoryEntryType, DirectoryTreeNode, IFileSystem, MountError
 };
 // pub use lwext4rs_impl::Lwext4FileSystem;
 
@@ -46,13 +45,13 @@ pub fn global_mount_device_node(
     }
 }
 
-fn create_filesystem(device: Arc<DirectoryTreeNode>) -> Result<Box<dyn IFileSystem>, MountError> {
+fn create_filesystem(device: Arc<DirectoryTreeNode>) -> Result<Arc<dyn IFileSystem>, MountError> {
     if let Ok(ext4) = Ext4FileSystem::new(device.clone()) {
-        return Ok(Box::new(ext4));
+        return Ok(Arc::new(ext4));
     }
 
     if let Ok(fat32) = Fat32FileSystem::new(device.clone()) {
-        return Ok(Box::new(fat32));
+        return Ok(Arc::new(fat32));
     }
 
     Err(MountError::InvalidInput) // Unsupported filesystem
@@ -65,5 +64,5 @@ fn mount_block_device(
 ) -> Result<Arc<DirectoryTreeNode>, MountError> {
     let fs = create_filesystem(device.clone())?;
 
-    global_mount_inode(&fs.root_dir(), path, relative_to)
+    global_mount_filesystem(fs, path, relative_to)
 }

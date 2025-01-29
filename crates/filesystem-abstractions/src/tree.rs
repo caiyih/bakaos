@@ -863,6 +863,16 @@ pub fn global_umount(
     parent.umount_at(name)
 }
 
+pub fn global_mount_filesystem(
+    fs: Arc<dyn IFileSystem>,
+    path: &str,
+    relative_to: Option<&Arc<DirectoryTreeNode>>,
+) -> Result<Arc<DirectoryTreeNode>, MountError> {
+    global_mount_internal(path, relative_to, |parent, name| {
+        DirectoryTreeNode::from_filesystem(parent.cloned(), fs, Some(name))
+    })
+}
+
 pub fn global_mount(
     node: &Arc<DirectoryTreeNode>,
     path: &str,
