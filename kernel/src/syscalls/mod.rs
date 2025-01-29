@@ -11,8 +11,9 @@ use file_async::{sys_read_async, sys_sendfile_async, sys_write_async, sys_writev
 use futex_async::sys_futex_async;
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
 use task::{
-    BrkSyscall, ChdirSyscall, ClockGetTimeSyscall, CloneSyscall, ExecveSyscall, ExitSyscall,
-    GetCwdSyscall, GetParentPidSyscall, GetPidSyscall, GetTimeOfDaySyscall, TimesSyscall,
+    BrkSyscall, ChdirSyscall, ClockGetTimeSyscall, CloneSyscall, ExecveSyscall, ExitGroupSyscall,
+    ExitSyscall, GetCwdSyscall, GetParentPidSyscall, GetPidSyscall, GetTimeOfDaySyscall,
+    TimesSyscall,
 };
 use task_async::{sys_nanosleep_async, sys_sched_yield_async, sys_wait4_async};
 use tasks::TaskControlBlock;
@@ -94,7 +95,7 @@ impl SyscallDispatcher {
         match id {
             SYSCALL_ID_GETCWD => Some(&GetCwdSyscall),
             SYSCALL_ID_EXIT => Some(&ExitSyscall),
-            SYSCALL_ID_EXIT_GROUP => Some(&ExitSyscall),
+            SYSCALL_ID_EXIT_GROUP => Some(&ExitGroupSyscall),
             SYSCALL_ID_TIMES => Some(&TimesSyscall),
             SYSCALL_ID_UNAME => Some(&UnameSyscall),
             SYSCALL_ID_GETTIMEOFDAY => Some(&GetTimeOfDaySyscall),

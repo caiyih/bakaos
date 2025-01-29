@@ -494,3 +494,34 @@ impl ISyncSyscallHandler for ClockGetTimeSyscall {
         "sys_clock_gettime"
     }
 }
+
+pub struct ExitGroupSyscall;
+
+impl ISyncSyscallHandler for ExitGroupSyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        let mut pcb = ctx.pcb.lock();
+        let exit_code = ctx.arg0::<isize>();
+
+        for task in pcb
+            .tasks
+            .values()
+            .filter_map(|weak| weak.upgrade())
+            .filter(|t| !t.is_exited())
+        {
+            task.exit_code
+                .store(exit_code as i32, core::sync::atomic::Ordering::Relaxed);
+
+            *task.task_status.lock() = TaskStatus::Exited;
+        }
+
+        pcb.status = TaskStatus::Exited;
+        pcb.exit_code = exit_code as i32;
+
+        debug!("Task group {} exited with code {}", pcb.id, exit_code);
+        Ok(0)
+    }
+
+    fn name(&self) -> &str {
+        "sys_exit_group"
+    }
+}
