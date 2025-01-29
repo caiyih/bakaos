@@ -541,13 +541,13 @@ impl DirectoryTreeNode {
         let mut current = self.clone();
 
         loop {
-            if let Some(fs_node) = as_filesystem(&current) {
-                return fs_node;
-            }
-
             if let Some(ref parent) = current.parent {
                 current = parent.clone();
                 continue;
+            }
+
+            if let Some(fs_node) = as_filesystem(&current) {
+                return fs_node;
             }
 
             #[cfg(debug_assertions)]
