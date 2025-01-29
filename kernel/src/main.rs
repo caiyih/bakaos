@@ -8,6 +8,8 @@
 #![feature(inline_const)]
 #![feature(alloc_error_handler)]
 #![feature(asm_const)]
+#![allow(internal_features)]
+#![feature(core_intrinsics)]
 
 mod ci_helper;
 mod firmwares;
