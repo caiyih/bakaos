@@ -147,6 +147,8 @@ fn run_final_tests() {
 
         let mut memspace = MemorySpaceBuilder::from_elf(&busybox).unwrap();
 
+        drop(busybox);
+
         memspace.init_stack(args, envp);
         let task = TaskControlBlock::new(memspace);
         unsafe {
