@@ -14,7 +14,8 @@ use alloc::sync::Arc;
 pub use ext4_impl::Ext4FileSystem;
 pub use fatfs_impl::Fat32FileSystem;
 use filesystem_abstractions::{
-    global_mount, global_mount_filesystem, DirectoryEntryType, DirectoryTreeNode, IFileSystem, MountError
+    global_mount, global_mount_filesystem, DirectoryEntryType, DirectoryTreeNode, IFileSystem,
+    MountError,
 };
 // pub use lwext4rs_impl::Lwext4FileSystem;
 
