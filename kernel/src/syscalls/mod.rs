@@ -8,6 +8,7 @@ use file::{
     UmountSyscall, UnlinkAtSyscall,
 };
 use file_async::{sys_read_async, sys_sendfile_async, sys_write_async, sys_writev_async};
+use futex_async::sys_futex_async;
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
 use task::{
     BrkSyscall, ChdirSyscall, ClockGetTimeSyscall, CloneSyscall, ExecveSyscall, ExitSyscall,
@@ -18,6 +19,7 @@ use tasks::TaskControlBlock;
 
 mod file;
 mod file_async;
+mod futex_async;
 mod task;
 mod task_async;
 
@@ -43,6 +45,7 @@ const SYSCALL_ID_NEWFSTATAT: usize = 79;
 const SYSCALL_ID_NEWFSTAT: usize = 80;
 const SYSCALL_ID_EXIT: usize = 93;
 const SYSCALL_ID_EXIT_GROUP: usize = 94;
+const SYSCALL_ID_FUTEX: usize = 98;
 const SYSCALL_ID_NANOSLEEP: usize = 101;
 const SYSCALL_ID_SCHED_YIELD: usize = 124;
 const SYSCALL_ID_TIMES: usize = 153;
@@ -141,6 +144,7 @@ impl SyscallDispatcher {
             STSCALL_ID_WAIT4 => Some(sys_wait4_async(&mut ctx).await),
             SYSCALL_ID_SENDFILE => Some(sys_sendfile_async(&mut ctx).await),
             SYSCALL_ID_WRITEV => Some(sys_writev_async(&mut ctx).await),
+            SYSCALL_ID_FUTEX => Some(sys_futex_async(&mut ctx).await),
             _ => None,
         }
     }
