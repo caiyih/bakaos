@@ -171,7 +171,7 @@ pub struct GetPidSyscall;
 
 impl ISyncSyscallHandler for GetPidSyscall {
     fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
-        Ok(ctx.task_id.id() as isize)
+        Ok(ctx.pcb.lock().id as isize)
     }
 
     fn name(&self) -> &str {
@@ -183,14 +183,9 @@ pub struct GetParentPidSyscall;
 
 impl ISyncSyscallHandler for GetParentPidSyscall {
     fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
-        Ok(ctx
-            .pcb
-            .lock()
-            .parent
-            .as_ref()
-            .map(|p| p.upgrade().unwrap())
-            .map(|p| p.task_id.id())
-            .unwrap_or(1) as isize)
+        let parent_tcb = ctx.pcb.lock().parent.as_ref().and_then(|p| p.upgrade());
+
+        Ok(parent_tcb.map(|p| p.pcb.lock().id).unwrap_or(1) as isize)
     }
 
     fn name(&self) -> &str {
