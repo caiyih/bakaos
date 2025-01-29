@@ -326,6 +326,10 @@ impl TaskControlBlock {
                 .page_table()
         }
     }
+
+    pub fn waker(&self) -> &Waker {
+        unsafe { self.waker.get().as_ref().unwrap().assume_init_ref() }
+    }
 }
 
 impl TaskControlBlock {
