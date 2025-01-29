@@ -249,8 +249,13 @@ pub fn init_frame_allocator(memory_end: usize) {
     }
 }
 
-pub fn avaliable_frames_count() -> usize {
+// Returns in (avaliable, fragmented, total)
+pub fn allocation_statistics() -> (usize, usize, usize) {
     let allocator = unsafe { FRAME_ALLOCATOR.lock() };
 
-    allocator.recycled.len() + (allocator.top - allocator.current + 1).as_usize()
+    (
+        allocator.recycled.len() + (allocator.top - allocator.current).as_usize(),
+        (allocator.current - allocator.bottom).as_usize(),
+        (allocator.top - allocator.bottom).as_usize(),
+    )
 }

@@ -9,7 +9,7 @@ extern crate alloc;
 pub mod frame;
 
 pub use frame::{
-    alloc_contiguous, alloc_frame, alloc_frames, avaliable_frames_count, dealloc_frame_unchecked,
+    alloc_contiguous, alloc_frame, alloc_frames, allocation_statistics, dealloc_frame_unchecked,
     TrackedFrame, TrackedFrameRange,
 };
 
