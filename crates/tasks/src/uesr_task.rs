@@ -237,6 +237,7 @@ pub struct ProcessControlBlock {
     pub cwd: String,
     pub fd_table: FileDescriptorTable,
     pub mmaps: TaskMemoryMap,
+    pub futex_queue: FutexQueue,
     tasks: BTreeMap<usize, Weak<TaskControlBlock>>,
 }
 
@@ -254,6 +255,7 @@ impl ProcessControlBlock {
             fd_table: FileDescriptorTable::new(pid),
             mmaps: TaskMemoryMap::default(),
             memory_space: memory_space_builder.memory_space,
+            futex_queue: FutexQueue::default(),
             tasks: BTreeMap::new(),
         }
     }
@@ -386,6 +388,7 @@ impl TaskControlBlock {
 
         pcb.tasks.clear();
         pcb.tasks.insert(self_tid, Arc::downgrade(self));
+        pcb.futex_queue.clear();
 
         unsafe { self.borrow_page_table().activate() };
         self.init();
@@ -423,6 +426,7 @@ impl TaskControlBlock {
                 cwd: this_pcb.cwd.clone(),
                 fd_table: this_pcb.fd_table.clone_for(tid),
                 mmaps: TaskMemoryMap::default(),
+                futex_queue: FutexQueue::default(),
                 tasks: BTreeMap::new(),
             })),
         });
@@ -512,5 +516,98 @@ impl Default for UserTaskTimer {
             total: TimeSpan::zero(),
             start: None,
         }
+    }
+}
+
+#[derive(Default)]
+pub struct FutexQueue {
+    inner: BTreeMap<VirtualAddress, BTreeMap<usize, Waker>>,
+}
+
+impl FutexQueue {
+    fn clear(&mut self) {
+        self.inner.clear();
+    }
+}
+
+impl FutexQueue {
+    pub fn enqueue(&mut self, addr: VirtualAddress, tid: usize, waker: &Waker) {
+        self.inner
+            .entry(addr)
+            .or_default()
+            .insert(tid, waker.clone());
+    }
+
+    pub fn notify_woken(&mut self, addr: VirtualAddress, tid: usize) {
+        self.inner.entry(addr).and_modify(|map| {
+            map.remove(&tid);
+        });
+    }
+
+    pub fn wake(&mut self, addr: VirtualAddress, n: usize) -> usize {
+        if n == 0 {
+            return 0;
+        }
+
+        match self.inner.get_mut(&addr) {
+            Some(map) => {
+                let mut count = 0;
+
+                while let Some((_tid, waker)) = map.pop_first() {
+                    #[cfg(debug_assertions)]
+                    log::debug!("[FutexQueue] waking task {}", _tid);
+
+                    waker.wake();
+                    count += 1;
+
+                    if count == n {
+                        break;
+                    }
+                }
+
+                count
+            }
+            None => 0,
+        }
+    }
+
+    pub fn requeue(
+        &mut self,
+        prev_addr: VirtualAddress,
+        new_addr: VirtualAddress,
+        n_wake: usize,
+        n_requeue: usize,
+    ) -> usize {
+        if prev_addr == new_addr {
+            return 0;
+        }
+
+        let woken = self.wake(prev_addr, n_wake);
+
+        let mut requeued = 0;
+
+        if let Some(mut prev_map) = self.inner.remove(&prev_addr) {
+            let new_map = self.inner.entry(new_addr).or_default();
+
+            while requeued < n_requeue {
+                match prev_map.pop_first() {
+                    Some((tid, waker)) => {
+                        #[cfg(debug_assertions)]
+                        log::debug!("[FutexQueue] requeuing task {}", tid);
+
+                        new_map.insert(tid, waker);
+                    }
+                    None => break,
+                }
+
+                requeued += 1;
+            }
+
+            if !prev_map.is_empty() {
+                self.inner.insert(prev_addr, prev_map);
+            }
+        }
+
+        woken + requeued
     }
 }
