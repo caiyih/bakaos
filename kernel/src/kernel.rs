@@ -2,7 +2,8 @@ use log::{debug, info};
 
 use crate::{
     platform::{self, machine},
-    statistics::KernelStatistics, timing::current_timespec,
+    statistics::KernelStatistics,
+    timing::current_timespec,
 };
 
 static mut KERNEL: Option<Kernel> = None;
@@ -36,11 +37,13 @@ pub fn init() {
                 );
             }
 
-            debug!("  Uptime     : {:.3} ms", current_timespec().total_seconds() * 1000.0);
+            debug!(
+                "  Uptime     : {:.3} ms",
+                current_timespec().total_seconds() * 1000.0
+            );
         }
     }
 }
-
 
 fn print_banner() {
     info!("\u{1B}[34m⠀⠀⠀⣠⠤⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣀⠀⠀");
