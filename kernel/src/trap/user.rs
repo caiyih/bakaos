@@ -24,7 +24,6 @@ use super::set_kernel_trap_handler;
 
 #[allow(unused)]
 fn set_user_trap_handler() {
-    trace!("Set trap handler to user");
     unsafe { stvec::write(__on_user_trap as usize, stvec::TrapMode::Direct) };
 }
 
@@ -197,7 +196,6 @@ unsafe extern "C" fn __return_from_user_trap(p_ctx: *mut TaskTrapContext) {
 }
 
 pub fn return_to_user(tcb: &Arc<TaskControlBlock>) {
-    trace!("Returning to task: {}", tcb.task_id.id());
     set_user_trap_handler();
 
     let ctx = tcb.trap_context.get();
@@ -218,7 +216,6 @@ pub fn return_to_user(tcb: &Arc<TaskControlBlock>) {
     let sstatus = unsafe { core::mem::transmute::<usize, Sstatus>(ctx.as_ref().unwrap().sstatus) };
     m_ctx.fregs.on_trap(sstatus);
     m_ctx.fregs.deactivate(); // TODO: Should let the scheduler deactivate it
-    trace!("Returned from task: {}", tcb.task_id.id());
 
     // return to task_loop, and then to user_trap_handler immediately
 }
@@ -256,7 +253,7 @@ pub async fn user_trap_handler_async(tcb: &Arc<TaskControlBlock>) {
             trap_ctx.sepc += 4; // skip `ecall` instruction
             let ret = match SyscallDispatcher::dispatch(tcb, syscall_id) {
                 Some((mut ctx, handler)) => {
-                    debug!(
+                    trace!(
                         "[User trap] [Exception::Syscall] Sync handler name: {}({})",
                         handler.name(),
                         syscall_id,

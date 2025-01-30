@@ -1,6 +1,6 @@
 use core::arch::asm;
 
-use log::{debug, trace};
+use log::debug;
 use riscv::{
     interrupt::{
         supervisor::{Exception, Interrupt},
@@ -12,7 +12,6 @@ use riscv::{
 use crate::kernel;
 
 pub fn set_kernel_trap_handler() {
-    trace!("Set trap handler to kernel");
     unsafe { stvec::write(__on_kernel_trap as usize, stvec::TrapMode::Direct) };
 }
 

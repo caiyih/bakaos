@@ -145,14 +145,14 @@ impl Drop for PageTable {
         match self.tracker {
             Some(_) => {
                 let activated = self.is_activated();
-                debug!(
+                trace!(
                     "Droping owned page table: {}, activated: {}",
                     self.root_ppn(),
                     activated
                 );
 
                 if activated {
-                    debug!("Activating kernel page table for the activated page table is being dropped");
+                    trace!("Activating kernel page table for the activated page table is being dropped");
                     unsafe {
                         // Lazy switch to kernel page table mechanism implementation:
                         // When we are executing a task, or process in what are used to, we are using the page table of that task.
@@ -268,7 +268,7 @@ impl PageTable {
                 return;
             }
 
-            debug!("Activating page table: {}", self.root_ppn());
+            trace!("Activating page table: {}", self.root_ppn());
 
             let satp = self.satp();
 
@@ -608,7 +608,6 @@ impl PageTable {
 
     // You don't have to call this method manually as long as you created the guard
     pub fn restore_temporary_modified_pages(&self) {
-        trace!("Restoring temporary modified pages");
         match &self.tracker {
             None => debug!("Ignoring for borrowed page table"),
             Some(tracker) => {
