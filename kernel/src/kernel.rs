@@ -15,8 +15,8 @@ pub fn get() -> &'static Kernel {
 pub fn init() {
     unsafe {
         if KERNEL.is_none() {
-            debug!("Initializing kernel");
             KERNEL = Some(Kernel::new());
+            debug!("Initializing kernel");
 
             let kernel = get();
 
