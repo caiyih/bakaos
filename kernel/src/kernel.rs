@@ -2,7 +2,7 @@ use log::{debug, info};
 
 use crate::{
     platform::{self, machine},
-    statistics::KernelStatistics,
+    statistics::KernelStatistics, timing::current_timespec,
 };
 
 static mut KERNEL: Option<Kernel> = None;
@@ -36,7 +36,7 @@ pub fn init() {
                 );
             }
 
-            debug!("  Uptime     : {} ms", kernel.up_time());
+            debug!("  Uptime     : {:.3} ms", current_timespec().total_seconds() * 1000.0);
         }
     }
 }
