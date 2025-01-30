@@ -61,6 +61,7 @@ pub enum MapType {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AreaType {
     UserElf,
+    SignalTrampoline,
     UserStackGuardBase,
     UserStack,
     UserStackGuardTop,
@@ -170,6 +171,7 @@ pub struct MemorySpace {
     stack_range: VirtualAddressRange,
     stack_gurad_top: VirtualAddressRange,
     elf_area: VirtualAddressRange,
+    signal_trampoline: VirtualPageNum,
 }
 
 impl MemorySpace {
@@ -297,6 +299,7 @@ impl MemorySpace {
                 VirtualAddress::from_usize(usize::MAX),
                 0,
             ),
+            signal_trampoline: VirtualPageNum::from_usize(0),
         }
     }
 
@@ -357,6 +360,36 @@ impl MemorySpace {
         }
 
         this
+    }
+
+    pub fn register_signal_trampoline(&mut self, sigreturn: VirtualAddress) {
+        let permissions = PageTableEntryFlags::User
+            | PageTableEntryFlags::Valid
+            | PageTableEntryFlags::Readable
+            | PageTableEntryFlags::Executable;
+
+        assert!(self.signal_trampoline != VirtualPageNum::from_usize(0));
+
+        debug_assert!(sigreturn.as_usize() > constants::VIRT_ADDR_OFFSET);
+
+        // extract physical page of the function
+        let sigreturn_page = sigreturn.to_floor_page_num();
+        // Requiring that the two instruction must be in the same page.
+        debug_assert_eq!(sigreturn_page, (sigreturn + 8).to_floor_page_num());
+
+        let ppn = sigreturn.to_low_physical().to_ceil_page_num();
+
+        let trampoline_page = self.signal_trampoline;
+
+        self.page_table
+            .map_single(trampoline_page, ppn, permissions);
+        self.mapping_areas.push(MappingArea {
+            range: VirtualPageNumRange::from_start_count(trampoline_page, 1),
+            area_type: AreaType::SignalTrampoline,
+            map_type: MapType::Framed,
+            allocated_frames: BTreeMap::new(),
+            permissions,
+        });
     }
 
     // Map the whole kernel area to the memory space
@@ -510,6 +543,10 @@ impl MemorySpaceBuilder {
         auxv.push(AuxVecEntry::new(AT_CLKTCK, 125000000usize));
         auxv.push(AuxVecEntry::new(AT_SECURE, 0));
 
+        // Reserved for signal trampoline
+        max_end_vpn += 1;
+        memory_space.signal_trampoline = max_end_vpn;
+
         max_end_vpn += 1;
         memory_space.map_area(MappingArea::new(
             VirtualPageNumRange::from_single(max_end_vpn),
@@ -582,6 +619,13 @@ impl MemorySpaceBuilder {
 
                 log::debug!("{:?}: {}..{}", area_type, start, end);
             }
+
+            let trampoline_page = memory_space.signal_trampoline;
+            log::debug!(
+                "SignalTrampoline: {}..{}",
+                trampoline_page.start_addr::<VirtualAddress>(),
+                trampoline_page.end_addr::<VirtualAddress>()
+            );
         }
 
         Ok(MemorySpaceBuilder {
