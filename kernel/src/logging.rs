@@ -29,19 +29,30 @@ impl Log for GlobalLogger {
         let milliseconds = time.tv_nsec / 1_000_000;
 
         legacy_println!(
-            "\u{1B}[95m[{:02}:{:02}:{:02}.{:03}]\u{1B}[0m \u{1B}[{}m[{}]\u{1B}[0m \u{1B}[37m{}\u{1B}[0m",
+            "\u{1B}[95m[{:02}:{:02}:{:02}.{:03}]\u{1B}[0m \u{1B}[{}m{}\u{1B}[37m | {}\u{1B}[0m",
             hours,
             minutes,
             seconds,
             milliseconds,
             color,
-            record.level(),
+            normalized_loglevel(record.level()),
             record.args(),
         );
     }
 
     fn flush(&self) {
         // nop
+    }
+}
+
+#[inline]
+fn normalized_loglevel(level: Level) -> &'static str {
+    match level {
+        Level::Error => "ERRO",
+        Level::Warn => "WARN",
+        Level::Info => "INFO",
+        Level::Debug => "DEBG",
+        Level::Trace => "TRAC",
     }
 }
 
