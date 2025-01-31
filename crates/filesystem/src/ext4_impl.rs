@@ -432,7 +432,7 @@ impl IInode for Ext4Inode {
 
         let bytes_read = self.fs.read_at(self.inode_id, 0, &mut buffer).ok()?;
 
-        assert!(bytes_read < BUFFER_LEN); // reserve 1 byte for null-terminator
+        assert!(bytes_read <= BUFFER_LEN);
 
         let target = unsafe { core::str::from_utf8_unchecked(&buffer[..bytes_read]) };
 
