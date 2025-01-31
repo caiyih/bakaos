@@ -179,6 +179,7 @@ impl MountError {
 enum DirectoryTreeNodeMetadata {
     Inode { inode: Arc<dyn IInode> },
     FileSystem { fs: Arc<dyn IFileSystem> },
+    Link { target: String },
     Empty,
 }
 
@@ -187,6 +188,7 @@ impl DirectoryTreeNodeMetadata {
         match self {
             DirectoryTreeNodeMetadata::Inode { inode } => Some(inode.clone()),
             DirectoryTreeNodeMetadata::FileSystem { fs } => Some(fs.root_dir()),
+            DirectoryTreeNodeMetadata::Link { target: _ } => None,
             DirectoryTreeNodeMetadata::Empty => None,
         }
     }
@@ -317,6 +319,26 @@ impl DirectoryTreeNode {
         })
     }
 
+    pub fn from_symlink(
+        parent: Option<Arc<DirectoryTreeNode>>,
+        name: &str,
+        target: &str,
+    ) -> Arc<DirectoryTreeNode> {
+        Arc::new(DirectoryTreeNode {
+            parent,
+            inner: SpinMutex::new(DirectoryTreeNodeInner {
+                name: name.to_string(),
+                meta: DirectoryTreeNodeMetadata::Link {
+                    target: String::from(target),
+                },
+                mounted: BTreeMap::new(),
+                opened: BTreeMap::new(),
+                children_cache: BTreeMap::new(),
+                shadowed: None,
+            }),
+        })
+    }
+
     fn mount_internal(
         self: &Arc<DirectoryTreeNode>,
         node: Arc<DirectoryTreeNode>,
@@ -431,7 +453,7 @@ impl DirectoryTreeNode {
         self: &Arc<DirectoryTreeNode>,
         path: &str,
     ) -> FileSystemResult<Arc<DirectoryTreeNode>> {
-        global_open(path, Some(self))
+        global_open_raw(path, Some(self))
     }
 
     pub fn open_child(
@@ -819,6 +841,90 @@ impl DirectoryTreeNode {
             }
         }
     }
+
+    pub fn hard_link(
+        self: &Arc<DirectoryTreeNode>,
+        name: &str,
+        source: &Arc<DirectoryTreeNode>,
+    ) -> FileSystemResult<()> {
+        let under_same_filesystem = Arc::ptr_eq(
+            &self.get_containing_filesystem(),
+            &source.get_containing_filesystem(),
+        );
+
+        let self_inner = self.inner.lock();
+        let source_inner = source.inner.lock();
+
+        match (
+            under_same_filesystem,
+            self_inner.meta.as_inode(),
+            source_inner.meta.as_inode(),
+        ) {
+            (true, Some(ref self_inode), Some(ref source_inode)) => {
+                self_inode.hard_link(name, source_inode)
+            }
+            _ => {
+                drop(self_inner);
+                drop(source_inner);
+
+                self.mount_as(source.clone(), Some(name))
+                    .map_err(|e| e.to_filesystem_error())?;
+
+                Ok(())
+            }
+        }
+    }
+
+    pub fn soft_link(
+        self: &Arc<DirectoryTreeNode>,
+        name: &str,
+        point_to: &str,
+    ) -> FileSystemResult<Arc<DirectoryTreeNode>> {
+        let self_inner = self.inner.lock();
+
+        match self_inner.meta.as_inode() {
+            Some(ref self_inode) => {
+                let inode = self_inode.soft_link(name, point_to)?;
+
+                Ok(Self::from_inode(Some(self.clone()), &inode, Some(name)))
+            }
+            _ => {
+                drop(self_inner);
+
+                let node = Self::from_symlink(Some(self.clone()), name, point_to);
+
+                self.mount_as(node, Some(name))
+                    .map_err(|e| e.to_filesystem_error())
+            }
+        }
+    }
+
+    pub fn resolve_link(&self) -> Option<String> {
+        match &self.inner.lock().meta {
+            DirectoryTreeNodeMetadata::Inode { inode } => inode.resolve_link(),
+            DirectoryTreeNodeMetadata::Link { target } => Some(target.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn resolve_all_link(
+        self: &Arc<DirectoryTreeNode>,
+    ) -> FileSystemResult<Arc<DirectoryTreeNode>> {
+        const RESOLUTION_LIMIT: usize = 40;
+
+        let mut current = self.clone();
+        for _ in 0..RESOLUTION_LIMIT {
+            match self.resolve_link() {
+                None => return Ok(current),
+                Some(target) => match global_open_raw(&target, Some(&current)) {
+                    Ok(node) => current = node,
+                    Err(_) => return Err(FileSystemError::NotFound),
+                },
+            }
+        }
+
+        Err(FileSystemError::LinkTooDepth)
+    }
 }
 
 // The root of the directory tree
@@ -849,6 +955,13 @@ pub fn initialize() {
 }
 
 pub fn global_open(
+    path: &str,
+    relative_to: Option<&Arc<DirectoryTreeNode>>,
+) -> FileSystemResult<Arc<DirectoryTreeNode>> {
+    global_open_raw(path, relative_to).and_then(|n| n.resolve_all_link())
+}
+
+pub fn global_open_raw(
     path: &str,
     relative_to: Option<&Arc<DirectoryTreeNode>>,
 ) -> FileSystemResult<Arc<DirectoryTreeNode>> {
