@@ -47,6 +47,7 @@ pub enum FileSystemError {
     NotAFile,
     NotADirectory,
     NotALink,
+    LinkTooDepth,
 }
 
 pub type FileSystemResult<T> = Result<T, FileSystemError>;
