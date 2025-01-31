@@ -120,7 +120,7 @@ impl Ext4Inode {
     }
 
     fn should_be_link(&self) -> Result<(), FileSystemError> {
-        if self.file_type != DirectoryEntryType::File {
+        if self.file_type != DirectoryEntryType::Symlink {
             return Err(FileSystemError::NotALink);
         }
 
