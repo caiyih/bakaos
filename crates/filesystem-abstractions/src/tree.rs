@@ -488,19 +488,6 @@ impl DirectoryTreeNode {
         Ok(opened)
     }
 
-    pub fn cache_children(self: &Arc<DirectoryTreeNode>) {
-        // let mut inner = self.inner.lock();
-
-        // if let DirectoryTreeNodeMetadata::Inode { inode } = &inner.meta {
-        //     if let Ok(children) = inode.cache_children() {
-        //         for inode in children {
-        //             let node = Self::from_inode(Some(self.clone()), &inode, None);
-        //             inner.mounted.insert(node.name().to_string(), node);
-        //         }
-        //     }
-        // }
-    }
-
     // if the node was opened in the tree, this returns the full path in the filesystem.
     // if not, the root is considered the deepest node without parent
     pub fn fullpath(self: &Arc<DirectoryTreeNode>) -> String {
