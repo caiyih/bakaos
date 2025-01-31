@@ -434,7 +434,7 @@ impl IInode for Ext4Inode {
 
         assert!(bytes_read < BUFFER_LEN); // reserve 1 byte for null-terminator
 
-        let target = core::str::from_utf8(&buffer[..bytes_read]).ok()?;
+        let target = unsafe { core::str::from_utf8_unchecked(&buffer[..bytes_read]) };
 
         Some(String::from(target))
     }
