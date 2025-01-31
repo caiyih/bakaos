@@ -409,26 +409,35 @@ impl ISyncSyscallHandler for NewFstatatSyscall {
                     buf: &mut FileStatistics,
                     path: &str,
                     relative_to: Option<&Arc<DirectoryTreeNode>>,
+                    resolve_link: bool,
                 ) -> SyscallResult {
-                    filesystem_abstractions::global_open(path, relative_to)
-                        .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
-                        .stat(buf)
-                        .map(|_| ErrNo::Success)
-                        .map_err(|_| ErrNo::OperationNotPermitted)
+                    match resolve_link {
+                        true => filesystem_abstractions::global_open(path, relative_to),
+                        false => filesystem_abstractions::global_open_raw(path, relative_to),
+                    }
+                    .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
+                    .stat(buf)
+                    .map(|_| ErrNo::Success)
+                    .map_err(|_| ErrNo::OperationNotPermitted)
                 }
+
+                const AT_SYMLINK_NOFOLLOW: i32 = 0x100;
+                let flag = ctx.arg3::<i32>();
+
+                let resolve_link = (flag & AT_SYMLINK_NOFOLLOW) != 0;
 
                 let path = unsafe { core::str::from_utf8_unchecked(&path_guard) };
 
                 let pcb = ctx.pcb.lock();
                 if dirfd == FileDescriptor::AT_FDCWD {
                     let fullpath = path::combine(&pcb.cwd, path).ok_or(ErrNo::InvalidArgument)?;
-                    stat(&mut buf_guard, &fullpath, None)
+                    stat(&mut buf_guard, &fullpath, None, resolve_link)
                 } else {
                     let inode = pcb
                         .fd_table
                         .get(dirfd as usize)
                         .and_then(|fd| fd.access().inode());
-                    stat(&mut buf_guard, path, inode.as_ref())
+                    stat(&mut buf_guard, path, inode.as_ref(), resolve_link)
                 }
             }
             _ => SyscallError::BadAddress,
