@@ -46,6 +46,7 @@ pub enum FileSystemError {
     SpaceNotEnough,
     NotAFile,
     NotADirectory,
+    NotALink,
 }
 
 pub type FileSystemResult<T> = Result<T, FileSystemError>;
@@ -66,7 +67,7 @@ pub enum DirectoryEntryType {
     Directory = 4,
     BlockDevice = 6,
     File = 8,
-    // Symlink = 10,
+    Symlink = 10,
     // Socket = 12,
 }
 
@@ -79,8 +80,8 @@ impl From<DirectoryEntryType> for FileStatisticsMode {
             DirectoryEntryType::BlockDevice => FileStatisticsMode::BLOCK,
             DirectoryEntryType::CharDevice => FileStatisticsMode::CHAR,
             DirectoryEntryType::NamedPipe => FileStatisticsMode::FIFO,
+            DirectoryEntryType::Symlink => FileStatisticsMode::LINK,
             // DirectoryEntryType::Socket => FileStatisticsMode::SOCKET,
-            // DirectoryEntryType::Symlink => FileStatisticsMode::LINK,
         }
     }
 }

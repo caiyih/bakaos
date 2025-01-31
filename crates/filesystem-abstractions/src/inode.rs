@@ -51,6 +51,18 @@ pub trait IInode: DowncastSync + Send + Sync {
     fn stat(&self, _stat: &mut FileStatistics) -> FileSystemResult<()> {
         Err(FileSystemError::Unimplemented)
     }
+
+    fn hard_link(&self, _name: &str, _inode: &Arc<dyn IInode>) -> FileSystemResult<()> {
+        Err(FileSystemError::Unimplemented)
+    }
+
+    fn soft_link(&self, _name: &str, _point_to: &str) -> FileSystemResult<Arc<dyn IInode>> {
+        Err(FileSystemError::Unimplemented)
+    }
+
+    fn resolve_link(&self) -> Option<String> {
+        None
+    }
 }
 
 impl_downcast!(sync IInode);
