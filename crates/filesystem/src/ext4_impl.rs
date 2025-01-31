@@ -118,6 +118,14 @@ impl Ext4Inode {
 
         Ok(())
     }
+
+    fn should_be_link(&self) -> Result<(), FileSystemError> {
+        if self.file_type != DirectoryEntryType::File {
+            return Err(FileSystemError::NotALink);
+        }
+
+        Ok(())
+    }
 }
 
 impl Clone for Ext4Inode {
@@ -354,6 +362,82 @@ impl IInode for Ext4Inode {
 
         Ok(bytes_written)
     }
+
+    fn hard_link(
+        &self,
+        name: &str,
+        inode: &Arc<dyn IInode>,
+    ) -> filesystem_abstractions::FileSystemResult<()> {
+        self.should_be_directory()?;
+
+        // Must be an Ext4Inode
+        let ext4_inode = inode
+            .downcast_ref::<Ext4Inode>()
+            .ok_or(FileSystemError::InvalidInput)?;
+
+        if !Arc::ptr_eq(&self.fs, &ext4_inode.fs) {
+            return Err(FileSystemError::InvalidInput);
+        }
+
+        let mut inode_ref = self.fs.get_inode_ref(self.inode_id);
+        let mut child_ref = self.fs.get_inode_ref(ext4_inode.inode_id);
+        self.fs
+            .link(&mut inode_ref, &mut child_ref, name)
+            .map_err(|_| FileSystemError::SpaceNotEnough)?;
+
+        Ok(())
+    }
+
+    fn soft_link(
+        &self,
+        name: &str,
+        point_to: &str,
+    ) -> filesystem_abstractions::FileSystemResult<Arc<dyn IInode>> {
+        self.should_be_directory()?;
+
+        let link_inode = self
+            .fs
+            .alloc_inode(false)
+            .map_err(|_| FileSystemError::SpaceNotEnough)?;
+
+        let mut link_ref = self.fs.get_inode_ref(link_inode);
+
+        link_ref.inode.set_file_type(InodeFileType::S_IFLNK);
+
+        self.fs
+            .write_at(link_inode, 0, point_to.as_bytes())
+            .map_err(|_| FileSystemError::InternalError)?; // TODO: parse the error
+
+        self.fs.write_back_inode(&mut link_ref);
+
+        let mut self_ref = self.fs.get_inode_ref(self.inode_id);
+        self.fs
+            .dir_add_entry(&mut self_ref, &link_ref, name)
+            .map_err(|_| FileSystemError::SpaceNotEnough)?;
+
+        Ok(Arc::new(Ext4Inode {
+            filename: name.to_string(),
+            inode_id: link_inode,
+            file_type: DirectoryEntryType::Symlink,
+            fs: self.fs.clone(),
+        }))
+    }
+
+    fn resolve_link(&self) -> Option<String> {
+        const BUFFER_LEN: usize = 1024;
+
+        self.should_be_link().ok()?;
+
+        let mut buffer: [u8; BUFFER_LEN] = [0; BUFFER_LEN];
+
+        let bytes_read = self.fs.read_at(self.inode_id, 0, &mut buffer).ok()?;
+
+        assert!(bytes_read < BUFFER_LEN); // reserve 1 byte for null-terminator
+
+        let target = core::str::from_utf8(&buffer[..bytes_read]).ok()?;
+
+        Some(String::from(target))
+    }
 }
 
 trait IDirectoryEntryType {
@@ -366,6 +450,8 @@ impl IDirectoryEntryType for ext4_rs::InodeFileType {
             DirectoryEntryType::Directory
         } else if self.contains(InodeFileType::S_IFREG) {
             DirectoryEntryType::File
+        } else if self.contains(InodeFileType::S_IFLNK) {
+            DirectoryEntryType::Symlink
         } else {
             panic!("Unsupported file type: {:?}", self);
         }
