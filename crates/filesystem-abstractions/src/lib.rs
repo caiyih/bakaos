@@ -2,6 +2,7 @@
 
 use alloc::{string::String, sync::Arc};
 use bitflags::bitflags;
+use constants::ErrNo;
 use timing::TimeSpec;
 
 #[cfg(feature = "std")]
@@ -48,6 +49,27 @@ pub enum FileSystemError {
     NotADirectory,
     NotALink,
     LinkTooDepth,
+}
+
+impl FileSystemError {
+    pub fn to_errno(self) -> isize {
+        match self {
+            FileSystemError::UnexpectedEof => ErrNo::ResourceTemporarilyUnavailable,
+            FileSystemError::WriteZero => ErrNo::InvalidArgument,
+            FileSystemError::PathNameLengthExceeded => ErrNo::FileNameTooLong,
+            FileSystemError::PathContainsInvalidCharacter => ErrNo::InvalidArgument,
+            FileSystemError::InvalidInput => ErrNo::InvalidArgument,
+            FileSystemError::NotFound => ErrNo::NoSuchFileOrDirectory,
+            FileSystemError::AlreadyExists => ErrNo::FileExists,
+            FileSystemError::DirectoryNotEmpty => ErrNo::DirectoryNotEmpty,
+            FileSystemError::SpaceNotEnough => ErrNo::NoSpaceLeftOnDevice,
+            FileSystemError::NotAFile => ErrNo::InvalidArgument,
+            FileSystemError::NotADirectory => ErrNo::NotADirectory,
+            FileSystemError::NotALink => ErrNo::InvalidArgument,
+            FileSystemError::LinkTooDepth => ErrNo::TooManyLevelsOfSymbolicLinks,
+            _ => ErrNo::Success,
+        }
+    }
 }
 
 pub type FileSystemResult<T> = Result<T, FileSystemError>;
