@@ -1,7 +1,67 @@
 use core::{
     arch::asm,
+    cmp,
     fmt::{self, Write},
 };
+
+use hermit_sync::SpinMutex;
+
+const BUFFER_CAPACITY: usize = 4096;
+
+struct RingBuffer {
+    buffer: [u8; BUFFER_CAPACITY],
+    head: usize,
+    tail: usize,
+    len: usize,
+}
+
+static DMESG_BUFFER: SpinMutex<RingBuffer> = SpinMutex::new(RingBuffer {
+    buffer: [0; BUFFER_CAPACITY],
+    head: 0,
+    tail: 0,
+    len: 0,
+});
+
+pub fn read_dmesg(buffer: &mut [u8]) -> usize {
+    let dmesg = DMESG_BUFFER.lock();
+    let read_len = cmp::min(buffer.len(), dmesg.len);
+
+    for (i, ch) in buffer.iter_mut().enumerate().take(read_len) {
+        *ch = dmesg.buffer[(dmesg.head + i) % BUFFER_CAPACITY];
+    }
+
+    read_len
+}
+
+fn push_message(msg: &str) {
+    let mut dmesg = DMESG_BUFFER.lock();
+    let msg_bytes = msg.as_bytes();
+    let msg_len = msg_bytes.len();
+
+    if msg_len > BUFFER_CAPACITY {
+        let start = msg_len - BUFFER_CAPACITY;
+        dmesg.buffer.copy_from_slice(&msg_bytes[start..]);
+        dmesg.head = 0;
+        dmesg.tail = 0;
+        dmesg.len = BUFFER_CAPACITY;
+        return;
+    }
+
+    while dmesg.len + msg_len > BUFFER_CAPACITY {
+        dmesg.head = (dmesg.head + 1) % BUFFER_CAPACITY;
+        dmesg.len -= 1;
+    }
+
+    for &b in msg_bytes {
+        let tail = dmesg.tail;
+        dmesg.buffer[tail] = b;
+        dmesg.tail = (tail + 1) % BUFFER_CAPACITY;
+    }
+
+    dmesg.len += msg_len;
+
+    debug_assert!(dmesg.len <= BUFFER_CAPACITY);
+}
 
 pub trait IConsole: Write {
     #[allow(unused)]
@@ -32,6 +92,9 @@ impl Write for LegacyConsole {
         for c in s.bytes() {
             self.put_char(c)?;
         }
+
+        push_message(s);
+
         Ok(())
     }
 }

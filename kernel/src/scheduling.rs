@@ -128,6 +128,10 @@ fn remove_from_map(tcb: &Arc<TaskControlBlock>) {
     // Arc::ptr_eq(this, other)
 }
 
+pub fn task_count() -> usize {
+    unsafe { TASKS_MAP.lock().len() }
+}
+
 #[allow(unused)]
 pub fn get_task(tid: usize) -> Option<Arc<TaskControlBlock>> {
     unsafe { TASKS_MAP.lock().get(&tid).and_then(|weak| weak.upgrade()) }

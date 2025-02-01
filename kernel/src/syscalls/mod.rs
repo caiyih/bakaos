@@ -10,6 +10,7 @@ use file::{
 use file_async::{sys_read_async, sys_sendfile_async, sys_write_async, sys_writev_async};
 use futex_async::sys_futex_async;
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
+use system::{GetRandomSyscall, ShutdownSyscall, SystemLogSyscall};
 use task::{
     BrkSyscall, ChdirSyscall, ClockGetTimeSyscall, CloneSyscall, ExecveSyscall, ExitGroupSyscall,
     ExitSyscall, GetCwdSyscall, GetParentPidSyscall, GetPidSyscall, GetTimeOfDaySyscall,
@@ -21,9 +22,11 @@ use tasks::TaskControlBlock;
 mod file;
 mod file_async;
 mod futex_async;
+mod system;
 mod task;
 mod task_async;
 
+const SYSCALL_ID_SHUTDOWN: usize = 0;
 const SYSCALL_ID_GETCWD: usize = 17;
 const SYSCALL_ID_DUP: usize = 23;
 const SYSCALL_ID_DUP3: usize = 24;
@@ -51,6 +54,7 @@ const SYSCALL_ID_EXIT: usize = 93;
 const SYSCALL_ID_EXIT_GROUP: usize = 94;
 const SYSCALL_ID_FUTEX: usize = 98;
 const SYSCALL_ID_NANOSLEEP: usize = 101;
+const SYSCALL_ID_SYSLOG: usize = 116;
 const SYSCALL_ID_SCHED_YIELD: usize = 124;
 const SYSCALL_ID_TIMES: usize = 153;
 const SYSCALL_ID_UNAME: usize = 160;
@@ -59,12 +63,14 @@ const SYSCALL_ID_GETPID: usize = 172;
 const SYSCALL_ID_GETPPID: usize = 173;
 const SYSCALL_ID_GETUID: usize = 174;
 const SYSCALL_ID_GETEUID: usize = 175;
+const SYSCALL_ID_SYSINFO: usize = 179;
 const SYSCALL_ID_BRK: usize = 214;
 const SYSCALL_ID_MUNMAP: usize = 215;
 const SYSCALL_ID_CLONE: usize = 220;
 const SYSCALL_ID_EXECVE: usize = 221;
 const SYSCALL_ID_MMAP: usize = 222;
 const STSCALL_ID_WAIT4: usize = 260;
+const SYSCALL_ID_GETRANDOM: usize = 278;
 const SYSCALL_ID_CLOCK_GETTIME: usize = 113;
 
 pub trait ISyscallResult {
@@ -130,6 +136,10 @@ impl SyscallDispatcher {
             SYSCALL_ID_SYMLINKAT => Some(&SymbolLinkAtSyscall),
             SYSCALL_ID_LINKAT => Some(&LinkAtSyscall),
             SYSCALL_ID_READLINKAT => Some(&ReadLinkAtSyscall),
+            SYSCALL_ID_SHUTDOWN => Some(&ShutdownSyscall),
+            SYSCALL_ID_SYSLOG => Some(&SystemLogSyscall),
+            SYSCALL_ID_SYSINFO => Some(&SystemLogSyscall),
+            SYSCALL_ID_GETRANDOM => Some(&GetRandomSyscall),
             _ => None,
         }
     }
