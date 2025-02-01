@@ -1,10 +1,12 @@
+use core::cmp;
+
 use abstractions::IUsizeAlias;
 use address::VirtualAddress;
 use alloc::{slice, string::String, sync::Arc};
 use constants::{ErrNo, SyscallError};
 use filesystem_abstractions::{
-    DirectoryTreeNode, FileDescriptor, FileDescriptorBuilder, FileMode, FileStatistics,
-    FrozenFileDescriptorBuilder, ICacheableFile, OpenFlags, PipeBuilder,
+    global_open, global_open_raw, DirectoryTreeNode, FileDescriptor, FileDescriptorBuilder,
+    FileMode, FileStatistics, FrozenFileDescriptorBuilder, ICacheableFile, OpenFlags, PipeBuilder,
 };
 use paging::{
     page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, MemoryMapFlags,
@@ -759,5 +761,222 @@ impl ISyncSyscallHandler for FileControlSyscall {
 
     fn name(&self) -> &str {
         "sys_fnctl"
+    }
+}
+
+pub struct ReadLinkAtSyscall;
+
+impl ISyncSyscallHandler for ReadLinkAtSyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        let dirfd = ctx.arg0::<isize>();
+        let p_path = ctx.arg1::<*const u8>();
+        let p_buf = ctx.arg2::<*mut u8>();
+        let len = ctx.arg3::<usize>();
+
+        if dirfd < 0 && dirfd != FileDescriptor::AT_FDCWD {
+            return SyscallError::BadFileDescriptor;
+        }
+
+        let pt = ctx.borrow_page_table();
+
+        let buf = unsafe { core::slice::from_raw_parts_mut(p_buf, len) };
+        match (
+            pt.guard_cstr(p_path, 1024)
+                .must_have(PageTableEntryFlags::User)
+                .with_read(),
+            pt.guard_slice(buf)
+                .mustbe_user()
+                .mustbe_readable()
+                .with_write(),
+        ) {
+            (Some(path), Some(mut buf)) => {
+                let path = unsafe { core::str::from_utf8_unchecked(&path) };
+                let dir = resolve_dirfd_path(ctx, dirfd, path)?;
+
+                let node = global_open_raw(path, dir.as_ref())
+                    .map_err(|_| ErrNo::NoSuchFileOrDirectory)?;
+
+                let target = node.resolve_link().ok_or(ErrNo::InvalidArgument)?;
+                let bytes = target.as_bytes();
+
+                let len = cmp::min(len, bytes.len());
+
+                buf.as_mut()[..len].copy_from_slice(&bytes[..len]);
+
+                Ok(len as isize)
+            }
+            _ => SyscallError::BadAddress,
+        }
+    }
+
+    fn name(&self) -> &str {
+        "sys_readlinkat"
+    }
+}
+
+pub struct SymbolLinkAtSyscall;
+
+impl ISyncSyscallHandler for SymbolLinkAtSyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        let p_existing = ctx.arg0::<*const u8>();
+        let dirfd = ctx.arg1::<isize>();
+        let p_linkto = ctx.arg2::<*const u8>();
+
+        let pt = ctx.borrow_page_table();
+
+        match (
+            pt.guard_cstr(p_existing, 1024)
+                .must_have(PageTableEntryFlags::User)
+                .with_read(),
+            pt.guard_cstr(p_linkto, 1024)
+                .must_have(PageTableEntryFlags::User)
+                .with_read(),
+        ) {
+            (Some(existing), Some(linkto)) => {
+                let existing = unsafe { core::str::from_utf8_unchecked(&existing) };
+                let linkto = unsafe { core::str::from_utf8_unchecked(&linkto) };
+
+                let dir = resolve_dirfd_path(ctx, dirfd, linkto)?;
+
+                let parent_path = path::get_directory_name(linkto).unwrap_or_default();
+                let name = path::get_filename(linkto);
+
+                let parent_node =
+                    global_open(parent_path, dir.as_ref()).map_err(|e| e.to_errno())?;
+
+                parent_node
+                    .soft_link(name, existing)
+                    .map_err(|e| e.to_errno())
+                    .map(|_| 0)
+            }
+            _ => SyscallError::BadAddress,
+        }
+    }
+
+    fn name(&self) -> &str {
+        "sys_symlinkat"
+    }
+}
+
+fn resolve_dirfd_path(
+    ctx: &SyscallContext,
+    dirfd: isize,
+    path: &str,
+) -> Result<Option<Arc<DirectoryTreeNode>>, isize> {
+    match path::is_path_fully_qualified(path) {
+        true => Ok(None),
+        false if dirfd >= 0 => Ok(Some(
+            ctx.pcb
+                .lock()
+                .fd_table
+                .get(dirfd as usize)
+                .and_then(|fd| fd.access().inode())
+                .ok_or(ErrNo::BadFileDescriptor)?,
+        )),
+        false if dirfd == FileDescriptor::AT_FDCWD => {
+            let cwd = &ctx.pcb.lock().cwd;
+            global_open(cwd, None).map_err(|e| e.to_errno()).map(Some)
+        }
+        _ => Err(ErrNo::BadFileDescriptor),
+    }
+}
+
+pub struct LinkAtSyscall;
+
+impl ISyncSyscallHandler for LinkAtSyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        const AT_SYMLINK_FOLLOW: i32 = 0x400;
+        const AT_EMPTY_PATH: i32 = 0x1000;
+
+        fn check_and_get_paths(
+            ctx: &SyscallContext,
+            oldpath_ptr: *const u8,
+            newpath_ptr: *const u8,
+        ) -> Result<(&'static str, &'static str), isize> {
+            let pt = ctx.borrow_page_table();
+
+            let oldpath = pt
+                .guard_cstr(oldpath_ptr, 1024)
+                .must_have(PageTableEntryFlags::User)
+                .with_read()
+                .ok_or(ErrNo::BadAddress)?;
+
+            let newpath = pt
+                .guard_cstr(newpath_ptr, 1024)
+                .must_have(PageTableEntryFlags::User)
+                .with_read()
+                .ok_or(ErrNo::BadAddress)?;
+
+            unsafe {
+                // make reference 'static
+                let oldpath = core::slice::from_raw_parts(oldpath.as_ptr(), oldpath.len());
+                let newpath = core::slice::from_raw_parts(newpath.as_ptr(), newpath.len());
+
+                Ok((
+                    core::str::from_utf8_unchecked(oldpath),
+                    core::str::from_utf8_unchecked(newpath),
+                ))
+            }
+        }
+
+        fn create_hard_link(
+            parent_path: &str,
+            base: Option<&Arc<DirectoryTreeNode>>,
+            name: &str,
+            inode: &Arc<DirectoryTreeNode>,
+        ) -> SyscallResult {
+            let new_parent = global_open(parent_path, base).map_err(|e| e.to_errno())?;
+            new_parent
+                .hard_link(name, inode)
+                .map_err(|e| e.to_errno())?;
+            Ok(0)
+        }
+
+        let olddirfd = ctx.arg0::<isize>();
+        let oldpath_ptr = ctx.arg1::<*const u8>();
+        let newdirfd = ctx.arg2::<isize>();
+        let newpath_ptr = ctx.arg3::<*const u8>();
+        let flags = ctx.arg4::<i32>();
+
+        let (oldpath, newpath) = check_and_get_paths(ctx, oldpath_ptr, newpath_ptr)?;
+
+        if (flags & AT_EMPTY_PATH) != 0 {
+            if !oldpath.is_empty() {
+                return SyscallError::InvalidArgument;
+            }
+
+            let pcb = ctx.pcb.lock();
+            let old_fd = pcb
+                .fd_table
+                .get(olddirfd as usize)
+                .ok_or(ErrNo::BadFileDescriptor)?;
+            let inode = old_fd.access().inode().ok_or(ErrNo::BadFileDescriptor)?;
+
+            let parent_path = path::get_directory_name(newpath).unwrap_or_default();
+            let name = path::get_filename(newpath);
+
+            let new_parent_base = resolve_dirfd_path(ctx, newdirfd, newpath)?;
+            return create_hard_link(parent_path, new_parent_base.as_ref(), name, &inode);
+        }
+
+        let follow = (flags & AT_SYMLINK_FOLLOW) != 0;
+
+        let old_base = resolve_dirfd_path(ctx, olddirfd, oldpath)?;
+        let mut old_inode =
+            global_open_raw(oldpath, old_base.as_ref()).map_err(|e| e.to_errno())?;
+
+        if follow {
+            old_inode = old_inode.resolve_all_link().map_err(|e| e.to_errno())?;
+        }
+
+        let parent_path = path::get_directory_name(newpath).unwrap_or_default();
+        let name = path::get_filename(newpath);
+
+        let new_parent_base = resolve_dirfd_path(ctx, newdirfd, newpath)?;
+        create_hard_link(parent_path, new_parent_base.as_ref(), name, &old_inode)
+    }
+
+    fn name(&self) -> &str {
+        "sys_linkat"
     }
 }

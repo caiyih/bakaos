@@ -3,9 +3,9 @@ use core::ops::Deref;
 use alloc::{format, sync::Arc};
 use constants::SyscallError;
 use file::{
-    CloseSyscall, Dup3Syscall, DupSyscall, GetDents64Syscall, MkdirAtSyscall, MmapSyscall,
-    MountSyscall, MunmapSyscall, NewFstatSyscall, NewFstatatSyscall, OpenAtSyscall, Pipe2Syscall,
-    UmountSyscall, UnlinkAtSyscall,
+    CloseSyscall, Dup3Syscall, DupSyscall, GetDents64Syscall, LinkAtSyscall, MkdirAtSyscall,
+    MmapSyscall, MountSyscall, MunmapSyscall, NewFstatSyscall, NewFstatatSyscall, OpenAtSyscall,
+    Pipe2Syscall, ReadLinkAtSyscall, SymbolLinkAtSyscall, UmountSyscall, UnlinkAtSyscall,
 };
 use file_async::{sys_read_async, sys_sendfile_async, sys_write_async, sys_writev_async};
 use futex_async::sys_futex_async;
@@ -31,6 +31,8 @@ const SYSCALL_ID_FCNTL64: usize = 25;
 const SYSCALL_ID_IOCTL: usize = 29;
 const SYSCALL_ID_MKDIRAT: usize = 34;
 const SYSCALL_ID_UNLINKAT: usize = 35;
+const SYSCALL_ID_SYMLINKAT: usize = 36;
+const SYSCALL_ID_LINKAT: usize = 37;
 const SYSCALL_ID_UMOUNT: usize = 39;
 const SYSCALL_ID_MOUNT: usize = 40;
 const SYSCALL_ID_CHDIR: usize = 49;
@@ -42,6 +44,7 @@ const SYSCALL_ID_READ: usize = 63;
 const SYSCALL_ID_WRITE: usize = 64;
 const SYSCALL_ID_WRITEV: usize = 66;
 const SYSCALL_ID_SENDFILE: usize = 71;
+const SYSCALL_ID_READLINKAT: usize = 78;
 const SYSCALL_ID_NEWFSTATAT: usize = 79;
 const SYSCALL_ID_NEWFSTAT: usize = 80;
 const SYSCALL_ID_EXIT: usize = 93;
@@ -124,6 +127,9 @@ impl SyscallDispatcher {
             SYSCALL_ID_IOCTL => Some(&file::IoControlSyscall),
             SYSCALL_ID_GETUID => Some(&GetRealUserIdSyscall),
             SYSCALL_ID_GETEUID => Some(&GetEffectiveUserIdSyscall),
+            SYSCALL_ID_SYMLINKAT => Some(&SymbolLinkAtSyscall),
+            SYSCALL_ID_LINKAT => Some(&LinkAtSyscall),
+            SYSCALL_ID_READLINKAT => Some(&ReadLinkAtSyscall),
             _ => None,
         }
     }
