@@ -4,6 +4,7 @@ use core::{
     fmt::{self, Write},
 };
 
+use alloc::sync::Arc;
 use filesystem_abstractions::{
     DirectoryEntryType, FileStatisticsMode, FileSystemResult, IInode, InodeMetadata,
 };
@@ -68,6 +69,13 @@ fn push_message(msg_bytes: &[u8]) -> usize {
 }
 
 pub struct KernelMessageInode;
+
+impl KernelMessageInode {
+    #[allow(clippy::new_ret_no_self)]
+    pub fn new() -> Arc<dyn IInode> {
+        Arc::new(Self)
+    }
+}
 
 impl IInode for KernelMessageInode {
     fn metadata(&self) -> filesystem_abstractions::InodeMetadata {

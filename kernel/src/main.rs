@@ -29,8 +29,8 @@ mod trap;
 
 use alloc::string::String;
 use core::{arch::asm, sync::atomic::AtomicBool};
-use filesystem_abstractions::global_open;
-use firmwares::console::IConsole;
+use filesystem_abstractions::{global_mount_inode, global_open};
+use firmwares::console::{IConsole, KernelMessageInode};
 use paging::PageTable;
 use sbi_spec::base::impl_id;
 
@@ -263,6 +263,10 @@ unsafe extern "C" fn __kernel_init() {
     let etc = global_open("/etc", None).unwrap();
     let passwd = etc.touch("passwd").unwrap();
     passwd.writeat(0, b"cirno:x:0:0::/root:/bin/bash").unwrap();
+
+    let kmsg = KernelMessageInode::new();
+    global_mount_inode(&kmsg, "/dev/kmsg", None).unwrap();
+    global_mount_inode(&kmsg, "/proc/kmsg", None).unwrap();
 
     let tick = machine.get_board_tick();
     let seed = (((tick as u64) << 32) | machine.clock_freq()) ^ 0xdeadbeef;
