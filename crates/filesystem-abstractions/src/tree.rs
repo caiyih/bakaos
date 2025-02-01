@@ -13,9 +13,9 @@ use timing::TimeSpec;
 
 use crate::{
     special_inode::{RandomInode, UnblockedRandomInode},
-    DirectoryEntry, DirectoryEntryType, FileMetadata, FileStatistics, FileSystemError,
-    FileSystemResult, IFileSystem, IInode, InodeMetadata, NullInode, OpenFlags, OpenedDiskInode,
-    TeleTypewriterInode, ZeroInode,
+    DirectoryEntry, DirectoryEntryType, FileMetadata, FileStatistics, FileStatisticsMode,
+    FileSystemError, FileSystemResult, IFileSystem, IInode, InodeMetadata, NullInode, OpenFlags,
+    OpenedDiskInode, TeleTypewriterInode, ZeroInode,
 };
 
 struct RamFileInodeInner {
@@ -824,7 +824,11 @@ impl DirectoryTreeNode {
             None => {
                 stat.device_id = 0;
                 stat.inode_id = 0;
-                stat.mode = crate::FileStatisticsMode::DIR;
+                stat.mode = match unsafe { &self.inner.data_ptr().as_ref().unwrap().meta } {
+                    DirectoryTreeNodeMetadata::Link { target: _ } => FileStatisticsMode::LINK,
+                    DirectoryTreeNodeMetadata::Empty => FileStatisticsMode::DIR,
+                    _ => unreachable!(),
+                };
                 stat.link_count = 1;
                 stat.uid = 0;
                 stat.gid = 0;
