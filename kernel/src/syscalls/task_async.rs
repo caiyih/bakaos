@@ -45,34 +45,37 @@ async_syscall!(sys_wait4_async, ctx, {
     let nohang = (ctx.arg1::<i32>() & 1) == 1;
 
     loop {
-        let mut children = ctx.children.lock();
+        let exited_task = {
+            let children = ctx.children.lock();
 
-        if children.is_empty() {
-            return SyscallError::NoChildProcesses;
-        }
+            if children.is_empty() {
+                return SyscallError::NoChildProcesses;
+            }
 
-        let exited_task = match pid {
-            -1 => children.iter().find(|c| c.is_exited()).cloned(),
-            p if p > 0 => children
-                .iter()
-                .find(|c| c.task_id.id() == p as usize)
-                .cloned(),
-            _ => unimplemented!(),
+            match pid {
+                -1 => children.iter().find(|c| c.is_exited()).cloned(),
+                p if p > 0 => children
+                    .iter()
+                    .find(|c| c.task_id.id() == p as usize)
+                    .cloned(),
+                _ => unimplemented!(),
+            }
         };
 
         match exited_task {
             Some(target_task) => {
                 if !target_task.is_exited() {
-                    match nohang {
-                        true => return SyscallError::Success,
-                        false => drop(children),
+                    if nohang {
+                        return SyscallError::Success;
                     }
 
                     yield_now().await;
                     continue;
                 }
 
-                children.retain(|c| !Arc::ptr_eq(c, &target_task));
+                ctx.children
+                    .lock()
+                    .retain(|c| !Arc::ptr_eq(c, &target_task));
 
                 let p_code = ctx.arg1::<*const i32>();
                 if let Some(mut guard) = ctx
@@ -89,7 +92,6 @@ async_syscall!(sys_wait4_async, ctx, {
             }
             None if nohang => return SyscallError::Success,
             None => {
-                drop(children);
                 // TODO: setup wakeup signal and wait.
                 yield_now().await;
                 continue;
