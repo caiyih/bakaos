@@ -137,9 +137,24 @@ fn run_final_tests() {
     use tasks::TaskControlBlock;
 
     let busybox = global_open("/mnt/busybox", None).unwrap();
-    filesystem_abstractions::global_mount(&busybox, "/bin/bash", None); // bash a.k.a. baka shell ᗜˬᗜ
+    filesystem_abstractions::global_mount(&busybox, "/bin/busybox", None);
+    filesystem_abstractions::global_mount(&busybox, "/bin/sh", None);
 
-    run_busybox("/mnt/busybox", &["/mnt/busybox", "--help"], &[]);
+    run_busybox(
+        "/mnt/busybox",
+        &["/mnt/busybox", "sh", "busybox_testcode.sh"],
+        &[
+            "HOME=/root",
+            "PATH=/mnt:/bin",
+            "USER=cirno",
+            "LOGNAME=cirno",
+            "TERM=xterm-256color",
+            "PWD=/mnt",
+            "SHELL=/bin/sh",
+            "SHLVL=1",
+            "LANG=C",
+        ],
+    );
 
     fn run_busybox(path: &str, args: &[&str], envp: &[&str]) {
         let busybox = filesystem_abstractions::global_open(path, None).unwrap();
@@ -152,7 +167,7 @@ fn run_final_tests() {
         memspace.init_stack(args, envp);
         let task = TaskControlBlock::new(memspace);
         unsafe {
-            task.pcb.lock().cwd = String::from("/");
+            task.pcb.lock().cwd = String::from("/mnt");
         };
 
         spawn_task(task);
