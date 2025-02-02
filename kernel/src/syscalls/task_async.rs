@@ -65,13 +65,14 @@ async_syscall!(sys_wait4_async, ctx, {
                 if !target_task.is_exited() {
                     match nohang {
                         true => return SyscallError::Success,
-                        false => yield_now().await,
+                        false => drop(children),
                     }
 
+                    yield_now().await;
                     continue;
                 }
 
-                children.retain(|c| !Arc::ptr_eq(&c, &target_task));
+                children.retain(|c| !Arc::ptr_eq(c, &target_task));
 
                 let p_code = ctx.arg1::<*const i32>();
                 if let Some(mut guard) = ctx
@@ -88,6 +89,7 @@ async_syscall!(sys_wait4_async, ctx, {
             }
             None if nohang => return SyscallError::Success,
             None => {
+                drop(children);
                 // TODO: setup wakeup signal and wait.
                 yield_now().await;
                 continue;
