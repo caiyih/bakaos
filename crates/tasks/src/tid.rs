@@ -53,14 +53,16 @@ impl TaskIdAllocator {
     }
 
     fn allocate(&mut self) -> TrackedTaskId {
-        match self.recycled.pop() {
-            Some(tid) => TrackedTaskId::new(tid),
-            None => {
-                let tid = self.current;
-                self.current += 1;
-                TrackedTaskId::new(tid)
-            }
-        }
+        // For now, it doesn't really make sense to recycle these pids, as 2^64 is far more than enough.
+        // For easier debugging, i decide to disable this temporarily.
+        // match self.recycled.pop() {
+        //     Some(tid) => TrackedTaskId::new(tid),
+        //     None => {
+        let tid = self.current;
+        self.current += 1;
+        TrackedTaskId::new(tid)
+        //     }
+        // }
     }
 
     fn deallocate(&mut self, tid: usize) {
