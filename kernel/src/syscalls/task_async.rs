@@ -3,7 +3,6 @@ use core::sync::atomic::Ordering;
 use alloc::sync::Arc;
 use constants::SyscallError;
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
-use tasks::TaskControlBlock;
 use threading::yield_now;
 use timing::TimeSpec;
 
@@ -43,57 +42,56 @@ async_syscall!(sys_sched_yield_async, ctx, {
 
 async_syscall!(sys_wait4_async, ctx, {
     let pid = ctx.arg0::<isize>();
+    let nohang = (ctx.arg1::<i32>() & 1) == 1;
 
-    let target_child = ctx
-        .children
-        .lock()
-        .iter()
-        .find(|t| t.task_id.id() == pid as usize)
-        .cloned();
+    loop {
+        let mut children = ctx.children.lock();
 
-    let exited_task: Arc<TaskControlBlock>;
-
-    match target_child {
-        Some(c) => {
-            while !c.is_exited() {
-                yield_now().await;
-            }
-
-            exited_task = c;
+        if children.is_empty() {
+            return SyscallError::NoChildProcesses;
         }
-        None => {
-            if ctx.children.lock().is_empty() {
-                return SyscallError::NoChildProcesses;
-            }
 
-            loop {
-                // Explicity limit the scope of the lock to prevent deadlock
-                let exited_child = {
-                    let children = ctx.children.lock();
-                    children.iter().find(|t| t.is_exited()).cloned()
-                };
+        let exited_task = match pid {
+            -1 => children.iter().find(|c| c.is_exited()).cloned(),
+            p if p > 0 => children
+                .iter()
+                .find(|c| c.task_id.id() == p as usize)
+                .cloned(),
+            _ => unimplemented!(),
+        };
 
-                match exited_child {
-                    Some(exited) => {
-                        exited_task = exited;
-                        break;
+        match exited_task {
+            Some(target_task) => {
+                if !target_task.is_exited() {
+                    match nohang {
+                        true => return SyscallError::Success,
+                        false => yield_now().await,
                     }
-                    None => yield_now().await,
+
+                    continue;
                 }
+
+                children.retain(|c| !Arc::ptr_eq(&c, &target_task));
+
+                let p_code = ctx.arg1::<*const i32>();
+                if let Some(mut guard) = ctx
+                    .borrow_page_table()
+                    .guard_ptr(p_code)
+                    .mustbe_user()
+                    .mustbe_readable()
+                    .with_write()
+                {
+                    *guard = (target_task.exit_code.load(Ordering::Relaxed) << 8) & 0xff00;
+                }
+
+                return Ok(target_task.task_id.id() as isize);
+            }
+            None if nohang => return SyscallError::Success,
+            None => {
+                // TODO: setup wakeup signal and wait.
+                yield_now().await;
+                continue;
             }
         }
-    };
-
-    let p_code = ctx.arg1::<*const i32>();
-    if let Some(mut guard) = ctx
-        .borrow_page_table()
-        .guard_ptr(p_code)
-        .mustbe_user()
-        .mustbe_readable()
-        .with_write()
-    {
-        *guard = (exited_task.exit_code.load(Ordering::Relaxed) << 8) & 0xff00;
     }
-
-    Ok(exited_task.task_id.id() as isize)
 });
