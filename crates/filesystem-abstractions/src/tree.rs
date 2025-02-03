@@ -927,7 +927,7 @@ impl DirectoryTreeNode {
         for _ in 0..RESOLUTION_LIMIT {
             match current.resolve_link() {
                 None => return Ok(current),
-                Some(target) => match global_open_raw(&target, Some(&current)) {
+                Some(target) => match global_open_raw(&target, current.parent.as_ref()) {
                     Ok(node) => current = node,
                     Err(_) => return Err(FileSystemError::NotFound),
                 },
