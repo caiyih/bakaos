@@ -359,6 +359,14 @@ impl MemorySpace {
             }
         }
 
+        this.brk_area_idx = them.brk_area_idx;
+        this.brk_start = them.brk_start;
+        this.stack_guard_base = them.stack_guard_base;
+        this.stack_range = them.stack_range;
+        this.stack_gurad_top = them.stack_gurad_top;
+        this.elf_area = them.elf_area;
+        this.signal_trampoline = them.signal_trampoline;
+
         this
     }
 
