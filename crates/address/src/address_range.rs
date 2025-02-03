@@ -108,7 +108,7 @@ where
 
     pub fn iter(&self) -> AddressRangeIter<T> {
         AddressRangeIter {
-            range: self.clone(),
+            range: *self,
             current: self.start,
         }
     }
