@@ -379,7 +379,7 @@ impl ISyncSyscallHandler for ExecveSyscall {
 
                         let bytes = file.readall().map_err(|_| ErrNo::OperationNotPermitted)?;
 
-                        ctx.execve(&bytes, &args, &envp)
+                        ctx.execve(&bytes, &fullpath, &args, &envp)
                             .map_err(|_| ErrNo::ExecFormatError)?;
 
                         unsafe {

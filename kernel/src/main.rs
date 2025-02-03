@@ -33,6 +33,7 @@ use filesystem_abstractions::{global_mount_inode, global_open};
 use firmwares::console::{IConsole, KernelMessageInode};
 use paging::PageTable;
 use sbi_spec::base::impl_id;
+use tasks::ProcessControlBlock;
 
 extern crate alloc;
 
@@ -142,7 +143,7 @@ fn run_final_tests() {
 
     run_busybox(
         "/mnt/busybox",
-        &["/mnt/busybox", "sh", "busybox_testcode.sh"],
+        &["sh", "busybox_testcode.sh"],
         &[
             "HOME=/root",
             "PATH=/mnt:/bin",
@@ -160,12 +161,12 @@ fn run_final_tests() {
         let busybox = filesystem_abstractions::global_open(path, None).unwrap();
         let busybox = busybox.readall().unwrap();
 
-        let mut memspace = MemorySpaceBuilder::from_elf(&busybox).unwrap();
+        let mut memspace = MemorySpaceBuilder::from_elf(&busybox, path).unwrap();
 
         drop(busybox);
 
         memspace.init_stack(args, envp);
-        let task = TaskControlBlock::new(memspace);
+        let task = ProcessControlBlock::new(memspace);
         unsafe {
             task.pcb.lock().cwd = String::from("/mnt");
         };
@@ -188,11 +189,11 @@ fn run_preliminary_tests() {
                 .readall()
                 .expect("Failed to read file");
 
-            MemorySpaceBuilder::from_elf(&elf).unwrap()
+            MemorySpaceBuilder::from_elf(&elf, path).unwrap()
         };
 
         memspace.init_stack(args.unwrap_or(&[]), envp.unwrap_or(&[]));
-        let task = TaskControlBlock::new(memspace);
+        let task = ProcessControlBlock::new(memspace);
         unsafe {
             let directory = path::get_directory_name(path).unwrap();
             task.pcb.lock().cwd = String::from(directory);

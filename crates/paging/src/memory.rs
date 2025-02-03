@@ -1,7 +1,7 @@
 use core::{slice, usize};
 
 use abstractions::IUsizeAlias;
-use alloc::{collections::BTreeMap, vec::Vec};
+use alloc::{collections::BTreeMap, string::String, vec::Vec};
 
 use address::{
     IAlignableAddress, IPageNum, IToPageNum, PhysicalAddress, PhysicalPageNum, VirtualAddress,
@@ -427,6 +427,8 @@ pub struct MemorySpaceBuilder {
     pub argv_base: VirtualAddress,
     pub envp_base: VirtualAddress,
     pub auxv: Vec<AuxVecEntry>,
+    pub executable: String,
+    pub command_line: Vec<String>,
 }
 
 // Fix that `TaskControlBlock::from(memory_space_builder)` complains `Arc<MemorySpaceBuilder>` is not `Send` and `Sync`
@@ -434,7 +436,7 @@ unsafe impl Sync for MemorySpaceBuilder {}
 unsafe impl Send for MemorySpaceBuilder {}
 
 impl MemorySpaceBuilder {
-    pub fn from_elf(elf_data: &[u8]) -> Result<Self, &'static str> {
+    pub fn from_elf(elf_data: &[u8], executable_path: &str) -> Result<Self, &'static str> {
         let current_page_table = PageTable::borrow_current();
         let mut memory_space = MemorySpace::empty();
         memory_space.register_kernel_area();
@@ -636,6 +638,8 @@ impl MemorySpaceBuilder {
             argv_base: stack_top,
             envp_base: stack_top,
             auxv,
+            executable: String::from(executable_path),
+            command_line: Vec::new(),
         })
     }
 
@@ -749,6 +753,11 @@ impl MemorySpaceBuilder {
         self.argc = argc;
         self.argv_base = argv_base;
         self.envp_base = envp_base;
+
+        self.command_line.push(self.executable.clone());
+        for &arg in args {
+            self.command_line.push(String::from(arg));
+        }
     }
 }
 

@@ -240,26 +240,50 @@ pub struct ProcessControlBlock {
     pub mmaps: TaskMemoryMap,
     pub futex_queue: FutexQueue,
     pub tasks: BTreeMap<usize, Weak<TaskControlBlock>>,
+    pub executable: Arc<String>,
+    pub command_line: Arc<Vec<String>>,
 }
 
 impl ProcessControlBlock {
-    pub fn new(pid: usize, memory_space_builder: MemorySpaceBuilder) -> ProcessControlBlock {
-        let brk_pos = memory_space_builder.memory_space.brk_start().as_usize();
+    #[allow(clippy::new_ret_no_self)]
+    pub fn new(memory_space_builder: MemorySpaceBuilder) -> Arc<TaskControlBlock> {
+        let trap_context = TaskTrapContext::new(&memory_space_builder);
+        let task_id = tid::allocate_tid();
+        let tid = task_id.id();
 
-        ProcessControlBlock {
+        let pcb = ProcessControlBlock {
             parent: None,
-            id: pid,
-            brk_pos,
+            id: tid,
+            brk_pos: memory_space_builder.memory_space.brk_start().as_usize(),
             exit_code: 0,
             status: TaskStatus::Uninitialized,
             stats: UserTaskStatistics::default(),
             cwd: String::new(),
-            fd_table: FileDescriptorTable::new(pid),
+            fd_table: FileDescriptorTable::new(tid),
             mmaps: TaskMemoryMap::default(),
             memory_space: memory_space_builder.memory_space,
             futex_queue: FutexQueue::default(),
             tasks: BTreeMap::new(),
-        }
+            executable: Arc::new(memory_space_builder.executable),
+            command_line: Arc::new(memory_space_builder.command_line),
+        };
+
+        let tcb = Arc::new(TaskControlBlock {
+            task_id,
+            task_status: SpinMutex::new(TaskStatus::Uninitialized),
+            children: SpinMutex::new(Vec::new()),
+            trap_context: UnsafeCell::new(trap_context),
+            waker: UnsafeCell::new(MaybeUninit::uninit()),
+            start_time: UnsafeCell::new(MaybeUninit::uninit()),
+            timer: SpinMutex::new(UserTaskTimer::default()),
+            kernel_timer: SpinMutex::new(UserTaskTimer::default()),
+            exit_code: AtomicI32::new(0),
+            pcb: Arc::new(SpinMutex::new(pcb)),
+        });
+
+        tcb.pcb.lock().tasks.insert(tid, Arc::downgrade(&tcb));
+
+        tcb
     }
 }
 
@@ -280,35 +304,6 @@ unsafe impl Sync for TaskControlBlock {}
 unsafe impl Send for TaskControlBlock {}
 
 impl TaskControlBlock {
-    pub fn new(memory_space_builder: MemorySpaceBuilder) -> Arc<TaskControlBlock> {
-        let trap_context = TaskTrapContext::new(&memory_space_builder);
-        let task_id = tid::allocate_tid();
-        let tid = task_id.id();
-        let created = Arc::new(TaskControlBlock {
-            task_id,
-            task_status: SpinMutex::new(TaskStatus::Uninitialized),
-            children: SpinMutex::new(Vec::new()),
-            trap_context: UnsafeCell::new(trap_context),
-            waker: UnsafeCell::new(MaybeUninit::uninit()),
-            start_time: UnsafeCell::new(MaybeUninit::uninit()),
-            timer: SpinMutex::new(UserTaskTimer::default()),
-            kernel_timer: SpinMutex::new(UserTaskTimer::default()),
-            exit_code: AtomicI32::new(0),
-            pcb: Arc::new(SpinMutex::new(ProcessControlBlock::new(
-                tid,
-                memory_space_builder,
-            ))),
-        });
-
-        created
-            .pcb
-            .lock()
-            .tasks
-            .insert(tid, Arc::downgrade(&created));
-
-        created
-    }
-
     pub fn init(&self) {
         let mut task_status = self.task_status.lock();
         if let core::cmp::Ordering::Less = task_status.cmp(&TaskStatus::Ready) {
@@ -362,10 +357,11 @@ impl TaskControlBlock {
     pub fn execve(
         self: &Arc<TaskControlBlock>,
         elf: &[u8],
+        path: &str,
         args: &[&str],
         envp: &[&str],
     ) -> Result<(), &'static str> {
-        let mut memory_space_builder = MemorySpaceBuilder::from_elf(elf)?;
+        let mut memory_space_builder = MemorySpaceBuilder::from_elf(elf, path)?;
 
         memory_space_builder.init_stack(args, envp);
 
@@ -435,6 +431,8 @@ impl TaskControlBlock {
                 mmaps: TaskMemoryMap::default(),
                 futex_queue: FutexQueue::default(),
                 tasks: BTreeMap::new(),
+                executable: this_pcb.executable.clone(),
+                command_line: this_pcb.command_line.clone(),
             })),
         });
 
