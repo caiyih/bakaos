@@ -463,7 +463,7 @@ impl DirectoryTreeNode {
         debug_assert!(!name.contains(path::SEPARATOR));
 
         if name == path::CURRENT_DIRECTORY || name.is_empty() {
-            return Ok(self.clone());
+            return self.resolve_all_link();
         }
 
         if name == path::PARENT_DIRECTORY {
