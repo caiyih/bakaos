@@ -986,7 +986,7 @@ pub fn global_open_raw(
 
     let mut current = root;
     for part in parts {
-        current = current.open_child(part)?;
+        current = current.resolve_all_link()?.open_child(part)?;
     }
 
     Ok(current)
