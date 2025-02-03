@@ -784,28 +784,35 @@ impl DirectoryTreeNode {
         let mut entries = {
             let mut inner = self.inner.lock();
 
-            // If the directory itself was mounted as its child, we have to be care of potential deadlock,
-            // so we copy a list of the list.
-            let mounted = inner.mounted.clone();
-            let mounted_entries = mounted
-                .iter()
-                .map(|(name, mounted)| to_directory_entry(name, mounted));
-
             match inner.meta.as_inode() {
                 Some(inode) => {
                     let inode = inode.clone();
 
                     let mut entries = inode.read_cache_dir(&mut inner.children_cache)?;
+                    let mut overrideds = BTreeMap::new();
 
-                    for entry in mounted_entries {
-                        if mounted.get(&entry.filename).is_none() {
-                            entries.push(entry);
+                    for entry in entries.iter_mut() {
+                        if let Some(overrider) = inner.mounted.remove_entry(&entry.filename) {
+                            *entry = to_directory_entry(&entry.filename, &overrider.1);
+                            overrideds.insert(overrider.0, overrider.1);
                         }
+                    }
+
+                    for (name, entry) in inner.mounted.iter() {
+                        entries.push(to_directory_entry(name, entry));
+                    }
+
+                    for overrider in overrideds {
+                        inner.mounted.insert(overrider.0, overrider.1);
                     }
 
                     entries
                 }
-                None => mounted_entries.collect(),
+                None => inner
+                    .mounted
+                    .iter()
+                    .map(|(name, mounted)| to_directory_entry(name, mounted))
+                    .collect(),
             }
         };
 
@@ -939,8 +946,8 @@ pub fn initialize() {
     let root = DirectoryTreeNode::from_empty(None, String::new());
 
     for node in [
-        "boot", "dev", "etc", "home", "root", "opt", "mnt", "proc", "sys", "tmp", "run", "usr",
-        "var", "bin",
+        "boot", "dev", "etc", "home", "root", "opt", "mnt", "sys", "tmp", "run", "usr", "var",
+        "bin",
     ]
     .iter()
     {
