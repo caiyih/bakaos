@@ -46,7 +46,7 @@ SECTIONS
         *(.bss.stack)
         PROVIDE(__tmp_stack_bottom = .);
         . = ALIGN(4K);
-        . += 0x00080000;
+        . += 0x00180000;
         . = ALIGN(4K);
         PROVIDE(__tmp_stack_top = .);
         sbss = .;
