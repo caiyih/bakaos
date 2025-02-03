@@ -426,7 +426,7 @@ impl ISyncSyscallHandler for NewFstatatSyscall {
                 const AT_SYMLINK_NOFOLLOW: i32 = 0x100;
                 let flag = ctx.arg3::<i32>();
 
-                let resolve_link = (flag & AT_SYMLINK_NOFOLLOW) != 0;
+                let resolve_link = (flag & AT_SYMLINK_NOFOLLOW) == 0;
 
                 let path = unsafe { core::str::from_utf8_unchecked(&path_guard) };
 
