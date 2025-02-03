@@ -9,11 +9,20 @@ use core::{
 
 use alloc::{
     collections::btree_map::BTreeMap,
+    format,
+    string::{String, ToString},
     sync::{Arc, Weak},
+    vec,
+    vec::Vec,
+};
+use filesystem_abstractions::{
+    global_mount_inode, DirectoryEntry, DirectoryEntryType, FileStatistics, FileStatisticsMode,
+    FileSystemError, FileSystemResult, IInode, InodeMetadata,
 };
 use hermit_sync::SpinMutex;
 use log::debug;
 use tasks::{TaskControlBlock, TaskStatus};
+use timing::TimeSpec;
 
 use crate::{
     processor::ProcessorUnit,
@@ -142,4 +151,182 @@ pub fn spawn_task(tcb: Arc<TaskControlBlock>) {
     tcb.init();
     let fut = TaskFuture::new(tcb.clone(), task_loop(tcb));
     threading::spawn(fut);
+}
+
+pub struct ProcDeviceInode;
+
+impl ProcDeviceInode {
+    pub fn setup() {
+        let proc: Arc<dyn IInode> = Arc::new(ProcDeviceInode);
+
+        global_mount_inode(&proc, "/proc", None).unwrap();
+
+        let self_link: Arc<dyn IInode> = Arc::new(SelfLinkInode);
+        global_mount_inode(&self_link, "/proc/self", None).unwrap();
+
+        // TODO: add meminfo, cpu info...
+    }
+}
+
+fn stat(stat: &mut FileStatistics, mode: FileStatisticsMode) -> FileSystemResult<()> {
+    stat.device_id = 0;
+    stat.inode_id = 0;
+    stat.mode = mode;
+    stat.link_count = 1;
+    stat.uid = 0;
+    stat.gid = 0;
+    stat.size = 0;
+    stat.block_size = 512;
+    stat.block_count = 0;
+    stat.rdev = 0;
+
+    stat.ctime = TimeSpec::zero();
+    stat.mtime = TimeSpec::zero();
+    stat.atime = TimeSpec::zero();
+
+    Ok(())
+}
+
+impl IInode for ProcDeviceInode {
+    fn metadata(&self) -> InodeMetadata {
+        InodeMetadata {
+            filename: "proc",
+            entry_type: DirectoryEntryType::Directory,
+            size: 0,
+        }
+    }
+
+    fn lookup(&self, name: &str) -> FileSystemResult<Arc<dyn IInode>> {
+        if let Ok(tid) = name.parse::<usize>() {
+            if let Some(tcb) = unsafe { TASKS_MAP.lock().get(&tid).and_then(|w| w.upgrade()) } {
+                return Ok(Arc::new(ProcessDirectoryInode(tcb)));
+            }
+        }
+
+        Err(FileSystemError::NotFound)
+    }
+
+    fn read_cache_dir(
+        &self,
+        _caches: &mut BTreeMap<String, Arc<dyn IInode>>, // not needed
+    ) -> FileSystemResult<Vec<DirectoryEntry>> {
+        let tasks = unsafe { TASKS_MAP.lock() };
+
+        let mut entries = Vec::with_capacity(tasks.len());
+
+        for task in tasks.iter().filter_map(|(_, w)| w.upgrade()) {
+            entries.push(DirectoryEntry {
+                filename: task.task_id.id().to_string(),
+                entry_type: DirectoryEntryType::Directory,
+            });
+        }
+
+        // release unnecessary memory
+        entries.shrink_to_fit();
+
+        Ok(entries)
+    }
+
+    fn stat(&self, stat: &mut FileStatistics) -> FileSystemResult<()> {
+        self::stat(stat, FileStatisticsMode::DIR)
+    }
+}
+
+struct SelfLinkInode;
+
+impl IInode for SelfLinkInode {
+    fn metadata(&self) -> InodeMetadata {
+        InodeMetadata {
+            filename: "self",
+            entry_type: DirectoryEntryType::Symlink,
+            size: 0,
+        }
+    }
+
+    fn resolve_link(&self) -> Option<String> {
+        ProcessorUnit::current()
+            .staged_task()
+            .map(|t| format!("{}/", t.task_id.id()))
+    }
+
+    fn stat(&self, stat: &mut FileStatistics) -> FileSystemResult<()> {
+        self::stat(stat, FileStatisticsMode::LINK)
+    }
+}
+
+struct ProcessDirectoryInode(Arc<TaskControlBlock>);
+
+impl IInode for ProcessDirectoryInode {
+    fn metadata(&self) -> InodeMetadata {
+        InodeMetadata {
+            filename: "",
+            entry_type: DirectoryEntryType::Directory,
+            size: 0,
+        }
+    }
+
+    fn read_cache_dir(
+        &self,
+        _caches: &mut BTreeMap<String, Arc<dyn IInode>>,
+    ) -> FileSystemResult<Vec<DirectoryEntry>> {
+        #[inline]
+        fn entry(name: &str, entry_type: DirectoryEntryType) -> DirectoryEntry {
+            DirectoryEntry {
+                filename: String::from(name),
+                entry_type,
+            }
+        }
+
+        Ok(vec![
+            entry("exe", DirectoryEntryType::Symlink),
+            entry("cwd", DirectoryEntryType::Symlink),
+        ])
+    }
+
+    fn lookup(&self, name: &str) -> FileSystemResult<Arc<dyn IInode>> {
+        if name == "exe" {
+            return Ok(Arc::new(LinkToInode(unsafe {
+                self.0
+                    .pcb
+                    .data_ptr()
+                    .as_ref()
+                    .unwrap()
+                    .executable
+                    .as_ref()
+                    .clone()
+            })));
+        }
+
+        if name == "cwd" {
+            return Ok(Arc::new(LinkToInode(unsafe {
+                self.0.pcb.data_ptr().as_ref().unwrap().cwd.clone()
+            })));
+        }
+
+        Err(FileSystemError::NotFound)
+    }
+
+    fn stat(&self, stat: &mut FileStatistics) -> FileSystemResult<()> {
+        self::stat(stat, FileStatisticsMode::DIR)
+    }
+}
+
+struct LinkToInode(String);
+
+impl IInode for LinkToInode {
+    fn metadata(&self) -> InodeMetadata {
+        InodeMetadata {
+            filename: "",
+            entry_type: DirectoryEntryType::Symlink,
+            size: 0,
+        }
+    }
+
+    fn resolve_link(&self) -> Option<String> {
+        Some(self.0.clone())
+    }
+
+    fn stat(&self, stat: &mut FileStatistics) -> FileSystemResult<()> {
+        self::stat(stat, FileStatisticsMode::LINK)
+    }
 }

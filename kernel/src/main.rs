@@ -33,6 +33,7 @@ use filesystem_abstractions::{global_mount_inode, global_open};
 use firmwares::console::{IConsole, KernelMessageInode};
 use paging::PageTable;
 use sbi_spec::base::impl_id;
+use scheduling::ProcDeviceInode;
 use tasks::ProcessControlBlock;
 
 extern crate alloc;
@@ -270,6 +271,7 @@ unsafe extern "C" fn __kernel_init() {
     BOOTED.store(true, core::sync::atomic::Ordering::Relaxed);
 
     filesystem_abstractions::initialize();
+    ProcDeviceInode::setup();
 
     let sda = machine.create_block_device_at(0);
     filesystem_abstractions::global_mount_inode(&sda, "/dev/sda", None).unwrap();
