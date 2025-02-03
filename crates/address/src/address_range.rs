@@ -3,7 +3,7 @@ use core::ops::Range;
 use crate::*;
 
 #[repr(C)]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct AddressRange<T>
 where
     T: IAddress,
