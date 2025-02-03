@@ -209,15 +209,11 @@ impl TaskMemoryMap {
         flags: MemoryMapFlags,
         length: usize,
     ) -> Option<usize> {
-        if fd.is_none() && flags.is_anonymous() {
+        if fd.is_none() || flags.is_anonymous() {
             self.mapped_files
                 .push(MemoryMappedFile::new_anonymous(length));
 
             return Some(self.mapped_files.len() - 1);
-        }
-
-        if fd.is_none() || flags.is_anonymous() {
-            return None;
         }
 
         let fd = fd.unwrap();
