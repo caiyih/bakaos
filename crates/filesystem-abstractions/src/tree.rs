@@ -500,7 +500,7 @@ impl DirectoryTreeNode {
         #[allow(deprecated)]
         let inode = self.lookup(name)?;
 
-        let opened = Self::from_inode(Some(self.clone()), &inode, None);
+        let opened = Self::from_inode(Some(self.clone()), &inode, Some(name));
 
         self.inner
             .lock()
@@ -918,7 +918,7 @@ impl DirectoryTreeNode {
 
         let mut current = self.clone();
         for _ in 0..RESOLUTION_LIMIT {
-            match self.resolve_link() {
+            match current.resolve_link() {
                 None => return Ok(current),
                 Some(target) => match global_open_raw(&target, Some(&current)) {
                     Ok(node) => current = node,
