@@ -295,7 +295,14 @@ impl IInode for Ext4Inode {
     }
 
     fn remove(&self, name: &str) -> filesystem_abstractions::FileSystemResult<()> {
-        self.rmdir(name) // ??
+        self.should_be_directory()?;
+
+        let mut inode_ref = self.fs.get_inode_ref(self.inode_id);
+        self.fs
+            .dir_remove_entry(&mut inode_ref, name)
+            .map_err(|_| FileSystemError::InternalError)?;
+
+        Ok(())
     }
 
     fn stat(
