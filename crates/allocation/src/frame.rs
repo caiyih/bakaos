@@ -12,21 +12,22 @@ pub struct TrackedFrame(PhysicalPageNum);
 
 impl TrackedFrame {
     fn new(ppn: PhysicalPageNum) -> Self {
+        zero_frame(ppn);
         TrackedFrame(ppn)
     }
 
     pub fn ppn(&self) -> PhysicalPageNum {
         self.0
     }
+}
 
-    pub fn zero(&self) {
-        let va = self.ppn().start_addr::<PhysicalAddress>().to_high_virtual();
+fn zero_frame(ppn: PhysicalPageNum) {
+    let va = ppn.start_addr::<PhysicalAddress>().to_high_virtual();
 
-        let ptr = unsafe { va.as_mut_ptr::<u64>() };
+    let ptr = unsafe { va.as_mut_ptr::<u64>() };
 
-        for i in 0..(constants::PAGE_SIZE / core::mem::size_of::<u64>()) {
-            unsafe { ptr.add(i).write_volatile(0) };
-        }
+    for i in 0..(constants::PAGE_SIZE / core::mem::size_of::<u64>()) {
+        unsafe { ptr.add(i).write_volatile(0) };
     }
 }
 
@@ -43,6 +44,10 @@ pub struct TrackedFrameRange {
 
 impl TrackedFrameRange {
     pub fn new(start: PhysicalPageNum, count: usize) -> Self {
+        for i in 0..count {
+            zero_frame(start + i);
+        }
+
         TrackedFrameRange { start, count }
     }
 
@@ -192,7 +197,7 @@ impl IFrameAllocator for FrameAllocator {
                 let start = self.current;
                 self.current += count;
 
-                Some(TrackedFrameRange { start, count })
+                Some(TrackedFrameRange::new(start, count))
             }
             // Prevent dealloc if we don't have enough frames
             _ => None,

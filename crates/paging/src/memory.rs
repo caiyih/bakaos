@@ -132,7 +132,6 @@ impl MappingArea {
         register_to_table: &mut impl FnMut(VirtualPageNum, PhysicalPageNum, PageTableEntryFlags),
     ) {
         let frame = frame.unwrap_or(alloc_frame().unwrap());
-        frame.zero();
         register_to_table(vpn, frame.ppn(), self.permissions);
         self.allocated_frames.insert(vpn, frame); // this takes ownership of the frame, so add it last
     }

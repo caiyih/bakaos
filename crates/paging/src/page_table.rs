@@ -230,7 +230,6 @@ impl PageTable {
         let root = frame.ppn();
 
         debug!("Allocating page table at: {}", root);
-        frame.zero();
 
         let tracker = ModifiablePageTable {
             table_frames: vec![frame],
@@ -369,7 +368,6 @@ impl PageTable {
             if !entry.is_valid() {
                 let frame = allocation::alloc_frame()
                     .expect("Failed to allocate a frame for the page table");
-                frame.zero();
                 *entry = PageTableEntry::new(frame.ppn(), PageTableEntryFlags::Valid);
                 tracker.table_frames.push(frame);
             }
