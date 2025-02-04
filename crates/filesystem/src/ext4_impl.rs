@@ -1,5 +1,5 @@
+use core::mem::MaybeUninit;
 use core::ops::Deref;
-use core::{mem::MaybeUninit, panic};
 
 use ext4_rs::{Ext4, InodeFileType};
 use filesystem_abstractions::{
@@ -152,30 +152,17 @@ impl IInode for Ext4Inode {
 
     fn mkdir(&self, name: &str) -> filesystem_abstractions::FileSystemResult<Arc<dyn IInode>> {
         self.should_be_directory()?;
+        const MODE: u16 = InodeFileType::S_IFDIR.bits() | 0o777;
 
-        let inode = self
+        let created_inode = self
             .fs
-            .alloc_inode(true)
-            .map_err(|_| FileSystemError::SpaceNotEnough)?; // TODO: parse the error
-
-        let mut this = self.fs.get_inode_ref(self.inode_id);
-        let mut that = self.fs.get_inode_ref(inode);
-
-        that.inode.set_file_type(InodeFileType::S_IFDIR);
-        self.fs.write_back_inode(&mut that);
-
-        if that.inode.file_type() != InodeFileType::S_IFDIR {
-            return Err(FileSystemError::InternalError);
-        }
-
-        self.fs
-            .dir_add_entry(&mut this, &that, name)
-            .map_err(|_| FileSystemError::InternalError)?; // TODO: parse the error
+            .create(self.inode_id, name, MODE)
+            .map_err(|_| FileSystemError::SpaceNotEnough)?;
 
         Ok(Arc::new(Ext4Inode {
             filename: name.to_string(),
-            inode_id: inode,
-            file_type: DirectoryEntryType::Directory,
+            inode_id: created_inode.inode_num,
+            file_type: DirectoryEntryType::File,
             fs: self.fs.clone(),
         }))
     }
@@ -257,29 +244,13 @@ impl IInode for Ext4Inode {
 
     fn touch(&self, name: &str) -> filesystem_abstractions::FileSystemResult<Arc<dyn IInode>> {
         self.should_be_directory()?;
+        const MODE: u16 = InodeFileType::S_IFREG.bits() | 0o777;
 
-        let inode = self
-            .fs
-            .alloc_inode(false)
-            .map_err(|_| FileSystemError::SpaceNotEnough)?; // TODO: parse the error
-
-        let mut this = self.fs.get_inode_ref(self.inode_id);
-        let mut that = self.fs.get_inode_ref(inode);
-
-        that.inode.set_file_type(InodeFileType::S_IFREG);
-        self.fs.write_back_inode(&mut that);
-
-        if that.inode.file_type() != InodeFileType::S_IFREG {
-            return Err(FileSystemError::InternalError);
-        }
-
-        self.fs
-            .dir_add_entry(&mut this, &that, name)
-            .map_err(|_| FileSystemError::InternalError)?; // TODO: parse the error
+        let created_inode = self.fs.create(self.inode_id, name, MODE).unwrap();
 
         Ok(Arc::new(Ext4Inode {
             filename: name.to_string(),
-            inode_id: inode,
+            inode_id: created_inode.inode_num,
             file_type: DirectoryEntryType::File,
             fs: self.fs.clone(),
         }))
@@ -401,31 +372,21 @@ impl IInode for Ext4Inode {
         point_to: &str,
     ) -> filesystem_abstractions::FileSystemResult<Arc<dyn IInode>> {
         self.should_be_directory()?;
+        const MODE: u16 = InodeFileType::S_IFLNK.bits() | 0o777;
 
-        let link_inode = self
+        let created_inode = self
             .fs
-            .alloc_inode(false)
+            .create(self.inode_id, name, MODE)
             .map_err(|_| FileSystemError::SpaceNotEnough)?;
 
-        let mut link_ref = self.fs.get_inode_ref(link_inode);
-
-        link_ref.inode.set_file_type(InodeFileType::S_IFLNK);
-
         self.fs
-            .write_at(link_inode, 0, point_to.as_bytes())
+            .write_at(created_inode.inode_num, 0, point_to.as_bytes())
             .map_err(|_| FileSystemError::InternalError)?; // TODO: parse the error
-
-        self.fs.write_back_inode(&mut link_ref);
-
-        let mut self_ref = self.fs.get_inode_ref(self.inode_id);
-        self.fs
-            .dir_add_entry(&mut self_ref, &link_ref, name)
-            .map_err(|_| FileSystemError::SpaceNotEnough)?;
 
         Ok(Arc::new(Ext4Inode {
             filename: name.to_string(),
-            inode_id: link_inode,
-            file_type: DirectoryEntryType::Symlink,
+            inode_id: created_inode.inode_num,
+            file_type: DirectoryEntryType::File,
             fs: self.fs.clone(),
         }))
     }
@@ -459,8 +420,15 @@ impl IDirectoryEntryType for ext4_rs::InodeFileType {
             DirectoryEntryType::File
         } else if self.contains(InodeFileType::S_IFLNK) {
             DirectoryEntryType::Symlink
+        } else if self.contains(InodeFileType::S_IFBLK) {
+            DirectoryEntryType::BlockDevice
+        } else if self.contains(InodeFileType::S_IFCHR) {
+            DirectoryEntryType::CharDevice
+        } else if self.contains(InodeFileType::S_IFIFO) {
+            DirectoryEntryType::NamedPipe
         } else {
-            panic!("Unsupported file type: {:?}", self);
+            log::warn!("Unsupported file type: {:?}", self);
+            DirectoryEntryType::File
         }
     }
 }
