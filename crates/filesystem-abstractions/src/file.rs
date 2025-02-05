@@ -417,7 +417,7 @@ impl FileDescriptorTable {
         Some(self.table.len() - 1)
     }
 
-    pub const MAX_SIZE: usize = 1024;
+    pub const MAX_SIZE: usize = 42; // according to rlimit
     pub fn allocate_at<TFDBuilder: IFileDescriptorBuilder>(
         &mut self,
         fd_builder: TFDBuilder,
