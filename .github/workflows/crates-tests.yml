@@ -32,6 +32,7 @@ jobs:
           rustup default $TOOLCHAIN_VERSION
           rustup override set $TOOLCHAIN_VERSION
 
+      - uses: ./.github/workflows/actions/setup-musl
 
       - name: Run tests
         run: cargo test --all
