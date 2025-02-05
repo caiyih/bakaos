@@ -1,4 +1,3 @@
-#![feature(noop_waker)]
 #![feature(future_join)]
 #![cfg_attr(not(feature = "std"), no_std)]
 

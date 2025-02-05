@@ -1,4 +1,4 @@
-use core::{slice, usize};
+use core::slice;
 
 use abstractions::IUsizeAlias;
 use alloc::{collections::BTreeMap, string::String, vec::Vec};

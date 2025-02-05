@@ -3,11 +3,8 @@
 #![no_std]
 #![no_main]
 #![feature(naked_functions)]
-#![feature(panic_info_message)]
 #![feature(panic_can_unwind)]
-#![feature(inline_const)]
 #![feature(alloc_error_handler)]
-#![feature(asm_const)]
 #![allow(internal_features)]
 #![feature(core_intrinsics)]
 
@@ -28,7 +25,7 @@ mod timing;
 mod trap;
 
 use alloc::string::String;
-use core::{arch::asm, sync::atomic::AtomicBool};
+use core::{arch::naked_asm, sync::atomic::AtomicBool};
 use filesystem_abstractions::{global_mount_inode, global_open};
 use firmwares::console::{IConsole, KernelMessageInode};
 use paging::PageTable;
@@ -42,7 +39,7 @@ extern crate alloc;
 #[no_mangle]
 #[link_section = ".text.entry"]
 unsafe extern "C" fn _start() -> ! {
-    asm!(
+    naked_asm!(
         // Read the hart id
         "mv tp, a0",
         // Read the device tree address
@@ -64,7 +61,6 @@ unsafe extern "C" fn _start() -> ! {
         page_table = sym PAGE_TABLE,
         virt_addr_offset = const constants::VIRT_ADDR_OFFSET,
         entry = sym _start_virtualized,
-        options(noreturn)
     )
 }
 
@@ -72,7 +68,7 @@ unsafe extern "C" fn _start() -> ! {
 #[no_mangle]
 #[link_section = ".text.entry"]
 unsafe extern "C" fn _start_virtualized() -> ! {
-    asm!(
+    naked_asm!(
         // Naver come back!
         "xor ra, ra, ra",
         // Clear fp so that unwind knows where to stop
@@ -87,7 +83,6 @@ unsafe extern "C" fn _start_virtualized() -> ! {
         "or sp, t0, sp",
         "j __kernel_start_main",
         virt_addr_offset = const constants::VIRT_ADDR_OFFSET,
-        options(noreturn)
     )
 }
 

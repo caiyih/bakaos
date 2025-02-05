@@ -1,4 +1,3 @@
-#![feature(unchecked_math)]
 #![feature(unchecked_shifts)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -14,10 +13,9 @@ use rand_xoshiro::Xoshiro256StarStar;
 #[cfg(feature = "std")]
 extern crate std;
 
-static mut GLOBAL_XOSHIRO256SS: SpinMutex<MaybeUninit<Xoshiro256StarStar>> =
+static GLOBAL_XOSHIRO256SS: SpinMutex<MaybeUninit<Xoshiro256StarStar>> =
     SpinMutex::new(MaybeUninit::uninit());
-static mut GLOBAL_CHACHA20: SpinMutex<MaybeUninit<ChaCha20Rng>> =
-    SpinMutex::new(MaybeUninit::uninit());
+static GLOBAL_CHACHA20: SpinMutex<MaybeUninit<ChaCha20Rng>> = SpinMutex::new(MaybeUninit::uninit());
 
 pub fn global_next64_fast() -> u64 {
     unsafe { GLOBAL_XOSHIRO256SS.lock().assume_init_mut().next_u64() }
@@ -51,8 +49,6 @@ pub fn global_fill_safe(buffer: &mut [u8]) {
 }
 
 pub fn initialize(seed: u64) {
-    unsafe {
-        *GLOBAL_XOSHIRO256SS.lock() = MaybeUninit::new(Xoshiro256StarStar::seed_from_u64(seed))
-    }
-    unsafe { *GLOBAL_CHACHA20.lock() = MaybeUninit::new(ChaCha20Rng::seed_from_u64(seed)) };
+    *GLOBAL_XOSHIRO256SS.lock() = MaybeUninit::new(Xoshiro256StarStar::seed_from_u64(seed));
+    *GLOBAL_CHACHA20.lock() = MaybeUninit::new(ChaCha20Rng::seed_from_u64(seed));
 }

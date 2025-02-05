@@ -1,4 +1,4 @@
-use core::{arch::asm, mem::MaybeUninit, usize};
+use core::{arch::asm, mem::MaybeUninit};
 
 use alloc::sync::Arc;
 use tasks::TaskControlBlock;
@@ -77,6 +77,7 @@ pub const PROCESSOR_COUNT: usize = 2;
 static mut PROCESSOR_POOL: MaybeUninit<[ProcessorUnit; PROCESSOR_COUNT]> = MaybeUninit::uninit();
 
 pub fn init_processor_pool() {
+    #[allow(static_mut_refs)]
     let pool = unsafe { PROCESSOR_POOL.assume_init_mut() };
     for (i, cpu) in pool.iter_mut().enumerate().take(PROCESSOR_COUNT) {
         *cpu = ProcessorUnit::new(i);
@@ -94,7 +95,11 @@ pub fn hart_id() -> usize {
     id
 }
 
+#[inline]
 pub fn current_processor() -> &'static mut ProcessorUnit {
     let id = hart_id();
-    unsafe { &mut PROCESSOR_POOL.assume_init_mut()[id] }
+    unsafe {
+        #[allow(static_mut_refs)]
+        &mut PROCESSOR_POOL.assume_init_mut()[id]
+    }
 }

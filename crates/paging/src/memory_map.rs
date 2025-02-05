@@ -84,7 +84,7 @@ impl TaskMemoryMap {
         let mapped_file = &self.mapped_files[mapped_file_idx].0;
 
         let start_frame_idx = offset / constants::PAGE_SIZE;
-        let page_count = (length + constants::PAGE_SIZE - 1) / constants::PAGE_SIZE;
+        let page_count = length.div_ceil(constants::PAGE_SIZE);
 
         let mut start_page = self.mmap_top - page_count - 1;
 
@@ -352,7 +352,7 @@ impl MemoryMappedFile {
 
         let size = metadata.size;
 
-        let frame_count = (size + constants::PAGE_SIZE - 1) / constants::PAGE_SIZE;
+        let frame_count = size.div_ceil(constants::PAGE_SIZE);
 
         let frames = allocation::alloc_frames(frame_count)
             .expect("Failed to allocate that much frames for named memory map");
@@ -387,7 +387,7 @@ impl MemoryMappedFile {
     }
 
     fn allocate_anonymous(length: usize) -> Self {
-        let frame_count = (length + constants::PAGE_SIZE - 1) / constants::PAGE_SIZE;
+        let frame_count = length.div_ceil(constants::PAGE_SIZE);
         let frames = allocation::alloc_frames(frame_count)
             .expect("Failed to allocate that much frames for anonymous memory map");
         MemoryMappedFile {

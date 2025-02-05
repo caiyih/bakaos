@@ -77,9 +77,8 @@ pub trait IFile: DowncastSync + Send + Sync {
     }
 
     fn can_write(&self) -> bool {
-        self.metadata().map_or(false, |metadata| {
-            metadata.flags().contains(OpenFlags::O_WRONLY)
-        })
+        self.metadata()
+            .is_some_and(|metadata| metadata.flags().contains(OpenFlags::O_WRONLY))
     }
 
     fn read_avaliable(&self) -> bool {

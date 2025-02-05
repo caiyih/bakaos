@@ -1,4 +1,4 @@
-use core::arch::asm;
+use core::arch::naked_asm;
 
 use log::debug;
 use riscv::{
@@ -6,7 +6,7 @@ use riscv::{
         supervisor::{Exception, Interrupt},
         Trap,
     },
-    register::{scause, stval, stvec},
+    register::{scause, sepc, stval, stvec},
 };
 
 use crate::kernel;
@@ -18,11 +18,11 @@ pub fn set_kernel_trap_handler() {
 #[naked]
 #[no_mangle]
 #[link_section = ".text.trampoline_kernel"]
-unsafe extern "C" fn __on_kernel_trap() -> ! {
+unsafe extern "C" fn __on_kernel_trap() {
     // Consider kernel tarp handler as a function call
     // We only have to save the caller-saved registers
     // and we can just jump to the kernel_trap_handler
-    asm!(
+    naked_asm!(
         // Allocate space for the kernel trap context
         "addi sp, sp, -17*8",
         // Save the caller-saved registers
@@ -63,7 +63,6 @@ unsafe extern "C" fn __on_kernel_trap() -> ! {
         "ld  a7, 16*8(sp)",
         "addi sp, sp, 17*8", // Clear the space for the kernel trap context
         "sret",
-        options(noreturn)
     )
 }
 
@@ -72,10 +71,18 @@ fn kernel_trap_handler() {
     let scause = scause::read().cause();
     let stval = stval::read();
 
-    debug!("[Kernel trap] [{:?}] stval: {:#x}", scause, stval);
     let kstat = kernel::get().stat();
 
-    let scause = unsafe { core::mem::transmute::<_, Trap<Interrupt, Exception>>(scause) };
+    let scause =
+        unsafe { core::mem::transmute::<Trap<usize, usize>, Trap<Interrupt, Exception>>(scause) };
+
+    debug!(
+        "[Kernel trap] [{:?}] stval: {:#x}, sepc: {:#018x}",
+        scause,
+        stval,
+        sepc::read()
+    );
+
     match scause {
         Trap::Interrupt(interrupt) => match interrupt {
             Interrupt::SupervisorSoft => kstat.on_software_interrupt(),

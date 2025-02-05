@@ -2,7 +2,6 @@ use abstractions::IUsizeAlias;
 use alloc::vec::Vec;
 use core::iter::Iterator;
 use core::ops::Drop;
-use core::usize;
 
 use address::{IPageNum, PhysicalAddress, PhysicalPageNum, PhysicalPageNumRange};
 use hermit_sync::{Lazy, SpinMutex};
@@ -75,6 +74,7 @@ trait IFrameAllocator {
 
     fn dealloc(&mut self, frame: &TrackedFrame);
 
+    #[allow(unused)]
     fn dealloc_multiple(&mut self, frames: impl Iterator<Item = TrackedFrame>) {
         for frame in frames {
             self.dealloc(&frame);
@@ -82,7 +82,7 @@ trait IFrameAllocator {
     }
 }
 
-static mut FRAME_ALLOCATOR: SpinMutex<Lazy<FrameAllocator>> =
+static FRAME_ALLOCATOR: SpinMutex<Lazy<FrameAllocator>> =
     SpinMutex::new(Lazy::new(FrameAllocator::new));
 
 struct FrameAllocator {
@@ -193,7 +193,7 @@ impl IFrameAllocator for FrameAllocator {
         let avaliable = (self.top - self.current).as_usize();
 
         match count {
-            count if count <= avaliable => {
+            count if count < avaliable => {
                 let start = self.current;
                 self.current += count;
 
@@ -206,18 +206,18 @@ impl IFrameAllocator for FrameAllocator {
 }
 
 pub fn alloc_frame() -> Option<TrackedFrame> {
-    unsafe { FRAME_ALLOCATOR.lock().alloc_frame() }
+    FRAME_ALLOCATOR.lock().alloc_frame()
 }
 
 // Allocates `count` frames and returns them as a vector
 // No guarantee that the frames are contiguous
 pub fn alloc_frames(count: usize) -> Option<Vec<TrackedFrame>> {
-    unsafe { FRAME_ALLOCATOR.lock().alloc_frames(count) }
+    FRAME_ALLOCATOR.lock().alloc_frames(count)
 }
 
 // Similar to alloc_frames, but guarantees that the frames are contiguous
 pub fn alloc_contiguous(count: usize) -> Option<TrackedFrameRange> {
-    unsafe { FRAME_ALLOCATOR.lock().alloc_contiguous(count) }
+    FRAME_ALLOCATOR.lock().alloc_contiguous(count)
 }
 
 /// # Safety
@@ -229,9 +229,7 @@ pub unsafe fn dealloc_frame_unchecked(frame: PhysicalPageNum) {
 }
 
 fn dealloc_frame(frame: &TrackedFrame) {
-    unsafe {
-        FRAME_ALLOCATOR.lock().dealloc(frame);
-    }
+    FRAME_ALLOCATOR.lock().dealloc(frame);
 }
 
 pub fn init_frame_allocator(memory_end: usize) {
@@ -246,17 +244,15 @@ pub fn init_frame_allocator(memory_end: usize) {
         bottom, memory_end
     );
 
-    unsafe {
-        FRAME_ALLOCATOR.lock().init(
-            PhysicalPageNum::from_addr_ceil(PhysicalAddress::from_usize(bottom)),
-            PhysicalPageNum::from_addr_floor(PhysicalAddress::from_usize(memory_end)),
-        );
-    }
+    FRAME_ALLOCATOR.lock().init(
+        PhysicalPageNum::from_addr_ceil(PhysicalAddress::from_usize(bottom)),
+        PhysicalPageNum::from_addr_floor(PhysicalAddress::from_usize(memory_end)),
+    );
 }
 
 // Returns in (avaliable, fragmented, total)
 pub fn allocation_statistics() -> (usize, usize, usize) {
-    let allocator = unsafe { FRAME_ALLOCATOR.lock() };
+    let allocator = FRAME_ALLOCATOR.lock();
 
     (
         allocator.recycled.len() + (allocator.top - allocator.current).as_usize(),

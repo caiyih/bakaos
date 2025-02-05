@@ -4,6 +4,7 @@ use timing::{TimeSpan, TimeSpec, TimeVal};
 use crate::kernel;
 
 pub trait ITimer {
+    #[allow(unused)]
     fn is_started(&self) -> bool;
     fn start(&mut self);
     fn set(&mut self);

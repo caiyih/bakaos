@@ -15,7 +15,7 @@ where
     }
 
     fn to_ceil_page_num(self) -> T {
-        T::from_usize((self.as_usize() + constants::PAGE_SIZE - 1) / constants::PAGE_SIZE)
+        T::from_usize(self.as_usize().div_ceil(constants::PAGE_SIZE))
     }
 }
 

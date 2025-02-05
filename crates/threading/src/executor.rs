@@ -4,7 +4,7 @@ use alloc::collections::VecDeque;
 use async_task::{Runnable, ScheduleInfo, WithInfo};
 use hermit_sync::{Lazy, SpinMutex};
 
-static mut TASK_SCHEDULER: Lazy<Scheduler> = Lazy::new(Scheduler::new);
+static TASK_SCHEDULER: Lazy<Scheduler> = Lazy::new(Scheduler::new);
 
 struct Scheduler {
     tasks: SpinMutex<VecDeque<Runnable>>,
@@ -24,7 +24,7 @@ impl Scheduler {
         self.tasks.lock().push_front(runnable);
     }
 
-    pub fn fetch_next(&self) -> Option<Runnable> {
+pub fn fetch_next(&self) -> Option<Runnable> {
         self.tasks.lock().pop_front()
     }
 }
@@ -36,9 +36,9 @@ where
 {
     let schedule = move |task: Runnable, info: ScheduleInfo| {
         if info.woken_while_running {
-            unsafe { TASK_SCHEDULER.push_back(task) };
+            TASK_SCHEDULER.push_back(task);
         } else {
-            unsafe { TASK_SCHEDULER.push_front(task) };
+            TASK_SCHEDULER.push_front(task);
         }
     };
 
@@ -48,11 +48,11 @@ where
 }
 
 pub fn run_tasks() {
-    while let Some(task) = unsafe { TASK_SCHEDULER.fetch_next() } {
+    while let Some(task) = TASK_SCHEDULER.fetch_next() {
         task.run();
     }
 }
 
 pub fn has_task() -> bool {
-    unsafe { !TASK_SCHEDULER.tasks.lock().is_empty() }
+    !TASK_SCHEDULER.tasks.lock().is_empty()
 }

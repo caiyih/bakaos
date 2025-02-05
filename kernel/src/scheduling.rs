@@ -113,21 +113,19 @@ impl<TFut: Future + Send + 'static> Future for TaskFuture<TFut> {
     }
 }
 
-static mut TASKS_MAP: SpinMutex<BTreeMap<usize, Weak<TaskControlBlock>>> =
+static TASKS_MAP: SpinMutex<BTreeMap<usize, Weak<TaskControlBlock>>> =
     SpinMutex::new(BTreeMap::new());
 
 fn add_to_map(tcb: &Arc<TaskControlBlock>) {
-    let previous = unsafe {
-        TASKS_MAP
-            .lock()
-            .insert(tcb.task_id.id(), Arc::downgrade(tcb))
-    };
+    let previous = TASKS_MAP
+        .lock()
+        .insert(tcb.task_id.id(), Arc::downgrade(tcb));
 
     debug_assert!(previous.is_none());
 }
 
 fn remove_from_map(tcb: &Arc<TaskControlBlock>) {
-    let removed = unsafe { TASKS_MAP.lock().remove(&tcb.task_id.id()) };
+    let removed = TASKS_MAP.lock().remove(&tcb.task_id.id());
 
     debug_assert!(removed.is_some());
     debug_assert!(ptr::addr_eq(
@@ -138,7 +136,7 @@ fn remove_from_map(tcb: &Arc<TaskControlBlock>) {
 }
 
 pub fn task_count() -> usize {
-    unsafe { TASKS_MAP.lock().len() }
+    TASKS_MAP.lock().len()
 }
 
 #[allow(unused)]
@@ -198,7 +196,7 @@ impl IInode for ProcDeviceInode {
 
     fn lookup(&self, name: &str) -> FileSystemResult<Arc<dyn IInode>> {
         if let Ok(tid) = name.parse::<usize>() {
-            if let Some(tcb) = unsafe { TASKS_MAP.lock().get(&tid).and_then(|w| w.upgrade()) } {
+            if let Some(tcb) = TASKS_MAP.lock().get(&tid).and_then(|w| w.upgrade()) {
                 return Ok(Arc::new(ProcessDirectoryInode(tcb)));
             }
         }
@@ -210,7 +208,7 @@ impl IInode for ProcDeviceInode {
         &self,
         _caches: &mut BTreeMap<String, Arc<dyn IInode>>, // not needed
     ) -> FileSystemResult<Vec<DirectoryEntry>> {
-        let tasks = unsafe { TASKS_MAP.lock() };
+        let tasks = TASKS_MAP.lock();
 
         let mut entries = Vec::with_capacity(tasks.len());
 

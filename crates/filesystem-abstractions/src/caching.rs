@@ -33,7 +33,7 @@ impl FileCacheEntry {
     }
 }
 
-static mut FILE_TABLE: SpinMutex<Vec<Option<FileCacheEntry>>> = SpinMutex::new(Vec::new());
+static FILE_TABLE: SpinMutex<Vec<Option<FileCacheEntry>>> = SpinMutex::new(Vec::new());
 
 pub trait ICacheableFile: IFile {
     fn cache_as_arc_accessor(self: &Arc<Self>) -> Arc<FileCacheAccessor> {
@@ -60,11 +60,9 @@ impl FileCacheAccessor {
     }
 
     fn new(file_id: usize) -> Option<Self> {
-        unsafe {
-            let caches = FILE_TABLE.lock();
+        let caches = FILE_TABLE.lock();
 
-            caches[file_id].as_ref()?.add_reference();
-        }
+        caches[file_id].as_ref()?.add_reference();
 
         Some(Self { file_id })
     }
@@ -78,21 +76,19 @@ impl FileCacheAccessor {
 
 impl Drop for FileCacheAccessor {
     fn drop(&mut self) {
-        unsafe {
-            let mut caches = FILE_TABLE.lock();
+        let mut caches = FILE_TABLE.lock();
 
-            let entry = caches[self.file_id]
-                .as_ref()
-                .expect("Entry should still exist as this accessor still holds a reference.");
+        let entry = caches[self.file_id]
+            .as_ref()
+            .expect("Entry should still exist as this accessor still holds a reference.");
 
-            // Remove close rc added by *this* accessor.
-            // Rc should have been removed if the accessor is closed.
-            entry.remove_reference();
+        // Remove close rc added by *this* accessor.
+        // Rc should have been removed if the accessor is closed.
+        entry.remove_reference();
 
-            // Clear the cache entry if the file is closed and there are no references to it.
-            if entry.is_zombie() {
-                caches[self.file_id] = None;
-            }
+        // Clear the cache entry if the file is closed and there are no references to it.
+        if entry.is_zombie() {
+            caches[self.file_id] = None;
         }
     }
 }
@@ -105,7 +101,7 @@ impl Clone for FileCacheAccessor {
 
 impl FileCacheAccessor {
     fn cache(file: Arc<dyn IFile>) -> FileCacheAccessor {
-        let mut caches = unsafe { FILE_TABLE.lock() };
+        let mut caches = FILE_TABLE.lock();
 
         let file_id = match caches.iter().enumerate().find(|x| x.1.is_none()) {
             Some((index, _)) => {
@@ -131,7 +127,7 @@ impl FileCacheAccessor {
     }
 
     pub fn access(&self) -> Arc<dyn IFile> {
-        let caches = unsafe { FILE_TABLE.lock() };
+        let caches = FILE_TABLE.lock();
         let entry = caches[self.file_id]
             .as_ref()
             .expect("Entry should still exist as this accessor still holds a reference.");

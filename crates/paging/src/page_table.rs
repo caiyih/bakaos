@@ -50,7 +50,7 @@ pub struct PageTableEntry(usize);
 
 impl PageTableEntry {
     pub const fn new(ppn: PhysicalPageNum, flags: PageTableEntryFlags) -> Self {
-        PageTableEntry(ppn.0 << 10 | flags.bits())
+        PageTableEntry((ppn.0 << 10) | flags.bits())
     }
 
     pub fn flags(&self) -> PageTableEntryFlags {
@@ -58,7 +58,7 @@ impl PageTableEntry {
     }
 
     pub fn ppn(&self) -> PhysicalPageNum {
-        PhysicalPageNum::from_usize(self.0 >> 10 & ((1usize << 44) - 1))
+        PhysicalPageNum::from_usize((self.0 >> 10) & ((1usize << 44) - 1))
     }
 
     pub fn empty() -> Self {
@@ -117,7 +117,7 @@ pub trait IRawPageTable: IPageNum {
     /// The caller must ensure that the physical page number is valid
     unsafe fn as_entries(&self) -> &'static mut [PageTableEntry] {
         let page_num = self.as_usize();
-        let ptr = page_num << 12 | constants::VIRT_ADDR_OFFSET;
+        let ptr = (page_num << 12) | constants::VIRT_ADDR_OFFSET;
 
         unsafe {
             core::slice::from_raw_parts_mut(
@@ -134,6 +134,7 @@ static mut KERNEL_PAGE_TABLE: Option<PageTable> = None;
 
 pub fn get_kernel_page_table() -> &'static PageTable {
     unsafe {
+        #[allow(static_mut_refs)]
         KERNEL_PAGE_TABLE
             .as_ref()
             .expect("Kernel page table is not initialized")
@@ -929,7 +930,7 @@ pub trait IOptionalPageGuardBuilderExtension {
     fn mustbe_executable(self) -> Self;
 }
 
-impl<'a, T> IOptionalPageGuardBuilderExtension for Option<PageGuardBuilder<'a, T>> {
+impl<T> IOptionalPageGuardBuilderExtension for Option<PageGuardBuilder<'_, T>> {
     fn mustbe_user(self) -> Self {
         self?.must_be_internal(PageTableEntryFlags::User)
     }
@@ -1114,13 +1115,13 @@ impl<'a, TValue> IHasPageGuardBuilder<'a, TValue> for MustHavePageGuard<'a, TVal
 
 // implementation on `dyn IHasPermissionGuardBuilder` only works for interface instances
 // So we need to implement for each concrete type
-impl<'a, T> AsMut<T> for MustHavePageGuard<'a, &'static T> {
+impl<T> AsMut<T> for MustHavePageGuard<'_, &'static T> {
     fn as_mut(&mut self) -> &'static mut T {
         unsafe { &mut *(self.ptr() as *mut T) }
     }
 }
 
-impl<'a, T> Deref for MustHavePageGuard<'a, &'static T> {
+impl<T> Deref for MustHavePageGuard<'_, &'static T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -1128,13 +1129,13 @@ impl<'a, T> Deref for MustHavePageGuard<'a, &'static T> {
     }
 }
 
-impl<'a, T> AsMut<[T]> for MustHavePageGuard<'a, &'static [T]> {
+impl<T> AsMut<[T]> for MustHavePageGuard<'_, &'static [T]> {
     fn as_mut(&mut self) -> &mut [T] {
         unsafe { slice::from_raw_parts_mut(self.ptr() as *mut T, self.len()) }
     }
 }
 
-impl<'a, T> Deref for MustHavePageGuard<'a, &'static [T]> {
+impl<T> Deref for MustHavePageGuard<'_, &'static [T]> {
     type Target = [T];
 
     fn deref(&self) -> &Self::Target {
@@ -1142,13 +1143,13 @@ impl<'a, T> Deref for MustHavePageGuard<'a, &'static [T]> {
     }
 }
 
-impl<'a, T> AsMut<T> for WithPageGuard<'a, &'static T> {
+impl<T> AsMut<T> for WithPageGuard<'_, &'static T> {
     fn as_mut(&mut self) -> &'static mut T {
         unsafe { &mut *(self.ptr() as *mut T) }
     }
 }
 
-impl<'a, T> Deref for WithPageGuard<'a, &'static T> {
+impl<T> Deref for WithPageGuard<'_, &'static T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -1156,13 +1157,13 @@ impl<'a, T> Deref for WithPageGuard<'a, &'static T> {
     }
 }
 
-impl<'a, T> DerefMut for WithPageGuard<'a, &'static T> {
+impl<T> DerefMut for WithPageGuard<'_, &'static T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe { &mut *(self.ptr() as *mut T) }
     }
 }
 
-impl<'a, T> Deref for WithPageGuard<'a, &'static [T]> {
+impl<T> Deref for WithPageGuard<'_, &'static [T]> {
     type Target = [T];
 
     fn deref(&self) -> &Self::Target {
@@ -1170,7 +1171,7 @@ impl<'a, T> Deref for WithPageGuard<'a, &'static [T]> {
     }
 }
 
-impl<'a, T> DerefMut for WithPageGuard<'a, &'static [T]> {
+impl<T> DerefMut for WithPageGuard<'_, &'static [T]> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe { slice::from_raw_parts_mut(self.ptr() as *mut T, self.len()) }
     }

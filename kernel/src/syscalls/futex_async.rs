@@ -28,7 +28,7 @@ impl<'a> FutexWaitGuarad<'a> {
     }
 }
 
-impl<'a> Drop for FutexWaitGuarad<'a> {
+impl Drop for FutexWaitGuarad<'_> {
     fn drop(&mut self) {
         self.tcb
             .pcb

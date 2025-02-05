@@ -1,4 +1,4 @@
-use core::{arch::asm, panic, usize};
+use core::{arch::naked_asm, panic};
 
 use alloc::sync::Arc;
 use log::{debug, trace};
@@ -31,7 +31,7 @@ fn set_user_trap_handler() {
 #[no_mangle]
 #[link_section = ".text.trampoline_user"]
 unsafe extern "C" fn __on_user_trap() {
-    asm!(
+    naked_asm!(
         // Exchange sp with sscratch
         // So that sp points to TaskTrapContext, which is saved at the first line of __return_from_user_trap
         // And ssctatch points to the user stack
@@ -95,7 +95,6 @@ unsafe extern "C" fn __on_user_trap() {
         "ld tp,     35*8(sp)",
         "ld sp,     33*8(sp)", // Must restore sp at last
         "ret",                 // Return to kernel return address
-        options(noreturn)
     );
 }
 
@@ -119,7 +118,7 @@ unsafe extern "C" fn __return_from_user_trap(p_ctx: *mut TaskTrapContext) {
     // |   ks1   |
     // |   ...   |
     // +---------+
-    asm!(
+    naked_asm!(
         "csrw sscratch, a0",
         // Saving kernel stack pointer
         "sd sp,     33*8(a0)",
@@ -191,7 +190,6 @@ unsafe extern "C" fn __return_from_user_trap(p_ctx: *mut TaskTrapContext) {
         "ld t6,     30*8(a0)",
         "ld a0,      9*8(a0)", // Now we can restore a0, as it's not used as base address of TaskTrapContext any more
         "sret",
-        options(noreturn)
     );
 }
 
@@ -226,9 +224,11 @@ pub async fn user_trap_handler_async(tcb: &Arc<TaskControlBlock>) {
     let scause = riscv::register::scause::read().cause();
     let stval = riscv::register::stval::read();
 
-    trace!("[User trap] scause: {:?}, stval: {:#x}", scause, stval);
+    let scause =
+        unsafe { core::mem::transmute::<Trap<usize, usize>, Trap<Interrupt, Exception>>(scause) };
 
-    let scause = unsafe { core::mem::transmute::<_, Trap<Interrupt, Exception>>(scause) };
+    // trace!("[User trap] scause: {:?}, stval: {:#x}", scause, stval);
+
     match scause {
         Trap::Interrupt(Interrupt::SupervisorTimer) => {
             tcb.pcb.lock().stats.timer_interrupts += 1;

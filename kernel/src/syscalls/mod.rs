@@ -285,7 +285,7 @@ struct UtsName {
 
 impl UtsName {
     fn write_to(&mut self, field: usize, text: &str) {
-        let p_buf = unsafe { core::mem::transmute::<_, &mut [[u8; 65]; 6]>(self) };
+        let p_buf = unsafe { core::mem::transmute::<&mut UtsName, &mut [[u8; 65]; 6]>(self) };
 
         if field >= p_buf.len() {
             return;

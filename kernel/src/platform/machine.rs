@@ -14,6 +14,7 @@ pub trait IMachine {
         time::read()
     }
 
+    #[allow(unused)]
     fn block_sleep(&self, ms: usize) {
         let start = self.get_board_tick();
         let end = start + ms * self.clock_freq() as usize / 1000;
@@ -30,6 +31,7 @@ pub trait IMachine {
         self.bus0() + device_id * self.bus_width()
     }
 
+    #[allow(unused)]
     fn tick_to_ms(&self, tick: usize) -> u64 {
         (tick as u64) * 1000 / self.clock_freq()
     }
@@ -44,6 +46,7 @@ pub trait IMachine {
     }
 
     #[inline(always)]
+    #[allow(unused)]
     fn currrent_time_ms(&self) -> u64 {
         self.tick_to_ms(self.get_board_tick())
     }

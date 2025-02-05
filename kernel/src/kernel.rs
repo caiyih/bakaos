@@ -10,9 +10,13 @@ static mut KERNEL: Option<Kernel> = None;
 
 #[allow(unused)]
 pub fn get() -> &'static Kernel {
-    unsafe { KERNEL.as_ref().unwrap() }
+    #[allow(static_mut_refs)]
+    unsafe {
+        KERNEL.as_ref().unwrap()
+    }
 }
 
+#[allow(static_mut_refs)]
 pub fn init() {
     unsafe {
         if KERNEL.is_none() {

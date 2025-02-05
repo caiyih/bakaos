@@ -7,7 +7,7 @@ use alloc::{
 };
 use allocation::TrackedFrame;
 use constants::SyscallError;
-use core::{mem::MaybeUninit, usize};
+use core::mem::MaybeUninit;
 use hermit_sync::{RwSpinLock, SpinMutex};
 use timing::TimeSpec;
 
@@ -939,8 +939,7 @@ impl DirectoryTreeNode {
 }
 
 // The root of the directory tree
-static mut ROOT: SpinMutex<MaybeUninit<Arc<DirectoryTreeNode>>> =
-    SpinMutex::new(MaybeUninit::uninit());
+static ROOT: SpinMutex<MaybeUninit<Arc<DirectoryTreeNode>>> = SpinMutex::new(MaybeUninit::uninit());
 
 pub fn initialize() {
     let root = DirectoryTreeNode::from_empty(None, String::new());
@@ -954,9 +953,7 @@ pub fn initialize() {
         root.mount_empty(node).unwrap();
     }
 
-    unsafe {
-        *ROOT.lock() = MaybeUninit::new(root);
-    }
+    *ROOT.lock() = MaybeUninit::new(root);
 
     global_mount_inode(&TeleTypewriterInode::new(), "/dev/tty", None).unwrap();
     global_mount_inode(&NullInode::new(), "/dev/null", None).unwrap();
@@ -998,7 +995,7 @@ pub fn global_umount(
 ) -> Result<Arc<DirectoryTreeNode>, MountError> {
     let root = match (relative_to, path::is_path_fully_qualified(path)) {
         (_, true) => {
-            let mut root = unsafe { ROOT.lock() };
+            let mut root = ROOT.lock();
 
             let root_node = unsafe { root.assume_init_ref() };
 
@@ -1068,7 +1065,7 @@ fn global_mount_internal(
 ) -> Result<Arc<DirectoryTreeNode>, MountError> {
     let root = match (relative_to, path::is_path_fully_qualified(path)) {
         (_, true) => {
-            let mut root = unsafe { ROOT.lock() };
+            let mut root = ROOT.lock();
 
             // new root
             if path.trim_start_matches(path::SEPARATOR).is_empty() {

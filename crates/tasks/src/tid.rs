@@ -26,14 +26,12 @@ impl TrackedTaskId {
 impl Drop for TrackedTaskId {
     fn drop(&mut self) {
         if self.1 {
-            unsafe {
-                TASK_ID_ALLOCATOR.lock().deallocate(self.0);
-            }
+            TASK_ID_ALLOCATOR.lock().deallocate(self.0);
         }
     }
 }
 
-static mut TASK_ID_ALLOCATOR: SpinMutex<Lazy<TaskIdAllocator>> =
+static TASK_ID_ALLOCATOR: SpinMutex<Lazy<TaskIdAllocator>> =
     SpinMutex::new(Lazy::new(TaskIdAllocator::new));
 
 struct TaskIdAllocator {
@@ -80,5 +78,5 @@ impl TaskIdAllocator {
 }
 
 pub fn allocate_tid() -> TrackedTaskId {
-    unsafe { TASK_ID_ALLOCATOR.lock().allocate() }
+    TASK_ID_ALLOCATOR.lock().allocate()
 }
