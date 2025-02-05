@@ -237,7 +237,7 @@ fn run_preliminary_tests() {
     preliminary_test("/mnt/munmap", None, None);
 }
 
-static mut BOOTED: AtomicBool = AtomicBool::new(false);
+static BOOTED: AtomicBool = AtomicBool::new(false);
 
 #[no_mangle]
 #[allow(named_asm_labels)]
