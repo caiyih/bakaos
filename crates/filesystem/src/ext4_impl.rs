@@ -1,7 +1,8 @@
+use core::alloc::Layout;
 use core::mem::MaybeUninit;
 use core::ops::Deref;
 
-use ext4_rs::{Ext4, InodeFileType};
+use ext4_rs::{Ext4, Ext4DirSearchResult, InodeFileType};
 use filesystem_abstractions::{
     DirectoryEntryType, DirectoryTreeNode, FileSystemError, IFileSystem, IInode, InodeMetadata,
 };
@@ -21,20 +22,38 @@ struct Ext4Disk {
 
 impl ext4_rs::BlockDevice for Ext4Disk {
     fn read_offset(&self, offset: usize) -> Vec<u8> {
-        // let mut device = self.driver.lock();
+        #[inline(always)]
+        fn create_aligned_buffer() -> Vec<u8> {
+            const LAYOUT: Layout = unsafe {
+                core::alloc::Layout::from_size_align_unchecked(
+                    ext4_rs::BLOCK_SIZE,
+                    align_of::<usize>(),
+                )
+            };
 
-        // unsafe { device.set_position(offset) };
+            let ptr: *mut u8 = loop {
+                let allocatted = unsafe { alloc::alloc::alloc(LAYOUT) };
 
-        let mut buffer = Vec::<MaybeUninit<u8>>::with_capacity(ext4_rs::BLOCK_SIZE);
-        unsafe { buffer.set_len(ext4_rs::BLOCK_SIZE) };
+                if !allocatted.is_null() {
+                    break allocatted;
+                }
 
-        let mut buf = unsafe { core::mem::transmute::<Vec<MaybeUninit<u8>>, Vec<u8>>(buffer) };
+                core::hint::spin_loop();
+            };
+
+            let slice = unsafe { core::slice::from_raw_parts_mut(ptr as *mut u8, ext4_rs::BLOCK_SIZE) };
+            slice.fill(0);
+
+            unsafe { Vec::from_raw_parts(slice.as_mut_ptr(), ext4_rs::BLOCK_SIZE, ext4_rs::BLOCK_SIZE) }
+        }
+
+        let mut buffer = create_aligned_buffer();
 
         self.inner
-            .readat(offset, &mut buf)
+            .readat(offset, &mut buffer)
             .expect("Failed to read data from disk");
 
-        buf
+        buffer
     }
 
     fn write_offset(&self, offset: usize, data: &[u8]) {
@@ -152,17 +171,21 @@ impl IInode for Ext4Inode {
 
     fn mkdir(&self, name: &str) -> filesystem_abstractions::FileSystemResult<Arc<dyn IInode>> {
         self.should_be_directory()?;
-        const MODE: u16 = InodeFileType::S_IFDIR.bits() | 0o777;
+        let mut nameoff = 0;
 
-        let created_inode = self
+        let filetype = InodeFileType::S_IFDIR;
+
+        let mut parent = self.inode_id;
+
+        let inode_id = self
             .fs
-            .create(self.inode_id, name, MODE)
+            .generic_open(name, &mut parent, true, filetype.bits(), &mut nameoff)
             .map_err(|_| FileSystemError::SpaceNotEnough)?;
 
         Ok(Arc::new(Ext4Inode {
             filename: name.to_string(),
-            inode_id: created_inode.inode_num,
-            file_type: DirectoryEntryType::File,
+            inode_id,
+            file_type: DirectoryEntryType::Directory,
             fs: self.fs.clone(),
         }))
     }
