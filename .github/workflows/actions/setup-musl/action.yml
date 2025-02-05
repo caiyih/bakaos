@@ -1,6 +1,7 @@
 name: Install riscv64-linux-musl-cc toolchain
 
 runs:
+  using: composite
   steps:
   - name: Attempt to restore toolchain from cache
     id: cache
