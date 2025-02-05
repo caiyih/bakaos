@@ -62,6 +62,17 @@ fn create_filesystem(device: Arc<DirectoryTreeNode>) -> Result<Arc<dyn IFileSyst
     }
 
     if let Ok(ext4) = Ext4FileSystem::new(device.clone()) {
+        #[cfg(debug_assertions)]
+        log::debug!("Creating ext4_rs");
+
+        #[cfg(not(debug_assertions))]
+        {
+            log::warn!("######## ATTENTION ########");
+            log::warn!("# Creating ext4_rs under release build");
+            log::warn!("# There is known issue with `memcpy` intrinsics which causes dead loop");
+            log::warn!("######## ATTENTION ########");
+        }
+
         return Ok(Arc::new(ext4));
     }
 
