@@ -168,11 +168,11 @@ impl IInode for Lwext4Inode {
 
         let _ = self.file_open(O_RDONLY);
         let filesize = self.inner().file_size();
-        
+
         if offset as u64 >= filesize {
             return Ok(0);
         }
-        
+
         let _ = self.inner().file_seek(offset as i64, SEEK_SET);
         let bytes = self.inner().file_read(buffer);
         let _ = self.inner().file_close();

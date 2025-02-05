@@ -40,8 +40,7 @@ impl ext4_rs::BlockDevice for Ext4Disk {
                 core::hint::spin_loop();
             };
 
-            let slice =
-                unsafe { core::slice::from_raw_parts_mut(ptr as *mut u8, ext4_rs::BLOCK_SIZE) };
+            let slice = unsafe { core::slice::from_raw_parts_mut(ptr, ext4_rs::BLOCK_SIZE) };
             slice.fill(0);
 
             unsafe {
