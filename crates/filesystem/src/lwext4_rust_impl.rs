@@ -243,7 +243,8 @@ impl IInode for Lwext4Inode {
             return Ok(Arc::new(self.new(path, InodeTypes::EXT4_DE_REG_FILE)));
         }
 
-        let _ = self.inner()
+        let _ = self
+            .inner()
             .file_open(&path, O_WRONLY | O_CREAT | O_TRUNC)
             .map_err(|_| FileSystemError::SpaceNotEnough);
 
@@ -330,7 +331,8 @@ impl IInode for Lwext4Inode {
             return Err(FileSystemError::AlreadyExists);
         }
 
-        let _ = self.inner()
+        let _ = self
+            .inner()
             .file_open(&path, O_WRONLY | O_CREAT | O_TRUNC)
             .map_err(|_| FileSystemError::SpaceNotEnough);
 
