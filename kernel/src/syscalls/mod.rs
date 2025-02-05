@@ -7,7 +7,9 @@ use file::{
     MmapSyscall, MountSyscall, MunmapSyscall, NewFstatSyscall, NewFstatatSyscall, OpenAtSyscall,
     Pipe2Syscall, ReadLinkAtSyscall, SymbolLinkAtSyscall, UmountSyscall, UnlinkAtSyscall,
 };
-use file_async::{sys_read_async, sys_sendfile_async, sys_write_async, sys_writev_async};
+use file_async::{
+    sys_read_async, sys_readv_async, sys_sendfile_async, sys_write_async, sys_writev_async,
+};
 use futex_async::sys_futex_async;
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
 use system::{GetRandomSyscall, ShutdownSyscall, SystemLogSyscall};
@@ -45,6 +47,7 @@ const SYSCALL_ID_PIPE2: usize = 59;
 const SYSCALL_ID_GETDENTS64: usize = 61;
 const SYSCALL_ID_READ: usize = 63;
 const SYSCALL_ID_WRITE: usize = 64;
+const SYSCALL_ID_READV: usize = 65;
 const SYSCALL_ID_WRITEV: usize = 66;
 const SYSCALL_ID_SENDFILE: usize = 71;
 const SYSCALL_ID_READLINKAT: usize = 78;
@@ -161,6 +164,7 @@ impl SyscallDispatcher {
             STSCALL_ID_WAIT4 => Some(sys_wait4_async(&mut ctx).await),
             SYSCALL_ID_SENDFILE => Some(sys_sendfile_async(&mut ctx).await),
             SYSCALL_ID_WRITEV => Some(sys_writev_async(&mut ctx).await),
+            SYSCALL_ID_READV => Some(sys_readv_async(&mut ctx).await),
             SYSCALL_ID_FUTEX => Some(sys_futex_async(&mut ctx).await),
             _ => None,
         }

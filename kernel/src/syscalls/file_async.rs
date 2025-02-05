@@ -95,13 +95,72 @@ async_syscall!(sys_read_async, ctx, {
     }
 });
 
-async_syscall!(sys_writev_async, ctx, {
-    #[repr(C)]
-    struct IoItem {
-        p_data: *const u8,
-        len: usize,
+#[repr(C)]
+struct IoItem {
+    p_data: *const u8,
+    len: usize,
+}
+
+async_syscall!(sys_readv_async, ctx, {
+    let fd = ctx.arg0::<usize>();
+    let fd = ctx
+        .pcb
+        .lock()
+        .fd_table
+        .get(fd)
+        .ok_or(ErrNo::BadFileDescriptor)?;
+
+    if !fd.can_read() {
+        return SyscallError::BadFileDescriptor;
     }
 
+    let file = fd.access();
+    while !file.read_avaliable() {
+        yield_now().await;
+    }
+
+    let iovec_base = ctx.arg1::<*const IoItem>();
+    let len = ctx.arg2::<usize>();
+    let io_vector = unsafe { core::slice::from_raw_parts(iovec_base, len) };
+
+    match ctx
+        .borrow_page_table()
+        .guard_slice(io_vector)
+        .mustbe_user()
+        .with_read()
+    {
+        Some(vec_guard) => {
+            let mut bytes_read = 0;
+
+            for io in vec_guard.iter() {
+                if io.p_data.is_null() || io.len == 0 {
+                    continue;
+                }
+
+                let data = unsafe { core::slice::from_raw_parts(io.p_data, io.len) };
+
+                match ctx
+                    .borrow_page_table()
+                    .guard_slice(data)
+                    .mustbe_user()
+                    .with_read()
+                {
+                    Some(mut data_guard) => bytes_read += file.read(&mut data_guard),
+                    None => continue,
+                }
+            }
+
+            if let Some(file_meta) = file.metadata() {
+                file_meta.set_offset(file_meta.offset() + bytes_read);
+            }
+
+            Ok(bytes_read as isize)
+        }
+        None => SyscallError::BadAddress,
+    }
+});
+
+async_syscall!(sys_writev_async, ctx, {
     let fd = ctx.arg0::<usize>();
     let fd = ctx
         .pcb
@@ -133,6 +192,10 @@ async_syscall!(sys_writev_async, ctx, {
             let mut bytes_written = 0;
 
             for io in vec_guard.iter() {
+                if io.p_data.is_null() || io.len == 0 {
+                    continue;
+                }
+
                 let data = unsafe { core::slice::from_raw_parts(io.p_data, io.len) };
 
                 match ctx
