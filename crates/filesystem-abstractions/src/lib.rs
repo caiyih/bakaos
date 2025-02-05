@@ -109,6 +109,7 @@ impl From<DirectoryEntryType> for FileStatisticsMode {
     }
 }
 
+#[derive(Debug)]
 pub struct DirectoryEntry {
     pub filename: String,
     pub entry_type: DirectoryEntryType,

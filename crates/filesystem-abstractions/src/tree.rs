@@ -786,8 +786,6 @@ impl DirectoryTreeNode {
 
             match inner.meta.as_inode() {
                 Some(inode) => {
-                    let inode = inode.clone();
-
                     let mut entries = inode.read_cache_dir(&mut inner.children_cache)?;
                     let mut overrideds = BTreeMap::new();
 

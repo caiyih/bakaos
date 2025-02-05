@@ -141,7 +141,7 @@ impl IInode for Lwext4Inode {
     }
 
     fn stat(&self, stat: &mut filesystem_abstractions::FileStatistics) -> FileSystemResult<()> {
-        self.file_open(O_RDONLY)?;
+        let _ = self.file_open(O_RDONLY);
 
         stat.device_id = 1;
         stat.inode_id = 1;
@@ -188,7 +188,7 @@ impl IInode for Lwext4Inode {
     fn writeat(&self, offset: usize, buffer: &[u8]) -> FileSystemResult<usize> {
         self.should_be_file()?;
 
-        let _ = self.file_open(O_RDWR)?;
+        let _ = self.file_open(O_RDWR);
 
         self.inner()
             .file_seek(offset as i64, SEEK_SET)
@@ -243,9 +243,9 @@ impl IInode for Lwext4Inode {
             return Ok(Arc::new(self.new(path, InodeTypes::EXT4_DE_REG_FILE)));
         }
 
-        self.inner()
+        let _ = self.inner()
             .file_open(&path, O_WRONLY | O_CREAT | O_TRUNC)
-            .map_err(|_| FileSystemError::SpaceNotEnough)?;
+            .map_err(|_| FileSystemError::SpaceNotEnough);
 
         let _ = self.inner().file_close();
 
@@ -290,7 +290,7 @@ impl IInode for Lwext4Inode {
             }
         }
 
-        Err(FileSystemError::NotADirectory)
+        Ok(entries)
     }
 
     fn lookup(&self, name: &str) -> FileSystemResult<Arc<dyn IInode>> {
@@ -330,15 +330,15 @@ impl IInode for Lwext4Inode {
             return Err(FileSystemError::AlreadyExists);
         }
 
-        self.inner()
+        let _ = self.inner()
             .file_open(&path, O_WRONLY | O_CREAT | O_TRUNC)
-            .map_err(|_| FileSystemError::SpaceNotEnough)?;
+            .map_err(|_| FileSystemError::SpaceNotEnough);
 
         let _ = self.inner().file_close();
 
         let link_inode = self.new(path, InodeTypes::EXT4_DE_SYMLINK);
 
-        link_inode.file_open(O_RDWR)?;
+        let _ = link_inode.file_open(O_RDWR);
 
         link_inode
             .inner()
@@ -360,7 +360,7 @@ impl IInode for Lwext4Inode {
 
         let mut buffer: [u8; BUFFER_LEN] = [0; BUFFER_LEN];
 
-        let _ = self.file_open(O_RDONLY).ok()?;
+        let _ = self.file_open(O_RDONLY).ok();
 
         self.inner().file_seek(0 as i64, SEEK_SET).ok()?;
 
