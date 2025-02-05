@@ -24,7 +24,7 @@ impl Scheduler {
         self.tasks.lock().push_front(runnable);
     }
 
-pub fn fetch_next(&self) -> Option<Runnable> {
+    pub fn fetch_next(&self) -> Option<Runnable> {
         self.tasks.lock().pop_front()
     }
 }

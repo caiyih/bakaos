@@ -62,7 +62,8 @@ impl DiskDriver {
             self.device.read_blocks(&mut block_buffer);
 
             let effective_len = buf.len().min(SECTOR_SIZE - block_offset);
-            buf[..effective_len].copy_from_slice(&block_buffer[block_offset..block_offset + effective_len]);
+            buf[..effective_len]
+                .copy_from_slice(&block_buffer[block_offset..block_offset + effective_len]);
 
             bytes_read += effective_len;
             self.device.move_forward(effective_len as i64);

@@ -52,8 +52,10 @@ impl IMachine for VirtBoard {
         let mmio_va = mmio_pa | constants::VIRT_ADDR_OFFSET;
 
         let ptr = unsafe { NonNull::new_unchecked(mmio_va as *mut VirtIOHeader) };
-        let mmio_transport =
-            unsafe { MmioTransport::new(ptr, self.bus_width()).expect("Failed to initialize virtio mmio transport") };
+        let mmio_transport = unsafe {
+            MmioTransport::new(ptr, self.bus_width())
+                .expect("Failed to initialize virtio mmio transport")
+        };
         let virt_blk = VirtIOBlk::<VirtHal, _>::new(mmio_transport)
             .expect("Failed to initialize virtio block device");
         let virt_disk = VirtioDisk::new(virt_blk);
