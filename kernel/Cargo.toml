@@ -5,6 +5,10 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[profile.release-with-debug]
+inherits = "release"
+debug = true
+
 [dependencies]
 constants = { path = "../crates/constants", default-features = false }
 abstractions = { path = "../crates/abstractions", default-features = false }

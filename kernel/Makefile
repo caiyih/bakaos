@@ -9,8 +9,8 @@ KERNEL_ELF := target/$(TARGET)/$(MODE)/$(OUTPUT_NAME)
 
 OBJCOPY := rust-objcopy --binary-architecture=riscv64gc
 
-ifeq ($(MODE), release)
-	CARGO_FLAGS += --release
+ifneq ($(MODE), debug)
+	CARGO_FLAGS += --profile=$(MODE)
 endif
 
 # End Region // Build
