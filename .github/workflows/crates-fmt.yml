@@ -33,7 +33,7 @@ jobs:
           rustup override set $TOOLCHAIN_VERSION
           rustup component add clippy
 
-      - uses: .github/workflows/actions/setup-musl
+      - uses: ./.github/workflows/actions/setup-musl
 
       - name: Run clippy
         run: cargo clippy -- -D warnings
@@ -58,7 +58,7 @@ jobs:
           rustup override set $TOOLCHAIN_VERSION
           rustup component add rustfmt
 
-      - uses: .github/workflows/actions/setup-musl
+      - uses: ./.github/workflows/actions/setup-musl
 
       - name: Build Crates
         # Some crates requires build artifacts to be present before running fmt

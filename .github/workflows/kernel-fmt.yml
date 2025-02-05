@@ -34,7 +34,7 @@ jobs:
           rustup target add riscv64gc-unknown-none-elf
           rustup component add clippy
       
-      - uses: .github/workflows/actions/setup-musl
+      - uses: ./.github/workflows/actions/setup-musl
 
       - name: Run clippy
         run: cargo clippy -- -D warnings
@@ -60,7 +60,7 @@ jobs:
           rustup target add riscv64gc-unknown-none-elf
           rustup component add rustfmt
 
-      - uses: .github/workflows/actions/setup-musl
+      - uses: ./.github/workflows/actions/setup-musl
 
       - name: Check formatting
         run: cargo fmt -- --check
