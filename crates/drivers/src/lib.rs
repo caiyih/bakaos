@@ -17,6 +17,7 @@ use hermit_sync::SpinMutex;
 pub use vf2::{VisionFive2Disk, VisionFive2SdMMIO};
 pub mod virt;
 pub use virt::VirtioDiskDriver;
+use virt::SECTOR_SIZE;
 
 pub trait IRawDiskDevice: Sync + Send {
     fn read_blocks(&mut self, buf: &mut [u8]);
@@ -39,86 +40,42 @@ struct DiskDriver {
 }
 
 impl DiskDriver {
-    fn read_512(&mut self, buf: &mut [u8]) -> Result<usize, ()> {
-        let len = buf.len();
-
-        debug_assert!(
-            len <= 512,
-            "buf.len() must be less than or equal to 512, found: {}",
-            len
-        );
-
-        let sector_offset = self.device.get_position() % 512;
-
-        // Virtio_driver can only read 512 bytes at a time
-        let size_read = if sector_offset != 0 || len < 512 {
-            let mut tmp = [0u8; 512];
-            self.device.read_blocks(&mut tmp);
-
-            let start = sector_offset;
-            let end = (sector_offset + len).min(512);
-
-            buf[..end - start].copy_from_slice(&tmp[start..end]);
-            end - start
-        } else {
-            self.device.read_blocks(buf);
-            512
-        };
-
-        self.device.move_forward(size_read as i64);
-        Ok(size_read)
-    }
-
     /// Populate the buffer with the data read from the disk
     /// # Safety
     /// This function is unsafe because you have to lock the disk driver since
     /// set_position call and read_at call are not atomic
     pub unsafe fn read_at(&mut self, mut buf: &mut [u8]) -> Result<usize, usize> {
+        #[cfg(debug_assertions)]
+        let expected_read = buf.len();
+
         let mut bytes_read = 0;
 
+        let mut block_buffer = [0u8; SECTOR_SIZE];
+
         while !buf.is_empty() {
-            match buf.len() {
-                0..=512 => {
-                    let size = self.read_512(buf).map_err(|_| bytes_read)?;
-                    buf = &mut buf[size..];
-                    bytes_read += size;
-                }
-                _ => {
-                    let (left, _) = buf.split_at_mut(512);
-                    let size = self.read_512(left).map_err(|_| bytes_read)?;
-                    buf = &mut buf[size..];
-                    bytes_read += size;
-                }
+            if bytes_read != 0 {
+                block_buffer.fill(0);
             }
+
+            let block_offset = self.device.get_position() % SECTOR_SIZE;
+
+            self.device.read_blocks(&mut block_buffer);
+
+            let effective_len = buf.len().min(SECTOR_SIZE - block_offset);
+            buf[..effective_len].copy_from_slice(&block_buffer[block_offset..block_offset + effective_len]);
+
+            bytes_read += effective_len;
+            self.device.move_forward(effective_len as i64);
+
+            buf = &mut buf[effective_len..];
         }
 
-        if buf.is_empty() {
-            Ok(bytes_read)
-        } else {
-            Err(bytes_read)
-        }
-    }
+        debug_assert!(buf.is_empty());
 
-    fn write_512(&mut self, buf: &[u8]) -> Result<usize, ()> {
-        let sector_offset = self.device.get_position() % 512;
+        #[cfg(debug_assertions)]
+        debug_assert_eq!(bytes_read, expected_read);
 
-        let size_written = if sector_offset != 0 || buf.len() < 512 {
-            let mut tmp_buf = [0u8; 512];
-            self.device.read_blocks(&mut tmp_buf);
-
-            let start = sector_offset;
-            let end = (sector_offset + buf.len()).min(512);
-
-            tmp_buf[start..end].copy_from_slice(&buf[..end - start]);
-            self.device.write_blocks(&tmp_buf);
-            end - start
-        } else {
-            self.device.write_blocks(buf);
-            512
-        };
-
-        self.device.move_forward(size_written as i64);
-        Ok(size_written)
+        Ok(bytes_read)
     }
 
     /// Write the buffer to the disk
@@ -126,29 +83,46 @@ impl DiskDriver {
     /// This function is unsafe because you have to lock the disk driver since
     /// set_position call and write_at call are not atomic
     pub unsafe fn write_at(&mut self, mut buf: &[u8]) -> Result<usize, usize> {
+        #[cfg(debug_assertions)]
+        let expected_written = buf.len();
+
         let mut bytes_written = 0;
 
+        let mut block_buffer = [0u8; SECTOR_SIZE];
+
         while !buf.is_empty() {
-            match buf.len() {
-                0..=512 => {
-                    let size = self.write_512(buf).map_err(|_| bytes_written)?;
-                    buf = &buf[size..];
-                    bytes_written += size;
-                }
-                _ => {
-                    let (left, _) = buf.split_at(512);
-                    let size = self.write_512(left).map_err(|_| bytes_written)?;
-                    buf = &buf[size..];
-                    bytes_written += size;
-                }
+            if bytes_written != 0 {
+                block_buffer.fill(0);
             }
+
+            let block_offset = self.device.get_position() % SECTOR_SIZE;
+
+            // if the remaining buffer is not block aligned or can smaller than a block
+            // We have to read the whole block before we can write
+            let effective_len = if block_offset != 0 || buf.len() < SECTOR_SIZE {
+                self.device.read_blocks(&mut block_buffer);
+                buf.len().min(SECTOR_SIZE - block_offset)
+            } else {
+                SECTOR_SIZE
+            };
+
+            block_buffer[block_offset..block_offset + effective_len]
+                .copy_from_slice(&buf[..effective_len]);
+
+            self.device.write_blocks(&block_buffer);
+
+            bytes_written += effective_len;
+            self.device.move_forward(effective_len as i64);
+
+            buf = &buf[effective_len..];
         }
 
-        if buf.is_empty() {
-            Ok(bytes_written)
-        } else {
-            Err(bytes_written)
-        }
+        debug_assert!(buf.is_empty());
+
+        #[cfg(debug_assertions)]
+        debug_assert_eq!(bytes_written, expected_written);
+
+        Ok(bytes_written)
     }
 
     /// Set the position of the disk driver
