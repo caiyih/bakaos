@@ -53,6 +53,10 @@ pub fn global_mount_device_node(
 }
 
 fn create_filesystem(device: Arc<DirectoryTreeNode>) -> Result<Arc<dyn IFileSystem>, MountError> {
+    if let Ok(fat32) = Fat32FileSystem::new(device.clone()) {
+        return Ok(Arc::new(fat32));
+    }
+
     #[cfg(target_arch = "riscv64")]
     {
         if let Ok(lwext4) = Lwext4FileSystem::new(device.clone()) {
@@ -74,10 +78,6 @@ fn create_filesystem(device: Arc<DirectoryTreeNode>) -> Result<Arc<dyn IFileSyst
         }
 
         return Ok(Arc::new(ext4));
-    }
-
-    if let Ok(fat32) = Fat32FileSystem::new(device.clone()) {
-        return Ok(Arc::new(fat32));
     }
 
     Err(MountError::InvalidInput) // Unsupported filesystem
