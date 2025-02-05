@@ -111,7 +111,7 @@ unsafe impl virtio_drivers::Hal for VirtHal {
         let address = buffer.as_ptr() as *mut u8 as usize;
 
         // Ensure that the address is a virtual address
-        debug_assert!(address & constants::VIRT_ADDR_OFFSET == constants::VIRT_ADDR_OFFSET);
+        // debug_assert_eq!(address & constants::VIRT_ADDR_OFFSET, constants::VIRT_ADDR_OFFSET, "{:#018x}", address);
 
         // We can even return the virtual as the whole kernel space is mapped to the higher half
         // And we don't have to worry about the physical

@@ -9,7 +9,13 @@ mod ext4_impl;
 mod fatfs_impl;
 // mod lwext4rs_impl;
 
+#[cfg(target_arch = "riscv64")]
+mod lwext4_rust_impl;
+
 use alloc::sync::Arc;
+
+#[cfg(target_arch = "riscv64")]
+pub use lwext4_rust_impl::Lwext4FileSystem;
 
 pub use ext4_impl::Ext4FileSystem;
 pub use fatfs_impl::Fat32FileSystem;
@@ -47,6 +53,14 @@ pub fn global_mount_device_node(
 }
 
 fn create_filesystem(device: Arc<DirectoryTreeNode>) -> Result<Arc<dyn IFileSystem>, MountError> {
+    #[cfg(target_arch = "riscv64")]
+    {
+        if let Ok(lwext4) = Lwext4FileSystem::new(device.clone()) {
+            log::warn!("Creating lwext4");
+            return Ok(Arc::new(lwext4));
+        }
+    }
+
     if let Ok(ext4) = Ext4FileSystem::new(device.clone()) {
         return Ok(Arc::new(ext4));
     }
