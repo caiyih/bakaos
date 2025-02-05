@@ -525,3 +525,49 @@ impl ISyncSyscallHandler for ExitGroupSyscall {
         "sys_exit_group"
     }
 }
+
+pub struct ResourceLimitSyscall;
+
+impl ISyncSyscallHandler for ResourceLimitSyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        const RLIMIT_NOFILE: usize = 7;
+
+        #[repr(C)]
+        #[allow(non_camel_case_types)]
+        struct rlimit {
+            rlim_cur: u64,
+            rlim_max: u64,
+        }
+
+        let resource_id = ctx.arg1::<usize>();
+
+        let p_new_limit = ctx.arg2::<*const rlimit>();
+        let p_old_limit = ctx.arg3::<*mut rlimit>();
+
+        let pt = ctx.borrow_page_table();
+
+        let (new_limit, old_limit) = (
+            pt.guard_ptr(p_new_limit).mustbe_user().with_read(),
+            pt.guard_ptr(p_old_limit).mustbe_user().with_write(),
+        );
+
+        if resource_id == RLIMIT_NOFILE {
+            let mut pcb = ctx.pcb.lock();
+
+            if let Some(mut old_limit) = old_limit {
+                old_limit.rlim_cur = pcb.fd_table.get_capacity() as u64;
+                old_limit.rlim_max = old_limit.rlim_cur;
+            }
+
+            if let Some(new_limit) = new_limit {
+                pcb.fd_table.set_capacity(new_limit.rlim_max as usize);
+            }
+        }
+
+        Ok(0)
+    }
+
+    fn name(&self) -> &str {
+        "sys_prlimit64"
+    }
+}

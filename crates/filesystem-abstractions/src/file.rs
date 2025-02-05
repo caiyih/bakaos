@@ -339,6 +339,7 @@ impl IHasFrozenFileDescriptor for FrozenFileDescriptorBuilder {
 #[derive(Debug)]
 pub struct FileDescriptorTable {
     table: Vec<Option<Arc<FileDescriptor>>>,
+    capacity: usize,
 }
 
 impl FileDescriptorTable {
@@ -362,7 +363,10 @@ impl FileDescriptorTable {
     pub fn new(task_id: usize) -> Self {
         let tty = TeleTypewriterBuilder::open_for(task_id);
 
-        let mut table = FileDescriptorTable { table: Vec::new() };
+        let mut table = FileDescriptorTable {
+            table: Vec::new(),
+            capacity: Self::MAX_SIZE,
+        };
 
         table.allocate(tty.stdin_builder);
         table.allocate(tty.stdout_builder);
@@ -409,7 +413,7 @@ impl FileDescriptorTable {
             }
         }
 
-        if self.table.len() >= Self::MAX_SIZE {
+        if self.table.len() >= self.capacity {
             return None;
         }
 
@@ -417,13 +421,13 @@ impl FileDescriptorTable {
         Some(self.table.len() - 1)
     }
 
-    pub const MAX_SIZE: usize = 42; // according to rlimit
+    pub const MAX_SIZE: usize = 1024; // according to rlimit
     pub fn allocate_at<TFDBuilder: IFileDescriptorBuilder>(
         &mut self,
         fd_builder: TFDBuilder,
         idx: usize,
     ) -> Option<usize> {
-        if idx >= Self::MAX_SIZE {
+        if idx >= self.capacity {
             return None;
         }
 
@@ -436,6 +440,14 @@ impl FileDescriptorTable {
 
         self.table[idx] = Some(fd_builder.build(idx));
         Some(idx)
+    }
+
+    pub fn set_capacity(&mut self, new_capacity: usize) {
+        self.capacity = new_capacity
+    }
+
+    pub fn get_capacity(&self) -> usize {
+        self.capacity
     }
 }
 

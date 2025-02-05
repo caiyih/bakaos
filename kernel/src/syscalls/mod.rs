@@ -16,7 +16,7 @@ use system::{GetRandomSyscall, ShutdownSyscall, SystemLogSyscall};
 use task::{
     BrkSyscall, ChdirSyscall, ClockGetTimeSyscall, CloneSyscall, ExecveSyscall, ExitGroupSyscall,
     ExitSyscall, GetCwdSyscall, GetParentPidSyscall, GetPidSyscall, GetTimeOfDaySyscall,
-    TimesSyscall,
+    ResourceLimitSyscall, TimesSyscall,
 };
 use task_async::{sys_nanosleep_async, sys_sched_yield_async, sys_wait4_async};
 use tasks::TaskControlBlock;
@@ -73,6 +73,7 @@ const SYSCALL_ID_CLONE: usize = 220;
 const SYSCALL_ID_EXECVE: usize = 221;
 const SYSCALL_ID_MMAP: usize = 222;
 const STSCALL_ID_WAIT4: usize = 260;
+const SYSCALL_ID_PRLIMIT64: usize = 261;
 const SYSCALL_ID_GETRANDOM: usize = 278;
 const SYSCALL_ID_CLOCK_GETTIME: usize = 113;
 
@@ -143,6 +144,7 @@ impl SyscallDispatcher {
             SYSCALL_ID_SYSLOG => Some(&SystemLogSyscall),
             SYSCALL_ID_SYSINFO => Some(&SystemLogSyscall),
             SYSCALL_ID_GETRANDOM => Some(&GetRandomSyscall),
+            SYSCALL_ID_PRLIMIT64 => Some(&ResourceLimitSyscall),
             _ => None,
         }
     }
