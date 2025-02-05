@@ -32,6 +32,8 @@ jobs:
         with:
           tool: cargo-binutils
 
+      - uses: .github/workflows/actions/setup-musl
+
       - name: Build Kernel
         run: make
 
