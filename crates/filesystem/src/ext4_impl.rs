@@ -1,8 +1,7 @@
 use core::alloc::Layout;
-use core::mem::MaybeUninit;
 use core::ops::Deref;
 
-use ext4_rs::{Ext4, Ext4DirSearchResult, InodeFileType};
+use ext4_rs::{Ext4, InodeFileType};
 use filesystem_abstractions::{
     DirectoryEntryType, DirectoryTreeNode, FileSystemError, IFileSystem, IInode, InodeMetadata,
 };
@@ -41,10 +40,13 @@ impl ext4_rs::BlockDevice for Ext4Disk {
                 core::hint::spin_loop();
             };
 
-            let slice = unsafe { core::slice::from_raw_parts_mut(ptr as *mut u8, ext4_rs::BLOCK_SIZE) };
+            let slice =
+                unsafe { core::slice::from_raw_parts_mut(ptr as *mut u8, ext4_rs::BLOCK_SIZE) };
             slice.fill(0);
 
-            unsafe { Vec::from_raw_parts(slice.as_mut_ptr(), ext4_rs::BLOCK_SIZE, ext4_rs::BLOCK_SIZE) }
+            unsafe {
+                Vec::from_raw_parts(slice.as_mut_ptr(), ext4_rs::BLOCK_SIZE, ext4_rs::BLOCK_SIZE)
+            }
         }
 
         let mut buffer = create_aligned_buffer();
