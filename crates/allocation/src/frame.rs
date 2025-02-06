@@ -25,7 +25,7 @@ fn zero_frame(ppn: PhysicalPageNum) {
         let va = ppn
             .start_addr::<PhysicalAddress>()
             .to_high_virtual()
-            .as_mut_ptr();
+            .as_mut_ptr::<u8>();
 
         core::ptr::write_bytes(va, 0, constants::PAGE_SIZE);
     }
