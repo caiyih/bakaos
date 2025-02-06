@@ -273,7 +273,8 @@ impl IInode for Lwext4Inode {
             let name = names.pop().unwrap();
             let itype = itypes.pop().unwrap();
 
-            let name = unsafe { core::str::from_utf8_unchecked(&name) };
+            // null terminator should be exclude
+            let name = unsafe { core::str::from_utf8_unchecked(&name[..name.len() - 1]) };
 
             if name == path::CURRENT_DIRECTORY || name == path::PARENT_DIRECTORY {
                 continue;
