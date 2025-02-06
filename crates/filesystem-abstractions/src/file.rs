@@ -90,7 +90,7 @@ pub trait IFile: DowncastSync + Send + Sync {
     }
 
     fn flags(&self) -> OpenFlags {
-        *self.metadata().unwrap().flags()
+        self.metadata().map_or(OpenFlags::NONE, |m| *m.flags())
     }
 
     fn set_flags(&self, new_flags: OpenFlags) -> bool {
