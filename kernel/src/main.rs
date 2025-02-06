@@ -137,9 +137,15 @@ fn run_final_tests() {
     filesystem_abstractions::global_mount(&busybox, "/bin/busybox", None);
     filesystem_abstractions::global_mount(&busybox, "/bin/sh", None);
 
+    let script = global_open("/", None)
+        .unwrap()
+        .touch("test_script.sh")
+        .unwrap();
+    script.writeat(0, include_bytes!("test_script.sh")).unwrap();
+
     run_busybox(
         "/mnt/busybox",
-        &["sh", "busybox_testcode.sh"],
+        &["sh", "/test_script.sh"],
         &[
             "HOME=/root",
             "PATH=/mnt:/bin",
