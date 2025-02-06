@@ -21,12 +21,13 @@ impl TrackedFrame {
 }
 
 fn zero_frame(ppn: PhysicalPageNum) {
-    let va = ppn.start_addr::<PhysicalAddress>().to_high_virtual();
+    unsafe {
+        let va = ppn
+            .start_addr::<PhysicalAddress>()
+            .to_high_virtual()
+            .as_mut_ptr();
 
-    let ptr = unsafe { va.as_mut_ptr::<u64>() };
-
-    for i in 0..(constants::PAGE_SIZE / core::mem::size_of::<u64>()) {
-        unsafe { ptr.add(i).write_volatile(0) };
+        core::ptr::write_bytes(va as *mut u8, 0, constants::PAGE_SIZE);
     }
 }
 

@@ -353,18 +353,7 @@ unsafe fn clear_bss() {
 }
 
 unsafe fn clear_bss_for_loop(begin: usize, end: usize) {
-    let mut ptr = begin as *mut u64;
-
-    // The compiler unrolls the loop by 2 times, generating asm like below
-    // while ptr < end {
-    //     sd x0, 0(ptr)
-    //     sd x0, 8(ptr)
-    //     addi ptr, ptr, 16
-    // }
-    while (ptr as usize) < end {
-        ptr.write_volatile(0);
-        ptr = ptr.add(1);
-    }
+    core::ptr::write_bytes(begin as *mut u8, 0, end - begin);
 }
 
 // This method is no longer used
