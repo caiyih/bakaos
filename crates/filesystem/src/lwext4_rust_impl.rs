@@ -71,7 +71,7 @@ impl Drop for Lwext4Inode {
 
 impl Lwext4Inode {
     #[inline]
-    pub fn new(&self, path: String, file_type: InodeTypes) -> Lwext4Inode {
+    pub fn new(&self, path: &str, file_type: InodeTypes) -> Lwext4Inode {
         let inner = Ext4File::new(&path, file_type);
 
         Lwext4Inode {
@@ -209,7 +209,7 @@ impl IInode for Lwext4Inode {
             .dir_mk(&path)
             .map_err(|_| FileSystemError::SpaceNotEnough)?;
 
-        Ok(Arc::new(self.new(path, InodeTypes::EXT4_DE_DIR)))
+        Ok(Arc::new(self.new(&path, InodeTypes::EXT4_DE_DIR)))
     }
 
     fn rmdir(&self, name: &str) -> FileSystemResult<()> {
@@ -241,7 +241,7 @@ impl IInode for Lwext4Inode {
             .inner()
             .check_inode_exist(&path, InodeTypes::EXT4_DE_REG_FILE)
         {
-            return Ok(Arc::new(self.new(path, InodeTypes::EXT4_DE_REG_FILE)));
+            return Ok(Arc::new(self.new(&path, InodeTypes::EXT4_DE_REG_FILE)));
         }
 
         let _ = self
@@ -251,7 +251,7 @@ impl IInode for Lwext4Inode {
 
         let _ = self.inner().file_close();
 
-        Ok(Arc::new(self.new(path, InodeTypes::EXT4_DE_REG_FILE)))
+        Ok(Arc::new(self.new(&path, InodeTypes::EXT4_DE_REG_FILE)))
     }
 
     fn read_cache_dir(
@@ -305,17 +305,17 @@ impl IInode for Lwext4Inode {
             .inner()
             .check_inode_exist(&path, InodeTypes::EXT4_DE_DIR)
         {
-            Ok(Arc::new(self.new(path, InodeTypes::EXT4_DE_DIR)))
+            Ok(Arc::new(self.new(&path, InodeTypes::EXT4_DE_DIR)))
         } else if self
             .inner()
             .check_inode_exist(&path, InodeTypes::EXT4_DE_REG_FILE)
         {
-            Ok(Arc::new(self.new(path, InodeTypes::EXT4_DE_REG_FILE)))
+            Ok(Arc::new(self.new(&path, InodeTypes::EXT4_DE_REG_FILE)))
         } else if self
             .inner()
             .check_inode_exist(&path, InodeTypes::EXT4_DE_SYMLINK)
         {
-            Ok(Arc::new(self.new(path, InodeTypes::EXT4_DE_SYMLINK)))
+            Ok(Arc::new(self.new(&path, InodeTypes::EXT4_DE_SYMLINK)))
         } else {
             Err(FileSystemError::NotFound)
         }
@@ -340,7 +340,7 @@ impl IInode for Lwext4Inode {
 
         let _ = self.inner().file_close();
 
-        let link_inode = self.new(path, InodeTypes::EXT4_DE_SYMLINK);
+        let link_inode = self.new(&path, InodeTypes::EXT4_DE_SYMLINK);
 
         let _ = link_inode.file_open(O_RDWR);
 
