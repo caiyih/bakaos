@@ -696,24 +696,25 @@ impl DirectoryTreeNode {
             return Err(FileSystemError::AlreadyExists);
         }
 
-        match inner.meta.as_inode() {
-            Some(inode) => {
-                let made = inode.mkdir(name)?;
+        if let Some(inode) = inner.meta.as_inode() {
+            match inode.mkdir(name) {
+                Ok(made) => {
+                    let wrapped = Self::from_inode(Some(self.clone()), &made, None);
 
-                let wrapped = Self::from_inode(Some(self.clone()), &made, None);
+                    inner
+                        .opened
+                        .insert(wrapped.name().to_string(), Arc::downgrade(&wrapped));
 
-                inner
-                    .opened
-                    .insert(wrapped.name().to_string(), Arc::downgrade(&wrapped));
-
-                Ok(wrapped)
-            }
-            None => {
-                drop(inner); // release lock, as mount operation requires lock
-
-                self.mount_empty(name).map_err(|e| e.to_filesystem_error())
+                    return Ok(wrapped);
+                }
+                Err(e) if e == FileSystemError::AlreadyExists => return Err(e),
+                _ => (),
             }
         }
+
+        drop(inner); // release lock, as mount operation requires lock
+
+        self.mount_empty(name).map_err(|e| e.to_filesystem_error())
     }
 
     pub fn rmdir(self: &Arc<DirectoryTreeNode>, name: &str) -> FileSystemResult<()> {
@@ -745,27 +746,27 @@ impl DirectoryTreeNode {
     ) -> FileSystemResult<Arc<DirectoryTreeNode>> {
         let mut inner = self.inner.lock();
 
-        match inner.meta.as_inode() {
-            Some(inode) => {
-                let touched = inode.touch(name)?;
+        if let Some(inode) = inner.meta.as_inode() {
+            match inode.touch(name) {
+                Ok(touched) => {
+                    let wrapped = DirectoryTreeNode::from_inode(Some(self.clone()), &touched, None);
 
-                let wrapped = DirectoryTreeNode::from_inode(Some(self.clone()), &touched, None);
+                    inner
+                        .opened
+                        .insert(wrapped.name().to_string(), Arc::downgrade(&wrapped));
 
-                inner
-                    .opened
-                    .insert(wrapped.name().to_string(), Arc::downgrade(&wrapped));
-
-                Ok(wrapped)
-            }
-            None => {
-                drop(inner); // release lock, as mount operation requires lock
-
-                let ram_inode: Arc<dyn IInode> = Arc::new(RamFileInode::new(name));
-
-                global_mount_inode(&ram_inode, name, Some(self))
-                    .map_err(|e| e.to_filesystem_error())
+                    return Ok(wrapped);
+                }
+                Err(e) if e == FileSystemError::AlreadyExists => return Err(e),
+                _ => (),
             }
         }
+
+        drop(inner); // release lock, as mount operation requires lock
+
+        let ram_inode: Arc<dyn IInode> = Arc::new(RamFileInode::new(name));
+
+        global_mount_inode(&ram_inode, name, Some(self)).map_err(|e| e.to_filesystem_error())
     }
 
     pub fn read_dir(self: &Arc<DirectoryTreeNode>) -> FileSystemResult<Vec<DirectoryEntry>> {
