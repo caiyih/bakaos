@@ -15,8 +15,8 @@ use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuild
 use system::{GetRandomSyscall, ShutdownSyscall, SystemLogSyscall};
 use task::{
     BrkSyscall, ChdirSyscall, ClockGetTimeSyscall, CloneSyscall, ExecveSyscall, ExitGroupSyscall,
-    ExitSyscall, GetCwdSyscall, GetParentPidSyscall, GetPidSyscall, GetTimeOfDaySyscall,
-    ResourceLimitSyscall, TimesSyscall,
+    ExitSyscall, GetCwdSyscall, GetParentPidSyscall, GetPidSyscall, GetTaskIdSyscall,
+    GetTimeOfDaySyscall, ResourceLimitSyscall, TimesSyscall,
 };
 use task_async::{sys_nanosleep_async, sys_sched_yield_async, sys_wait4_async};
 use tasks::TaskControlBlock;
@@ -55,6 +55,7 @@ const SYSCALL_ID_NEWFSTATAT: usize = 79;
 const SYSCALL_ID_NEWFSTAT: usize = 80;
 const SYSCALL_ID_EXIT: usize = 93;
 const SYSCALL_ID_EXIT_GROUP: usize = 94;
+const SYSCALL_ID_SET_TID_ADDRESS: usize = 96;
 const SYSCALL_ID_FUTEX: usize = 98;
 const SYSCALL_ID_NANOSLEEP: usize = 101;
 const SYSCALL_ID_SYSLOG: usize = 116;
@@ -66,6 +67,7 @@ const SYSCALL_ID_GETPID: usize = 172;
 const SYSCALL_ID_GETPPID: usize = 173;
 const SYSCALL_ID_GETUID: usize = 174;
 const SYSCALL_ID_GETEUID: usize = 175;
+const SYSCALL_ID_GETTID: usize = 178;
 const SYSCALL_ID_SYSINFO: usize = 179;
 const SYSCALL_ID_BRK: usize = 214;
 const SYSCALL_ID_MUNMAP: usize = 215;
@@ -145,6 +147,8 @@ impl SyscallDispatcher {
             SYSCALL_ID_SYSINFO => Some(&SystemLogSyscall),
             SYSCALL_ID_GETRANDOM => Some(&GetRandomSyscall),
             SYSCALL_ID_PRLIMIT64 => Some(&ResourceLimitSyscall),
+            SYSCALL_ID_GETTID => Some(&GetTaskIdSyscall),
+            SYSCALL_ID_SET_TID_ADDRESS => Some(&GetTaskIdSyscall),
             _ => None,
         }
     }

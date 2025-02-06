@@ -571,3 +571,15 @@ impl ISyncSyscallHandler for ResourceLimitSyscall {
         "sys_prlimit64"
     }
 }
+
+pub struct GetTaskIdSyscall;
+
+impl ISyncSyscallHandler for GetTaskIdSyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        Ok(ctx.task_id.id() as isize)
+    }
+
+    fn name(&self) -> &str {
+        "sys_gettid"
+    }
+}
