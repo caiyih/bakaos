@@ -28,7 +28,6 @@ impl Lwext4FileSystem {
 
         Ok(Lwext4FileSystem {
             root: Arc::new(Lwext4Inode {
-                path: String::from("/"),
                 _inner: UnsafeCell::new(Ext4File::new("/", InodeTypes::EXT4_DE_DIR)),
                 fs: Arc::new(inner),
             }),
@@ -60,7 +59,6 @@ fn to_entry_type(inode_type: InodeTypes) -> DirectoryEntryType {
 }
 
 struct Lwext4Inode {
-    path: String,
     _inner: UnsafeCell<Ext4File>,
     fs: Arc<Ext4BlockWrapper<Lwext4Disk>>,
 }
@@ -77,16 +75,19 @@ impl Lwext4Inode {
         let inner = Ext4File::new(&path, file_type);
 
         Lwext4Inode {
-            path,
             _inner: UnsafeCell::new(inner),
             fs: self.fs.clone(),
         }
     }
 
+    fn path(&self) -> &str {
+        unsafe { core::str::from_utf8_unchecked(self.inner().get_path().as_bytes()) }
+    }
+
     #[inline(always)]
     fn file_open(&self, flags: u32) -> FileSystemResult<()> {
         self.inner()
-            .file_open(&self.path, flags)
+            .file_open(&self.path(), flags)
             .map_err(|_| FileSystemError::NotFound)?;
 
         Ok(())
@@ -134,7 +135,7 @@ impl IInode for Lwext4Inode {
         let size = self.inner().file_size() as usize;
 
         InodeMetadata {
-            filename: path::get_filename(&self.path),
+            filename: path::get_filename(&self.path()),
             entry_type: self.get_type(),
             size,
         }
@@ -177,7 +178,7 @@ impl IInode for Lwext4Inode {
         let bytes = self.inner().file_read(buffer);
         let _ = self.inner().file_close();
 
-        if self.path == "/strings.lua" {
+        if self.path() == "/strings.lua" {
             log::error!("{:?}", &buffer[..bytes.unwrap()]);
             // loop {}
         }
@@ -202,7 +203,7 @@ impl IInode for Lwext4Inode {
     fn mkdir(&self, name: &str) -> FileSystemResult<Arc<dyn IInode>> {
         self.should_be_directory()?;
 
-        let path = path::combine(&self.path, name).unwrap();
+        let path = path::combine(self.path(), name).unwrap();
 
         self.inner()
             .dir_mk(&path)
@@ -214,7 +215,7 @@ impl IInode for Lwext4Inode {
     fn rmdir(&self, name: &str) -> FileSystemResult<()> {
         self.should_be_directory()?;
 
-        let path = path::combine(&self.path, name).unwrap();
+        let path = path::combine(self.path(), name).unwrap();
 
         let _ = self.inner().dir_rm(&path);
 
@@ -224,7 +225,7 @@ impl IInode for Lwext4Inode {
     fn remove(&self, name: &str) -> FileSystemResult<()> {
         self.should_be_directory()?;
 
-        let path = path::combine(&self.path, name).unwrap();
+        let path = path::combine(self.path(), name).unwrap();
 
         let _ = self.inner().file_remove(&path);
 
@@ -234,7 +235,7 @@ impl IInode for Lwext4Inode {
     fn touch(&self, name: &str) -> FileSystemResult<Arc<dyn IInode>> {
         self.should_be_directory()?;
 
-        let path = path::combine(&self.path, name).unwrap();
+        let path = path::combine(self.path(), name).unwrap();
 
         if self
             .inner()
@@ -297,7 +298,7 @@ impl IInode for Lwext4Inode {
     fn lookup(&self, name: &str) -> FileSystemResult<Arc<dyn IInode>> {
         self.should_be_directory()?;
 
-        let path = path::combine(&self.path, name).unwrap();
+        let path = path::combine(self.path(), name).unwrap();
 
         if self
             .inner()
@@ -322,7 +323,7 @@ impl IInode for Lwext4Inode {
     fn soft_link(&self, name: &str, point_to: &str) -> FileSystemResult<Arc<dyn IInode>> {
         self.should_be_directory()?;
 
-        let path = path::combine(&self.path, name).unwrap();
+        let path = path::combine(self.path(), name).unwrap();
 
         if self
             .inner()
