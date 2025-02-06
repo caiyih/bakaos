@@ -157,10 +157,13 @@ impl ProcDeviceInode {
     pub fn setup() {
         let proc: Arc<dyn IInode> = Arc::new(ProcDeviceInode);
 
-        global_mount_inode(&proc, "/proc", None).unwrap();
+        let proc = global_mount_inode(&proc, "/proc", None).unwrap();
 
         let self_link: Arc<dyn IInode> = Arc::new(SelfLinkInode);
         global_mount_inode(&self_link, "/proc/self", None).unwrap();
+
+        proc.touch("mounts").unwrap();
+        proc.touch("meminfo").unwrap();
 
         // TODO: add meminfo, cpu info...
     }
