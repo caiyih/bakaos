@@ -1,7 +1,7 @@
 use core::{arch::naked_asm, panic};
 
 use alloc::sync::Arc;
-use log::{debug, trace};
+use log::{debug, trace, warn};
 use riscv::{
     interrupt::{
         supervisor::{Exception, Interrupt},
@@ -263,12 +263,11 @@ pub async fn user_trap_handler_async(tcb: &Arc<TaskControlBlock>) {
                 None => match SyscallDispatcher::dispatch_async(tcb, syscall_id).await {
                     Some(res) => res.to_ret(),
                     None => {
-                        debug!(
-                            "[User trap] [Exception::Syscall] Handler for id: {} not found. Kernel Killed it",
+                        warn!(
+                            "[User trap] [Exception::Syscall] Handler for id: {} not found.",
                             syscall_id
                         );
-                        *tcb.task_status.lock() = TaskStatus::Exited;
-                        return;
+                        0
                     }
                 },
             };
