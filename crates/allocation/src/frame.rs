@@ -27,7 +27,7 @@ fn zero_frame(ppn: PhysicalPageNum) {
             .to_high_virtual()
             .as_mut_ptr();
 
-        core::ptr::write_bytes(va as *mut u8, 0, constants::PAGE_SIZE);
+        core::ptr::write_bytes(va, 0, constants::PAGE_SIZE);
     }
 }
 
