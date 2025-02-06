@@ -273,9 +273,11 @@ macro_rules! async_syscall {
             // So we just read the syscall id from the register
             let sys_id = $param.tcb.mut_trap_ctx().regs.a7;
             log::trace!(
-                "[User trap] [Exception::Syscall] Async handler name: {}({})",
+                "[User trap] [Exception::Syscall] Async handler name: {}({}), task: {}({})",
                 stringify!($name),
-                sys_id
+                sys_id,
+                $param.tcb.task_id.id(),
+                $param.tcb.pcb.lock().id
             );
             $body
         }

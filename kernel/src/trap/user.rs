@@ -254,9 +254,11 @@ pub async fn user_trap_handler_async(tcb: &Arc<TaskControlBlock>) {
             let ret = match SyscallDispatcher::dispatch(tcb, syscall_id) {
                 Some((mut ctx, handler)) => {
                     trace!(
-                        "[User trap] [Exception::Syscall] Sync handler name: {}({})",
+                        "[User trap] [Exception::Syscall] Sync handler name: {}({}), task: {}({})",
                         handler.name(),
                         syscall_id,
+                        tcb.task_id.id(),
+                        tcb.pcb.lock().id
                     );
                     handler.handle(&mut ctx).to_ret()
                 }

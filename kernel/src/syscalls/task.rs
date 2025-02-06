@@ -248,7 +248,12 @@ impl ISyncSyscallHandler for CloneSyscall {
 
         ctx.children.lock().push(new_task.clone());
 
-        debug!("Forking task: {} from: {}", new_tid, ctx.task_id.id());
+        debug!(
+            "Forking task: {} from: {}, thread: {}",
+            new_tid,
+            ctx.task_id.id(),
+            flags.contains(TaskCloneFlags::THREAD)
+        );
 
         let new_trap_ctx = new_task.mut_trap_ctx();
 
