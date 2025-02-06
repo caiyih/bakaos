@@ -10,52 +10,32 @@ use timing::TimeSpec;
 
 use crate::{async_syscall, timing::current_timespec};
 
-struct FutexWaitGuarad<'a> {
-    uaddr: VirtualAddress,
-    tcb: &'a Arc<TaskControlBlock>,
-}
-
-impl<'a> FutexWaitGuarad<'a> {
-    pub fn enqueue(uaddr: VirtualAddress, tcb: &'a Arc<TaskControlBlock>) -> Self {
-        let guard = Self { uaddr, tcb };
-
-        tcb.pcb
-            .lock()
-            .futex_queue
-            .enqueue(uaddr, tcb.task_id.id(), tcb.waker());
-
-        guard
-    }
-}
-
-impl Drop for FutexWaitGuarad<'_> {
-    fn drop(&mut self) {
-        self.tcb
-            .pcb
-            .lock()
-            .futex_queue
-            .notify_woken(self.uaddr, self.tcb.task_id.id());
-    }
-}
-
 async fn futex_wait(
     tcb: &Arc<TaskControlBlock>,
     uaddr: VirtualAddress,
     val: u32,
     timeout: Option<TimeSpec>,
 ) {
-    let _guard = FutexWaitGuarad::enqueue(uaddr, tcb);
+    tcb.pcb
+        .lock()
+        .futex_queue
+        .enqueue(uaddr, tcb.task_id.id(), tcb.waker());
 
     let end_time = timeout.map(|t| t + current_timespec());
     while unsafe { atomic_load_acquire(uaddr.as_ptr::<u32>()) } == val {
         if let Some(end_time) = end_time {
             if current_timespec() >= end_time {
-                return;
+                break;
             }
         }
 
         yield_now().await;
     }
+
+    tcb.pcb
+        .lock()
+        .futex_queue
+        .notify_woken(uaddr, tcb.task_id.id());
 }
 
 async_syscall!(sys_futex_async, ctx, {
