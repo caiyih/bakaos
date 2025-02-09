@@ -1,5 +1,6 @@
 use address::{IPageNum, PhysicalAddress};
 use alloc::{
+    boxed::Box,
     collections::{BTreeMap, BTreeSet},
     string::{String, ToString},
     sync::{Arc, Weak},
@@ -7,7 +8,7 @@ use alloc::{
 };
 use allocation::TrackedFrame;
 use constants::SyscallError;
-use core::{mem::MaybeUninit, ops::DerefMut};
+use core::{cell::UnsafeCell, mem::MaybeUninit, ops::DerefMut};
 use hermit_sync::{RwSpinLock, SpinMutex};
 use timing::TimeSpec;
 
@@ -194,14 +195,13 @@ impl DirectoryTreeNodeMetadata {
     }
 }
 
-#[derive(Clone)]
 struct DirectoryTreeNodeInner {
     meta: DirectoryTreeNodeMetadata,
     name: String,
     mounted: BTreeMap<String, Arc<DirectoryTreeNode>>,
     opened: BTreeMap<String, Weak<DirectoryTreeNode>>,
     children_cache: BTreeMap<String, Arc<dyn IInode>>,
-    shadowed: Option<Arc<DirectoryTreeNode>>,
+    shadowed: Option<UnsafeCell<Box<DirectoryTreeNodeInner>>>,
 }
 
 impl DirectoryTreeNodeInner {
@@ -230,55 +230,56 @@ impl DirectoryTreeNode {
             return false;
         }
 
-        let mut new_inner = MaybeUninit::uninit();
-        core::mem::swap(
-            unsafe { new_inner.assume_init_mut() },
-            new.inner.lock().deref_mut(),
-        );
+        // This is only used for `new` to drop. Still, doesn't involve any allocation.
+        let mut new_inner = DirectoryTreeNodeInner {
+            meta: DirectoryTreeNodeMetadata::Empty,
+            name: String::new(),
+            mounted: BTreeMap::new(),
+            opened: BTreeMap::new(),
+            children_cache: BTreeMap::new(),
+            shadowed: None,
+        };
+
+        core::mem::swap(&mut new_inner, new.inner.lock().deref_mut());
 
         let mut node_inner = self.inner.lock();
 
-        let mut previous_inner =
-            core::mem::replace(node_inner.deref_mut(), unsafe { new_inner.assume_init() });
+        let mut previous_inner = core::mem::replace(node_inner.deref_mut(), new_inner);
 
         // # SAFETY: This assume that the previous name is always correct
         if node_inner.name != previous_inner.name {
             core::mem::swap(&mut node_inner.name, &mut previous_inner.name);
         }
 
-        let previous = Arc::new(DirectoryTreeNode {
-            parent: None, // Not needed
-            inner: SpinMutex::new(previous_inner),
-        });
-
-        node_inner.shadowed = Some(previous);
+        node_inner.shadowed = Some(UnsafeCell::new(Box::new(previous_inner)));
 
         true
     }
 
-    pub fn restore_shadow(self: &Arc<DirectoryTreeNode>) {
+    pub fn restore_shadow(self: &Arc<DirectoryTreeNode>) -> Option<Arc<DirectoryTreeNode>> {
         let mut inner = self.inner.lock();
 
         if let Some(ref shadowed) = inner.shadowed {
-            debug_assert!(!Arc::ptr_eq(self, shadowed));
+            // We have to use a temporary value to make borrow checker happy
+            let shadowed_inner = unsafe { shadowed.get().as_mut().unwrap() };
 
-            let mut shadowed_inner = MaybeUninit::uninit();
-
-            core::mem::swap(shadowed.inner.lock().deref_mut(), unsafe {
-                shadowed_inner.assume_init_mut()
-            });
-
-            let mut dropped_inner =
-                core::mem::replace(inner.deref_mut(), unsafe { shadowed_inner.assume_init() });
+            core::mem::swap(inner.deref_mut(), shadowed_inner);
 
             // # SAFETY: This assume that the previous name is always correct
-            if dropped_inner.name != inner.name {
-                core::mem::swap(&mut dropped_inner.name, &mut inner.name);
+            if shadowed_inner.name != inner.name {
+                core::mem::swap(&mut shadowed_inner.name, &mut inner.name);
             }
+
+            // prevent memory leak
+            let previous_inner = shadowed_inner.shadowed.take().unwrap();
+
+            return Some(Arc::new(DirectoryTreeNode {
+                parent: self.parent.clone(),
+                inner: SpinMutex::new(*previous_inner.into_inner()),
+            }));
         }
 
-        // Be aware that access to inner.shadowed is undefined behavior after this line.
-        inner.shadowed = None;
+        None
     }
 }
 
@@ -399,14 +400,16 @@ impl DirectoryTreeNode {
             }
         }
 
-        if let Some(mounted) = self.inner.lock().mounted.remove(name) {
-            let mut new_inner = node.inner.lock();
+        let mut inner = self.inner.lock();
 
-            new_inner.shadowed = Some(mounted);
+        if let Some(mounted) = inner.mounted.get(name).cloned() {
+            drop(inner);
+
+            mounted.shadow_with(node);
+            return Ok(mounted);
         }
 
-        self.inner
-            .lock()
+        inner
             .mounted
             .insert(name.to_string(), node.clone())
             .map_or_else(|| Ok(node.clone()), |_| Err(MountError::FileExists))
@@ -439,24 +442,23 @@ impl DirectoryTreeNode {
     }
 
     pub fn umount_at(&self, name: &str) -> Result<Arc<DirectoryTreeNode>, MountError> {
-        let umounted = self
+        let (name_string, umounted) = self
             .inner
             .lock()
             .mounted
-            .remove(name)
+            .remove_entry(name)
             .ok_or(MountError::FileNotExists)?;
 
-        let mut umounted_inner = umounted.inner.lock();
+        if umounted.inner.lock().shadowed.is_some() {
+            umounted.restore_shadow();
 
-        if let Some(shadowed) = umounted_inner.shadowed.take() {
-            let mut self_inner = self.inner.lock();
+            self.inner
+                .lock()
+                .mounted
+                .insert(name_string, umounted.clone());
 
-            self_inner.mounted.insert(name.to_string(), shadowed);
+            return Ok(umounted);
         }
-
-        umounted_inner.mounted.clear(); // prevent memory leak caused by loop reference
-
-        drop(umounted_inner);
 
         Ok(umounted)
     }
@@ -1033,25 +1035,13 @@ pub fn global_umount(
 ) -> Result<Arc<DirectoryTreeNode>, MountError> {
     let root = match (relative_to, path::is_path_fully_qualified(path)) {
         (_, true) => {
-            let mut root = ROOT.lock();
+            let root = ROOT.lock();
 
             let root_node = unsafe { root.assume_init_ref() };
 
             // Umount root, restoring shadowed node
             if path.trim_start_matches(path::SEPARATOR).is_empty() {
-                let mut root_inner = root_node.inner.lock();
-                let previous_root = root_inner
-                    .shadowed
-                    .take()
-                    .unwrap_or(DirectoryTreeNode::from_empty(None, String::new()));
-
-                root_inner.mounted.clear(); // prevent memory leak cuz the mounted nodes and root hold reference to each other
-
-                drop(root_inner);
-
-                *root = MaybeUninit::new(previous_root.clone());
-
-                return Ok(previous_root);
+                return root_node.restore_shadow().ok_or(MountError::InvalidInput);
             }
 
             root_node.clone()
@@ -1103,16 +1093,14 @@ fn global_mount_internal(
 ) -> Result<Arc<DirectoryTreeNode>, MountError> {
     let root = match (relative_to, path::is_path_fully_qualified(path)) {
         (_, true) => {
-            let mut root = ROOT.lock();
+            let root = ROOT.lock();
 
             // new root
             if path.trim_start_matches(path::SEPARATOR).is_empty() {
-                let new_root = get_node(None, "");
-                new_root.inner.lock().shadowed = Some(unsafe { root.assume_init_ref().clone() });
+                let root = unsafe { root.assume_init_ref() };
+                root.shadow_with(get_node(None, ""));
 
-                *root = MaybeUninit::new(new_root.clone());
-
-                return Ok(new_root);
+                return Ok(root.clone());
             }
 
             unsafe { root.assume_init_ref().clone() }
