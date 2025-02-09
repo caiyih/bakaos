@@ -515,22 +515,26 @@ impl DirectoryTreeNode {
     pub fn fullpath(self: &Arc<DirectoryTreeNode>) -> String {
         let mut stack = Vec::new();
 
-        let mut current = self.clone();
-        stack.push(current.name_internal());
+        {
+            let mut current = self.clone();
 
-        while let Some(parent) = &current.parent {
-            current = parent.clone();
-            stack.push(current.name_internal());
+            while let Some(parent) = &current.parent {
+                stack.push(current.name_internal());
+                current = parent.clone();
+            }
         }
 
-        let size = stack.iter().map(|s| s.len()).sum::<usize>() + stack.len();
+        let size = stack.iter().fold(0, |l, s| l + s.len() + 1); // bytes len with separator
         let mut path = String::with_capacity(size);
+
+        // root
+        path.push(path::SEPARATOR);
 
         while let Some(part) = stack.pop() {
             path.push_str(part);
 
             if !stack.is_empty() {
-                path.push_str(path::SEPARATOR_STR);
+                path.push(path::SEPARATOR);
             }
         }
 
