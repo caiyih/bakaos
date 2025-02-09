@@ -7,7 +7,7 @@ use alloc::{
 };
 use allocation::TrackedFrame;
 use constants::SyscallError;
-use core::mem::MaybeUninit;
+use core::{mem::MaybeUninit, ops::DerefMut};
 use hermit_sync::{RwSpinLock, SpinMutex};
 use timing::TimeSpec;
 
@@ -223,32 +223,61 @@ unsafe impl Send for DirectoryTreeNode {}
 unsafe impl Sync for DirectoryTreeNode {}
 
 impl DirectoryTreeNode {
-    pub fn shadow_with(self: &Arc<DirectoryTreeNode>, new: &Arc<DirectoryTreeNode>) {
-        if Arc::ptr_eq(self, new) {
-            return;
+    // This method takes ownership of `new` as it's undefined behavior after it was used to shadow
+    // Returns whether this operation succeedded. If not, `new` is still valid
+    pub fn shadow_with(self: &Arc<DirectoryTreeNode>, new: Arc<DirectoryTreeNode>) -> bool {
+        if Arc::ptr_eq(self, &new) {
+            return false;
         }
+
+        let mut new_inner = MaybeUninit::uninit();
+        core::mem::swap(
+            unsafe { new_inner.assume_init_mut() },
+            new.inner.lock().deref_mut(),
+        );
 
         let mut node_inner = self.inner.lock();
 
+        let mut previous_inner =
+            core::mem::replace(node_inner.deref_mut(), unsafe { new_inner.assume_init() });
+
+        // # SAFETY: This assume that the previous name is always correct
+        if node_inner.name != previous_inner.name {
+            core::mem::swap(&mut node_inner.name, &mut previous_inner.name);
+        }
+
         let previous = Arc::new(DirectoryTreeNode {
             parent: None, // Not needed
-            inner: SpinMutex::new(node_inner.clone()),
+            inner: SpinMutex::new(previous_inner),
         });
 
-        *node_inner = new.inner.lock().clone();
         node_inner.shadowed = Some(previous);
+
+        true
     }
 
     pub fn restore_shadow(self: &Arc<DirectoryTreeNode>) {
         let mut inner = self.inner.lock();
 
-        let shadowed = inner.shadowed.clone();
-        if let Some(shadowed) = shadowed {
-            debug_assert!(!Arc::ptr_eq(self, &shadowed));
+        if let Some(ref shadowed) = inner.shadowed {
+            debug_assert!(!Arc::ptr_eq(self, shadowed));
 
-            *inner = shadowed.inner.lock().clone();
+            let mut shadowed_inner = MaybeUninit::uninit();
+
+            core::mem::swap(shadowed.inner.lock().deref_mut(), unsafe {
+                shadowed_inner.assume_init_mut()
+            });
+
+            let mut dropped_inner =
+                core::mem::replace(inner.deref_mut(), unsafe { shadowed_inner.assume_init() });
+
+            // # SAFETY: This assume that the previous name is always correct
+            if dropped_inner.name != inner.name {
+                core::mem::swap(&mut dropped_inner.name, &mut inner.name);
+            }
         }
 
+        // Be aware that access to inner.shadowed is undefined behavior after this line.
         inner.shadowed = None;
     }
 }
