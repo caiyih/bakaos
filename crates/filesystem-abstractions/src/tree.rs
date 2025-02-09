@@ -473,8 +473,8 @@ impl DirectoryTreeNode {
             );
         }
 
-        // prevent dead lock in lookup method
-        {
+        let inode = {
+            // prevent dead lock in lookup method
             let mut inner = self.inner.lock();
 
             // mounted node has higher priority, as it can shadow the opened node
@@ -490,15 +490,15 @@ impl DirectoryTreeNode {
                 }
             }
 
-            if !inner.children_cache.is_empty() {
-                if let Some(inode) = inner.children_cache.remove(name) {
-                    return Ok(Self::from_inode(Some(self.clone()), &inode, Some(name)));
-                }
+            #[allow(deprecated)]
+            match inner.children_cache.remove(name) {
+                Some(cached) => cached,
+                None => match inner.meta.as_inode() {
+                    Some(inode_inner) => inode_inner.lookup(name)?,
+                    None => return Err(FileSystemError::NotFound),
+                },
             }
-        }
-
-        #[allow(deprecated)]
-        let inode = self.lookup(name)?;
+        };
 
         let opened = Self::from_inode(Some(self.clone()), &inode, Some(name));
 
@@ -653,18 +653,6 @@ impl DirectoryTreeNode {
                 entry_type: DirectoryEntryType::Directory,
                 size: 0,
             },
-        }
-    }
-
-    fn lookup(self: &Arc<DirectoryTreeNode>, name: &str) -> FileSystemResult<Arc<dyn IInode>> {
-        // We dont't use DirectoryTreeNode::open because this method only cares the lookup process,
-        // it doesn't mean the inode has to be opened.
-        let inner = self.inner.lock();
-
-        #[allow(deprecated)]
-        match inner.meta.as_inode() {
-            Some(inode) => inode.lookup(name),
-            None => Err(FileSystemError::NotFound),
         }
     }
 
