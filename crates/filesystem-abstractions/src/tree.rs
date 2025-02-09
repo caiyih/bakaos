@@ -417,20 +417,16 @@ impl DirectoryTreeNode {
         node: Arc<DirectoryTreeNode>,
         name: Option<&str>,
     ) -> Result<Arc<DirectoryTreeNode>, MountError> {
-        let name = name.unwrap_or(node.name());
+        let name = name.unwrap_or(node.name_internal());
 
-        let new = if node.parent.is_none()
+        #[cfg(debug_assertions)]
+        if node.parent.is_none()
             || !Arc::ptr_eq(self, unsafe { node.parent.as_ref().unwrap_unchecked() })
         {
-            Arc::new(DirectoryTreeNode {
-                parent: Some(self.clone()),
-                inner: SpinMutex::new(node.inner.lock().clone()),
-            })
-        } else {
-            node.clone()
-        };
+            log::warn!("Mounting a node that does not belong to current node. Check the callsite or ensure its a hard link operation.");
+        }
 
-        self.mount_internal(new, name)
+        self.mount_internal(node, name)
     }
 
     pub fn mount_empty(
@@ -903,6 +899,22 @@ impl DirectoryTreeNode {
             _ => {
                 drop(self_inner);
                 drop(source_inner);
+
+                // // TODO: this is actually copied some metadata
+                // // but we have to use this to keep the path correct.
+                // let child = if source.parent.is_none()
+                //     || !Arc::ptr_eq(self, unsafe { source.parent.as_ref().unwrap_unchecked() })
+                // {
+                //     Arc::new(DirectoryTreeNode {
+                //         parent: Some(self.clone()),
+                //         inner: SpinMutex::new(DirectoryTreeNodeInner {
+                //             name: String::from(name),
+                //             ..source.inner.lock().clone()
+                //         }),
+                //     })
+                // } else {
+                //     source.clone()
+                // };
 
                 self.mount_as(source.clone(), Some(name))
                     .map_err(|e| e.to_filesystem_error())?;
