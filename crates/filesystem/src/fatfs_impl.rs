@@ -157,7 +157,7 @@ impl IInode for FatFileInode {
         InodeMetadata {
             filename: &self.filename,
             entry_type: DirectoryEntryType::File,
-            size: unsafe { self.inner.make_guard_unchecked().size },
+            size: unsafe { self.inner.data_ptr().as_ref().unwrap().size },
         }
     }
 
@@ -227,7 +227,7 @@ impl IInode for FatFileInode {
     }
 
     fn stat(&self, stat: &mut FileStatistics) -> FileSystemResult<()> {
-        let size = unsafe { self.inner.make_guard_unchecked().size as u64 };
+        let size = unsafe { self.inner.data_ptr().as_ref().unwrap().size as u64 };
         stat.inode_id = 1;
         stat.mode = FileStatisticsMode::FILE;
         stat.link_count = 1;
