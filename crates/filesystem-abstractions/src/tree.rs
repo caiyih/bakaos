@@ -347,21 +347,27 @@ impl DirectoryTreeNode {
         #[cfg(debug_assertions)]
         {
             fn get_raw_name(node: &Arc<DirectoryTreeNode>) -> &str {
-                if let DirectoryTreeNodeMetadata::Inode { inode } =
-                    unsafe { &node.inner.data_ptr().as_ref().unwrap().meta }
-                {
-                    return inode.metadata().filename;
+                match unsafe { &node.inner.data_ptr().as_ref().unwrap().meta } {
+                    DirectoryTreeNodeMetadata::Inode { inode } => inode.metadata().filename,
+                    DirectoryTreeNodeMetadata::FileSystem { fs } => fs.name(),
+                    _ => node.metadata().filename,
                 }
-
-                node.metadata().filename
             }
 
-            log::info!(
-                "Mounting {} at {}/{}",
-                get_raw_name(&node),
-                self.fullpath(),
-                name
-            );
+            if node.parent.as_ref().is_some_and(|p| Arc::ptr_eq(p, self)) {
+                log::info!(
+                    "Mounting \"{}\" at \"{}\"",
+                    get_raw_name(&node),
+                    node.fullpath()
+                );
+            } else {
+                log::warn!(
+                    "Mounting \"{}\" at \"{}\", but child's parent was: {:?}. Check the callsite.",
+                    get_raw_name(&node),
+                    path::combine(&self.fullpath(), name).unwrap(),
+                    node.parent.as_ref().map(|p| p.fullpath())
+                );
+            }
         }
 
         if let Some(mounted) = self.inner.lock().mounted.remove(name) {
