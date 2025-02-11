@@ -500,6 +500,14 @@ impl TaskControlBlock {
     }
 }
 
+impl Drop for TaskControlBlock {
+    fn drop(&mut self) {
+        unsafe {
+            self.waker.get().as_mut().unwrap().assume_init_drop();
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct UserTaskStatistics {
     pub external_interrupts: usize,
