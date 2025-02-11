@@ -202,7 +202,7 @@ impl IInode for Lwext4Inode {
     fn mkdir(&self, name: &str) -> FileSystemResult<Arc<dyn IInode>> {
         self.should_be_directory()?;
 
-        let path = path::combine(self.path(), name).unwrap();
+        let path = path::combine(self.path(), name);
 
         self.inner()
             .dir_mk(&path)
@@ -214,7 +214,7 @@ impl IInode for Lwext4Inode {
     fn rmdir(&self, name: &str) -> FileSystemResult<()> {
         self.should_be_directory()?;
 
-        let path = path::combine(self.path(), name).unwrap();
+        let path = path::combine(self.path(), name);
 
         let _ = self.inner().dir_rm(&path);
 
@@ -224,7 +224,7 @@ impl IInode for Lwext4Inode {
     fn remove(&self, name: &str) -> FileSystemResult<()> {
         self.should_be_directory()?;
 
-        let path = path::combine(self.path(), name).unwrap();
+        let path = path::combine(self.path(), name);
 
         let _ = self.inner().file_remove(&path);
 
@@ -234,7 +234,7 @@ impl IInode for Lwext4Inode {
     fn touch(&self, name: &str) -> FileSystemResult<Arc<dyn IInode>> {
         self.should_be_directory()?;
 
-        let path = path::combine(self.path(), name).unwrap();
+        let path = path::combine(self.path(), name);
 
         if self
             .inner()
@@ -298,7 +298,7 @@ impl IInode for Lwext4Inode {
     fn lookup(&self, name: &str) -> FileSystemResult<Arc<dyn IInode>> {
         self.should_be_directory()?;
 
-        let path = path::combine(self.path(), name).unwrap();
+        let path = path::combine(self.path(), name);
 
         if self
             .inner()
@@ -323,7 +323,7 @@ impl IInode for Lwext4Inode {
     fn soft_link(&self, name: &str, point_to: &str) -> FileSystemResult<Arc<dyn IInode>> {
         self.should_be_directory()?;
 
-        let path = path::combine(self.path(), name).unwrap();
+        let path = path::combine(self.path(), name);
 
         if self
             .inner()

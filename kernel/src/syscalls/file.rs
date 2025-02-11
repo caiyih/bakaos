@@ -432,7 +432,7 @@ impl ISyncSyscallHandler for NewFstatatSyscall {
 
                 let pcb = ctx.pcb.lock();
                 if dirfd == FileDescriptor::AT_FDCWD {
-                    let fullpath = path::combine(&pcb.cwd, path).ok_or(ErrNo::InvalidArgument)?;
+                    let fullpath = path::combine(&pcb.cwd, path);
                     stat(&mut buf_guard, &fullpath, None, resolve_link)
                 } else {
                     let inode = pcb

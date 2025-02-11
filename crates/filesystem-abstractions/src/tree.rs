@@ -394,7 +394,7 @@ impl DirectoryTreeNode {
                 log::warn!(
                     "Mounting \"{}\" at \"{}\", but child's parent was: {:?}. Check the callsite.",
                     get_raw_name(&node),
-                    path::combine(&self.fullpath(), name).unwrap(),
+                    path::combine(&self.fullpath(), name),
                     node.parent.as_ref().map(|p| p.fullpath())
                 );
             }
