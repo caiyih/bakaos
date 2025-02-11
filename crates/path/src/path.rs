@@ -209,9 +209,19 @@ fn is_root_internal(path: &str) -> bool {
 }
 
 fn get_full_path_internal(path: &str, cwd: Option<&str>) -> String {
-    match cwd {
-        None => path.to_string(),
-        Some(cwd) => combine(cwd, path),
+    match is_path_rooted(path) {
+        true => {
+            let collapsed = remove_relative_segments(path);
+
+            match collapsed.len() {
+                0 => ROOT_STR.to_string(),
+                _ => collapsed,
+            }
+        }
+        false => match cwd {
+            None => path.to_string(),
+            Some(cwd) => combine(cwd, path),
+        },
     }
 }
 
