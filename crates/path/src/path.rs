@@ -571,7 +571,7 @@ fn join_internal(first: &str, second: &str) -> String {
 
     let mut joined = String::with_capacity(first.len() + second.len() + 1);
 
-    joined.push_str(&first);
+    joined.push_str(first);
 
     if !ends_in_separator(first) && !starts_with_separator(second) {
         joined.push(SEPARATOR);
