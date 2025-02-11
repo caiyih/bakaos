@@ -126,6 +126,17 @@ fn main() {
     }
 }
 
+fn setup_common_tools() {
+    let busybox = global_open("/mnt/busybox", None).unwrap();
+    let bin = global_open("/bin", None).unwrap();
+
+    for tool in [
+        "sh", "cp", "ls", "mv", "cat", "mkdir", "pwd", "rm", "grep", "busybox",
+    ] {
+        bin.hard_link(tool, &busybox).unwrap();
+    }
+}
+
 #[allow(unused)]
 fn run_final_tests() {
     use filesystem_abstractions::IFileSystem;
@@ -133,9 +144,7 @@ fn run_final_tests() {
     use scheduling::spawn_task;
     use tasks::TaskControlBlock;
 
-    let busybox = global_open("/mnt/busybox", None).unwrap();
-    filesystem_abstractions::global_mount(&busybox, "/bin/busybox", None);
-    filesystem_abstractions::global_mount(&busybox, "/bin/sh", None);
+    setup_common_tools();
 
     let script = global_open("/", None)
         .unwrap()
