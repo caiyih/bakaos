@@ -32,7 +32,7 @@ pub const SEPARATOR: char = '/';
 pub const DOT: char = '.';
 
 /// Combine two paths
-pub fn combine(path1: &str, path2: &str) -> Option<String> {
+pub fn combine(path1: &str, path2: &str) -> String {
     combine_internal(path1, path2)
 }
 
@@ -133,7 +133,7 @@ pub fn change_extension(path: &str, extension: &str) -> Option<String> {
     };
 
     match directory {
-        Some(directory) => combine(directory, &changed),
+        Some(directory) => Some(combine(directory, &changed)),
         None => Some(changed),
     }
 }
@@ -173,7 +173,7 @@ pub fn get_relative_path(relative_to: &str, path: &str) -> Option<String> {
         || is_partially_qualified(path)
     {
         true => None,
-        false => get_relative_path_internal(relative_to, path),
+        false => Some(get_relative_path_internal(relative_to, path)),
     }
 }
 
@@ -183,7 +183,7 @@ pub fn get_relative_path(relative_to: &str, path: &str) -> Option<String> {
 pub fn get_full_path(path: &str, cwd: Option<&str>) -> Option<String> {
     match path.is_empty() {
         true => cwd.map(|c| c.to_string()),
-        false => get_full_path_internal(path, cwd),
+        false => Some(get_full_path_internal(path, cwd)),
     }
 }
 
@@ -208,20 +208,10 @@ fn is_root_internal(path: &str) -> bool {
     path.len() == get_root_length(path)
 }
 
-fn get_full_path_internal(path: &str, cwd: Option<&str>) -> Option<String> {
-    match is_path_rooted(path) {
-        true => {
-            let collapsed = remove_relative_segments(path);
-
-            match collapsed.len() {
-                0 => Some(ROOT_STR.to_string()),
-                _ => Some(collapsed),
-            }
-        }
-        false => match cwd {
-            None => Some(path.to_string()),
-            Some(cwd) => combine(cwd, path),
-        },
+fn get_full_path_internal(path: &str, cwd: Option<&str>) -> String {
+    match cwd {
+        None => path.to_string(),
+        Some(cwd) => combine(cwd, path),
     }
 }
 
@@ -423,11 +413,11 @@ fn get_root_length(path: &str) -> usize {
     }
 }
 
-fn get_relative_path_internal(relative_to: &str, path: &str) -> Option<String> {
+fn get_relative_path_internal(relative_to: &str, path: &str) -> String {
     let mut common_len = get_common_length(relative_to, path);
 
     if common_len == 0 {
-        return Some(path.to_string());
+        return path.to_string();
     }
 
     // Trailing separators aren't significant for comparison
@@ -436,7 +426,7 @@ fn get_relative_path_internal(relative_to: &str, path: &str) -> Option<String> {
 
     // If we have effectively the same path, return "."
     if relative_to_len == path_len && common_len >= relative_to_len {
-        return Some(DOT_STR.to_string());
+        return DOT_STR.to_string();
     }
 
     // We have the same root, we need to calculate the difference now using the
@@ -481,7 +471,7 @@ fn get_relative_path_internal(relative_to: &str, path: &str) -> Option<String> {
         sb.push_str(&path[common_len..common_len + diff_len]);
     }
 
-    Some(sb)
+    sb
 }
 
 fn effective_length(path: &str) -> usize {
@@ -549,22 +539,22 @@ fn equal_starting_character_count(first: &str, second: &str) -> usize {
     common_len
 }
 
-fn combine_internal(first: &str, second: &str) -> Option<String> {
+fn combine_internal(first: &str, second: &str) -> String {
     if first.is_empty() {
-        return Some(second.to_string());
+        return second.to_string();
     }
 
     if second.is_empty() {
-        return Some(first.to_string());
+        return first.to_string();
     }
 
     match is_path_rooted(second) {
-        true => Some(second.to_string()),
+        true => second.to_string(),
         false => join_internal(first, second),
     }
 }
 
-fn join_internal(first: &str, second: &str) -> Option<String> {
+fn join_internal(first: &str, second: &str) -> String {
     assert!(!first.is_empty());
     assert!(!second.is_empty());
 
@@ -572,8 +562,8 @@ fn join_internal(first: &str, second: &str) -> Option<String> {
         is_separator(first.chars().last().unwrap()) || is_separator(second.chars().next().unwrap());
 
     match has_separator {
-        true => Some(format!("{}{}", first, second)),
-        false => Some(format!("{}{}{}", first, SEPARATOR, second)),
+        true => format!("{}{}", first, second),
+        false => format!("{}{}{}", first, SEPARATOR, second),
     }
 }
 
@@ -583,16 +573,13 @@ mod tests {
 
     #[test]
     fn test_combine() {
-        assert_eq!(
-            combine("/home/user", "docs"),
-            Some("/home/user/docs".to_string())
-        );
-        assert_eq!(combine("", "docs"), Some("docs".to_string()));
-        assert_eq!(combine("/home/user", ""), Some("/home/user".to_string()));
-        assert_eq!(combine("", ""), Some("".to_string()));
-        assert_eq!(combine("/", "docs"), Some("/docs".to_string()));
-        assert_eq!(combine("/home/user", "/docs"), Some("/docs".to_string()));
-        assert_eq!(combine("/home/user/", "/docs"), Some("/docs".to_string()));
+        assert_eq!(combine("/home/user", "docs"), "/home/user/docs".to_string());
+        assert_eq!(combine("", "docs"), "docs".to_string());
+        assert_eq!(combine("/home/user", ""), "/home/user".to_string());
+        assert_eq!(combine("", ""), "".to_string());
+        assert_eq!(combine("/", "docs"), "/docs".to_string());
+        assert_eq!(combine("/home/user", "/docs"), "/docs".to_string());
+        assert_eq!(combine("/home/user/", "/docs"), "/docs".to_string());
     }
 
     #[test]
