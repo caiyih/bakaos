@@ -251,7 +251,7 @@ fn remove_relative_segments_internal(path: &str) -> Option<String> {
                 continue;
             }
 
-            let next_next = cloned_it.next().unwrap().1;
+            let next_next = cloned_it.next().map(|c| c.1).unwrap_or('\0');
 
             // Skip this character and the next if it's referring to the current directory,
             // e.g. "parent/./child" => "parent/child"
@@ -261,7 +261,7 @@ fn remove_relative_segments_internal(path: &str) -> Option<String> {
                 continue;
             }
 
-            let next3 = cloned_it.next().unwrap().1;
+            let next3 = cloned_it.next().map(|c| c.1).unwrap_or('\0');
 
             // Skip this character and the next two if it's referring to the parent directory,
             // e.g. "parent/child/../grandchild" => "parent/grandchild"
