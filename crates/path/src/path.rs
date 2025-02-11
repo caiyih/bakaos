@@ -755,5 +755,8 @@ mod tests {
         );
         assert_eq!(remove_relative_segments("/../home/user"), "/home/user");
         assert_eq!(remove_relative_segments("/home/user/../../docs"), "/docs");
+        assert_eq!(remove_relative_segments("/home/user/../../docs"), "/docs");
+        assert_eq!(remove_relative_segments("/home/user/.."), "/home");
+        assert_eq!(remove_relative_segments("/home/user/."), "/home/user");
     }
 }
