@@ -555,16 +555,21 @@ fn combine_internal(first: &str, second: &str) -> String {
 }
 
 fn join_internal(first: &str, second: &str) -> String {
-    assert!(!first.is_empty());
-    assert!(!second.is_empty());
+    debug_assert!(!first.is_empty());
+    debug_assert!(!second.is_empty());
+    debug_assert!(is_partially_qualified(second));
 
-    let has_separator =
-        is_separator(first.chars().last().unwrap()) || is_separator(second.chars().next().unwrap());
+    let mut joined = String::with_capacity(first.len() + second.len() + 1);
 
-    match has_separator {
-        true => format!("{}{}", first, second),
-        false => format!("{}{}{}", first, SEPARATOR, second),
+    joined.push_str(&first);
+
+    if !ends_in_separator(first) && !starts_with_separator(second) {
+        joined.push(SEPARATOR);
     }
+
+    joined.push_str(second);
+
+    joined
 }
 
 #[cfg(test)]
