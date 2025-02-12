@@ -882,48 +882,48 @@ impl DirectoryTreeNode {
         name: &str,
         source: &Arc<DirectoryTreeNode>,
     ) -> FileSystemResult<()> {
-        let under_same_filesystem = Arc::ptr_eq(
-            &self.get_containing_filesystem(),
-            &source.get_containing_filesystem(),
-        );
-
-        let self_inner = self.inner.lock();
-        let source_inner = source.inner.lock();
-
-        match (
-            under_same_filesystem,
-            self_inner.meta.as_inode(),
-            source_inner.meta.as_inode(),
-        ) {
-            (true, Some(ref self_inode), Some(ref source_inode)) => {
-                self_inode.hard_link(name, source_inode)
+        if Arc::ptr_eq(self, source) {
+            if let Some(ref inode) = self.inner.lock().meta.as_inode() {
+                if let Ok(ret) = inode.hard_link(name, inode) {
+                    return Ok(ret);
+                }
             }
-            _ => {
-                drop(self_inner);
-                drop(source_inner);
+        } else {
+            let under_same_filesystem = Arc::ptr_eq(
+                &self.get_containing_filesystem(),
+                &source.get_containing_filesystem(),
+            );
 
-                // // TODO: this is actually copied some metadata
-                // // but we have to use this to keep the path correct.
-                // let child = if source.parent.is_none()
-                //     || !Arc::ptr_eq(self, unsafe { source.parent.as_ref().unwrap_unchecked() })
-                // {
-                //     Arc::new(DirectoryTreeNode {
-                //         parent: Some(self.clone()),
-                //         inner: SpinMutex::new(DirectoryTreeNodeInner {
-                //             name: String::from(name),
-                //             ..source.inner.lock().clone()
-                //         }),
-                //     })
-                // } else {
-                //     source.clone()
-                // };
-
-                self.mount_as(source.clone(), Some(name))
-                    .map_err(|e| e.to_filesystem_error())?;
-
-                Ok(())
+            if let (true, Some(ref self_inode), Some(ref source_inode)) = (
+                under_same_filesystem,
+                self.inner.lock().meta.as_inode(),
+                source.inner.lock().meta.as_inode(),
+            ) {
+                if let Ok(ret) = self_inode.hard_link(name, source_inode) {
+                    return Ok(ret);
+                }
             }
         }
+
+        // // TODO: this is actually copied some metadata
+        // // but we have to use this to keep the path correct.
+        // let child = if source.parent.is_none()
+        //     || !Arc::ptr_eq(self, unsafe { source.parent.as_ref().unwrap_unchecked() })
+        // {
+        //     Arc::new(DirectoryTreeNode {
+        //         parent: Some(self.clone()),
+        //         inner: SpinMutex::new(DirectoryTreeNodeInner {
+        //             name: String::from(name),
+        //             ..source.inner.lock().clone()
+        //         }),
+        //     })
+        // } else {
+        //     source.clone()
+        // };
+
+        self.mount_as(source.clone(), Some(name))
+            .map_err(|e| e.to_filesystem_error())
+            .map(|_| ())
     }
 
     pub fn soft_link(
