@@ -2,7 +2,7 @@ use abstractions::IUsizeAlias;
 
 use crate::*;
 
-#[repr(C)]
+#[repr(transparent)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct VirtualAddress(pub usize);
 

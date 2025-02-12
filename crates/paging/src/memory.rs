@@ -768,7 +768,7 @@ impl MemorySpaceBuilder {
     }
 }
 
-#[repr(C)]
+#[repr(transparent)]
 #[derive(Debug, Clone, Copy)]
 pub struct AuxVecKey(pub usize);
 
