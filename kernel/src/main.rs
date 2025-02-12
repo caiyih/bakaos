@@ -137,13 +137,27 @@ fn setup_common_tools() {
     }
 }
 
-#[allow(unused)]
-fn run_final_tests() {
-    use filesystem_abstractions::IFileSystem;
+fn run_busybox(path: &str, args: &[&str], envp: &[&str]) {
     use paging::MemorySpaceBuilder;
     use scheduling::spawn_task;
-    use tasks::TaskControlBlock;
 
+    let busybox = filesystem_abstractions::global_open(path, None).unwrap();
+    let busybox = busybox.readall().unwrap();
+
+    let mut memspace = MemorySpaceBuilder::from_elf(&busybox, path).unwrap();
+
+    drop(busybox);
+
+    memspace.init_stack(args, envp);
+    let task = ProcessControlBlock::new(memspace);
+    task.pcb.lock().cwd = String::from("/mnt");
+
+    spawn_task(task);
+    threading::run_tasks();
+}
+
+#[allow(unused)]
+fn run_final_tests() {
     setup_common_tools();
 
     let script = global_open("/", None)
@@ -167,89 +181,43 @@ fn run_final_tests() {
             "LANG=C",
         ],
     );
-
-    fn run_busybox(path: &str, args: &[&str], envp: &[&str]) {
-        let busybox = filesystem_abstractions::global_open(path, None).unwrap();
-        let busybox = busybox.readall().unwrap();
-
-        let mut memspace = MemorySpaceBuilder::from_elf(&busybox, path).unwrap();
-
-        drop(busybox);
-
-        memspace.init_stack(args, envp);
-        let task = ProcessControlBlock::new(memspace);
-        unsafe {
-            task.pcb.lock().cwd = String::from("/mnt");
-        };
-
-        spawn_task(task);
-        threading::run_tasks();
-    }
 }
 
 #[allow(unused)]
 fn run_preliminary_tests() {
-    fn preliminary_test(path: &str, args: Option<&[&str]>, envp: Option<&[&str]>) {
-        use paging::MemorySpaceBuilder;
-        use scheduling::spawn_task;
-        use tasks::TaskControlBlock;
-
-        let mut memspace = {
-            let elf = filesystem_abstractions::global_open(path, None)
-                .expect("Failed to open path")
-                .readall()
-                .expect("Failed to read file");
-
-            MemorySpaceBuilder::from_elf(&elf, path).unwrap()
-        };
-
-        memspace.init_stack(args.unwrap_or(&[]), envp.unwrap_or(&[]));
-        let task = ProcessControlBlock::new(memspace);
-        unsafe {
-            let directory = path::get_directory_name(path).unwrap();
-            task.pcb.lock().cwd = String::from(directory);
-        };
-        spawn_task(task);
-        threading::run_tasks();
-    }
+    setup_common_tools();
 
     // mount and umount tests requires '/dev/vda2'.
     // so we just use a copy of the sdcard's block device
     let sdcard = global_open("/dev/sda", None).unwrap();
     filesystem_abstractions::global_mount(&sdcard, "/dev/vda2", None).unwrap();
 
-    preliminary_test("/mnt/uname", None, None);
-    preliminary_test("/mnt/write", None, None);
-    preliminary_test("/mnt/times", None, None);
-    preliminary_test("/mnt/brk", None, None);
-    preliminary_test("/mnt/gettimeofday", None, None);
-    preliminary_test("/mnt/getpid", None, None);
-    preliminary_test("/mnt/getppid", None, None);
-    preliminary_test("/mnt/getcwd", None, None);
-    preliminary_test("/mnt/sleep", None, None);
-    preliminary_test("/mnt/fork", None, None);
-    preliminary_test("/mnt/clone", None, None);
-    preliminary_test("/mnt/yield", None, None);
-    preliminary_test("/mnt/exit", None, None);
-    preliminary_test("/mnt/wait", None, None);
-    preliminary_test("/mnt/waitpid", None, None);
-    preliminary_test("/mnt/execve", None, None);
-    preliminary_test("/mnt/pipe", None, None);
-    preliminary_test("/mnt/dup", None, None);
-    preliminary_test("/mnt/dup2", None, None);
-    preliminary_test("/mnt/openat", None, None);
-    preliminary_test("/mnt/open", None, None);
-    preliminary_test("/mnt/close", None, None);
-    preliminary_test("/mnt/read", None, None);
-    preliminary_test("/mnt/mount", None, None);
-    preliminary_test("/mnt/umount", None, None);
-    preliminary_test("/mnt/mkdir_", None, None);
-    preliminary_test("/mnt/chdir", None, None);
-    preliminary_test("/mnt/fstat", None, None);
-    preliminary_test("/mnt/getdents", None, None);
-    preliminary_test("/mnt/unlink", None, None);
-    preliminary_test("/mnt/mmap", None, None);
-    preliminary_test("/mnt/munmap", None, None);
+    // setup test_script.sh script
+    let script = global_open("/", None)
+        .unwrap()
+        .touch("test_script.sh")
+        .unwrap();
+    script
+        .writeat(0, include_bytes!("../../test_preliminary/test_script.sh"))
+        .unwrap();
+
+    // TODO: link test scripts and binaries to root
+
+    run_busybox(
+        "/mnt/busybox",
+        &["sh", "/test_script.sh"],
+        &[
+            "HOME=/root",
+            "PATH=/mnt:/bin",
+            "USER=cirno",
+            "LOGNAME=cirno",
+            "TERM=xterm-256color",
+            "PWD=/mnt",
+            "SHELL=/bin/sh",
+            "SHLVL=1",
+            "LANG=C",
+        ],
+    );
 }
 
 static BOOTED: AtomicBool = AtomicBool::new(false);
