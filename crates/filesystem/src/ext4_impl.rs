@@ -148,6 +148,32 @@ impl Ext4Inode {
     }
 }
 
+impl Ext4Inode {
+    fn ensure_inode_size(&self, new_size: usize) -> Result<(), FileSystemError> {
+        let inode_ref = self.fs.get_inode_ref(self.inode_id);
+
+        if new_size as u64 > inode_ref.inode.size() {
+            const BUFFER_SIZE: usize = 512;
+            const BUFFER: [u8; BUFFER_SIZE] = [0; BUFFER_SIZE];
+
+            let mut curr = inode_ref.inode.size() as usize;
+
+            while curr < new_size {
+                let to_write = (new_size - curr).min(BUFFER_SIZE);
+
+                let bytes_written = self
+                    .fs
+                    .write_at(self.inode_id, new_size, &BUFFER[..to_write])
+                    .map_err(|_| FileSystemError::SpaceNotEnough)?;
+
+                curr += bytes_written;
+            }
+        }
+
+        Ok(())
+    }
+}
+
 impl Clone for Ext4Inode {
     fn clone(&self) -> Self {
         Self {
@@ -356,6 +382,8 @@ impl IInode for Ext4Inode {
         buffer: &[u8],
     ) -> filesystem_abstractions::FileSystemResult<usize> {
         self.should_be_file()?;
+
+        self.ensure_inode_size(offset)?;
 
         let bytes_written = self
             .fs
