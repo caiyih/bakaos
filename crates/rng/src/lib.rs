@@ -1,4 +1,3 @@
-#![feature(unchecked_shifts)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use core::mem::MaybeUninit;
