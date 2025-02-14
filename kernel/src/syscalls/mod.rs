@@ -21,63 +21,15 @@ use task::{
 use task_async::{sys_nanosleep_async, sys_sched_yield_async, sys_wait4_async};
 use tasks::TaskControlBlock;
 
+use syscall_id::*;
+
 mod file;
 mod file_async;
 mod futex_async;
+mod syscall_id;
 mod system;
 mod task;
 mod task_async;
-
-const SYSCALL_ID_SHUTDOWN: usize = 0;
-const SYSCALL_ID_GETCWD: usize = 17;
-const SYSCALL_ID_DUP: usize = 23;
-const SYSCALL_ID_DUP3: usize = 24;
-const SYSCALL_ID_FCNTL64: usize = 25;
-const SYSCALL_ID_IOCTL: usize = 29;
-const SYSCALL_ID_MKDIRAT: usize = 34;
-const SYSCALL_ID_UNLINKAT: usize = 35;
-const SYSCALL_ID_SYMLINKAT: usize = 36;
-const SYSCALL_ID_LINKAT: usize = 37;
-const SYSCALL_ID_UMOUNT: usize = 39;
-const SYSCALL_ID_MOUNT: usize = 40;
-const SYSCALL_ID_CHDIR: usize = 49;
-const SYSCALL_ID_OPENAT: usize = 56;
-const SYSCALL_ID_CLOSE: usize = 57;
-const SYSCALL_ID_PIPE2: usize = 59;
-const SYSCALL_ID_GETDENTS64: usize = 61;
-const SYSCALL_ID_READ: usize = 63;
-const SYSCALL_ID_WRITE: usize = 64;
-const SYSCALL_ID_READV: usize = 65;
-const SYSCALL_ID_WRITEV: usize = 66;
-const SYSCALL_ID_SENDFILE: usize = 71;
-const SYSCALL_ID_READLINKAT: usize = 78;
-const SYSCALL_ID_NEWFSTATAT: usize = 79;
-const SYSCALL_ID_NEWFSTAT: usize = 80;
-const SYSCALL_ID_EXIT: usize = 93;
-const SYSCALL_ID_EXIT_GROUP: usize = 94;
-const SYSCALL_ID_SET_TID_ADDRESS: usize = 96;
-const SYSCALL_ID_FUTEX: usize = 98;
-const SYSCALL_ID_NANOSLEEP: usize = 101;
-const SYSCALL_ID_SYSLOG: usize = 116;
-const SYSCALL_ID_SCHED_YIELD: usize = 124;
-const SYSCALL_ID_TIMES: usize = 153;
-const SYSCALL_ID_UNAME: usize = 160;
-const SYSCALL_ID_GETTIMEOFDAY: usize = 169;
-const SYSCALL_ID_GETPID: usize = 172;
-const SYSCALL_ID_GETPPID: usize = 173;
-const SYSCALL_ID_GETUID: usize = 174;
-const SYSCALL_ID_GETEUID: usize = 175;
-const SYSCALL_ID_GETTID: usize = 178;
-const SYSCALL_ID_SYSINFO: usize = 179;
-const SYSCALL_ID_BRK: usize = 214;
-const SYSCALL_ID_MUNMAP: usize = 215;
-const SYSCALL_ID_CLONE: usize = 220;
-const SYSCALL_ID_EXECVE: usize = 221;
-const SYSCALL_ID_MMAP: usize = 222;
-const STSCALL_ID_WAIT4: usize = 260;
-const SYSCALL_ID_PRLIMIT64: usize = 261;
-const SYSCALL_ID_GETRANDOM: usize = 278;
-const SYSCALL_ID_CLOCK_GETTIME: usize = 113;
 
 pub trait ISyscallResult {
     fn to_ret(self) -> isize;
