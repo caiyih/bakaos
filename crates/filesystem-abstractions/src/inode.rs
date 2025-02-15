@@ -63,6 +63,10 @@ pub trait IInode: DowncastSync + Send + Sync {
     fn resolve_link(&self) -> Option<String> {
         None
     }
+
+    fn resize(&self, _new_size: u64) -> FileSystemResult<u64> {
+        Err(FileSystemError::NotAFile)
+    }
 }
 
 impl_downcast!(sync IInode);

@@ -397,7 +397,31 @@ impl IInode for Lwext4Inode {
 
         let target = unsafe { core::str::from_utf8_unchecked(&buffer[..len]) };
 
+        let _ = self.inner().file_close();
+
         Some(String::from(target))
+    }
+
+    fn resize(&self, new_size: u64) -> FileSystemResult<u64> {
+        self.should_be_file()?;
+
+        let _ = self.file_open(O_RDWR);
+
+        let size = self.inner().file_size();
+
+        let ret = match Ord::cmp(&size, &new_size) {
+            core::cmp::Ordering::Less => self.ensure_inode_has_size(new_size).map(|_| new_size),
+            core::cmp::Ordering::Equal => Ok(new_size),
+            core::cmp::Ordering::Greater => self
+                .inner()
+                .file_truncate(new_size)
+                .map(|_| new_size)
+                .map_err(|_| FileSystemError::InternalError),
+        };
+
+        let _ = self.inner().file_close();
+
+        ret
     }
 }
 
