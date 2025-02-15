@@ -177,11 +177,6 @@ impl IInode for Lwext4Inode {
         let bytes = self.inner().file_read(buffer);
         let _ = self.inner().file_close();
 
-        if self.path() == "/strings.lua" {
-            log::error!("{:?}", &buffer[..bytes.unwrap()]);
-            // loop {}
-        }
-
         Ok(bytes.unwrap_or(0))
     }
 
