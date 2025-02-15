@@ -234,7 +234,7 @@ impl IInode for FatFileInode {
 
         locked_inner.size = Ord::max(locked_inner.size, offset + buffer.len());
 
-        Ok(0)
+        Ok(buffer.len())
     }
 
     fn flush(&self) -> filesystem_abstractions::FileSystemResult<()> {
