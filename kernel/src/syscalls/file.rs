@@ -980,3 +980,56 @@ impl ISyncSyscallHandler for LinkAtSyscall {
         "sys_linkat"
     }
 }
+
+pub struct LongSeekSyscall;
+
+impl ISyncSyscallHandler for LongSeekSyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        let pcb = ctx.pcb.lock();
+
+        let fd = ctx.arg0::<usize>();
+        let fd = pcb.fd_table.get(fd).ok_or(ErrNo::BadFileDescriptor)?;
+
+        let file_metadata = fd.access().metadata().ok_or(ErrNo::IllegalSeek)?;
+
+        let offset = ctx.arg1::<isize>();
+        let whence = ctx.arg2::<usize>();
+
+        match file_metadata.seek(offset, whence) {
+            true => Ok(file_metadata.offset() as isize),
+            _ => SyscallError::IllegalSeek,
+        }
+    }
+
+    fn name(&self) -> &str {
+        "sys_lseek"
+    }
+}
+
+pub struct FileTruncateSyscall;
+
+impl ISyncSyscallHandler for FileTruncateSyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        let pcb = ctx.pcb.lock();
+
+        let fd = ctx.arg0::<usize>();
+        let fd = pcb.fd_table.get(fd).ok_or(ErrNo::BadFileDescriptor)?;
+
+        let file_metadata = fd
+            .access()
+            .metadata()
+            .ok_or(ErrNo::FileDescriptorInBadState)?;
+
+        let new_size = ctx.arg1::<u64>();
+
+        file_metadata
+            .inode()
+            .resize_inode(new_size)
+            .map_err(|_| ErrNo::FileDescriptorInBadState)
+            .map(|s| s as isize)
+    }
+
+    fn name(&self) -> &str {
+        "sys_ftruncate64"
+    }
+}

@@ -3,9 +3,10 @@ use core::ops::Deref;
 use alloc::{format, sync::Arc};
 use constants::SyscallError;
 use file::{
-    CloseSyscall, Dup3Syscall, DupSyscall, GetDents64Syscall, LinkAtSyscall, MkdirAtSyscall,
-    MmapSyscall, MountSyscall, MunmapSyscall, NewFstatSyscall, NewFstatatSyscall, OpenAtSyscall,
-    Pipe2Syscall, ReadLinkAtSyscall, SymbolLinkAtSyscall, UmountSyscall, UnlinkAtSyscall,
+    CloseSyscall, Dup3Syscall, DupSyscall, FileTruncateSyscall, GetDents64Syscall, LinkAtSyscall,
+    LongSeekSyscall, MkdirAtSyscall, MmapSyscall, MountSyscall, MunmapSyscall, NewFstatSyscall,
+    NewFstatatSyscall, OpenAtSyscall, Pipe2Syscall, ReadLinkAtSyscall, SymbolLinkAtSyscall,
+    UmountSyscall, UnlinkAtSyscall,
 };
 use file_async::{
     sys_read_async, sys_readv_async, sys_sendfile_async, sys_write_async, sys_writev_async,
@@ -101,6 +102,8 @@ impl SyscallDispatcher {
             SYSCALL_ID_PRLIMIT64 => Some(&ResourceLimitSyscall),
             SYSCALL_ID_GETTID => Some(&GetTaskIdSyscall),
             SYSCALL_ID_SET_TID_ADDRESS => Some(&GetTaskIdSyscall),
+            SYSCALL_ID_LSEEK => Some(&LongSeekSyscall),
+            SYSCALL_ID_FTRUNCATE64 => Some(&FileTruncateSyscall),
             _ => None,
         }
     }

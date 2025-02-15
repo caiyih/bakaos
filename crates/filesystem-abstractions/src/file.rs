@@ -30,6 +30,40 @@ impl FileMetadata {
         }
     }
 
+    pub fn seek(&self, offset: isize, whence: usize) -> bool {
+        const WHENCE_START: usize = 0;
+        const WHENCE_CURRENT: usize = 1;
+        const WHENCE_END: usize = 2;
+
+        match whence {
+            WHENCE_START => self.set_offset(offset as usize),
+            WHENCE_CURRENT => {
+                if offset > 0 {
+                    self.open_offset
+                        .fetch_add(offset as usize, Ordering::Relaxed);
+                } else if offset < 0 {
+                    self.open_offset
+                        .fetch_sub(offset as usize, Ordering::Relaxed);
+                }
+            }
+            WHENCE_END => {
+                let inode_metadata = self.inode.metadata();
+
+                if inode_metadata.entry_type == DirectoryEntryType::File
+                    || inode_metadata.entry_type == DirectoryEntryType::BlockDevice
+                {
+                    let offset = self.inode.metadata().size;
+                    self.set_offset(offset);
+                } else {
+                    return false;
+                }
+            }
+            _ => return false,
+        }
+
+        true
+    }
+
     pub fn offset(&self) -> usize {
         self.open_offset.load(Ordering::Relaxed)
     }
