@@ -125,6 +125,35 @@ impl Lwext4Inode {
     }
 }
 
+impl Lwext4Inode {
+    fn ensure_inode_has_size(&self, new_size: u64) -> Result<(), FileSystemError> {
+        let mut size = self.inner().file_size();
+
+        if new_size <= size {
+            return Ok(());
+        }
+
+        while size < new_size {
+            const BUFFER_LEN: usize = 512;
+            const BUFFER: [u8; BUFFER_LEN] = [0; BUFFER_LEN];
+
+            let to_fill = ((new_size - size) as usize).min(BUFFER_LEN);
+
+            let _ = self.inner().file_seek(size as i64, SEEK_SET);
+            let written = self
+                .inner()
+                .file_write(&BUFFER[..to_fill])
+                .map_err(|_| FileSystemError::SpaceNotEnough)?;
+
+            size += written as u64;
+        }
+
+        debug_assert_eq!(size, new_size);
+
+        Ok(())
+    }
+}
+
 unsafe impl Send for Lwext4Inode {}
 unsafe impl Sync for Lwext4Inode {}
 
@@ -184,6 +213,8 @@ impl IInode for Lwext4Inode {
         self.should_be_file()?;
 
         let _ = self.file_open(O_RDWR);
+
+        self.ensure_inode_has_size(offset as u64)?;
 
         self.inner()
             .file_seek(offset as i64, SEEK_SET)
