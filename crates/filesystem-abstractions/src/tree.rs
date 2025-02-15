@@ -143,6 +143,20 @@ impl IInode for RamFileInode {
 
         Ok(())
     }
+
+    fn resize(&self, new_size: u64) -> FileSystemResult<u64> {
+        let mut inner = self.inner.write();
+
+        if new_size != inner.size as u64 {
+            let required_pages = ((new_size + 4095) / 4096) as usize;
+            inner.frames.resize_with(required_pages, || {
+                allocation::alloc_frame().expect("Out of memory")
+            });
+            inner.size = new_size as usize;
+        }
+
+        Ok(new_size)
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -975,6 +989,15 @@ impl DirectoryTreeNode {
         }
 
         Err(FileSystemError::LinkTooDepth)
+    }
+
+    pub fn resize_inode(self: &Arc<DirectoryTreeNode>, new_size: u64) -> FileSystemResult<u64> {
+        let inner = self.inner.lock();
+
+        match inner.meta.as_inode() {
+            Some(inode) => inode.resize(new_size),
+            None => Err(FileSystemError::NotAFile),
+        }
     }
 }
 
