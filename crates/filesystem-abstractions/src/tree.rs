@@ -67,7 +67,7 @@ impl IInode for RamFileInode {
         }
 
         let mut current = offset;
-        for frame in &inner.frames[offset / 4096..end_size / 4096 + 1] {
+        for frame in &inner.frames[offset / 4096..(end_size + 4095) / 4096] {
             let in_page_start = current % 4096;
             let in_page_len = usize::min(4096, end_size - current);
 
