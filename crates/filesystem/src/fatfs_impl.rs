@@ -143,6 +143,30 @@ pub struct FatFileInodeInner {
     size: usize,
 }
 
+impl FatFileInodeInner {
+    fn ensure_inode_size(&mut self, new_size: usize) -> Result<(), FileSystemError> {
+        const BUFFER_LEN: usize = 512;
+        const BUFFER: [u8; BUFFER_LEN] = [0; BUFFER_LEN];
+
+        debug_assert!(self.size <= new_size);
+
+        let mut remaining = new_size - self.size;
+
+        while remaining > 0 {
+            let write_size = core::cmp::min(remaining, 512);
+
+            let written = self
+                .inner
+                .write(&BUFFER[0..write_size])
+                .map_err(from_fatfs_error)?;
+
+            remaining -= written;
+        }
+
+        Ok(())
+    }
+}
+
 #[allow(dead_code)]
 pub struct FatFileInode {
     filename: String,
@@ -199,17 +223,8 @@ impl IInode for FatFileInode {
         let pos = SeekFrom::Start(offset as u64);
         let curr_off = locked_inner.inner.seek(pos).map_err(from_fatfs_error)? as usize;
 
-        if offset != curr_off {
-            let buf: [u8; 512] = [0; 512];
-            loop {
-                let wlen = Ord::min(offset - locked_inner.size, 512);
-
-                if wlen == 0 {
-                    break;
-                }
-                let real_wlen = locked_inner.inner.write(&buf).map_err(from_fatfs_error)?;
-                locked_inner.size += real_wlen;
-            }
+        if curr_off < offset {
+            locked_inner.ensure_inode_size(offset)?;
         }
 
         locked_inner
@@ -238,6 +253,29 @@ impl IInode for FatFileInode {
         stat.block_count = size / 512;
         stat.rdev = 0;
         Ok(())
+    }
+
+    fn resize(&self, new_size: u64) -> FileSystemResult<u64> {
+        let mut locked_inner = self.inner.lock();
+
+        match Ord::cmp(&(locked_inner.size as u64), &new_size) {
+            core::cmp::Ordering::Equal => Ok(new_size),
+            core::cmp::Ordering::Less => locked_inner
+                .ensure_inode_size(new_size as usize)
+                .map(|_| new_size),
+            core::cmp::Ordering::Greater => {
+                locked_inner
+                    .inner
+                    .seek(SeekFrom::Start(new_size))
+                    .map_err(from_fatfs_error)?;
+
+                locked_inner
+                    .inner
+                    .truncate()
+                    .map_err(from_fatfs_error)
+                    .map(|_| new_size)
+            }
+        }
     }
 }
 
