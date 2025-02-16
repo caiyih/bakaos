@@ -38,15 +38,7 @@ async_syscall!(sys_write_async, ctx, {
         .mustbe_user()
         .with_read()
     {
-        Some(guard) => {
-            let bytes_written = file.write(&guard);
-
-            if let Some(file_meta) = file.metadata() {
-                file_meta.set_offset(file_meta.offset() + bytes_written);
-            }
-
-            Ok(bytes_written as isize)
-        }
+        Some(guard) => Ok(file.write(&guard) as isize),
         None => SyscallError::BadAddress,
     }
 });
@@ -82,15 +74,7 @@ async_syscall!(sys_read_async, ctx, {
         .mustbe_readable()
         .with_write()
     {
-        Some(mut guard) => {
-            let bytes_read = file.read(&mut guard);
-
-            if let Some(file_meta) = file.metadata() {
-                file_meta.set_offset(file_meta.offset() + bytes_read);
-            }
-
-            Ok(bytes_read as isize)
-        }
+        Some(mut guard) => Ok(file.read(&mut guard) as isize),
         None => SyscallError::BadAddress,
     }
 });
@@ -150,10 +134,6 @@ async_syscall!(sys_readv_async, ctx, {
                 }
             }
 
-            if let Some(file_meta) = file.metadata() {
-                file_meta.set_offset(file_meta.offset() + bytes_read);
-            }
-
             Ok(bytes_read as isize)
         }
         None => SyscallError::BadAddress,
@@ -207,10 +187,6 @@ async_syscall!(sys_writev_async, ctx, {
                     Some(data_guard) => bytes_written += file.write(&data_guard),
                     None => continue,
                 }
-            }
-
-            if let Some(file_meta) = file.metadata() {
-                file_meta.set_offset(file_meta.offset() + bytes_written);
             }
 
             Ok(bytes_written as isize)
@@ -306,14 +282,6 @@ async_syscall!(sys_sendfile_async, ctx, {
         bytes_written += out_file.write(&buf[..bytes_read]);
 
         remaining_bytes -= bytes_read;
-
-        if let Some(ref in_meta) = in_meta {
-            in_meta.set_offset(in_meta.offset() + bytes_read);
-        }
-    }
-
-    if let Some(out_meta) = out_file.metadata() {
-        out_meta.set_offset(out_meta.offset() + bytes_written);
     }
 
     Ok(bytes_written as isize)

@@ -151,7 +151,10 @@ pub trait IFile: DowncastSync + Send + Sync {
             metadata
                 .inode()
                 .writeat(metadata.offset(), buf)
-                .map_or(0, |written| written)
+                .map_or(0, |written| {
+                    metadata.seek(written as i64, 1 /* SEEK_CURRENT */);
+                    written
+                })
         })
     }
 
@@ -160,7 +163,10 @@ pub trait IFile: DowncastSync + Send + Sync {
             metadata
                 .inode()
                 .readat(metadata.offset(), buf)
-                .map_or(0, |read| read)
+                .map_or(0, |read| {
+                    metadata.seek(read as i64, 1 /* SEEK_CURRENT */);
+                    read
+                })
         })
     }
 }
