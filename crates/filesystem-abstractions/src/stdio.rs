@@ -55,10 +55,6 @@ impl IFile for TeleTypewriter {
         None
     }
 
-    fn lseek(&self, _offset: usize) -> usize {
-        0
-    }
-
     fn can_read(&self) -> bool {
         true
     }

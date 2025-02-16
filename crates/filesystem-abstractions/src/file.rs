@@ -145,13 +145,6 @@ pub trait IFile: DowncastSync + Send + Sync {
         self.inode().unwrap().metadata().entry_type == DirectoryEntryType::Directory
     }
 
-    fn lseek(&self, offset: usize) -> usize {
-        self.metadata().map_or(0, |metadata| {
-            metadata.set_offset(offset);
-            offset
-        })
-    }
-
     fn write(&self, buf: &[u8]) -> usize {
         self.metadata().map_or(0, |metadata| {
             metadata
