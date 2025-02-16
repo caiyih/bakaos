@@ -30,7 +30,7 @@ impl FileMetadata {
         }
     }
 
-    pub fn seek(&self, offset: isize, whence: usize) -> bool {
+    pub fn seek(&self, offset: i64, whence: usize) -> bool {
         const WHENCE_START: usize = 0;
         const WHENCE_CURRENT: usize = 1;
         const WHENCE_END: usize = 2;
@@ -38,12 +38,12 @@ impl FileMetadata {
         match whence {
             WHENCE_START => self.set_offset(offset as usize),
             WHENCE_CURRENT => {
-                if offset > 0 {
+                if offset >= 0 {
                     self.open_offset
                         .fetch_add(offset as usize, Ordering::Relaxed);
-                } else if offset < 0 {
+                } else {
                     self.open_offset
-                        .fetch_sub(offset as usize, Ordering::Relaxed);
+                        .fetch_sub((-offset) as usize, Ordering::Relaxed);
                 }
             }
             WHENCE_END => {
@@ -52,8 +52,9 @@ impl FileMetadata {
                 if inode_metadata.entry_type == DirectoryEntryType::File
                     || inode_metadata.entry_type == DirectoryEntryType::BlockDevice
                 {
-                    let offset = self.inode.metadata().size;
-                    self.set_offset(offset);
+                    let end = self.inode.metadata().size;
+                    let offset = end as i64 + offset;
+                    self.set_offset(offset as usize);
                 } else {
                     return false;
                 }

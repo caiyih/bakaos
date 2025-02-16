@@ -992,7 +992,7 @@ impl ISyncSyscallHandler for LongSeekSyscall {
 
         let file_metadata = fd.access().metadata().ok_or(ErrNo::IllegalSeek)?;
 
-        let offset = ctx.arg1::<isize>();
+        let offset = ctx.arg1::<i64>();
         let whence = ctx.arg2::<usize>();
 
         match file_metadata.seek(offset, whence) {
