@@ -490,6 +490,7 @@ impl DirectoryTreeNode {
 
         let closed = inner.opened.remove(name);
         let unmounted = inner.mounted.remove(name);
+        inner.children_cache.remove(name);
 
         drop(inner); // prevent deadlock in recursive close
 
