@@ -605,14 +605,13 @@ impl ISyncSyscallHandler for UnlinkAtSyscall {
                     let pcb = ctx.pcb.lock();
 
                     if dirfd == FileDescriptor::AT_FDCWD {
-                        filesystem_abstractions::global_open(&pcb.cwd, None)
-                            .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
+                        filesystem_abstractions::global_open(&pcb.cwd, None).ok()
                     } else {
                         let fd = pcb
                             .fd_table
                             .get(dirfd as usize)
                             .ok_or(ErrNo::BadFileDescriptor)?;
-                        fd.access().inode().ok_or(ErrNo::FileDescriptorInBadState)?
+                        Some(fd.access().inode().ok_or(ErrNo::FileDescriptorInBadState)?)
                     }
                 };
 
@@ -621,7 +620,7 @@ impl ISyncSyscallHandler for UnlinkAtSyscall {
                 let filename = path::get_filename(path);
 
                 let parent_inode =
-                    filesystem_abstractions::global_open(parent_path, Some(&dir_inode))
+                    filesystem_abstractions::global_open(parent_path, dir_inode.as_ref())
                         .map_err(|_| ErrNo::NoSuchFileOrDirectory)?;
 
                 parent_inode
