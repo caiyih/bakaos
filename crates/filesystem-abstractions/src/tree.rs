@@ -58,7 +58,7 @@ impl IInode for RamFileInode {
         let end_size = offset + buffer.len();
 
         if end_size > inner.size {
-            let required_pages = (end_size + 4095) / 4096;
+            let required_pages = end_size.div_ceil(constants::PAGE_SIZE);
             inner.frames.resize_with(required_pages, || {
                 // TODO: do we have to zero the memory?
                 allocation::alloc_frame().expect("Out of memory")
@@ -67,7 +67,7 @@ impl IInode for RamFileInode {
         }
 
         let mut current = offset;
-        for frame in &inner.frames[offset / 4096..(end_size + 4095) / 4096] {
+        for frame in &inner.frames[offset / 4096..end_size.div_ceil(constants::PAGE_SIZE)] {
             let in_page_start = current % 4096;
             let in_page_len = usize::min(4096, end_size - current);
 
