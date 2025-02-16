@@ -996,7 +996,7 @@ impl ISyncSyscallHandler for LongSeekSyscall {
         let whence = ctx.arg2::<usize>();
 
         match file_metadata.seek(offset, whence) {
-            true => Ok(file_metadata.offset() as isize),
+            true => SyscallError::Success,
             _ => SyscallError::IllegalSeek,
         }
     }
