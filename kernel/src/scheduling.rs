@@ -199,8 +199,10 @@ impl IInode for ProcDeviceInode {
 
     fn lookup(&self, name: &str) -> FileSystemResult<Arc<dyn IInode>> {
         if let Ok(tid) = name.parse::<usize>() {
-            if let Some(tcb) = TASKS_MAP.lock().get(&tid).and_then(|w| w.upgrade()) {
-                return Ok(Arc::new(ProcessDirectoryInode(tcb)));
+            if let Some(tcb) = TASKS_MAP.lock().get(&tid) {
+                if tcb.strong_count() > 0 {
+                    return Ok(Arc::new(ProcessDirectoryInode(tcb.clone())));
+                }
             }
         }
 
@@ -255,7 +257,7 @@ impl IInode for SelfLinkInode {
     }
 }
 
-struct ProcessDirectoryInode(Arc<TaskControlBlock>);
+struct ProcessDirectoryInode(Weak<TaskControlBlock>);
 
 impl IInode for ProcessDirectoryInode {
     fn metadata(&self) -> InodeMetadata {
@@ -270,45 +272,45 @@ impl IInode for ProcessDirectoryInode {
         &self,
         _caches: &mut BTreeMap<String, Arc<dyn IInode>>,
     ) -> FileSystemResult<Vec<DirectoryEntry>> {
-        #[inline]
-        fn entry(name: &str, entry_type: DirectoryEntryType) -> DirectoryEntry {
-            DirectoryEntry {
-                filename: String::from(name),
-                entry_type,
+        if self.0.strong_count() > 0 {
+            #[inline]
+            fn entry(name: &str, entry_type: DirectoryEntryType) -> DirectoryEntry {
+                DirectoryEntry {
+                    filename: String::from(name),
+                    entry_type,
+                }
             }
-        }
 
-        Ok(vec![
-            entry("exe", DirectoryEntryType::Symlink),
-            entry("cwd", DirectoryEntryType::Symlink),
-        ])
+            Ok(vec![
+                entry("exe", DirectoryEntryType::Symlink),
+                entry("cwd", DirectoryEntryType::Symlink),
+            ])
+        } else {
+            Err(FileSystemError::NotFound)
+        }
     }
 
     fn lookup(&self, name: &str) -> FileSystemResult<Arc<dyn IInode>> {
-        if name == "exe" {
-            return Ok(Arc::new(LinkToInode(unsafe {
-                self.0
-                    .pcb
-                    .data_ptr()
-                    .as_ref()
-                    .unwrap()
-                    .executable
-                    .as_ref()
-                    .clone()
-            })));
-        }
+        if let Some(tcb) = self.0.upgrade() {
+            if name == "exe" {
+                return Ok(Arc::new(LinkToInode(
+                    tcb.pcb.lock().executable.as_ref().clone(),
+                )));
+            }
 
-        if name == "cwd" {
-            return Ok(Arc::new(LinkToInode(unsafe {
-                self.0.pcb.data_ptr().as_ref().unwrap().cwd.clone()
-            })));
+            if name == "cwd" {
+                return Ok(Arc::new(LinkToInode(tcb.pcb.lock().cwd.clone())));
+            }
         }
 
         Err(FileSystemError::NotFound)
     }
 
     fn stat(&self, stat: &mut FileStatistics) -> FileSystemResult<()> {
-        self::stat(stat, FileStatisticsMode::DIR)
+        match self.0.strong_count() {
+            0 => Err(FileSystemError::NotFound),
+            _ => self::stat(stat, FileStatisticsMode::DIR),
+        }
     }
 }
 
