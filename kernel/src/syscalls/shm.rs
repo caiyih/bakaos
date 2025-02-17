@@ -47,7 +47,7 @@ impl ISyncSyscallHandler for SharedMemoryAttachSyscall {
         let _shmaddr = ctx.arg1::<VirtualAddress>();
         let _shmflg = ctx.arg2::<usize>();
 
-        match shared_memory::apply_mapping_for(&ctx, shmid) {
+        match shared_memory::apply_mapping_for(ctx, shmid) {
             None => SyscallError::InvalidArgument,
             Some(page) => {
                 Ok(unsafe { page.start_addr::<VirtualAddress>().as_ptr::<()>() } as isize)
