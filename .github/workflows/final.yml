@@ -34,14 +34,14 @@ jobs:
 
       - uses: ./.github/workflows/actions/setup-musl
 
+      - name: Run tests
+        run: make build-final
+      
       - name: Install Qemu
         run: |
           sudo apt update
           sudo apt install -y qemu-system-misc
           qemu-system-riscv64 --version
-
-      - name: Run tests
-        run: make build-final
 
       # Try access the cache to keep it alive. 
       - name: Attempt to restore sdcard.img.zst from cache
