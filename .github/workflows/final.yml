@@ -34,7 +34,7 @@ jobs:
 
       - uses: ./.github/workflows/actions/setup-musl
 
-      - name: Run tests
+      - name: Build Kernel
         run: make build-final
       
       - name: Install Qemu
