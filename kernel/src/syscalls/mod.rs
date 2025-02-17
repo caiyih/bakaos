@@ -13,7 +13,7 @@ use file_async::{
 };
 use futex_async::sys_futex_async;
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
-use system::{GetRandomSyscall, ShutdownSyscall, SystemLogSyscall};
+use system::{GetRandomSyscall, ShutdownSyscall, SystemInfoSyscall, SystemLogSyscall};
 use task::{
     BrkSyscall, ChdirSyscall, ClockGetTimeSyscall, CloneSyscall, ExecveSyscall, ExitGroupSyscall,
     ExitSyscall, GetCwdSyscall, GetParentPidSyscall, GetPidSyscall, GetTaskIdSyscall,
@@ -97,7 +97,7 @@ impl SyscallDispatcher {
             SYSCALL_ID_READLINKAT => Some(&ReadLinkAtSyscall),
             SYSCALL_ID_SHUTDOWN => Some(&ShutdownSyscall),
             SYSCALL_ID_SYSLOG => Some(&SystemLogSyscall),
-            SYSCALL_ID_SYSINFO => Some(&SystemLogSyscall),
+            SYSCALL_ID_SYSINFO => Some(&SystemInfoSyscall),
             SYSCALL_ID_GETRANDOM => Some(&GetRandomSyscall),
             SYSCALL_ID_PRLIMIT64 => Some(&ResourceLimitSyscall),
             SYSCALL_ID_GETTID => Some(&GetTaskIdSyscall),
