@@ -79,3 +79,4 @@ jobs:
           path: output.log
           if-no-files-found: error
           compression-level: 0
+          overwrite: true
