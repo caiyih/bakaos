@@ -13,6 +13,7 @@ use file_async::{
 };
 use futex_async::sys_futex_async;
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
+use shm::{SharedMemoryAttachSyscall, SharedMemoryGetSyscall};
 use system::{GetRandomSyscall, ShutdownSyscall, SystemInfoSyscall, SystemLogSyscall};
 use task::{
     BrkSyscall, ChdirSyscall, ClockGetTimeSyscall, CloneSyscall, ExecveSyscall, ExitGroupSyscall,
@@ -27,6 +28,7 @@ use syscall_id::*;
 mod file;
 mod file_async;
 mod futex_async;
+mod shm;
 mod syscall_id;
 mod system;
 mod task;
@@ -104,6 +106,8 @@ impl SyscallDispatcher {
             SYSCALL_ID_SET_TID_ADDRESS => Some(&GetTaskIdSyscall),
             SYSCALL_ID_LSEEK => Some(&LongSeekSyscall),
             SYSCALL_ID_FTRUNCATE64 => Some(&FileTruncateSyscall),
+            SYSCALL_ID_SHMGET => Some(&SharedMemoryGetSyscall),
+            SYSCALL_ID_SHMAT => Some(&SharedMemoryAttachSyscall),
             _ => None,
         }
     }

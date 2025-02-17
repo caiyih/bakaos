@@ -18,6 +18,7 @@ mod platform;
 mod processor;
 mod scheduling;
 mod serial;
+mod shared_memory;
 mod statistics;
 mod syscalls;
 mod system;

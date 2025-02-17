@@ -70,6 +70,50 @@ impl Default for TaskMemoryMap {
 }
 
 impl TaskMemoryMap {
+    pub fn allocate_records(
+        &mut self,
+        length: usize,
+        _preferred_addr: Option<VirtualAddress>,
+    ) -> Option<VirtualPageNumRange> {
+        let page_count = length.div_ceil(constants::PAGE_SIZE);
+
+        // let start_page = match preferred_addr {
+        //     None => self.mmap_top - length.div_ceil(constants::PAGE_SIZE) - 1,
+        //     Some(addr) => {
+        //         let start_page = addr.to_floor_page_num();
+
+        //
+        //         let area = VirtualPageNumRange::from_start_count(start_page, page_count);
+
+        //         // check if overlapping
+        //         for record in self.records.iter() {
+        //             if record.page_area.contains(area.start())
+        //                 || record.page_area.contains(area.end() - 1)
+        //                 || record.page_area.contained_by(&area)
+        //             {
+        //                 return None;
+        //             }
+        //         }
+
+        //         start_page
+        //     }
+        // };
+
+        let start_page = self.mmap_top - page_count - 1;
+        let area = VirtualPageNumRange::from_start_count(start_page, page_count);
+
+        self.records.push(MemoryMapRecord {
+            prot: MemoryMapProt::all(),
+            offset: 0,
+            length,
+            page_area: area,
+        });
+
+        self.mmap_top = start_page;
+
+        Some(area)
+    }
+
     pub fn mmap(
         &mut self,
         fd: Option<&Arc<FileDescriptor>>,
@@ -115,6 +159,8 @@ impl TaskMemoryMap {
 
             register_page(vpn, ppn, permissions);
         }
+
+        self.mmap_top = start_page - 1;
 
         self.records.push(MemoryMapRecord {
             prot,
