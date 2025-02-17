@@ -12,11 +12,12 @@ test_busybox_command() {
     local line="$1"
     eval "./busybox $line"
     local RTN=$?
+    echo ""
     if [[ $RTN -ne 0 && $line != "false" ]]; then
-        echo "\ntestcase busybox $line fail"
+        echo "testcase busybox $line fail"
         # echo "return: $RTN, cmd: $line" >> $RST
     else
-        echo "\ntestcase busybox $line success"
+        echo "testcase busybox $line success"
     fi
 }
 
