@@ -65,6 +65,9 @@ _test_internal:
         -device virtio-net-device,netdev=net \
         -netdev user,id=net | tee output.log
 
+build-final:
+	@KERNEL_TEST="F" make build
+
 test-final: build
 	@KERNEL_TEST="F" make _test_final_internal
 

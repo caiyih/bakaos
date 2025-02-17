@@ -40,6 +40,9 @@ jobs:
           sudo apt install -y qemu-system-misc
           qemu-system-riscv64 --version
 
+      - name: Run tests
+        run: make build-final
+
       # Try access the cache to keep it alive. 
       - name: Attempt to restore sdcard.img.zst from cache
         id: cache
@@ -67,4 +70,12 @@ jobs:
 
       - name: Run tests
         timeout-minutes: 5 # A temporary value
-        run: make test-final
+        run: make _test_internal
+
+      - uses: actions/upload-artifact@v4
+        with:
+          # A file, directory or wildcard pattern that describes what to upload
+          # Required.
+          path: output.log
+          if-no-files-found: error
+          compression-level: 0
