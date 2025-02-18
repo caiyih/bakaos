@@ -12,6 +12,7 @@ use file_async::{
     sys_read_async, sys_readv_async, sys_sendfile_async, sys_write_async, sys_writev_async,
 };
 use futex_async::sys_futex_async;
+use io_multiplexing::{sys_ppoll_async, sys_pselect6_async};
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
 use shm::{SharedMemoryAttachSyscall, SharedMemoryGetSyscall};
 use system::{GetRandomSyscall, ShutdownSyscall, SystemInfoSyscall, SystemLogSyscall};
@@ -28,6 +29,7 @@ use syscall_id::*;
 mod file;
 mod file_async;
 mod futex_async;
+mod io_multiplexing;
 mod shm;
 mod syscall_id;
 mod system;
@@ -131,6 +133,8 @@ impl SyscallDispatcher {
             SYSCALL_ID_WRITEV => Some(sys_writev_async(&mut ctx).await),
             SYSCALL_ID_READV => Some(sys_readv_async(&mut ctx).await),
             SYSCALL_ID_FUTEX => Some(sys_futex_async(&mut ctx).await),
+            SYSCALL_ID_PSELECT6 => Some(sys_pselect6_async(&mut ctx).await),
+            SYSCALL_ID_PPOLL => Some(sys_ppoll_async(&mut ctx).await),
             _ => None,
         }
     }
