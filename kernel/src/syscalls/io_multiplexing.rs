@@ -64,7 +64,7 @@ pub struct FdSetIterator<'a> {
     nfds: usize,
 }
 
-impl<'a> Iterator for FdSetIterator<'a> {
+impl Iterator for FdSetIterator<'_> {
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -105,42 +105,42 @@ async_syscall!(sys_pselect6_async, ctx, {
 
     loop {
         let mut n_ready = 0;
-        let pcb = ctx.pcb.lock();
 
         let mut readset_result = FdSet::default();
         let mut writeset_result = FdSet::default();
+        {
+            let pcb = ctx.pcb.lock();
 
-        if let Some(ref mut readset) = readset.as_mut() {
-            for fd_idx in readset.iter(nfds) {
-                if let Some(fd) = pcb.fd_table.get(fd_idx) {
-                    if fd.can_read() {
-                        let file = fd.access_ref();
+            if let Some(ref mut readset) = readset.as_mut() {
+                for fd_idx in readset.iter(nfds) {
+                    if let Some(fd) = pcb.fd_table.get(fd_idx) {
+                        if fd.can_read() {
+                            let file = fd.access_ref();
 
-                        if file.can_read() && file.read_avaliable() {
-                            n_ready += 1;
-                            readset_result.insert(fd_idx);
+                            if file.can_read() && file.read_avaliable() {
+                                n_ready += 1;
+                                readset_result.insert(fd_idx);
+                            }
+                        }
+                    }
+                }
+            }
+
+            if let Some(ref mut writeset) = writeset.as_mut() {
+                for fd_idx in writeset.iter(nfds) {
+                    if let Some(fd) = pcb.fd_table.get(fd_idx) {
+                        if fd.can_write() {
+                            let file = fd.access_ref();
+
+                            if file.can_write() && file.write_avaliable() {
+                                n_ready += 1;
+                                writeset_result.insert(fd_idx);
+                            }
                         }
                     }
                 }
             }
         }
-
-        if let Some(ref mut writeset) = writeset.as_mut() {
-            for fd_idx in writeset.iter(nfds) {
-                if let Some(fd) = pcb.fd_table.get(fd_idx) {
-                    if fd.can_write() {
-                        let file = fd.access_ref();
-
-                        if file.can_write() && file.write_avaliable() {
-                            n_ready += 1;
-                            writeset_result.insert(fd_idx);
-                        }
-                    }
-                }
-            }
-        }
-
-        drop(pcb);
 
         if n_ready != 0 {
             if let Some(ref mut readset) = readset {
@@ -198,38 +198,41 @@ async_syscall!(sys_ppoll_async, ctx, {
             let end_time = timeout.map(|t| *t + current_timespec());
 
             loop {
-                let pcb = ctx.pcb.lock();
-
                 let mut n_ready = 0;
+                {
+                    let pcb = ctx.pcb.lock();
 
-                for poll in fds.as_mut().iter_mut() {
-                    poll.revents = 0;
+                    for poll in fds.as_mut().iter_mut() {
+                        poll.revents = 0;
 
-                    if let Some(fd) = pcb.fd_table.get(poll.fd as usize) {
-                        let file = fd.access_ref();
-                        let mut ready = false;
+                        if let Some(fd) = pcb.fd_table.get(poll.fd as usize) {
+                            let file = fd.access_ref();
+                            let mut ready = false;
 
-                        // read
-                        if poll.events & POLLIN == POLLIN {
-                            if fd.can_read() && file.can_read() && file.read_avaliable() {
+                            // read
+                            if poll.events & POLLIN == POLLIN
+                                && fd.can_read()
+                                && file.can_read()
+                                && file.read_avaliable()
+                            {
                                 ready = true;
                             }
-                        }
 
-                        // write
-                        if poll.events & POLLOUT == POLLOUT {
-                            if fd.can_write() && file.can_write() && file.write_avaliable() {
+                            // write
+                            if poll.events & POLLOUT == POLLOUT
+                                && fd.can_write()
+                                && file.can_write()
+                                && file.write_avaliable()
+                            {
                                 ready = true;
                             }
-                        }
 
-                        if ready {
-                            n_ready += 1;
+                            if ready {
+                                n_ready += 1;
+                            }
                         }
                     }
                 }
-
-                drop(pcb);
 
                 if n_ready > 0 {
                     return Ok(n_ready as isize);

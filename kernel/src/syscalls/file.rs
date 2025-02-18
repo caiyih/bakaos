@@ -181,7 +181,7 @@ impl ISyncSyscallHandler for DupSyscall {
         let fd_table = &mut pcb.fd_table;
         match fd_table.get(fd) {
             Some(old) => {
-                let builder = FrozenFileDescriptorBuilder::deconstruct(&old);
+                let builder = FrozenFileDescriptorBuilder::deconstruct(old);
                 match fd_table.allocate(builder) {
                     Some(newfd) => Ok(newfd as isize),
                     None => SyscallError::TooManyOpenFiles,
@@ -212,7 +212,7 @@ impl ISyncSyscallHandler for Dup3Syscall {
         let fd_table = &mut pcb.fd_table;
         match fd_table.get(oldfd) {
             Some(old) => {
-                let builder = FrozenFileDescriptorBuilder::deconstruct(&old);
+                let builder = FrozenFileDescriptorBuilder::deconstruct(old);
 
                 // if newfd is already open, close it
                 if fd_table.get(newfd).is_some() {
@@ -744,7 +744,7 @@ impl ISyncSyscallHandler for FileControlSyscall {
             },
             F_DUPFD | F_DUPFD_CLOEXEC => match fd_table.get(fd_idx) {
                 Some(fd) => {
-                    let builder = FrozenFileDescriptorBuilder::deconstruct(&fd);
+                    let builder = FrozenFileDescriptorBuilder::deconstruct(fd);
                     match fd_table.allocate(builder) {
                         Some(id) => Ok(id as isize),
                         None => SyscallError::TooManyOpenFiles,
