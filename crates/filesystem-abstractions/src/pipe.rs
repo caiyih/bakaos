@@ -13,6 +13,7 @@ use crate::{
 struct Pipe {
     buf_queue: SpinMutex<VecDeque<u8>>,
     write_end_weak: UnsafeCell<Weak<FileCacheAccessor>>,
+    read_end_weak: UnsafeCell<Weak<FileCacheAccessor>>,
 }
 
 unsafe impl Sync for Pipe {}
@@ -65,6 +66,11 @@ impl IFile for Pipe {
     fn metadata(&self) -> Option<Arc<FileMetadata>> {
         None
     }
+
+    fn can_write(&self) -> bool {
+        // broken pipe
+        unsafe { self.read_end_weak.get().as_ref().unwrap().strong_count() > 0 }
+    }
 }
 
 pub struct PipeBuilder {
@@ -77,6 +83,7 @@ impl PipeBuilder {
         let pipe = Arc::new(Pipe {
             buf_queue: SpinMutex::new(VecDeque::new()),
             write_end_weak: UnsafeCell::new(Weak::new()),
+            read_end_weak: UnsafeCell::new(Weak::new()),
         });
 
         let pipe_file: Arc<dyn IFile> = pipe.clone();
@@ -84,6 +91,7 @@ impl PipeBuilder {
         let read_accessor = pipe_file.cache_as_arc_accessor();
         let write_accessor = read_accessor.clone_non_inherited_arc();
 
+        *unsafe { pipe.read_end_weak.get().as_mut().unwrap() } = Arc::downgrade(&read_accessor);
         let read_end_builder = FileDescriptorBuilder::new(read_accessor)
             .set_readable()
             .freeze();
