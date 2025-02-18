@@ -177,9 +177,9 @@ impl_downcast!(sync IFile);
 
 #[derive(Debug, Clone)]
 pub struct FrozenFileDescriptor {
-    file_handle: Arc<FileCacheAccessor>, // file handle
-    can_read: bool,                      // whether the file descriptor is readable
-    can_write: bool,                     // whether the file descriptor is writable
+    pub(crate) file_handle: Arc<FileCacheAccessor>, // file handle
+    pub(crate) can_read: bool,                      // whether the file descriptor is readable
+    pub(crate) can_write: bool,                     // whether the file descriptor is writable
 }
 
 /// `FileDescriptor` represents an open file in a task's file descriptor table.
