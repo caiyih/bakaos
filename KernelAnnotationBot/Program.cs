@@ -5,12 +5,11 @@ namespace KernelAnnotationBot;
 
 static class Program
 {
-    static readonly ImmutableArray<AnnotationPassBase> annotationPasses =
+    static readonly List<AnnotationPassBase> annotationPasses =
     [
         new LibCTestPass(),
         new LuaPass(),
         new BusyBoxPass(),
-        new BasicPass(),
     ];
 
     static void Main(string[] args)
@@ -61,14 +60,14 @@ static class Program
     {
         foreach (var pass in annotationPasses)
         {
-            if (pass is BasicPass basicPass)
-            {
-                basicPass.Analyze(basicResult!);
-            }
-            else
-            {
-                pass.Analyze(content);
-            }
+            pass.Analyze(content);
+        }
+
+        if (basicResult is not null)
+        {
+            var basicPass = new BasicPass();
+            basicPass.Analyze(basicResult);
+            annotationPasses.Add(basicPass);
         }
 
         double totalScore = annotationPasses.Select(p => p.TotalScore).Sum();
