@@ -46,7 +46,6 @@ async_syscall!(sys_write_async, ctx, {
 
 async_syscall!(sys_read_async, ctx, {
     let fd = ctx.arg0::<usize>();
-    log::error!("Reading: {}", fd);
     let fd = ctx
         .pcb
         .lock()
