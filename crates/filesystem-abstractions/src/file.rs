@@ -414,8 +414,8 @@ impl FileDescriptorTable {
     /// Returns the file descriptor at the specified index.
     /// # Arguments
     /// * `idx` - The index of the file descriptor in the table.
-    pub fn get(&self, idx: usize) -> Option<Arc<FileDescriptor>> {
-        self.table.get(idx).cloned().flatten()
+    pub fn get(&self, idx: usize) -> Option<&Arc<FileDescriptor>> {
+        self.table.get(idx).and_then(|inner| inner.as_ref())
     }
 
     /// Sets the file descriptor at the specified index.

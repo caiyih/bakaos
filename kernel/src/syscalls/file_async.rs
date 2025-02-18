@@ -18,7 +18,8 @@ async_syscall!(sys_write_async, ctx, {
         .lock()
         .fd_table
         .get(fd)
-        .ok_or(ErrNo::BadFileDescriptor)?;
+        .ok_or(ErrNo::BadFileDescriptor)?
+        .clone();
 
     if !fd.can_write() {
         return Err(ErrNo::BadFileDescriptor);
@@ -45,12 +46,14 @@ async_syscall!(sys_write_async, ctx, {
 
 async_syscall!(sys_read_async, ctx, {
     let fd = ctx.arg0::<usize>();
+    log::error!("Reading: {}", fd);
     let fd = ctx
         .pcb
         .lock()
         .fd_table
         .get(fd)
-        .ok_or(ErrNo::BadFileDescriptor)?;
+        .ok_or(ErrNo::BadFileDescriptor)?
+        .clone();
 
     if !fd.can_read() {
         return Err(ErrNo::BadFileDescriptor);
@@ -92,7 +95,8 @@ async_syscall!(sys_readv_async, ctx, {
         .lock()
         .fd_table
         .get(fd)
-        .ok_or(ErrNo::BadFileDescriptor)?;
+        .ok_or(ErrNo::BadFileDescriptor)?
+        .clone();
 
     if !fd.can_read() {
         return SyscallError::BadFileDescriptor;
@@ -147,7 +151,8 @@ async_syscall!(sys_writev_async, ctx, {
         .lock()
         .fd_table
         .get(fd)
-        .ok_or(ErrNo::BadFileDescriptor)?;
+        .ok_or(ErrNo::BadFileDescriptor)?
+        .clone();
 
     if !fd.can_write() {
         return SyscallError::BadFileDescriptor;

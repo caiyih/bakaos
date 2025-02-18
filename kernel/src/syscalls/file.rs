@@ -471,7 +471,8 @@ impl ISyncSyscallHandler for NewFstatSyscall {
                     .lock()
                     .fd_table
                     .get(fd)
-                    .ok_or(ErrNo::BadFileDescriptor)?;
+                    .ok_or(ErrNo::BadFileDescriptor)?
+                    .clone();
                 fd.access()
                     .inode()
                     .ok_or(ErrNo::FileDescriptorInBadState)?
@@ -521,7 +522,8 @@ impl ISyncSyscallHandler for GetDents64Syscall {
                     .lock()
                     .fd_table
                     .get(fd)
-                    .ok_or(ErrNo::BadFileDescriptor)?;
+                    .ok_or(ErrNo::BadFileDescriptor)?
+                    .clone();
                 let file = fd.access();
                 let file_meta = file.metadata().ok_or(ErrNo::FileDescriptorInBadState)?;
 

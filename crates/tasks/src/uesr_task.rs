@@ -459,7 +459,7 @@ impl TaskControlBlock {
     ) -> Option<VirtualAddress> {
         let mut pcb = self.pcb.lock();
 
-        let fd = pcb.fd_table.get(fd);
+        let fd = pcb.fd_table.get(fd).cloned();
 
         let mut pcb_ = unsafe { self.pcb.make_guard_unchecked() };
         let page_table = pcb_.memory_space.page_table_mut();
