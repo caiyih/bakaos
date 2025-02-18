@@ -142,7 +142,7 @@ pub struct FileStatistics {
 }
 
 bitflags! {
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq, Eq)]
     pub struct FileStatisticsMode: u32 {
         const NULL  = 0;
         /// Type

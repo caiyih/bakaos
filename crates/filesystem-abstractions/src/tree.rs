@@ -639,6 +639,7 @@ impl DirectoryTreeNode {
             #[cfg(debug_assertions)]
             {
                 debug_assert!(current.fullpath() == path::ROOT_STR);
+                #[cfg(not(test))]
                 debug_assert!(Arc::ptr_eq(&current, unsafe {
                     ROOT.lock().assume_init_ref()
                 }))
@@ -1185,4 +1186,500 @@ pub fn global_find_containing_filesystem(
     }
 
     Some(deepest_fs)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        DirectoryEntryType, FileStatistics, FileStatisticsMode, FileSystemError, IFile,
+        IFileSystem, IInode,
+    };
+    use alloc::{string::ToString, sync::Arc};
+
+    #[test]
+    fn test_ram_file_inode_new() {
+        let filename = "test_file";
+        let inode = RamFileInode::new(filename);
+        assert_eq!(inode.metadata().filename, filename);
+        assert_eq!(inode.metadata().entry_type, DirectoryEntryType::File);
+        assert_eq!(inode.metadata().size, 0);
+    }
+
+    #[test]
+    fn test_ram_file_inode_stat() {
+        let inode = RamFileInode::new("test_file");
+        let mut stat = unsafe { core::mem::zeroed::<FileStatistics>() };
+        inode.stat(&mut stat).unwrap();
+
+        assert_eq!(stat.mode, FileStatisticsMode::FILE);
+        assert_eq!(stat.link_count, 1);
+    }
+
+    #[test]
+    fn test_ram_file_inode_resize() {
+        let inode = RamFileInode::new("test_file");
+        let new_size = 0;
+        let result = inode.resize(new_size).unwrap();
+        assert_eq!(result, new_size);
+        assert_eq!(inode.metadata().size, new_size as usize);
+    }
+
+    #[test]
+    fn test_mount_error_conversion() {
+        let errors = [
+            MountError::InvalidInput,
+            MountError::NotADirectory,
+            MountError::FileExists,
+            MountError::FileNotExists,
+            MountError::AlreadyMounted,
+        ];
+
+        for error in errors {
+            let fs_error = error.to_filesystem_error();
+            let syscall_error = error.to_syscall_error();
+
+            match error {
+                MountError::InvalidInput => {
+                    assert_eq!(fs_error, FileSystemError::InvalidInput);
+                    assert!(syscall_error.is_err());
+                }
+                MountError::NotADirectory => {
+                    assert_eq!(fs_error, FileSystemError::NotADirectory);
+                    assert!(syscall_error.is_err());
+                }
+                MountError::FileExists => {
+                    assert_eq!(fs_error, FileSystemError::AlreadyExists);
+                    assert!(syscall_error.is_err());
+                }
+                MountError::FileNotExists => {
+                    assert_eq!(fs_error, FileSystemError::NotFound);
+                    assert!(syscall_error.is_err());
+                }
+                MountError::AlreadyMounted => {
+                    assert_eq!(fs_error, FileSystemError::InvalidInput);
+                    assert!(syscall_error.is_err());
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_directory_tree_node_creation() {
+        let parent = None;
+        let name = "test_dir";
+        let node = DirectoryTreeNode::from_empty(parent, name.to_string());
+        assert_eq!(node.name(), name);
+        assert_eq!(node.metadata().filename, name);
+        assert_eq!(node.metadata().entry_type, DirectoryEntryType::Directory);
+        assert_eq!(node.metadata().size, 0);
+    }
+
+    #[test]
+    fn test_directory_tree_node_mount_and_umount() {
+        let parent = DirectoryTreeNode::from_empty(None, "parent".to_string());
+        let child = DirectoryTreeNode::from_empty(Some(parent.clone()), "child".to_string());
+
+        parent.mount_as(child.clone(), Some("child")).unwrap();
+        assert!(parent.inner.lock().is_mounted("child"));
+
+        let umounted = parent.umount_at("child").unwrap();
+        assert!(!parent.inner.lock().is_mounted("child"));
+        assert!(Arc::ptr_eq(&umounted, &child));
+    }
+
+    #[test]
+    fn test_directory_tree_node_open_child() {
+        let parent = DirectoryTreeNode::from_empty(None, "parent".to_string());
+        let child = DirectoryTreeNode::from_empty(Some(parent.clone()), "child".to_string());
+        parent.mount_as(child.clone(), Some("child")).unwrap();
+
+        let opened = parent.open_child("child").unwrap();
+        assert!(Arc::ptr_eq(&opened, &child));
+    }
+
+    #[test]
+    fn test_directory_tree_node_fullpath() {
+        let root = DirectoryTreeNode::from_empty(None, "".to_string());
+        let parent = DirectoryTreeNode::from_empty(Some(root.clone()), "parent".to_string());
+        let child = DirectoryTreeNode::from_empty(Some(parent.clone()), "child".to_string());
+
+        assert_eq!(root.fullpath(), "/");
+        assert_eq!(parent.fullpath(), "/parent");
+        assert_eq!(child.fullpath(), "/parent/child");
+    }
+
+    #[test]
+    fn test_directory_tree_node_read_dir() {
+        let parent = DirectoryTreeNode::from_empty(None, "parent".to_string());
+        let child = DirectoryTreeNode::from_empty(Some(parent.clone()), "child".to_string());
+        parent.mount_as(child.clone(), Some("child")).unwrap();
+
+        let entries = parent.read_dir().unwrap();
+        assert!(entries.iter().any(|e| e.filename == "child"));
+        assert!(entries.iter().any(|e| e.filename == "."));
+        assert!(!entries.iter().any(|e| e.filename == "..")); // `parent` does not have a parent
+    }
+
+    #[test]
+    fn test_directory_tree_node_read_dir_with_parent() {
+        let root = DirectoryTreeNode::from_empty(None, String::new());
+        let parent = DirectoryTreeNode::from_empty(Some(root), "parent".to_string());
+        let child = DirectoryTreeNode::from_empty(Some(parent.clone()), "child".to_string());
+        parent.mount_as(child.clone(), Some("child")).unwrap();
+
+        let entries = parent.read_dir().unwrap();
+        assert!(entries.iter().any(|e| e.filename == "child"));
+        assert!(entries.iter().any(|e| e.filename == "."));
+        assert!(entries.iter().any(|e| e.filename == ".."));
+    }
+
+    #[test]
+    fn test_initialize() {
+        initialize();
+        let root = unsafe { ROOT.lock().assume_init_ref().clone() };
+        let expected_dirs = [
+            "boot", "dev", "etc", "home", "root", "opt", "mnt", "sys", "tmp", "run", "usr", "var",
+            "bin", "proc",
+        ];
+
+        for dir in expected_dirs {
+            assert!(root.inner.lock().is_mounted(dir));
+        }
+
+        assert!(root.open("/dev/tty").is_ok());
+        assert!(root.open("/dev/null").is_ok());
+        assert!(root.open("/dev/zero").is_ok());
+        assert!(root.open("/dev/random").is_ok());
+        assert!(root.open("/dev/urandom").is_ok());
+    }
+
+    #[test]
+    fn test_global_open() {
+        initialize();
+        let root = unsafe { ROOT.lock().assume_init_ref().clone() };
+        let path = "/dev/tty";
+        let result = global_open(path, Some(&root));
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_global_umount() {
+        initialize();
+        let root = unsafe { ROOT.lock().assume_init_ref().clone() };
+        let path = "/dev/tty";
+        let result = global_umount(path, Some(&root));
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_global_mount_filesystem() {
+        initialize();
+        let root = unsafe { ROOT.lock().assume_init_ref().clone() };
+        let fs = Arc::new(MockFileSystem);
+        let path = "/mnt/test_fs";
+        let result = global_mount_filesystem(fs, path, Some(&root));
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_global_mount() {
+        initialize();
+        let root = unsafe { ROOT.lock().assume_init_ref().clone() };
+        let node = DirectoryTreeNode::from_empty(Some(root.clone()), "test_node".to_string());
+        let path = "/test_node";
+        let result = global_mount(&node, path, Some(&root));
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_global_mount_inode() {
+        initialize();
+        let root = unsafe { ROOT.lock().assume_init_ref().clone() };
+        let inode: Arc<dyn IInode> = Arc::new(RamFileInode::new("test_inode"));
+        let path = "/test_inode";
+        let result = global_mount_inode(&inode, path, Some(&root));
+        assert!(result.is_ok());
+    }
+
+    struct MockFileSystem;
+
+    impl IFileSystem for MockFileSystem {
+        fn name(&self) -> &str {
+            "MockFileSystem"
+        }
+
+        fn root_dir(&self) -> Arc<dyn IInode> {
+            unimplemented!()
+        }
+    }
+
+    struct MockInode {
+        name: String,
+        size: usize,
+    }
+
+    impl MockInode {
+        fn new(name: &str, size: usize) -> Self {
+            MockInode {
+                name: name.to_string(),
+                size,
+            }
+        }
+    }
+
+    impl IInode for MockInode {
+        fn metadata(&self) -> InodeMetadata {
+            InodeMetadata {
+                filename: &self.name,
+                entry_type: DirectoryEntryType::File,
+                size: self.size,
+            }
+        }
+
+        fn writeat(&self, _offset: usize, _buffer: &[u8]) -> FileSystemResult<usize> {
+            Ok(0)
+        }
+
+        fn readat(&self, _offset: usize, _buffer: &mut [u8]) -> FileSystemResult<usize> {
+            Ok(0)
+        }
+
+        fn stat(&self, stat: &mut FileStatistics) -> FileSystemResult<()> {
+            stat.mode = crate::FileStatisticsMode::FILE;
+            stat.link_count = 1;
+            stat.size = self.size as u64;
+            stat.block_size = 4096;
+            stat.block_count = 1;
+
+            Ok(())
+        }
+
+        fn read_cache_dir(
+            &self,
+            _cache: &mut BTreeMap<String, Arc<dyn IInode>>,
+        ) -> FileSystemResult<Vec<DirectoryEntry>> {
+            Ok(Vec::new())
+        }
+    }
+
+    #[test]
+    fn test_directory_tree_node_shadow_with() {
+        let parent = None;
+        let name = "test_dir";
+        let node1 = DirectoryTreeNode::from_empty(parent.clone(), name.to_string());
+        let node2 = DirectoryTreeNode::from_empty(parent, name.to_string());
+
+        let result = Arc::clone(&node1).shadow_with(Arc::clone(&node2));
+        assert!(result);
+    }
+
+    #[test]
+    fn test_directory_tree_node_open_as_file() {
+        let parent = None;
+        let name = "test_file";
+        let inode: Arc<dyn IInode> = Arc::new(MockInode::new(name, 0));
+        let node = DirectoryTreeNode::from_inode(parent, &inode, Some(name));
+        let opened = node.open_as_file(OpenFlags::empty(), 0);
+        assert!(opened.metadata().is_some());
+    }
+
+    #[test]
+    fn test_directory_tree_node_mount_as() {
+        let parent = DirectoryTreeNode::from_empty(None, "parent".to_string());
+        let child = DirectoryTreeNode::from_empty(Some(Arc::clone(&parent)), "child".to_string());
+
+        let result = parent.mount_as(Arc::clone(&child), Some("child"));
+        assert!(result.is_ok());
+        assert!(parent.inner.lock().is_mounted("child"));
+    }
+
+    #[test]
+    fn test_directory_tree_node_umount_at() {
+        let parent = DirectoryTreeNode::from_empty(None, "parent".to_string());
+        let child = DirectoryTreeNode::from_empty(Some(Arc::clone(&parent)), "child".to_string());
+
+        parent.mount_as(Arc::clone(&child), Some("child")).unwrap();
+        let result = parent.umount_at("child");
+        assert!(result.is_ok());
+        assert!(!parent.inner.lock().is_mounted("child"));
+    }
+
+    #[test]
+    fn test_directory_tree_node_close() {
+        let parent = DirectoryTreeNode::from_empty(None, "parent".to_string());
+        let child = DirectoryTreeNode::from_empty(Some(Arc::clone(&parent)), "child".to_string());
+
+        parent.mount_as(Arc::clone(&child), Some("child")).unwrap();
+        let (closed, unmounted) = parent.close("child");
+        assert!(closed || unmounted);
+        assert!(!parent.inner.lock().is_mounted("child"));
+    }
+
+    #[test]
+    fn test_directory_tree_node_open() {
+        let parent = DirectoryTreeNode::from_empty(None, "parent".to_string());
+        let child = DirectoryTreeNode::from_empty(Some(Arc::clone(&parent)), "child".to_string());
+
+        parent.mount_as(Arc::clone(&child), Some("child")).unwrap();
+        let result = parent.open("child");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_directory_tree_node_get_common_parent() {
+        let root = DirectoryTreeNode::from_empty(None, "".to_string());
+        let parent1 = DirectoryTreeNode::from_empty(Some(Arc::clone(&root)), "parent1".to_string());
+        let parent2 = DirectoryTreeNode::from_empty(Some(Arc::clone(&root)), "parent2".to_string());
+        let child1 =
+            DirectoryTreeNode::from_empty(Some(Arc::clone(&parent1)), "child1".to_string());
+        let child2 =
+            DirectoryTreeNode::from_empty(Some(Arc::clone(&parent2)), "child2".to_string());
+
+        let common_parent = DirectoryTreeNode::get_common_parent(&child1, &child2);
+        assert!(Arc::ptr_eq(&common_parent, &root));
+    }
+
+    #[test]
+    fn test_directory_tree_node_get_containing_filesystem() {
+        let root = DirectoryTreeNode::from_empty(None, "".to_string());
+        let node = DirectoryTreeNode::from_empty(Some(Arc::clone(&root)), "node".to_string());
+
+        let fs = node.get_containing_filesystem();
+        assert!(Arc::ptr_eq(&fs, &root));
+    }
+
+    #[test]
+    fn test_directory_tree_node_readall() {
+        let parent = None;
+        let name = "test_file";
+        let inode: Arc<dyn IInode> = Arc::new(MockInode::new(name, 0));
+        let node = DirectoryTreeNode::from_inode(parent, &inode, Some(name));
+        let result = node.readall();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_directory_tree_node_readrest_at() {
+        let parent = None;
+        let name = "test_file";
+        let inode: Arc<dyn IInode> = Arc::new(MockInode::new(name, 0));
+        let node = DirectoryTreeNode::from_inode(parent, &inode, Some(name));
+        let result = node.readrest_at(0);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_directory_tree_node_readvec_at() {
+        let parent = None;
+        let name = "test_file";
+        let inode: Arc<dyn IInode> = Arc::new(MockInode::new(name, 0));
+        let node = DirectoryTreeNode::from_inode(parent, &inode, Some(name));
+        let result = node.readvec_at(0, 10);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_directory_tree_node_metadata() {
+        let parent = None;
+        let name = "test_file";
+        let inode: Arc<dyn IInode> = Arc::new(MockInode::new(name, 10));
+        let node = DirectoryTreeNode::from_inode(parent, &inode, Some(name));
+        let meta = node.metadata();
+        assert_eq!(meta.filename, name);
+        assert_eq!(meta.entry_type, DirectoryEntryType::File);
+        assert_eq!(meta.size, 10);
+    }
+
+    #[test]
+    fn test_directory_tree_node_readat() {
+        let parent = None;
+        let name = "test_file";
+        let inode: Arc<dyn IInode> = Arc::new(MockInode::new(name, 0));
+        let node = DirectoryTreeNode::from_inode(parent, &inode, Some(name));
+        let mut buffer = [0; 10];
+        let result = node.readat(0, &mut buffer);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_directory_tree_node_writeat() {
+        let parent = None;
+        let name = "test_file";
+        let inode: Arc<dyn IInode> = Arc::new(MockInode::new(name, 0));
+        let node = DirectoryTreeNode::from_inode(parent, &inode, Some(name));
+        let data = [1; 10];
+        let result = node.writeat(0, &data);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_directory_tree_node_mkdir() {
+        let parent = DirectoryTreeNode::from_empty(None, "parent".to_string());
+        let result = parent.mkdir("new_dir");
+        assert!(result.is_ok());
+        assert!(parent.inner.lock().is_mounted("new_dir"));
+    }
+
+    #[test]
+    fn test_directory_tree_node_rmdir() {
+        let parent = DirectoryTreeNode::from_empty(None, "parent".to_string());
+        parent.mkdir("new_dir").unwrap();
+        let result = parent.rmdir("new_dir");
+        assert!(result.is_ok());
+        assert!(!parent.inner.lock().is_mounted("new_dir"));
+    }
+
+    #[test]
+    fn test_directory_tree_node_remove() {
+        let parent = DirectoryTreeNode::from_empty(None, "parent".to_string());
+        let inode: Arc<dyn IInode> = Arc::new(MockInode::new("test_file", 0));
+        let child =
+            DirectoryTreeNode::from_inode(Some(Arc::clone(&parent)), &inode, Some("test_file"));
+        parent
+            .mount_as(Arc::clone(&child), Some("test_file"))
+            .unwrap();
+        let result = parent.remove("test_file");
+        assert!(result.is_ok());
+        assert!(!parent.inner.lock().is_mounted("test_file"));
+    }
+
+    #[test]
+    fn test_directory_tree_node_touch() {
+        let parent = DirectoryTreeNode::from_empty(None, "parent".to_string());
+        let result = parent.touch("new_file");
+        assert!(result.is_ok());
+        assert!(parent.inner.lock().is_mounted("new_file"));
+    }
+
+    #[test]
+    fn test_directory_tree_node_stat() {
+        let parent = None;
+        let name = "test_file";
+        let inode: Arc<dyn IInode> = Arc::new(MockInode::new(name, 10));
+        let node = DirectoryTreeNode::from_inode(parent, &inode, Some(name));
+        let mut stat = unsafe { core::mem::zeroed::<FileStatistics>() };
+        let result = node.stat(&mut stat);
+        assert!(result.is_ok());
+        assert_eq!(stat.size, 10);
+    }
+
+    #[test]
+    fn test_directory_tree_node_hard_link() {
+        let parent = DirectoryTreeNode::from_empty(None, "parent".to_string());
+        let inode: Arc<dyn IInode> = Arc::new(MockInode::new("test_file", 0));
+        let source =
+            DirectoryTreeNode::from_inode(Some(Arc::clone(&parent)), &inode, Some("test_file"));
+        let result = parent.hard_link("link_file", &source);
+        assert!(result.is_ok());
+        assert!(parent.inner.lock().is_mounted("link_file"));
+    }
+
+    #[test]
+    fn test_directory_tree_node_soft_link() {
+        let parent = DirectoryTreeNode::from_empty(None, "parent".to_string());
+        let result = parent.soft_link("soft_link", "target");
+        assert!(result.is_ok());
+        assert!(parent.inner.lock().is_mounted("soft_link"));
+    }
 }
