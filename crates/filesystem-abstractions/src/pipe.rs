@@ -10,6 +10,8 @@ use crate::{
     ICacheableFile, IFile,
 };
 
+const PIPE_LIMIT: usize = 1024;
+
 struct Pipe {
     buf_queue: SpinMutex<VecDeque<u8>>,
     write_end_weak: UnsafeCell<Weak<FileCacheAccessor>>,
@@ -19,6 +21,10 @@ struct Pipe {
 unsafe impl Sync for Pipe {}
 
 impl IFile for Pipe {
+    fn write_avaliable(&self) -> bool {
+        self.buf_queue.lock().len() < PIPE_LIMIT
+    }
+
     fn read_avaliable(&self) -> bool {
         // Strong counts of accessors that are only inherited by write end
         // Indicates whether the write end is still open
@@ -48,6 +54,10 @@ impl IFile for Pipe {
             }
         }
 
+        if buf.len() >= (bytes_read + queue.len()) / 3 {
+            queue.make_contiguous();
+        }
+
         bytes_read
     }
 
@@ -56,6 +66,10 @@ impl IFile for Pipe {
         let mut queue = self.buf_queue.lock();
 
         for byte in buf {
+            if queue.len() >= PIPE_LIMIT {
+                break;
+            }
+
             queue.push_back(*byte);
             bytes_written += 1;
         }
