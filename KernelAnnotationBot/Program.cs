@@ -9,12 +9,14 @@ static class Program
     [
         new LibCTestPass(),
         new LuaPass(),
-        new BusyBoxPass()
+        new BusyBoxPass(),
+        new BasicPass(),
     ];
 
     static void Main(string[] args)
     {
         string? filePath = null;
+        string? basicResultPath = null;
 
         foreach (var arg in args)
         {
@@ -31,6 +33,11 @@ static class Program
                     filePath = val;
                     break;
 
+                case "-b":
+                case "--basic":
+                    basicResultPath = val;
+                    break;
+
                 default:
                     Console.WriteLine($"Unrecognized key: \"{key}\"");
                     break;
@@ -40,8 +47,9 @@ static class Program
         if (filePath is not null)
         {
             string fileContent = File.ReadAllText(filePath);
+            string? basicResult = basicResultPath is null ? null : File.ReadAllText(basicResultPath);
 
-            Analyze(fileContent);
+            Analyze(fileContent, basicResult);
         }
         else
         {
@@ -49,11 +57,18 @@ static class Program
         }
     }
 
-    static void Analyze(string content)
+    static void Analyze(string content, string? basicResult = null)
     {
         foreach (var pass in annotationPasses)
         {
-            pass.Analyze(content);
+            if (pass is BasicPass basicPass)
+            {
+                basicPass.Analyze(basicResult!);
+            }
+            else
+            {
+                pass.Analyze(content);
+            }
         }
 
         double totalScore = annotationPasses.Select(p => p.TotalScore).Sum();

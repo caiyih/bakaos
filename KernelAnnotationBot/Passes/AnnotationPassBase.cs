@@ -13,7 +13,7 @@ public abstract class AnnotationPassBase
 
     public double TotalScore => TestResults.Values.Sum();
 
-    public void Analyze(string outputs)
+    public virtual void Analyze(string outputs)
     {
         AnalyzeInternal(outputs.Split('\n').Select(l => l.TrimEnd('\r')));
     }
