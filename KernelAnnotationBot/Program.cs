@@ -90,7 +90,15 @@ static class Program
 
             foreach (var testcase in pass.TestResults)
             {
-                Console.WriteLine($"    {testcase.Value.Score,-10:F2}  {testcase.Key}");
+                double score = testcase.Value.Score;
+                string scoreString = score.ToString("F2");
+
+                if (testcase.Value.FullScore is double fullScore && score >= fullScore)
+                {
+                    scoreString = $"{scoreString}(full)";
+                }
+
+                Console.WriteLine($"    {scoreString,-10}  {testcase.Key}");
             }
 
             Console.WriteLine();
