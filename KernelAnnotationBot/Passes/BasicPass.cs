@@ -21,7 +21,7 @@ public class BasicPass : AnnotationPassBase
             {
                 foreach (var result in results)
                 {
-                    AddTestcaseResult(result.Name, result.Score);
+                    AddTestcaseResult(result.Name, result.Score, result.FullScore);
                 }
             }
         }
@@ -39,10 +39,17 @@ public class BasicPass : AnnotationPassBase
 struct BasicTestcase
 {
     [JsonPropertyName("name")]
-    public string Name { get; set; }
+    public string Name { get; set; } = null!;
 
     [JsonPropertyName("passed")]
     public double Score { get; set; }
+
+    [JsonPropertyName("all")]
+    public double? FullScore { get; set; } = null;
+
+    public BasicTestcase()
+    {
+    }
 }
 
 [JsonSerializable(typeof(BasicTestcase[]))]
