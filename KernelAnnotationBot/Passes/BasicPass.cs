@@ -8,7 +8,6 @@ public class BasicPass : AnnotationPassBase
 {
     public override string Name => "Basic";
 
-
     public override void Analyze(string outputs)
     {
         if (outputs is null)

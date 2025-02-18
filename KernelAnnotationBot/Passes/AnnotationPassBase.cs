@@ -7,11 +7,11 @@ public abstract class AnnotationPassBase
 {
     public abstract string Name { get; }
 
-    private readonly Dictionary<string, double> _results = [];
+    private readonly Dictionary<string, TestcaseResult> _results = [];
 
-    public ReadOnlyDictionary<string, double> TestResults => _results.AsReadOnly();
+    public ReadOnlyDictionary<string, TestcaseResult> TestResults => _results.AsReadOnly();
 
-    public double TotalScore => TestResults.Values.Sum();
+    public double TotalScore => TestResults.Values.Select(t => t.Score).Sum();
 
     public virtual void Analyze(string outputs)
     {
@@ -113,18 +113,33 @@ public abstract class AnnotationPassBase
 
     protected abstract void AnalyzeInternal(IEnumerable<string> lines);
 
-    protected void AddTestcaseResult(string testcase, double score)
+    protected void AddTestcaseResult(string testcase, double score, double? fullScore = null)
     {
         if (testcase is not null)
         {
-            double score_normalized = score < 0 ? 0 : score;
-
-            if (!_results.TryAdd(testcase, score_normalized))
+            TestcaseResult result = new TestcaseResult
             {
-                double oldScore = _results[testcase];
+                Name = testcase,
+                Score = Math.Max(0, score),
+                FullScore = fullScore,
+            };
 
-                _results[testcase] = Math.Max(oldScore, score_normalized);
+            if (!_results.TryAdd(testcase, result))
+            {
+                var oldResult = _results[testcase];
+
+                if (result.Score > oldResult.Score)
+                {
+                    _results[testcase] = result;
+                }
             }
         }
     }
+}
+
+public struct TestcaseResult
+{
+    public string Name { get; set; }
+    public double Score { get; set; }
+    public double? FullScore { get; set; }
 }

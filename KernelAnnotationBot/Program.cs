@@ -90,7 +90,7 @@ static class Program
 
             foreach (var testcase in pass.TestResults)
             {
-                Console.WriteLine($"    {testcase.Value,-10:F2}  {testcase.Key}");
+                Console.WriteLine($"    {testcase.Value.Score,-10:F2}  {testcase.Key}");
             }
 
             Console.WriteLine();
