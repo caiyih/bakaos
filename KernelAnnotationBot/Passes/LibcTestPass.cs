@@ -15,7 +15,7 @@ public class LibCTestPass : AnnotationPassBase
                 score = 1;
             }
 
-            AddTestcaseResult(testcase, score);
+            AddTestcaseResult(testcase, score, 1);
         }
     }
 }

@@ -12,7 +12,7 @@ public class BusyBoxPass : AnnotationPassBase
 
             if (result == "success") score = 1;
 
-            AddTestcaseResult(testcase, score);
+            AddTestcaseResult(testcase, score, 1);
         }
     }
 }
