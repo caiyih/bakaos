@@ -5,7 +5,7 @@ use core::{
 
 use alloc::sync::Arc;
 use alloc::vec::Vec;
-use hermit_sync::{RawSpinMutex, SpinMutex};
+use hermit_sync::{RawSpinMutex, SpinMutex, SpinMutexGuard};
 use lock_api::{MappedMutexGuard, MutexGuard};
 
 use crate::IFile;
@@ -136,6 +136,12 @@ impl FileCacheAccessor {
         debug_assert!(!entry.is_zombie());
 
         entry.cahce.clone()
+    }
+
+    pub fn access_ref(&self) -> MappedMutexGuard<RawSpinMutex, Arc<dyn IFile>> {
+        SpinMutexGuard::map(FILE_TABLE.lock(), |c| {
+            &mut c[self.file_id].as_mut().unwrap().cahce
+        })
     }
 
     pub fn file_id(&self) -> usize {
