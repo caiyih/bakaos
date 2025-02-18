@@ -10,7 +10,7 @@ use crate::{
     ICacheableFile, IFile,
 };
 
-pub(self) const PIPE_LIMIT: usize = 1024;
+const PIPE_LIMIT: usize = 1024;
 
 struct Pipe {
     buf_queue: SpinMutex<VecDeque<u8>>,
