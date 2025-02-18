@@ -2,7 +2,8 @@ use crate::{
     DirectoryEntryType, FileDescriptorBuilder, FileStatisticsMode, FileSystemResult,
     FrozenFileDescriptorBuilder, ICacheableFile, IInode, InodeMetadata,
 };
-use alloc::sync::Arc;
+use alloc::{collections::vec_deque::VecDeque, sync::Arc};
+use hermit_sync::SpinMutex;
 use timing::TimeSpec;
 
 use crate::IFile;
@@ -70,7 +71,17 @@ impl IFile for TeleTypewriter {
     fn write(&self, buf: &[u8]) -> usize {
         write(buf)
     }
+
+    fn read_avaliable(&self) -> bool {
+        let mut lock = TTY_IN_QUEUE.lock();
+        while let Some(ch) = getchar_from_serial() {
+            lock.push_back(ch);
+        }
+        !lock.is_empty()
+    }
 }
+
+static TTY_IN_QUEUE: SpinMutex<VecDeque<u8>> = SpinMutex::new(VecDeque::new());
 
 // TODO: Extract this into separate crate
 #[allow(unused_variables)]
@@ -111,16 +122,21 @@ fn getchar_from_serial() -> Option<u8> {
 }
 
 fn read(buf: &mut [u8]) -> usize {
+    let mut lock = TTY_IN_QUEUE.lock();
+
     let mut read_bytes = 0;
 
-    while let Some(ch) = getchar_from_serial() {
-        buf[read_bytes] = ch;
-        read_bytes += 1;
-
-        if read_bytes >= buf.len() {
-            break;
+    for ch in buf.iter_mut() {
+        match lock.pop_front() {
+            Some(read) => {
+                *ch = read;
+                read_bytes += 1;
+            }
+            None => break,
         }
     }
+
+    lock.make_contiguous();
 
     read_bytes
 }
