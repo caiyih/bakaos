@@ -1041,10 +1041,6 @@ impl ISyncSyscallHandler for SocketSyscall {
         struct DummyFile;
 
         impl IFile for DummyFile {
-            fn metadata(&self) -> Option<Arc<filesystem_abstractions::FileMetadata>> {
-                None
-            }
-
             fn can_read(&self) -> bool {
                 true
             }
