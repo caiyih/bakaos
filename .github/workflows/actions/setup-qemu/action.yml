@@ -8,7 +8,7 @@ runs:
     uses: actions/cache@v4
     with:
       path: qemu-prebuilt-7.0.0.tar.gz
-      key: riscv64-qemu-
+      key: riscv64-qemu-cache
       restore-keys: riscv64-qemu-
 
   - name: Download musl toolchain
