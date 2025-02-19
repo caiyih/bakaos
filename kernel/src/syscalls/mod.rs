@@ -5,8 +5,8 @@ use constants::SyscallError;
 use file::{
     CloseSyscall, Dup3Syscall, DupSyscall, FileTruncateSyscall, GetDents64Syscall, LinkAtSyscall,
     LongSeekSyscall, MkdirAtSyscall, MmapSyscall, MountSyscall, MunmapSyscall, NewFstatSyscall,
-    NewFstatatSyscall, OpenAtSyscall, Pipe2Syscall, ReadLinkAtSyscall, SymbolLinkAtSyscall,
-    UmountSyscall, UnlinkAtSyscall,
+    NewFstatatSyscall, OpenAtSyscall, Pipe2Syscall, ReadLinkAtSyscall, SocketSyscall,
+    SymbolLinkAtSyscall, UmountSyscall, UnlinkAtSyscall,
 };
 use file_async::{
     sys_read_async, sys_readv_async, sys_sendfile_async, sys_write_async, sys_writev_async,
@@ -110,6 +110,7 @@ impl SyscallDispatcher {
             SYSCALL_ID_FTRUNCATE64 => Some(&FileTruncateSyscall),
             SYSCALL_ID_SHMGET => Some(&SharedMemoryGetSyscall),
             SYSCALL_ID_SHMAT => Some(&SharedMemoryAttachSyscall),
+            SYSCALL_ID_SOCKET => Some(&SocketSyscall),
             _ => None,
         }
     }

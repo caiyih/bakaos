@@ -6,7 +6,8 @@ use alloc::{slice, string::String, sync::Arc};
 use constants::{ErrNo, SyscallError};
 use filesystem_abstractions::{
     global_open, global_open_raw, DirectoryTreeNode, FileDescriptor, FileDescriptorBuilder,
-    FileMode, FileStatistics, FrozenFileDescriptorBuilder, ICacheableFile, OpenFlags, PipeBuilder,
+    FileMode, FileStatistics, FrozenFileDescriptorBuilder, ICacheableFile, IFile, OpenFlags,
+    PipeBuilder,
 };
 use paging::{
     page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, MemoryMapFlags,
@@ -1032,5 +1033,45 @@ impl ISyncSyscallHandler for FileTruncateSyscall {
 
     fn name(&self) -> &str {
         "sys_ftruncate64"
+    }
+}
+
+pub struct SocketSyscall;
+
+impl ISyncSyscallHandler for SocketSyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        struct DummyFile;
+
+        impl IFile for DummyFile {
+            fn metadata(&self) -> Option<Arc<filesystem_abstractions::FileMetadata>> {
+                None
+            }
+
+            fn can_read(&self) -> bool {
+                true
+            }
+
+            fn can_write(&self) -> bool {
+                true
+            }
+        }
+
+        let socket: Arc<dyn IFile> = Arc::new(DummyFile);
+        let accessor = socket.cache_as_arc_accessor();
+
+        let mut pcb = ctx.pcb.lock();
+
+        match pcb.fd_table.allocate(
+            FileDescriptorBuilder::new(accessor)
+                .set_readable()
+                .set_writable(),
+        ) {
+            Some(fd) => Ok(fd as isize),
+            None => SyscallError::TooManyOpenFiles,
+        }
+    }
+
+    fn name(&self) -> &str {
+        "sys_socket"
     }
 }

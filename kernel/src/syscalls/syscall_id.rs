@@ -45,6 +45,7 @@ pub const SYSCALL_ID_GETTID: usize = 178;
 pub const SYSCALL_ID_SYSINFO: usize = 179;
 pub const SYSCALL_ID_SHMGET: usize = 194;
 pub const SYSCALL_ID_SHMAT: usize = 196;
+pub const SYSCALL_ID_SOCKET: usize = 198;
 pub const SYSCALL_ID_BRK: usize = 214;
 pub const SYSCALL_ID_MUNMAP: usize = 215;
 pub const SYSCALL_ID_CLONE: usize = 220;
