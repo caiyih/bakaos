@@ -6,7 +6,7 @@ use alloc::sync::{Arc, Weak};
 use hermit_sync::SpinMutex;
 
 use crate::{
-    FileCacheAccessor, FileDescriptorBuilder, FileMetadata, FrozenFileDescriptorBuilder,
+    FileCacheAccessor, FileDescriptorBuilder, FrozenFileDescriptorBuilder,
     ICacheableFile, IFile,
 };
 
@@ -75,10 +75,6 @@ impl IFile for Pipe {
         }
 
         bytes_written
-    }
-
-    fn metadata(&self) -> Option<Arc<FileMetadata>> {
-        None
     }
 
     fn can_write(&self) -> bool {

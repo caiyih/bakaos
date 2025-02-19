@@ -105,7 +105,9 @@ unsafe impl Send for FileMetadata {}
 unsafe impl Sync for FileMetadata {}
 
 pub trait IFile: DowncastSync + Send + Sync {
-    fn metadata(&self) -> Option<Arc<FileMetadata>>;
+    fn metadata(&self) -> Option<Arc<FileMetadata>> {
+        None
+    }
 
     fn can_read(&self) -> bool {
         self.metadata().is_some()

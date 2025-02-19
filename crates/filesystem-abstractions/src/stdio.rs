@@ -52,10 +52,6 @@ impl IStdioFile for TeleTypewriter {
 }
 
 impl IFile for TeleTypewriter {
-    fn metadata(&self) -> Option<Arc<crate::FileMetadata>> {
-        None
-    }
-
     fn can_read(&self) -> bool {
         true
     }
