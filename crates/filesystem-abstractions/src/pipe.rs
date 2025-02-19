@@ -6,8 +6,7 @@ use alloc::sync::{Arc, Weak};
 use hermit_sync::SpinMutex;
 
 use crate::{
-    FileCacheAccessor, FileDescriptorBuilder, FrozenFileDescriptorBuilder,
-    ICacheableFile, IFile,
+    FileCacheAccessor, FileDescriptorBuilder, FrozenFileDescriptorBuilder, ICacheableFile, IFile,
 };
 
 const PIPE_LIMIT: usize = 1024;
