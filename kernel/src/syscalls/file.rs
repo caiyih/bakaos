@@ -100,26 +100,24 @@ impl ISyncSyscallHandler for OpenAtSyscall {
 
                 let path = core::str::from_utf8(&guard).map_err(|_| ErrNo::InvalidArgument)?;
                 let path = path::remove_relative_segments(path);
-                let filename = path::get_filename(&path);
 
-                let inode = if path::is_path_fully_qualified(&path) {
-                    filesystem_abstractions::global_open(&path, None)
-                        .map_err(|_| ErrNo::NoSuchFileOrDirectory)?
-                } else {
-                    let parent_inode_path =
-                        path::get_directory_name(&path).ok_or(ErrNo::InvalidArgument)?;
-
+                let inode = {
                     match (
                         filesystem_abstractions::global_open(&path, Some(&dir_inode)),
                         flags.contains(OpenFlags::O_CREAT),
                     ) {
                         (Ok(i), _) => i,
                         (Err(_), true) => {
+                            let parent_inode_path =
+                                path::get_directory_name(&path).ok_or(ErrNo::InvalidArgument)?;
+
                             let parent_inode = filesystem_abstractions::global_open(
                                 parent_inode_path,
                                 Some(&dir_inode),
                             )
                             .map_err(|_| ErrNo::NoSuchFileOrDirectory)?;
+
+                            let filename = path::get_filename(&path);
 
                             parent_inode
                                 .touch(filename)
