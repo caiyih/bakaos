@@ -37,11 +37,7 @@ jobs:
       - name: Build Kernel
         run: make
 
-      - name: Install Qemu
-        run: |
-          sudo apt update
-          sudo apt install -y qemu-system-misc
-          qemu-system-riscv64 --version
+      - uses: ./.github/workflows/actions/setup-qemu
 
       - name: Prepare sdcard image
         run: make _prepare_sdcard

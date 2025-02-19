@@ -37,11 +37,7 @@ jobs:
       - name: Build Kernel
         run: make build-final
       
-      - name: Install Qemu
-        run: |
-          sudo apt update
-          sudo apt install -y qemu-system-misc
-          qemu-system-riscv64 --version
+      - uses: ./.github/workflows/actions/setup-qemu
 
       # Try access the cache to keep it alive. 
       - name: Attempt to restore sdcard.img.zst from cache
