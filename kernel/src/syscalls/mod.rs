@@ -9,7 +9,8 @@ use file::{
     SymbolLinkAtSyscall, UmountSyscall, UnlinkAtSyscall,
 };
 use file_async::{
-    sys_read_async, sys_readv_async, sys_sendfile_async, sys_write_async, sys_writev_async,
+    sys_pread_async, sys_pwrite_async, sys_read_async, sys_readv_async, sys_sendfile_async,
+    sys_write_async, sys_writev_async,
 };
 use futex_async::sys_futex_async;
 use io_multiplexing::{sys_ppoll_async, sys_pselect6_async};
@@ -136,6 +137,8 @@ impl SyscallDispatcher {
             SYSCALL_ID_FUTEX => Some(sys_futex_async(&mut ctx).await),
             SYSCALL_ID_PSELECT6 => Some(sys_pselect6_async(&mut ctx).await),
             SYSCALL_ID_PPOLL => Some(sys_ppoll_async(&mut ctx).await),
+            SYSCALL_ID_PREAD => Some(sys_pread_async(&mut ctx).await),
+            SYSCALL_ID_PWRITE => Some(sys_pwrite_async(&mut ctx).await),
             _ => None,
         }
     }

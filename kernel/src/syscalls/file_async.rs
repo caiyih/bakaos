@@ -290,3 +290,80 @@ async_syscall!(sys_sendfile_async, ctx, {
 
     Ok(bytes_written as isize)
 });
+
+async_syscall!(sys_pread_async, ctx, {
+    let fd = ctx.arg0::<usize>();
+    let fd = ctx
+        .pcb
+        .lock()
+        .fd_table
+        .get(fd)
+        .ok_or(ErrNo::BadFileDescriptor)?
+        .clone();
+
+    if !fd.can_read() {
+        return Err(ErrNo::BadFileDescriptor);
+    }
+
+    let file = fd.access();
+
+    while !file.read_avaliable() {
+        yield_now().await;
+    }
+
+    let p_buf = ctx.arg1::<*mut u8>();
+    let len = ctx.arg2::<usize>();
+
+    let offset = ctx.arg3::<u64>();
+
+    let buf = unsafe { core::slice::from_raw_parts_mut(p_buf, len) };
+
+    match ctx
+        .borrow_page_table()
+        .guard_slice(buf)
+        .mustbe_user()
+        .mustbe_readable()
+        .with_write()
+    {
+        Some(mut guard) => Ok(file.pread(&mut guard, offset) as isize),
+        None => SyscallError::BadAddress,
+    }
+});
+
+async_syscall!(sys_pwrite_async, ctx, {
+    let fd = ctx.arg0::<usize>();
+    let p_buf = ctx.arg1::<usize>();
+    let len = ctx.arg2::<usize>();
+
+    let fd = ctx
+        .pcb
+        .lock()
+        .fd_table
+        .get(fd)
+        .ok_or(ErrNo::BadFileDescriptor)?
+        .clone();
+
+    if !fd.can_write() {
+        return Err(ErrNo::BadFileDescriptor);
+    }
+
+    let file = fd.access();
+
+    while !file.write_avaliable() {
+        yield_now().await;
+    }
+
+    let offset = ctx.arg3::<u64>();
+
+    let buf = unsafe { core::slice::from_raw_parts(p_buf as *mut u8, len) };
+
+    match ctx
+        .borrow_page_table()
+        .guard_slice(buf)
+        .mustbe_user()
+        .with_read()
+    {
+        Some(guard) => Ok(file.pwrite(&guard, offset) as isize),
+        None => SyscallError::BadAddress,
+    }
+});

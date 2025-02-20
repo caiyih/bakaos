@@ -174,18 +174,15 @@ pub trait IFile: DowncastSync + Send + Sync {
         })
     }
 
-    fn pread(&self, buf: &mut [u8]) -> usize {
+    fn pread(&self, buf: &mut [u8], offset: u64) -> usize {
         self.metadata().map_or(0, |metadata| {
-            metadata.inode().readat(metadata.offset(), buf).unwrap_or(0)
+            metadata.inode().readat(offset as usize, buf).unwrap_or(0)
         })
     }
 
-    fn pwrite(&self, buf: &[u8]) -> usize {
+    fn pwrite(&self, buf: &[u8], offset: u64) -> usize {
         self.metadata().map_or(0, |metadata| {
-            metadata
-                .inode()
-                .writeat(metadata.offset(), buf)
-                .unwrap_or(0)
+            metadata.inode().writeat(offset as usize, buf).unwrap_or(0)
         })
     }
 }
