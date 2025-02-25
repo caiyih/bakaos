@@ -16,7 +16,7 @@ use crate::{
     special_inode::{RandomInode, UnblockedRandomInode},
     DirectoryEntry, DirectoryEntryType, FileMetadata, FileStatistics, FileStatisticsMode,
     FileSystemError, FileSystemResult, IFileSystem, IInode, InodeMetadata, NullInode, OpenFlags,
-    OpenedDiskInode, TeleTypewriterInode, ZeroInode,
+    CachelessInodeFile, TeleTypewriterInode, ZeroInode,
 };
 
 struct RamFileInodeInner {
@@ -302,8 +302,8 @@ impl DirectoryTreeNode {
         self: Arc<DirectoryTreeNode>,
         flags: OpenFlags,
         offset: usize,
-    ) -> Arc<OpenedDiskInode> {
-        Arc::new(OpenedDiskInode {
+    ) -> Arc<CachelessInodeFile> {
+        Arc::new(CachelessInodeFile {
             metadata: Arc::new(FileMetadata::open(self, flags, offset)),
         })
     }

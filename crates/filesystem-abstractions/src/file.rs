@@ -501,17 +501,17 @@ impl FileDescriptorTable {
     }
 }
 
-pub struct OpenedDiskInode {
+pub struct CachelessInodeFile {
     pub(crate) metadata: Arc<FileMetadata>,
 }
 
-impl IFile for OpenedDiskInode {
+impl IFile for CachelessInodeFile {
     fn metadata(&self) -> Option<Arc<FileMetadata>> {
         Some(self.metadata.clone())
     }
 }
 
-impl OpenedDiskInode {
+impl CachelessInodeFile {
     pub fn clear_type(self: Arc<Self>) -> Arc<dyn IFile> {
         self
     }
