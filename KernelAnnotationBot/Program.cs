@@ -54,6 +54,8 @@ static class Program
         {
             Console.WriteLine("File path not specified");
         }
+
+        DisplayAnnotationResult();
     }
 
     static void Analyze(string content, string? basicResult = null)
@@ -69,7 +71,10 @@ static class Program
             basicPass.Analyze(basicResult);
             annotationPasses.Add(basicPass);
         }
+    }
 
+    private static void DisplayAnnotationResult()
+    {
         double totalScore = annotationPasses.Select(p => p.TotalScore).Sum();
 
         Console.WriteLine($"Total score of all tests: {totalScore:F2}");
