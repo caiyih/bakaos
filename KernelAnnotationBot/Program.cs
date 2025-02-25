@@ -46,7 +46,7 @@ static class Program
         if (filePath is not null)
         {
             string fileContent = File.ReadAllText(filePath);
-            string? basicResult = basicResultPath is null ? null : File.ReadAllText(basicResultPath);
+            string? basicResult = basicResultPath is null || !File.Exists(basicResultPath) ? null : File.ReadAllText(basicResultPath);
 
             Analyze(fileContent, basicResult);
         }
