@@ -14,9 +14,9 @@ use timing::TimeSpec;
 
 use crate::{
     special_inode::{RandomInode, UnblockedRandomInode},
-    DirectoryEntry, DirectoryEntryType, FileMetadata, FileStatistics, FileStatisticsMode,
-    FileSystemError, FileSystemResult, IFileSystem, IInode, InodeMetadata, NullInode, OpenFlags,
-    CachelessInodeFile, TeleTypewriterInode, ZeroInode,
+    CachelessInodeFile, DirectoryEntry, DirectoryEntryType, FileMetadata, FileStatistics,
+    FileStatisticsMode, FileSystemError, FileSystemResult, IFileSystem, IInode, InodeMetadata,
+    NullInode, OpenFlags, TeleTypewriterInode, ZeroInode,
 };
 
 struct RamFileInodeInner {
