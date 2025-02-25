@@ -80,6 +80,10 @@ impl IFile for Pipe {
         // broken pipe
         unsafe { self.read_end_weak.get().as_ref().unwrap().strong_count() > 0 }
     }
+
+    fn can_read(&self) -> bool {
+        !self.buf_queue.lock().is_empty()
+    }
 }
 
 pub struct PipeBuilder {
