@@ -82,7 +82,7 @@ impl IFile for Pipe {
     }
 
     fn can_read(&self) -> bool {
-        !self.buf_queue.lock().is_empty()
+        true
     }
 }
 
