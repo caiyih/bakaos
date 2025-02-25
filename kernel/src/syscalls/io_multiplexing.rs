@@ -215,6 +215,7 @@ async_syscall!(sys_ppoll_async, ctx, {
                                 && file.can_read()
                                 && file.read_avaliable()
                             {
+                                poll.revents |= POLLIN;
                                 ready = true;
                             }
 
@@ -224,6 +225,7 @@ async_syscall!(sys_ppoll_async, ctx, {
                                 && file.can_write()
                                 && file.write_avaliable()
                             {
+                                poll.revents |= POLLOUT;
                                 ready = true;
                             }
 
