@@ -22,7 +22,26 @@ async fn futex_wait(
         .enqueue(uaddr, tcb.task_id.id(), tcb.waker());
 
     let end_time = timeout.map(|t| t + current_timespec());
-    while unsafe { atomic_load_acquire(uaddr.as_ptr::<u32>()) } == val {
+
+    loop {
+        {
+            let ptr = unsafe { uaddr.as_ptr::<u32>() };
+
+            // prevent modification to page table, is this enough?
+            let pcb = tcb.pcb.lock();
+
+            if pcb
+                .memory_space
+                .page_table()
+                .guard_ptr(ptr)
+                .mustbe_user()
+                .with_read()
+                .is_some_and(|_| unsafe { atomic_load_acquire(ptr) != val })
+            {
+                break;
+            }
+        }
+
         if let Some(end_time) = end_time {
             if current_timespec() >= end_time {
                 break;
