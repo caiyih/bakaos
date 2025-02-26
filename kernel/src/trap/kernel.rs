@@ -89,6 +89,34 @@ fn kernel_trap_handler() {
             Interrupt::SupervisorTimer => kstat.on_timer_interrupt(),
             Interrupt::SupervisorExternal => kstat.on_external_interrupt(),
         },
-        Trap::Exception(_) => kstat.on_kernel_exception(),
+        Trap::Exception(e) => {
+            kstat.on_kernel_exception();
+
+            unsafe { __unhandled_kernel_exception(e) }
+        }
     };
+}
+
+#[inline(always)]
+unsafe fn __unhandled_kernel_exception(e: Exception) -> ! {
+    #[cfg(target_arch = "riscv64")]
+    __rv64_unhandled_kernel_exception_construct_frame();
+
+    panic!("Unhandled Supervisor exception: {:?}", e);
+}
+
+#[inline(always)]
+unsafe fn __rv64_unhandled_kernel_exception_construct_frame() {
+    use ::core::ptr::NonNull;
+
+    let sepc = sepc::read();
+
+    if let Ok(pc_size) = unwinding::get_instruction_size(sepc) {
+        let sra = sepc + pc_size;
+
+        let fp = unwinding::fp();
+        if let Some(p_ra_1) = NonNull::new((fp - core::mem::size_of::<usize>()) as *mut usize) {
+            p_ra_1.write_volatile(sra);
+        }
+    }
 }
