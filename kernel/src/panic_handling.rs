@@ -4,6 +4,7 @@ use unwinding::StackTrace;
 
 use crate::{legacy_println, system};
 
+pub static SKIP_PANIC_FRAME: AtomicBool = AtomicBool::new(false);
 static PANIC_NESTING: AtomicBool = AtomicBool::new(false);
 
 #[panic_handler]
@@ -28,7 +29,13 @@ unsafe fn rust_begin_unwind(info: &PanicInfo) -> ! {
 
         legacy_println!("[BAKA-OS]     Can unwind: {}", info.can_unwind());
 
-        StackTrace::begin_unwind(1).print_trace();
+        let mut skip_frames = 1;
+
+        if SKIP_PANIC_FRAME.load(core::sync::atomic::Ordering::Relaxed) {
+            skip_frames += 1;
+        }
+
+        StackTrace::begin_unwind(skip_frames).print_trace();
     } else {
         legacy_println!("[BAKA-OS] Kernel panicked while handling another panic.");
         legacy_println!("[BAKA-OS]     This is a bug in the kernel.");

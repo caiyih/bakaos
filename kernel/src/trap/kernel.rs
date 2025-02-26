@@ -9,7 +9,7 @@ use riscv::{
     register::{scause, sepc, stval, stvec},
 };
 
-use crate::kernel;
+use crate::{kernel, panic_handling};
 
 pub fn set_kernel_trap_handler() {
     unsafe { stvec::write(__on_kernel_trap as usize, stvec::TrapMode::Direct) };
@@ -92,17 +92,22 @@ fn kernel_trap_handler() {
         Trap::Exception(e) => {
             kstat.on_kernel_exception();
 
-            unsafe { __unhandled_kernel_exception(e) }
+            unsafe { __unhandled_kernel_exception(e, stval) }
         }
     };
 }
 
 #[inline(always)]
-unsafe fn __unhandled_kernel_exception(e: Exception) -> ! {
+unsafe fn __unhandled_kernel_exception(e: Exception, stval: usize) -> ! {
     #[cfg(target_arch = "riscv64")]
     __rv64_unhandled_kernel_exception_construct_frame();
 
-    panic!("Unhandled Supervisor exception: {:?}", e);
+    panic_handling::SKIP_PANIC_FRAME.store(true, core::sync::atomic::Ordering::Relaxed);
+
+    panic!(
+        "Unhandled Supervisor exception: {:?}, stval: {:#018x}",
+        e, stval
+    )
 }
 
 #[inline(always)]
