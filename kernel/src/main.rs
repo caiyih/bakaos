@@ -25,6 +25,7 @@ mod system;
 mod timing;
 mod trap;
 
+use ::timing::TimeSpec;
 use alloc::string::String;
 use core::{arch::naked_asm, sync::atomic::AtomicBool};
 use filesystem_abstractions::{global_mount_inode, global_open};
@@ -268,6 +269,7 @@ unsafe extern "C" fn __kernel_init() {
     debug_info();
     logging::init();
     kernel::init();
+    timing::initialize();
 
     memory::init();
 
