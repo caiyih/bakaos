@@ -101,6 +101,6 @@ impl Kernel {
     }
 
     pub fn up_time(&self) -> u64 {
-        self.machine.current_timestamp()
+        self.machine.machine_uptime()
     }
 }

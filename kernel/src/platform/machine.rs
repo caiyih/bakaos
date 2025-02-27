@@ -31,24 +31,9 @@ pub trait IMachine {
         self.bus0() + device_id * self.bus_width()
     }
 
-    #[allow(unused)]
-    fn tick_to_ms(&self, tick: usize) -> u64 {
-        (tick as u64) * 1000 / self.clock_freq()
-    }
-
-    fn tick_to_timestamp(&self, tick: u64) -> u64 {
-        tick / self.clock_freq()
-    }
-
     #[inline(always)]
-    fn current_timestamp(&self) -> u64 {
-        self.tick_to_timestamp(self.get_board_tick() as u64)
-    }
-
-    #[inline(always)]
-    #[allow(unused)]
-    fn currrent_time_ms(&self) -> u64 {
-        self.tick_to_ms(self.get_board_tick())
+    fn machine_uptime(&self) -> u64 {
+        self.get_board_tick() as u64 / self.clock_freq()
     }
 
     fn create_block_device_at(&self, device_id: usize) -> Arc<dyn IInode>;
