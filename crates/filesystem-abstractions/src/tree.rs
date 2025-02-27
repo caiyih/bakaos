@@ -1020,6 +1020,10 @@ pub fn initialize() {
 
     *ROOT.lock() = MaybeUninit::new(root);
 
+    let dev = global_open("/dev", None).unwrap();
+
+    dev.mount_empty("misc").unwrap().touch("rtc").unwrap();
+
     global_mount_inode(&TeleTypewriterInode::new(), "/dev/tty", None).unwrap();
     global_mount_inode(&NullInode::new(), "/dev/null", None).unwrap();
     global_mount_inode(&ZeroInode::new(), "/dev/zero", None).unwrap();
