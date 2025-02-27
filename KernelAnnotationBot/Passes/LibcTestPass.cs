@@ -10,7 +10,7 @@ public class LibCTestPass : AnnotationPassBase
         {
             int score = 0;
 
-            if (contents.Any(line => line == "Pass!"))
+            if (contents.Length == 1 && contents.Single() == "Pass!")
             {
                 score = 1;
             }
