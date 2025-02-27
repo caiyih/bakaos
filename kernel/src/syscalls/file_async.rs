@@ -87,6 +87,9 @@ struct IoItem {
     len: usize,
 }
 
+// pointer is not send by default, and can not cross await point
+unsafe impl Sync for IoItem {}
+
 async_syscall!(sys_readv_async, ctx, {
     let fd = ctx.arg0::<usize>();
     let fd = ctx
@@ -102,9 +105,6 @@ async_syscall!(sys_readv_async, ctx, {
     }
 
     let file = fd.access();
-    while !file.read_avaliable() {
-        yield_now().await;
-    }
 
     let iovec_base = ctx.arg1::<*const IoItem>();
     let len = ctx.arg2::<usize>();
@@ -125,6 +125,10 @@ async_syscall!(sys_readv_async, ctx, {
                 }
 
                 let data = unsafe { core::slice::from_raw_parts(io.p_data, io.len) };
+
+                while !file.write_avaliable() {
+                    yield_now().await;
+                }
 
                 match ctx
                     .borrow_page_table()
@@ -158,9 +162,6 @@ async_syscall!(sys_writev_async, ctx, {
     }
 
     let file = fd.access();
-    while !file.write_avaliable() {
-        yield_now().await;
-    }
 
     let iovec_base = ctx.arg1::<*const IoItem>();
     let len = ctx.arg2::<usize>();
@@ -181,6 +182,10 @@ async_syscall!(sys_writev_async, ctx, {
                 }
 
                 let data = unsafe { core::slice::from_raw_parts(io.p_data, io.len) };
+
+                while !file.write_avaliable() {
+                    yield_now().await;
+                }
 
                 match ctx
                     .borrow_page_table()
