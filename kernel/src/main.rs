@@ -297,8 +297,9 @@ unsafe extern "C" fn __kernel_init() {
     global_mount_inode(&kmsg, "/dev/kmsg", None).unwrap();
     global_mount_inode(&kmsg, "/proc/kmsg", None).unwrap();
 
-    let tick = machine.get_board_tick();
-    let seed = (((tick as u64) << 32) | machine.clock_freq()) ^ 0xdeadbeef;
+    let rtc_time = display_current_time(8);
+
+    let seed = (((rtc_time.tv_nsec as u64) << 32) | machine.clock_freq()) ^ 0xdeadbeef;
 
     log::info!("Setting up global rng with seed: {}", seed);
 
@@ -403,3 +404,58 @@ unsafe fn clear_bss_for_loop(begin: usize, end: usize) {
 //         begin += 16;
 //     }
 // }
+
+fn display_current_time(timezone_offset: i64) -> TimeSpec {
+    #[inline(always)]
+    fn is_leap_year(year: i64) -> bool {
+        (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
+    }
+
+    #[inline(always)]
+    fn days_in_month(year: i64, month: u8) -> u8 {
+        const DAYS: [u8; 12] = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        if month == 2 && is_leap_year(year) {
+            29
+        } else {
+            DAYS[(month - 1) as usize]
+        }
+    }
+
+    let time_spec = crate::timing::current_timespec();
+
+    let mut total_seconds = time_spec.tv_sec + timezone_offset * 3600;
+
+    let seconds = (total_seconds % 60) as u8;
+    total_seconds /= 60;
+    let minutes = (total_seconds % 60) as u8;
+    total_seconds /= 60;
+    let hours = (total_seconds % 24) as u8;
+    total_seconds /= 24;
+
+    let mut year = 1970;
+    while total_seconds >= if is_leap_year(year) { 366 } else { 365 } {
+        total_seconds -= if is_leap_year(year) { 366 } else { 365 };
+        year += 1;
+    }
+
+    let mut month = 1;
+    while total_seconds >= days_in_month(year, month) as i64 {
+        total_seconds -= days_in_month(year, month) as i64;
+        month += 1;
+    }
+
+    let day = (total_seconds + 1) as u8;
+
+    log::info!(
+        "Welcome, current time is: {:04}-{:02}-{:02} {:02}:{:02}:{:02}(UTC+{:02})",
+        year,
+        month,
+        day,
+        hours,
+        minutes,
+        seconds,
+        timezone_offset
+    );
+
+    time_spec
+}
