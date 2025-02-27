@@ -1,6 +1,7 @@
 use alloc::sync::Arc;
 use filesystem_abstractions::IInode;
 use riscv::register::time;
+use timing::TimeSpec;
 
 pub trait IMachine {
     // Board metadata
@@ -35,6 +36,8 @@ pub trait IMachine {
     fn machine_uptime(&self) -> u64 {
         self.get_board_tick() as u64 / self.clock_freq()
     }
+
+    fn get_rtc_offset(&self) -> TimeSpec;
 
     fn create_block_device_at(&self, device_id: usize) -> Arc<dyn IInode>;
 }

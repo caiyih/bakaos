@@ -1,9 +1,13 @@
+use abstractions::IUsizeAlias;
+use address::PhysicalAddress;
 use alloc::boxed::Box;
 use core::ptr::NonNull;
 use drivers::{
     virt::{VirtHal, VirtioDisk},
     BlockDeviceInode,
 };
+use riscv::register::time;
+use timing::{TimeSpec, NSEC_PER_SEC};
 use virtio_drivers::{
     device::blk::VirtIOBlk,
     transport::mmio::{MmioTransport, VirtIOHeader},
@@ -61,5 +65,22 @@ impl IMachine for VirtBoard {
         let virt_disk = VirtioDisk::new(virt_blk);
 
         BlockDeviceInode::new(Box::new(virt_disk))
+    }
+
+    fn get_rtc_offset(&self) -> TimeSpec {
+        let mmio = PhysicalAddress::from_usize(0x101000);
+        let mmio = mmio.to_high_virtual();
+
+        let low = unsafe { mmio.as_ptr::<u32>().read_volatile() };
+        let tick = time::read();
+
+        let high = unsafe { mmio.as_ptr::<u32>().add(1).read_volatile() };
+
+        let rtc_ns = ((high as u64) << 32) | low as u64;
+
+        let reg_time = TimeSpec::from_ticks(tick as i64, self.clock_freq());
+        let rtc_time = TimeSpec::from_ticks(rtc_ns as i64, NSEC_PER_SEC as u64);
+
+        rtc_time - reg_time
     }
 }
