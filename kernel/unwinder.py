@@ -111,6 +111,7 @@ try:
     print_color("Unwinding stack trace:", 'purple')
 
     # 遍历pc数组，获取详细信息
+    top_frame = True
     for pc in pc_list:
         function_name = None
         source_file = None
@@ -147,20 +148,23 @@ try:
                 function_name += '()'
 
             print_color(f"    at: {function_name} in {source_file}:{source_line}", 'yellow')
-            print_color(f"    disassembly of the line:", 'blue')
 
-            target_pc_idx = address_line_map[pc]
-            i = start_idx_of_the_line
-            while True:
-                line = lines[i].strip()
-                if line.endswith(':') or re.match(r'^(.*):(\d+)', line):
-                    break
+            if top_frame:
+                top_frame = False
+                print_color(f"    disassembly of the line:", 'blue')
 
-                if i == target_pc_idx:
-                    print_color(f"      {line}", 'red')
-                else:
-                    print_color(f"      {line}", 'white')
-                i += 1
+                target_pc_idx = address_line_map[pc]
+                i = start_idx_of_the_line
+                while True:
+                    line = lines[i].strip()
+                    if line.endswith(':') or re.match(r'^(.*):(\d+)', line):
+                        break
+
+                    if i == target_pc_idx:
+                        print_color(f"      {line}", 'red')
+                    else:
+                        print_color(f"      {line}", 'white')
+                    i += 1
 
             continue
 
