@@ -16,4 +16,5 @@ members = [
     "paging",
     "unwinding",
     "rng",
+    "platform-abstractions",
 ]
