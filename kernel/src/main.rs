@@ -37,6 +37,14 @@ use tasks::ProcessControlBlock;
 
 extern crate alloc;
 
+// Rust compiler leaves out `_start` if not explicitly used in the exact project to be compiled
+// So we use a stub to ensure it compiled.
+// This function does not have to be called, and is even not compiled
+// it's only used to cheat the compiler
+unsafe extern "C" fn __ensure_start_compiled() -> ! {
+    platform_abstractions::_start();
+}
+
 #[no_mangle]
 fn main() {
     match option_env!("KERNEL_TEST") {
@@ -230,7 +238,6 @@ unsafe extern "C" fn __kernel_init() {
 }
 
 #[no_mangle]
-#[link_section = ".text.entry"]
 #[allow(named_asm_labels)]
 unsafe extern "C" fn __kernel_start_main() -> ! {
     __kernel_init();
