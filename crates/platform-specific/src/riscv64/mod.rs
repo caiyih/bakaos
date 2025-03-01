@@ -16,7 +16,7 @@ pub use registers::*;
 pub use serial::*;
 
 // IMPORTANT: Must provide for every platform
-pub const PLATFORM_STRING: &CStr = unsafe { CStr::from_bytes_with_nul_unchecked(b"RISC-V64\0") };
+pub const PLATFORM_STRING: &CStr = c"RISC-V64";
 
 pub const VIRT_ADDR_OFFSET: usize = 0xffff_ffc0_0000_0000;
 pub const PHYS_ADDR_MASK: usize = 0x0000_003f_ffff_ffff;
