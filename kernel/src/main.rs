@@ -7,6 +7,7 @@
 #![feature(alloc_error_handler)]
 #![allow(internal_features)]
 #![feature(core_intrinsics)]
+#![feature(cfg_accessible)]
 
 mod dmesg;
 mod kernel;
@@ -245,6 +246,9 @@ unsafe extern "C" fn __kernel_start_main() -> ! {
 }
 
 fn debug_info() {
+    #[cfg_accessible(platform_specific::init_serial)]
+    platform_specific::init_serial();
+
     legacy_println!("Welcome to BAKA OS!");
 
     platform_abstractions::print_bootloader_info();
