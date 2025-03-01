@@ -52,7 +52,6 @@ unsafe fn rust_begin_unwind(info: &::core::panic::PanicInfo) -> ! {
     crate::machine_shutdown(true)
 }
 
-
 #[allow(unused)]
 pub trait IDisplayableStackTrace {
     fn print_trace(&self);
