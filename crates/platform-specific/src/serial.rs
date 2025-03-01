@@ -10,7 +10,7 @@ impl Write for Console {
             return Ok(());
         }
 
-        #[cfg(not(target_arch = "riscv64"))]
+        #[cfg(not(any(target_arch = "riscv64")))]
         Err(::core::fmt::Error)
     }
 }
