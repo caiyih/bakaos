@@ -21,13 +21,11 @@ use filesystem_abstractions::{
 };
 use hermit_sync::SpinMutex;
 use log::debug;
+use platform_abstractions::return_to_user;
 use tasks::{TaskControlBlock, TaskStatus};
 use timing::TimeSpec;
 
-use crate::{
-    processor::ProcessorUnit,
-    trap::{return_to_user, user_trap_handler_async},
-};
+use crate::{processor::ProcessorUnit, trap::user_trap_handler_async};
 
 struct ExposeWakerFuture;
 

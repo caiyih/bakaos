@@ -1,5 +1,11 @@
 mod boot;
-pub use boot::_start;
+mod syscalls;
+mod system;
+mod trap;
 
-pub const VIRT_ADDR_OFFSET: usize = 0xffff_ffc0_0000_0000;
-pub const PHYS_ADDR_MASK: usize = 0x0000_003f_ffff_ffff;
+pub(crate) use syscalls::RISCV64SyscallContext;
+
+pub use boot::_start;
+pub use system::{machine_shutdown, print_bootloader_info};
+pub use trap::init as init_trap;
+pub use trap::{return_to_user, translate_current_trap};

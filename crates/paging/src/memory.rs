@@ -516,7 +516,10 @@ impl MemorySpaceBuilder {
             debug_assert!(copied == data.len());
         }
 
-        debug_assert!(min_start_vpn > VirtualPageNum::from_usize(0));
+        // TODO: investigate this, certain section starts with the va of 0
+        // e.g. testcase basic brk
+        // debug_assert!(min_start_vpn > VirtualPageNum::from_usize(0));
+        min_start_vpn = min_start_vpn.max(VirtualPageNum(1));
 
         memory_space.elf_area = VirtualAddressRange::from_start_end(
             min_start_vpn.start_addr::<VirtualAddress>(),

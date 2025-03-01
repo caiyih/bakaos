@@ -14,6 +14,7 @@ constants = { path = "../constants", default-features = false }
 allocation = { path = "../allocation", default-features = false }
 address = { path = "../address", default-features = false }
 rng = { path = "../rng", default-features = false }
+platform-specific = { path = "../platform-specific" }
 hermit-sync = "0.1.6"
 lock_api = "0.4.12"
 log = "0.4.22"

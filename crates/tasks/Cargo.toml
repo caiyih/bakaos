@@ -12,12 +12,13 @@ paging = { path = "../paging", default-features = false }
 address = { path = "../address", default-features = false }
 abstractions = { path = "../abstractions", default-features = false }
 filesystem-abstractions = { path = "../filesystem-abstractions", default-features = false }
-riscv = "0.12.1"
+riscv = "0.12"
+platform-specific = { path = "../platform-specific" }
 lock_api = "0.4.12"
 bitflags = "2.6.0"
 log = "0.4.22"
 
 [features]
-default = ["std"]
+default = ["no_std"]
 std = []
 no_std = []

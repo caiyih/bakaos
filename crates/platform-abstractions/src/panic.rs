@@ -1,15 +1,16 @@
-use core::{panic::PanicInfo, sync::atomic::AtomicBool};
+use core::sync::atomic::AtomicBool;
+use platform_specific::legacy_println;
 
 use unwinding::StackTrace;
 
-use crate::{legacy_println, system};
+#[allow(unused)]
+pub(crate) static SKIP_PANIC_FRAME: AtomicBool = AtomicBool::new(false);
 
-pub static SKIP_PANIC_FRAME: AtomicBool = AtomicBool::new(false);
 static PANIC_NESTING: AtomicBool = AtomicBool::new(false);
 
-#[panic_handler]
 #[no_mangle]
-unsafe fn rust_begin_unwind(info: &PanicInfo) -> ! {
+#[panic_handler]
+unsafe fn rust_begin_unwind(info: &::core::panic::PanicInfo) -> ! {
     if !PANIC_NESTING.load(core::sync::atomic::Ordering::Relaxed) {
         PANIC_NESTING.store(true, core::sync::atomic::Ordering::Relaxed);
 
@@ -37,12 +38,15 @@ unsafe fn rust_begin_unwind(info: &PanicInfo) -> ! {
 
         StackTrace::begin_unwind(skip_frames).print_trace();
     } else {
-        legacy_println!("[BAKA-OS] Kernel panicked while handling another panic.");
+        legacy_println!(
+            "[BAKA-OS] Kernel panicked while handling another panic: {}",
+            info.message()
+        );
         legacy_println!("[BAKA-OS]     This is a bug in the kernel.");
         legacy_println!("[BAKA-OS]     The kernel will now shutdown.");
     }
 
-    system::shutdown_failure();
+    crate::machine_shutdown(true)
 }
 
 pub trait IDisplayableStackTrace {
@@ -56,22 +60,19 @@ impl IDisplayableStackTrace for StackTrace {
         legacy_println!("[BAKA-OS]     Stack trace:");
 
         for (depth, frame) in frames.iter().enumerate() {
-            let ra = frame.ra();
-
             // PC implies the next instruction of function call
-            match unwinding::find_previous_instruction(ra) {
+            match frame.pc() {
                 Ok(pc) => legacy_println!(
                     "[BAKA-OS]     {:4} at: {:#018x} Frame pointer: {:#018x}",
                     depth + 1,
                     pc,
                     frame.fp()
                 ),
-                Err(ins64) => legacy_println!(
-                    "[BAKA-OS]     {:4} Frame pointer: {:#018x} Unrecognize instruction, ra: {:#018x}, instruction 64bits: {:#018x}",
+                Err(ra) => legacy_println!(
+                    "[BAKA-OS]     {:4} Frame pointer: {:#018x} Unrecognize instruction, ra: {:#018x}",
                     depth + 1,
                     frame.fp(),
-                    ra,
-                    ins64
+                    ra
                 ),
             }
         }

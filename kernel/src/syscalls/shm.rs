@@ -1,6 +1,7 @@
 use crate::shared_memory;
 use address::{IPageNum, VirtualAddress};
 use constants::SyscallError;
+use platform_abstractions::ISyscallContext;
 
 use super::{ISyncSyscallHandler, SyscallContext, SyscallResult};
 

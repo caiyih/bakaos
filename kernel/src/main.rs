@@ -8,30 +8,26 @@
 #![allow(internal_features)]
 #![feature(core_intrinsics)]
 
-mod ci_helper;
-mod firmwares;
+mod dmesg;
 mod kernel;
 mod logging;
 mod memory;
-mod panic_handling;
 mod platform;
 mod processor;
 mod scheduling;
-mod serial;
 mod shared_memory;
 mod statistics;
 mod syscalls;
-mod system;
 mod timing;
 mod trap;
 
 use ::timing::TimeSpec;
 use alloc::string::String;
 use core::sync::atomic::AtomicBool;
+use dmesg::KernelMessageInode;
 use filesystem_abstractions::{global_mount_inode, global_open};
-use firmwares::console::{IConsole, KernelMessageInode};
 use paging::PageTable;
-use sbi_spec::base::impl_id;
+use platform_specific::legacy_println;
 use scheduling::ProcDeviceInode;
 use tasks::ProcessControlBlock;
 
@@ -242,34 +238,17 @@ unsafe extern "C" fn __kernel_init() {
 unsafe extern "C" fn __kernel_start_main() -> ! {
     __kernel_init();
 
-    // TODO: Setup interrupt/trap subsystem
-    trap::init();
+    platform_abstractions::init_trap();
 
     main();
 
-    system::shutdown_successfully();
+    platform_abstractions::machine_shutdown(false)
 }
 
 fn debug_info() {
     legacy_println!("Welcome to BAKA OS!");
 
-    legacy_println!("SBI specification version: {0}", sbi_rt::get_spec_version());
-
-    let sbi_impl = sbi_rt::get_sbi_impl_id();
-    let sbi_impl = match sbi_impl {
-        impl_id::BBL => "Berkley Bootloader",
-        impl_id::OPEN_SBI => "OpenSBI",
-        impl_id::XVISOR => "Xvisor",
-        impl_id::KVM => "Kvm",
-        impl_id::RUST_SBI => "RustSBI",
-        impl_id::DIOSIX => "Diosix",
-        impl_id::COFFER => "Coffer",
-        _ => "Unknown",
-    };
-
-    legacy_println!("SBI implementation: {0}", sbi_impl);
-
-    legacy_println!("Console type: {0}", serial::legacy_console().name());
+    platform_abstractions::print_bootloader_info();
 }
 
 unsafe fn clear_bss() {
@@ -302,38 +281,6 @@ unsafe fn clear_bss() {
 unsafe fn clear_bss_for_loop(begin: usize, end: usize) {
     core::ptr::write_bytes(begin as *mut u8, 0, end - begin);
 }
-
-// This method is no longer used
-// See comments in clear_bss for details
-// unsafe fn clear_bss_fast(mut begin: usize, end: usize) {
-//     // bss sections must be 4K aligned
-//     debug_assert!(begin & 4095 == 0);
-//     debug_assert!(end & 4095 == 0);
-//     debug_assert!((end - begin) & 4095 == 0);
-
-//     // Since riscv64gc supports neither SIMD or 128 bit integer operations
-//     // We can only uses unsigned 64 bit integers to write memory
-//     // u64 writes 64 bits at a time，still faster than u8 writes
-//     // let mut ptr = begin as *mut u64;
-
-//     // 8 times loop unrolling
-//     // since the bss section is 4K aligned, we can safely write 512 bits at a time
-//     while begin < end {
-//         asm!(
-//             "sd x0, 0({0})",
-//             "sd x0, 8({0})",
-//             "sd x0, 16({0})",
-//             "sd x0, 24({0})",
-//             "sd x0, 32({0})",
-//             "sd x0, 40({0})",
-//             "sd x0, 48({0})",
-//             "sd x0, 56({0})",
-//             in(reg) begin
-//         );
-
-//         begin += 16;
-//     }
-// }
 
 fn display_current_time(timezone_offset: i64) -> TimeSpec {
     #[inline(always)]

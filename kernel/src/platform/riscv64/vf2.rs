@@ -5,7 +5,7 @@ use drivers::{BlockDeviceInode, VisionFive2Disk};
 use filesystem_abstractions::IInode;
 use timing::TimeSpec;
 
-use super::machine::IMachine;
+use crate::platform::machine::IMachine;
 
 #[derive(Clone, Copy)]
 pub struct VF2Machine;
@@ -45,6 +45,10 @@ impl IMachine for VF2Machine {
         let mmio = drivers::VisionFive2SdMMIO::new(mmio_pa.to_high_virtual());
 
         BlockDeviceInode::new(Box::new(VisionFive2Disk::new(mmio)))
+    }
+
+    fn get_board_tick(&self) -> usize {
+        platform_specific::time()
     }
 
     fn get_rtc_offset(&self) -> TimeSpec {

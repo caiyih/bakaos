@@ -24,7 +24,7 @@ pub unsafe extern "C" fn _start() -> ! {
         // Do not save the return address to ra
         "jr t0",
         page_table = sym PAGE_TABLE,
-        virt_addr_offset = const super::VIRT_ADDR_OFFSET,
+        virt_addr_offset = const platform_specific::VIRT_ADDR_OFFSET,
         entry = sym _start_virtualized,
     )
 }
@@ -47,7 +47,7 @@ unsafe extern "C" fn _start_virtualized() -> ! {
         "li t0, {virt_addr_offset}",
         "or sp, t0, sp",
         "j __kernel_start_main",
-        virt_addr_offset = const super::VIRT_ADDR_OFFSET,
+        virt_addr_offset = const platform_specific::VIRT_ADDR_OFFSET,
     )
 }
 

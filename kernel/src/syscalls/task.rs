@@ -10,6 +10,8 @@ use paging::{
     page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, PageTable,
     PageTableEntryFlags,
 };
+use platform_abstractions::ISyscallContext;
+use platform_specific::ITaskContext;
 use tasks::{TaskCloneFlags, TaskStatus};
 use timing::{TimeSpec, TimeVal};
 
@@ -20,7 +22,7 @@ use super::{ISyncSyscallHandler, SyscallContext, SyscallResult};
 pub struct ExitSyscall;
 
 impl ISyncSyscallHandler for ExitSyscall {
-    fn handle(&self, ctx: &mut SyscallContext<'_>) -> SyscallResult {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
         let code = ctx.arg0::<isize>();
 
         ctx.exit_code
@@ -239,7 +241,7 @@ impl ISyncSyscallHandler for CloneSyscall {
         let flags = ctx.arg0::<TaskCloneFlags>();
         let sp = ctx.arg1::<VirtualAddress>();
         let ptid = ctx.arg2::<*mut usize>();
-        let tls = ctx.arg3::<usize>();
+        let _tls = ctx.arg3::<usize>();
         let pctid = ctx.arg4::<*mut usize>();
 
         // TODO: Implement thread fork
@@ -257,10 +259,10 @@ impl ISyncSyscallHandler for CloneSyscall {
 
         let new_trap_ctx = new_task.mut_trap_ctx();
 
-        new_trap_ctx.regs.a0 = 0; // Child task's return value is 0
+        new_trap_ctx.set_syscall_return_value(0); // Child task's return value is 0
 
         if sp.as_usize() != 0 {
-            new_trap_ctx.regs.sp = sp;
+            new_trap_ctx.set_stack_top(sp.as_usize());
         }
 
         if flags.contains(TaskCloneFlags::PARENT_SETTID) {
@@ -291,9 +293,10 @@ impl ISyncSyscallHandler for CloneSyscall {
             );
         }
 
-        if flags.contains(TaskCloneFlags::SETTLS) {
-            ctx.mut_trap_ctx().regs.tp = tls;
-        }
+        // FIXME: figure out a way to do this under multiple arch
+        // if flags.contains(TaskCloneFlags::SETTLS) {
+        //     ctx.mut_trap_ctx().regs.tp = tls;
+        // }
 
         // TODO: Set clear tid address to pctid
 

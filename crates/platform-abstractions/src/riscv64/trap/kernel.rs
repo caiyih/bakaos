@@ -6,10 +6,13 @@ use riscv::{
         supervisor::{Exception, Interrupt},
         Trap,
     },
-    register::{scause, sepc, stval, stvec},
+    register::{
+        scause, sepc, stval,
+        stvec::{self},
+    },
 };
 
-use crate::{kernel, panic_handling};
+use crate::panic::SKIP_PANIC_FRAME;
 
 pub fn set_kernel_trap_handler() {
     unsafe { stvec::write(__on_kernel_trap as usize, stvec::TrapMode::Direct) };
@@ -71,8 +74,6 @@ fn kernel_trap_handler() {
     let scause = scause::read().cause();
     let stval = stval::read();
 
-    let kstat = kernel::get().stat();
-
     let scause =
         unsafe { core::mem::transmute::<Trap<usize, usize>, Trap<Interrupt, Exception>>(scause) };
 
@@ -84,44 +85,35 @@ fn kernel_trap_handler() {
     );
 
     match scause {
-        Trap::Interrupt(interrupt) => match interrupt {
-            Interrupt::SupervisorSoft => kstat.on_software_interrupt(),
-            Interrupt::SupervisorTimer => kstat.on_timer_interrupt(),
-            Interrupt::SupervisorExternal => kstat.on_external_interrupt(),
-        },
-        Trap::Exception(e) => {
-            kstat.on_kernel_exception();
-
-            unsafe { __unhandled_kernel_exception(e, stval) }
-        }
+        Trap::Interrupt(_) => (),
+        Trap::Exception(e) => unsafe { __unhandled_kernel_exception(e, stval) },
     };
 }
 
 #[inline(always)]
 unsafe fn __unhandled_kernel_exception(e: Exception, stval: usize) -> ! {
-    #[cfg(target_arch = "riscv64")]
-    __rv64_unhandled_kernel_exception_construct_frame();
-
-    panic_handling::SKIP_PANIC_FRAME.store(true, core::sync::atomic::Ordering::Relaxed);
-
-    panic!(
-        "Unhandled Supervisor exception: {:?}, stval: {:#018x}",
-        e, stval
-    )
-}
-
-#[inline(always)]
-unsafe fn __rv64_unhandled_kernel_exception_construct_frame() {
     use ::core::ptr::NonNull;
 
     let sepc = sepc::read();
 
-    if let Ok(pc_size) = unwinding::get_instruction_size(sepc) {
+    if let Ok(pc_size) = platform_specific::get_instruction_size(sepc) {
         let sra = sepc + pc_size;
 
-        let fp = unwinding::fp();
+        let fp = platform_specific::fp();
         if let Some(p_ra_1) = NonNull::new((fp - core::mem::size_of::<usize>()) as *mut usize) {
             p_ra_1.write_volatile(sra);
+
+            SKIP_PANIC_FRAME.store(true, core::sync::atomic::Ordering::Relaxed);
+
+            panic!(
+                "Unhandled Supervisor exception: {:?}, stval: {:#018x}",
+                e, stval
+            )
         }
     }
+
+    panic!(
+        "Unhandled Supervisor exception: {:?} at: {:#018x} stval: {:#018x}. Unable to generate trace frame, please unwind it manually",
+        e, sepc, stval
+    )
 }

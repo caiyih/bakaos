@@ -1,6 +1,5 @@
 use alloc::sync::Arc;
 use filesystem_abstractions::IInode;
-use riscv::register::time;
 use timing::TimeSpec;
 
 pub trait IMachine {
@@ -10,10 +9,7 @@ pub trait IMachine {
     fn mmio(&self) -> &[(usize, usize)];
     fn memory_end(&self) -> usize;
 
-    #[inline(always)]
-    fn get_board_tick(&self) -> usize {
-        time::read()
-    }
+    fn get_board_tick(&self) -> usize;
 
     #[allow(unused)]
     fn block_sleep(&self, ms: usize) {

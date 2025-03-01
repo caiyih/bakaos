@@ -1,7 +1,6 @@
 [workspace]
 resolver = "2"
 members = [
-    "template",
     "drivers",
     "filesystem",
     "filesystem-abstractions",
@@ -16,5 +15,10 @@ members = [
     "paging",
     "unwinding",
     "rng",
+    "platform-specific",
+]
+
+exclude = [
     "platform-abstractions",
+    "template",
 ]

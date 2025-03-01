@@ -3,6 +3,7 @@ use core::sync::atomic::Ordering;
 use alloc::sync::Arc;
 use constants::SyscallError;
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
+use platform_abstractions::ISyscallContext;
 use threading::yield_now;
 use timing::TimeSpec;
 

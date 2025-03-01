@@ -6,14 +6,13 @@ use drivers::{
     virt::{VirtHal, VirtioDisk},
     BlockDeviceInode,
 };
-use riscv::register::time;
 use timing::{TimeSpec, NSEC_PER_SEC};
 use virtio_drivers::{
     device::blk::VirtIOBlk,
     transport::mmio::{MmioTransport, VirtIOHeader},
 };
 
-use super::machine::IMachine;
+use crate::platform::machine::IMachine;
 
 #[derive(Clone, Copy)]
 pub struct VirtBoard;
@@ -67,12 +66,17 @@ impl IMachine for VirtBoard {
         BlockDeviceInode::new(Box::new(virt_disk))
     }
 
+    #[inline(always)]
+    fn get_board_tick(&self) -> usize {
+        platform_specific::time()
+    }
+
     fn get_rtc_offset(&self) -> TimeSpec {
         let mmio = PhysicalAddress::from_usize(0x101000);
         let mmio = mmio.to_high_virtual();
 
         let low = unsafe { mmio.as_ptr::<u32>().read_volatile() };
-        let tick = time::read();
+        let tick = self.get_board_tick();
 
         let high = unsafe { mmio.as_ptr::<u32>().add(1).read_volatile() };
 

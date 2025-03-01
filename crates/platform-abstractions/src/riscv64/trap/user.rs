@@ -1,7 +1,7 @@
 use core::{arch::naked_asm, panic};
 
 use alloc::sync::Arc;
-use log::{debug, trace, warn};
+use platform_specific::TaskTrapContext;
 use riscv::{
     interrupt::{
         supervisor::{Exception, Interrupt},
@@ -9,20 +9,15 @@ use riscv::{
     },
     register::{
         sstatus::{self, Sstatus},
-        stvec,
+        stvec::{self},
     },
 };
-use tasks::{TaskControlBlock, TaskStatus, TaskTrapContext};
+use tasks::TaskControlBlock;
 
-use crate::{
-    kernel,
-    syscalls::{ISyscallResult, SyscallDispatcher},
-    timing::ITimer,
-};
+use crate::interrupts::UserInterrupt;
 
 use super::set_kernel_trap_handler;
 
-#[allow(unused)]
 fn set_user_trap_handler() {
     unsafe { stvec::write(__on_user_trap as usize, stvec::TrapMode::Direct) };
 }
@@ -100,7 +95,6 @@ unsafe extern "C" fn __on_user_trap() {
 
 #[naked]
 #[no_mangle]
-#[link_section = ".text.trampoline_user"]
 unsafe extern "C" fn __return_from_user_trap(p_ctx: *mut TaskTrapContext) {
     // Layout of TaskTrapContext, see src/tasks/user_task.rs for details:
     // +---------+
@@ -201,13 +195,13 @@ pub fn return_to_user(tcb: &Arc<TaskControlBlock>) {
     m_ctx.fregs.activate_restore(); // TODO: Should let the scheduler activate it
     unsafe { sstatus::set_fs(sstatus::FS::Clean) };
 
-    tcb.kernel_timer.lock().set();
+    // tcb.kernel_timer.lock().set();
 
     unsafe {
         __return_from_user_trap(ctx);
     }
 
-    tcb.kernel_timer.lock().start();
+    // tcb.kernel_timer.lock().start();
 
     set_kernel_trap_handler();
     unsafe { sstatus::set_sum() };
@@ -218,81 +212,40 @@ pub fn return_to_user(tcb: &Arc<TaskControlBlock>) {
     // return to task_loop, and then to user_trap_handler immediately
 }
 
-#[no_mangle]
-pub async fn user_trap_handler_async(tcb: &Arc<TaskControlBlock>) {
-    let kstat = kernel::get().stat();
+pub fn translate_current_trap() -> UserInterrupt {
     let scause = riscv::register::scause::read().cause();
     let stval = riscv::register::stval::read();
 
     let scause =
         unsafe { core::mem::transmute::<Trap<usize, usize>, Trap<Interrupt, Exception>>(scause) };
 
-    // trace!("[User trap] scause: {:?}, stval: {:#x}", scause, stval);
-
     match scause {
-        Trap::Interrupt(Interrupt::SupervisorTimer) => {
-            tcb.pcb.lock().stats.timer_interrupts += 1;
-            panic!("[User trap] [Interrupt::SupervisorTimer] Unimplemented")
+        Trap::Exception(Exception::Breakpoint) => UserInterrupt::Breakpoint,
+        Trap::Exception(Exception::UserEnvCall) => UserInterrupt::Syscall,
+
+        Trap::Exception(Exception::IllegalInstruction) => UserInterrupt::IllegalInstruction(stval),
+
+        Trap::Exception(Exception::InstructionMisaligned) => {
+            UserInterrupt::InstructionMisaligned(stval)
         }
-        Trap::Interrupt(i) => panic!("[User trap] [Interrupt] Unimplementd: {:?}", i),
-        Trap::Exception(Exception::Breakpoint) => {
-            #[cfg(debug_assertions)]
-            debug!("[User trap] [Exception::Breakpoint]")
+        Trap::Exception(Exception::InstructionPageFault) => {
+            UserInterrupt::InstructionPageFault(stval)
         }
+        Trap::Exception(Exception::InstructionFault) => UserInterrupt::AccessFault(stval),
+
+        Trap::Exception(Exception::LoadFault) => UserInterrupt::AccessFault(stval),
+        Trap::Exception(Exception::LoadPageFault) => UserInterrupt::LoadPageFault(stval),
+        Trap::Exception(Exception::LoadMisaligned) => UserInterrupt::LoadPageFault(stval),
+
+        Trap::Exception(Exception::StoreFault) => UserInterrupt::AccessFault(stval),
+        Trap::Exception(Exception::StoreMisaligned) => UserInterrupt::StoreMisaligned(stval),
+        Trap::Exception(Exception::StorePageFault) => UserInterrupt::StorePageFault(stval),
+
         Trap::Exception(Exception::SupervisorEnvCall) => {
-            panic!("[User trap] [Exception::SupervisorEnvCall]")
+            panic!("[User trap] [Exception::SupervisorEnvCall] This should never happen")
         }
-        Trap::Exception(Exception::UserEnvCall) => {
-            kstat.on_syscall();
-            tcb.pcb.lock().stats.syscalls += 1; // can not hold the lock for too long
-                                                // or we may cause deadlock
 
-            let trap_ctx = tcb.mut_trap_ctx();
-            let syscall_id = trap_ctx.regs.a7;
-
-            trap_ctx.sepc += 4; // skip `ecall` instruction
-            let ret = match SyscallDispatcher::dispatch(tcb, syscall_id) {
-                Some((mut ctx, handler)) => {
-                    trace!(
-                        "[User trap] [Exception::Syscall] Sync handler name: {}({}), task: {}({})",
-                        handler.name(),
-                        syscall_id,
-                        tcb.task_id.id(),
-                        tcb.pcb.lock().id
-                    );
-                    handler.handle(&mut ctx).to_ret()
-                }
-                None => match SyscallDispatcher::dispatch_async(tcb, syscall_id).await {
-                    Some(res) => res.to_ret(),
-                    None => {
-                        warn!(
-                            "[User trap] [Exception::Syscall] Handler for id: {} not found.",
-                            syscall_id
-                        );
-                        0
-                    }
-                },
-            };
-            trap_ctx.regs.a0 = ret as usize;
-
-            // tracker is locked, so we can borrow the page table
-            tcb.borrow_page_table().restore_temporary_modified_pages();
-        }
-        Trap::Exception(e) => {
-            kstat.on_user_exception();
-            tcb.pcb.lock().stats.exceptions += 1;
-            // Trap::Exception(Exception::InstructionMisaligned) => (),
-            // Trap::Exception(Exception::InstructionFault) => (),
-            // Trap::Exception(Exception::IllegalInstruction) => (),
-            // Trap::Exception(Exception::LoadMisaligned) => (),
-            // Trap::Exception(Exception::LoadFault) => (),
-            // Trap::Exception(Exception::StoreMisaligned) => (),
-            // Trap::Exception(Exception::StoreFault) => (),
-            // Trap::Exception(Exception::InstructionPageFault) => (),
-            // Trap::Exception(Exception::LoadPageFault) => (),
-            // Trap::Exception(Exception::StorePageFault) => (),
-            debug!("[User Trap] [{:?}] stval: {:#x}Kernel killed it", e, stval);
-            *tcb.task_status.lock() = TaskStatus::Exited;
-        }
+        Trap::Interrupt(Interrupt::SupervisorTimer) => UserInterrupt::Timer,
+        Trap::Interrupt(_) => UserInterrupt::SupervisorExternal,
     }
 }
