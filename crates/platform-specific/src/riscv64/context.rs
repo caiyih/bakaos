@@ -176,7 +176,7 @@ pub struct TaskTrapContext {
     kra: usize,                       // kernel return address, 34
     ktp: usize,                       // kernel tp, 35
     kregs: CoroutineSavedContext,     // 36 - 47
-    pub fregs: FloatRegisterContext,  // Dont' rename, used for interop
+    pub fregs: FloatRegisterContext,  // Dont' rename, cross crates inter-operation
 }
 
 impl ITaskContext for TaskTrapContext {
