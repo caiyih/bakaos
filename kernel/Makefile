@@ -2,9 +2,9 @@
 OUTPUT_NAME = bakaos
 
 CARGO := cargo
-CARGO_FLAGS :=
-MODE := debug
 TARGET := riscv64gc-unknown-none-elf
+CARGO_FLAGS := --target $(TARGET)
+MODE := debug
 KERNEL_ELF := target/$(TARGET)/$(MODE)/$(OUTPUT_NAME)
 
 OBJCOPY := rust-objcopy --binary-architecture=riscv64gc
