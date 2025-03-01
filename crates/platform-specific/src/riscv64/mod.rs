@@ -1,14 +1,21 @@
 mod context;
 mod registers;
 mod serial;
-pub mod syscall_ids;
 
 use core::ffi::CStr;
 
+// IMPORTANT: Must provide for every platform
+pub mod syscall_ids;
+
+// IMPORTANT: Must provide for every platform
 pub(crate) use context::TaskTrapContext;
+
 pub use registers::*;
+
+// IMPORTANT: Must provide for every platform
 pub use serial::*;
 
+// IMPORTANT: Must provide for every platform
 pub const PLATFORM_STRING: &CStr = unsafe { CStr::from_bytes_with_nul_unchecked(b"RISC-V64\0") };
 
 pub const VIRT_ADDR_OFFSET: usize = 0xffff_ffc0_0000_0000;
