@@ -1,6 +1,5 @@
-mod virt;
+#[cfg(feature = "virt")]
+pub mod virt;
 
-pub use virt::VirtMachine;
-
-mod vf2;
-pub use vf2::VF2Machine;
+#[cfg(feature = "vf2")]
+pub mod vf2;

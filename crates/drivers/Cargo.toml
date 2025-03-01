@@ -19,6 +19,6 @@ timing = { path = "../timing", default-features = false }
 platform-specific = { path = "../platform-specific" }
 
 [features]
-default = ["std"]
-std = []
-no_std = []
+default = []
+virt = []
+vf2 = []

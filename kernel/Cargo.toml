@@ -16,7 +16,6 @@ address = { path = "../crates/address", default-features = false }
 path = { path = "../crates/path", default-features = false }
 allocation = { path = "../crates/allocation", default-features = false }
 timing = { path = "../crates/timing", default-features = false }
-drivers = { path = "../crates/drivers", default-features = false }
 filesystem-abstractions = { path = "../crates/filesystem-abstractions", default-features = false }
 filesystem = { path = "../crates/filesystem", default-features = false }
 paging = { path = "../crates/paging", default-features = false }
@@ -32,7 +31,4 @@ unwinding = { path = "../crates/unwinding", default-features = false }
 platform-abstractions = { path = "../crates/platform-abstractions" }
 platform-specific = { path = "../crates/platform-specific" }
 
-[features]
-default = ["virt"]
-virt = []
-vf2 = []
+drivers = { path = "../crates/drivers", features = ["virt"] }

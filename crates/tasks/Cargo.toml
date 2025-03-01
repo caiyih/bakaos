@@ -17,6 +17,7 @@ platform-specific = { path = "../platform-specific" }
 lock_api = "0.4.12"
 bitflags = "2.6.0"
 log = "0.4.22"
+drivers = { path = "../drivers", default-features = false }
 
 [features]
 default = ["no_std"]
