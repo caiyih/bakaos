@@ -1,10 +1,7 @@
+use drivers::IMachine;
 use log::{debug, info};
 
-use crate::{
-    platform::{self, machine},
-    statistics::KernelStatistics,
-    timing::current_timespec,
-};
+use crate::{statistics::KernelStatistics, timing::current_timespec};
 
 static mut KERNEL: Option<Kernel> = None;
 
@@ -77,14 +74,14 @@ fn print_banner() {
 }
 
 pub struct Kernel {
-    machine: &'static dyn machine::IMachine,
+    machine: &'static dyn IMachine,
     statistics: KernelStatistics,
 }
 
 #[allow(unused)]
 impl Kernel {
     pub fn new() -> Self {
-        let machine = platform::get_machine_interface();
+        let machine = get_machine_interface();
 
         Self {
             machine,
@@ -92,7 +89,7 @@ impl Kernel {
         }
     }
 
-    pub fn machine(&self) -> &dyn machine::IMachine {
+    pub fn machine(&self) -> &dyn IMachine {
         self.machine
     }
 
@@ -103,4 +100,18 @@ impl Kernel {
     pub fn up_time(&self) -> u64 {
         self.machine.machine_uptime()
     }
+}
+
+#[allow(unreachable_code)]
+fn get_machine_interface() -> &'static dyn IMachine {
+    #[cfg(target_arch = "riscv64")]
+    {
+        #[cfg(feature = "vf2")]
+        return &drivers::VF2Machine;
+
+        #[cfg(feature = "virt")]
+        return &drivers::VirtMachine;
+    }
+
+    panic!("No avaliable machine interface")
 }

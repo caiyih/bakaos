@@ -1,23 +1,25 @@
+mod block;
+pub mod hal;
+
+use block::VirtioDisk;
+
 use abstractions::IUsizeAlias;
 use address::PhysicalAddress;
 use alloc::boxed::Box;
 use core::ptr::NonNull;
-use drivers::{
-    virt::{VirtHal, VirtioDisk},
-    BlockDeviceInode,
-};
+use hal::VirtHal;
 use timing::{TimeSpec, NSEC_PER_SEC};
 use virtio_drivers::{
     device::blk::VirtIOBlk,
     transport::mmio::{MmioTransport, VirtIOHeader},
 };
 
-use crate::platform::machine::IMachine;
+use crate::{BlockDeviceInode, IMachine};
 
 #[derive(Clone, Copy)]
-pub struct VirtBoard;
+pub struct VirtMachine;
 
-impl IMachine for VirtBoard {
+impl IMachine for VirtMachine {
     fn name(&self) -> &'static str {
         "QEMU Virt Machine"
     }
@@ -47,10 +49,7 @@ impl IMachine for VirtBoard {
         0x1000
     }
 
-    fn create_block_device_at(
-        &self,
-        device_id: usize,
-    ) -> alloc::sync::Arc<dyn filesystem_abstractions::IInode> {
+    fn create_block_device_at(&self, device_id: usize) -> alloc::sync::Arc<BlockDeviceInode> {
         let mmio_pa = self.mmc_driver(device_id);
         let mmio_va = mmio_pa | constants::VIRT_ADDR_OFFSET;
 

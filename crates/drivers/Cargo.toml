@@ -15,6 +15,8 @@ log = "0.4.22"
 visionfive2-sd = { git = "https://github.com/os-module/visionfive2-sd" }
 hermit-sync = "0.1.6"
 filesystem-abstractions = { path = "../filesystem-abstractions", default-features = false }
+timing = { path = "../timing", default-features = false }
+platform-specific = { path = "../platform-specific" }
 
 [features]
 default = ["std"]

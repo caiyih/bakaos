@@ -1,11 +1,13 @@
+mod block;
+
+pub use block::*;
+
 use abstractions::IUsizeAlias;
 use address::PhysicalAddress;
 use alloc::{boxed::Box, sync::Arc};
-use drivers::{BlockDeviceInode, VisionFive2Disk};
-use filesystem_abstractions::IInode;
 use timing::TimeSpec;
 
-use crate::platform::machine::IMachine;
+use crate::{BlockDeviceInode, IMachine};
 
 #[derive(Clone, Copy)]
 pub struct VF2Machine;
@@ -40,9 +42,9 @@ impl IMachine for VF2Machine {
         0x1_0000
     }
 
-    fn create_block_device_at(&self, device_id: usize) -> Arc<dyn IInode> {
+    fn create_block_device_at(&self, device_id: usize) -> Arc<BlockDeviceInode> {
         let mmio_pa = PhysicalAddress::from_usize(self.bus0() + device_id * self.bus_width());
-        let mmio = drivers::VisionFive2SdMMIO::new(mmio_pa.to_high_virtual());
+        let mmio = VisionFive2SdMMIO::new(mmio_pa.to_high_virtual());
 
         BlockDeviceInode::new(Box::new(VisionFive2Disk::new(mmio)))
     }

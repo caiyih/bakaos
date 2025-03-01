@@ -1,6 +1,7 @@
 use alloc::sync::Arc;
-use filesystem_abstractions::IInode;
 use timing::TimeSpec;
+
+use crate::block::BlockDeviceInode;
 
 pub trait IMachine {
     // Board metadata
@@ -35,5 +36,5 @@ pub trait IMachine {
 
     fn get_rtc_offset(&self) -> TimeSpec;
 
-    fn create_block_device_at(&self, device_id: usize) -> Arc<dyn IInode>;
+    fn create_block_device_at(&self, device_id: usize) -> Arc<BlockDeviceInode>;
 }

@@ -12,7 +12,6 @@ mod dmesg;
 mod kernel;
 mod logging;
 mod memory;
-mod platform;
 mod processor;
 mod scheduling;
 mod shared_memory;
@@ -22,10 +21,10 @@ mod timing;
 mod trap;
 
 use ::timing::TimeSpec;
-use alloc::string::String;
+use alloc::{string::String, sync::Arc};
 use core::sync::atomic::AtomicBool;
 use dmesg::KernelMessageInode;
-use filesystem_abstractions::{global_mount_inode, global_open};
+use filesystem_abstractions::{global_mount_inode, global_open, IInode};
 use paging::PageTable;
 use platform_specific::legacy_println;
 use scheduling::ProcDeviceInode;
@@ -212,7 +211,8 @@ unsafe extern "C" fn __kernel_init() {
     ProcDeviceInode::setup();
 
     let sda = machine.create_block_device_at(0);
-    filesystem_abstractions::global_mount_inode(&sda, "/dev/sda", None).unwrap();
+    filesystem_abstractions::global_mount_inode(&(sda as Arc<dyn IInode>), "/dev/sda", None)
+        .unwrap();
 
     filesystem::global_mount_device("/dev/sda", "/mnt", None).unwrap();
 
