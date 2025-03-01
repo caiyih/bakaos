@@ -65,7 +65,7 @@ impl ISyncSyscallHandler for TimesSyscall {
                 let timer_elapsed = ctx.timer.lock().elapsed().total_seconds();
                 let kernel_elapsed = ctx.kernel_timer.lock().elapsed().total_seconds();
 
-                guard.tms_utime = ((timer_elapsed - kernel_elapsed) * CLOCKS_PER_SEC) as i64;
+                guard.tms_utime = (timer_elapsed * CLOCKS_PER_SEC) as i64;
                 guard.tms_stime = (kernel_elapsed * CLOCKS_PER_SEC) as i64;
 
                 let children_timer_elapsed = ctx.children.lock().iter().fold(0f64, |acc, child| {
