@@ -21,6 +21,18 @@ pub const PLATFORM_STRING: &CStr = unsafe { CStr::from_bytes_with_nul_unchecked(
 pub const VIRT_ADDR_OFFSET: usize = 0xffff_ffc0_0000_0000;
 pub const PHYS_ADDR_MASK: usize = 0x0000_003f_ffff_ffff;
 
+// IMPORTANT: Must provide for every platform
+#[inline(always)]
+pub const fn virt_to_phys(vaddr: usize) -> usize {
+    vaddr & PHYS_ADDR_MASK
+}
+
+// IMPORTANT: Must provide for every platform
+#[inline(always)]
+pub const fn phys_to_virt(paddr: usize) -> usize {
+    paddr | VIRT_ADDR_OFFSET
+}
+
 #[allow(unused)]
 pub unsafe fn get_instruction_size(pc: usize) -> Result<usize, usize> {
     // https://stackoverflow.com/questions/56874101/how-does-risc-v-variable-length-of-instruction-work-in-detail?rq=3
