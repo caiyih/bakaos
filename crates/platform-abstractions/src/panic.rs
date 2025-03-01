@@ -6,8 +6,11 @@ use unwinding::StackTrace;
 #[allow(unused)]
 pub(crate) static SKIP_PANIC_FRAME: AtomicBool = AtomicBool::new(false);
 
+#[allow(unused)]
 static PANIC_NESTING: AtomicBool = AtomicBool::new(false);
 
+// A workaround to disable panic_impl for host target
+#[cfg(not(panic = "unwind"))]
 #[no_mangle]
 #[panic_handler]
 unsafe fn rust_begin_unwind(info: &::core::panic::PanicInfo) -> ! {
@@ -49,6 +52,8 @@ unsafe fn rust_begin_unwind(info: &::core::panic::PanicInfo) -> ! {
     crate::machine_shutdown(true)
 }
 
+
+#[allow(unused)]
 pub trait IDisplayableStackTrace {
     fn print_trace(&self);
 }
