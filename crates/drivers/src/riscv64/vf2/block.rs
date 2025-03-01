@@ -47,15 +47,7 @@ struct SleepHelper;
 
 impl SleepHelper {
     unsafe fn read_tick() -> usize {
-        #[cfg(not(target_arch = "riscv64"))]
-        panic!("read_tick not implemented for this target");
-
-        #[cfg(target_arch = "riscv64")]
-        {
-            let tick;
-            core::arch::asm!("csrr {}, time", out(reg) tick);
-            tick
-        }
+        platform_specific::time()
     }
 
     const VF2_FREQ: usize = 4_000_000;

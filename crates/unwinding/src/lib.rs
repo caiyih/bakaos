@@ -20,7 +20,7 @@ impl StackTrace {
     #[inline(always)]
     #[allow(unused)]
     pub fn begin_unwind(skip_frames: usize) -> StackTrace {
-        #[cfg(not(target_arch = "riscv64"))]
+        #[cfg(not(any(target_arch = "riscv64")))]
         panic!("Unsupported architecture");
 
         #[cfg(target_arch = "riscv64")]
