@@ -11,12 +11,11 @@ SECTIONS
     stext = .;
     .text ALIGN(4K) : AT(BASE_ADDRESS) {
         *(.text.entry)
+        *(.text .text.*)
         . = ALIGN(4K);
         strampoline = .;
         *(.text.trampoline_user);
         *(.text.trampoline_kernel);
-        . = ALIGN(4K);
-        *(.text .text.*)
     }
 
     . = ALIGN(4K);
