@@ -9,3 +9,6 @@ edition = "2021"
 
 [target.'cfg(target_arch = "riscv64")'.dependencies]
 riscv = "0.12"
+
+[target.'cfg(target_arch = "loongarch64")'.dependencies]
+ns16550a = "0.4.0"
