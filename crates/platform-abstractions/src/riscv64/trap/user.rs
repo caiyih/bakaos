@@ -1,6 +1,6 @@
 use core::{arch::naked_asm, panic};
 
-use alloc::sync::Arc;
+use alloc::{boxed::Box, sync::Arc};
 use platform_specific::TaskTrapContext;
 use riscv::{
     interrupt::{
@@ -246,6 +246,8 @@ pub fn translate_current_trap() -> UserInterrupt {
         }
 
         Trap::Interrupt(Interrupt::SupervisorTimer) => UserInterrupt::Timer,
-        Trap::Interrupt(_) => UserInterrupt::SupervisorExternal,
+        Trap::Interrupt(Interrupt::SupervisorExternal) => UserInterrupt::SupervisorExternal,
+
+        _ => UserInterrupt::Unknown(Box::new(scause)),
     }
 }

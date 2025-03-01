@@ -1,6 +1,9 @@
-#[derive(Debug, Clone, Copy)]
+use alloc::boxed::Box;
+use core::fmt::Debug;
+
+#[derive(Debug)]
 pub enum UserInterrupt {
-    Unknown,
+    Unknown(Box<dyn Debug + Send + Sync>),
     Breakpoint,
     Syscall,
     Timer,
