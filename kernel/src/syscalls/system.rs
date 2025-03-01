@@ -1,8 +1,9 @@
 use constants::ErrNo;
+use drivers::current_timespec;
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
 use platform_abstractions::ISyscallContext;
 
-use crate::{dmesg::read_dmesg, memory, scheduling, timing::current_timespec};
+use crate::{dmesg::read_dmesg, memory, scheduling};
 
 use super::{ISyncSyscallHandler, SyscallContext, SyscallResult};
 

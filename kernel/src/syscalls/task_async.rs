@@ -2,6 +2,7 @@ use core::sync::atomic::Ordering;
 
 use alloc::sync::Arc;
 use constants::SyscallError;
+use drivers::current_timespec;
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
 use platform_abstractions::ISyscallContext;
 use threading::yield_now;
@@ -20,10 +21,10 @@ async_syscall!(sys_nanosleep_async, ctx, {
         .with_write()
     {
         Some(guard) => {
-            let start = crate::timing::current_timespec();
+            let start = current_timespec();
             let end = start + *guard;
 
-            while crate::timing::current_timespec() < end {
+            while current_timespec() < end {
                 yield_now().await;
             }
 

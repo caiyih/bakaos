@@ -1,10 +1,11 @@
 use constants::SyscallError;
+use drivers::current_timespec;
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
 use platform_abstractions::ISyscallContext;
 use threading::yield_now;
 use timing::TimeSpec;
 
-use crate::{async_syscall, timing::current_timespec};
+use crate::async_syscall;
 
 const FD_SETSIZE: usize = 1024;
 const NFD_PER_USIZE: usize = core::mem::size_of::<usize>() * 8;

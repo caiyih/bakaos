@@ -4,6 +4,7 @@ use abstractions::operations::IUsizeAlias;
 use address::{IPageNum, IToPageNum, VirtualAddress};
 use alloc::vec::Vec;
 use constants::{ErrNo, SyscallError};
+use drivers::{current_timespec, current_timeval, ITimer};
 use filesystem_abstractions::DirectoryEntryType;
 use log::debug;
 use paging::{
@@ -15,7 +16,7 @@ use platform_specific::ITaskContext;
 use tasks::{TaskCloneFlags, TaskStatus};
 use timing::{TimeSpec, TimeVal};
 
-use crate::{scheduling::spawn_task, timing::ITimer};
+use crate::scheduling::spawn_task;
 
 use super::{ISyncSyscallHandler, SyscallContext, SyscallResult};
 
@@ -157,7 +158,7 @@ impl ISyncSyscallHandler for GetTimeOfDaySyscall {
             .with_write()
         {
             Some(mut guard) => {
-                *guard = crate::timing::current_timeval();
+                *guard = current_timeval();
                 Ok(0)
             }
             None => SyscallError::BadAddress,
@@ -392,7 +393,7 @@ impl ISyncSyscallHandler for ExecveSyscall {
 
                         unsafe {
                             *ctx.start_time.get().as_mut().unwrap().assume_init_mut() =
-                                crate::timing::current_timespec();
+                                current_timespec();
                             ctx.kernel_timer.lock().start();
                             ctx.timer.lock().start();
                         }
@@ -475,7 +476,7 @@ impl ISyncSyscallHandler for ClockGetTimeSyscall {
             Some(mut guard) => {
                 match ctx.arg0::<usize>() {
                     CLOCK_REALTIME | CLOCK_MONOTONIC => {
-                        *guard = crate::timing::current_timespec();
+                        *guard = current_timespec();
                         Ok(0)
                     }
                     CLOCK_PROCESS_CPUTIME_ID => {

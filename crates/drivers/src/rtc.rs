@@ -1,7 +1,30 @@
-use tasks::UserTaskTimer;
 use timing::{TimeSpan, TimeSpec, TimeVal};
 
-use crate::kernel;
+use crate::machine;
+
+static mut TIME_OFFSEST: TimeSpec = TimeSpec {
+    tv_sec: 0,
+    tv_nsec: 0,
+};
+
+pub fn initialize(rtc_offset: TimeSpec) {
+    unsafe { TIME_OFFSEST = rtc_offset };
+}
+
+pub fn current_timespec() -> TimeSpec {
+    let machine = machine();
+    let ticks = machine.get_board_tick() as i64;
+    let freq = machine.clock_freq();
+    TimeSpec::from_ticks(ticks, freq) + unsafe { TIME_OFFSEST }
+}
+
+#[allow(static_mut_refs)]
+pub fn current_timeval() -> TimeVal {
+    let machine = machine();
+    let ticks = machine.get_board_tick() as i64;
+    let freq = machine.clock_freq();
+    TimeVal::from_ticks(ticks, freq) + unsafe { TIME_OFFSEST.to_timeval() }
+}
 
 pub trait ITimer {
     #[allow(unused)]
@@ -12,28 +35,19 @@ pub trait ITimer {
     fn elapsed(&self) -> TimeSpan;
 }
 
-static mut TIME_OFFSEST: TimeSpec = TimeSpec {
-    tv_sec: 0,
-    tv_nsec: 0,
-};
-
-pub fn initialize() {
-    unsafe { TIME_OFFSEST = kernel::get().machine().get_rtc_offset() };
+#[derive(Debug, Clone)]
+pub struct UserTaskTimer {
+    pub total: TimeSpan,
+    pub start: Option<TimeSpec>,
 }
 
-pub fn current_timespec() -> TimeSpec {
-    let machine = kernel::get().machine();
-    let ticks = machine.get_board_tick() as i64;
-    let freq = machine.clock_freq();
-    TimeSpec::from_ticks(ticks, freq) + unsafe { TIME_OFFSEST }
-}
-
-#[allow(static_mut_refs)]
-pub fn current_timeval() -> TimeVal {
-    let machine = kernel::get().machine();
-    let ticks = machine.get_board_tick() as i64;
-    let freq = machine.clock_freq();
-    TimeVal::from_ticks(ticks, freq) + unsafe { TIME_OFFSEST.to_timeval() }
+impl Default for UserTaskTimer {
+    fn default() -> Self {
+        UserTaskTimer {
+            total: TimeSpan::zero(),
+            start: None,
+        }
+    }
 }
 
 impl ITimer for UserTaskTimer {

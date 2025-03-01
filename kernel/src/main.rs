@@ -17,13 +17,12 @@ mod scheduling;
 mod shared_memory;
 mod statistics;
 mod syscalls;
-mod timing;
 mod trap;
 
-use ::timing::TimeSpec;
 use alloc::{string::String, sync::Arc};
 use core::sync::atomic::AtomicBool;
 use dmesg::KernelMessageInode;
+use drivers::current_timespec;
 use filesystem_abstractions::{global_mount_inode, global_open, IInode};
 use paging::PageTable;
 use platform_specific::legacy_println;
@@ -192,12 +191,12 @@ unsafe extern "C" fn __kernel_init() {
     clear_bss();
     debug_info();
     logging::init();
+    drivers::initialize();
     kernel::init();
-    timing::initialize();
 
     memory::init();
 
-    let machine = kernel::get().machine();
+    let machine = drivers::machine();
     allocation::init(machine.memory_end());
 
     // Must be called after allocation::init because it depends on frame allocator
@@ -224,7 +223,7 @@ unsafe extern "C" fn __kernel_init() {
     global_mount_inode(&kmsg, "/dev/kmsg", None).unwrap();
     global_mount_inode(&kmsg, "/proc/kmsg", None).unwrap();
 
-    let rtc_time = display_current_time(8);
+    let rtc_time = current_timespec();
 
     let seed = (((rtc_time.tv_nsec as u64) << 32) | machine.clock_freq()) ^ 0xdeadbeef;
 
@@ -280,59 +279,4 @@ unsafe fn clear_bss() {
 
 unsafe fn clear_bss_for_loop(begin: usize, end: usize) {
     core::ptr::write_bytes(begin as *mut u8, 0, end - begin);
-}
-
-fn display_current_time(timezone_offset: i64) -> TimeSpec {
-    #[inline(always)]
-    fn is_leap_year(year: i64) -> bool {
-        (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
-    }
-
-    #[inline(always)]
-    fn days_in_month(year: i64, month: u8) -> u8 {
-        const DAYS: [u8; 12] = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-        if month == 2 && is_leap_year(year) {
-            29
-        } else {
-            DAYS[(month - 1) as usize]
-        }
-    }
-
-    let time_spec = crate::timing::current_timespec();
-
-    let mut total_seconds = time_spec.tv_sec + timezone_offset * 3600;
-
-    let seconds = (total_seconds % 60) as u8;
-    total_seconds /= 60;
-    let minutes = (total_seconds % 60) as u8;
-    total_seconds /= 60;
-    let hours = (total_seconds % 24) as u8;
-    total_seconds /= 24;
-
-    let mut year = 1970;
-    while total_seconds >= if is_leap_year(year) { 366 } else { 365 } {
-        total_seconds -= if is_leap_year(year) { 366 } else { 365 };
-        year += 1;
-    }
-
-    let mut month = 1;
-    while total_seconds >= days_in_month(year, month) as i64 {
-        total_seconds -= days_in_month(year, month) as i64;
-        month += 1;
-    }
-
-    let day = (total_seconds + 1) as u8;
-
-    log::info!(
-        "Welcome, current time is: {:04}-{:02}-{:02} {:02}:{:02}:{:02}(UTC+{:02})",
-        year,
-        month,
-        day,
-        hours,
-        minutes,
-        seconds,
-        timezone_offset
-    );
-
-    time_spec
 }

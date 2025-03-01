@@ -1,9 +1,8 @@
 use core::mem::MaybeUninit;
 
 use alloc::sync::Arc;
+use drivers::ITimer;
 use tasks::TaskControlBlock;
-
-use crate::timing::ITimer;
 
 #[allow(unused)]
 pub struct ProcessorUnit {

@@ -15,6 +15,7 @@ use alloc::{
     vec,
     vec::Vec,
 };
+use drivers::current_timespec;
 use filesystem_abstractions::{
     global_mount_inode, DirectoryEntry, DirectoryEntryType, FileStatistics, FileStatisticsMode,
     FileSystemError, FileSystemResult, IInode, InodeMetadata,
@@ -52,8 +53,7 @@ async fn task_loop(tcb: Arc<TaskControlBlock>) {
     unsafe {
         // We can't pass the waker(or the context) to nested functions, so we store it in the tcb.
         *tcb.waker.get() = MaybeUninit::new(ExposeWakerFuture.await);
-        *tcb.start_time.get().as_mut().unwrap() =
-            MaybeUninit::new(crate::timing::current_timespec());
+        *tcb.start_time.get().as_mut().unwrap() = MaybeUninit::new(current_timespec());
     }
 
     *tcb.task_status.lock() = TaskStatus::Running;

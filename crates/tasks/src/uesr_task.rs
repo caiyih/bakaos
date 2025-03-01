@@ -4,9 +4,10 @@ use alloc::{string::String, sync::Arc, sync::Weak, vec::Vec};
 use core::mem;
 use core::sync::atomic::AtomicI32;
 use core::{cell::UnsafeCell, mem::MaybeUninit, task::Waker};
+use drivers::UserTaskTimer;
 use filesystem_abstractions::FileDescriptorTable;
 use platform_specific::{ITaskContext, TaskTrapContext};
-use timing::{TimeSpan, TimeSpec};
+use timing::TimeSpec;
 
 use address::VirtualAddress;
 use hermit_sync::SpinMutex;
@@ -317,21 +318,6 @@ pub struct UserTaskStatistics {
     pub software_interrupts: usize,
     pub exceptions: usize,
     pub syscalls: usize,
-}
-
-#[derive(Debug, Clone)]
-pub struct UserTaskTimer {
-    pub total: TimeSpan,
-    pub start: Option<TimeSpec>,
-}
-
-impl Default for UserTaskTimer {
-    fn default() -> Self {
-        UserTaskTimer {
-            total: TimeSpan::zero(),
-            start: None,
-        }
-    }
 }
 
 #[derive(Default)]
