@@ -120,7 +120,7 @@ impl SyscallDispatcher {
             SYSCALL_ID_READ => Some(sys_read_async(ctx).await),
             SYSCALL_ID_NANOSLEEP => Some(sys_nanosleep_async(ctx).await),
             SYSCALL_ID_SCHED_YIELD => Some(sys_sched_yield_async(ctx).await),
-            STSCALL_ID_WAIT4 => Some(sys_wait4_async(ctx).await),
+            SYSCALL_ID_WAIT4 => Some(sys_wait4_async(ctx).await),
             SYSCALL_ID_SENDFILE => Some(sys_sendfile_async(ctx).await),
             SYSCALL_ID_WRITEV => Some(sys_writev_async(ctx).await),
             SYSCALL_ID_READV => Some(sys_readv_async(ctx).await),
