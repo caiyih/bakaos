@@ -5,7 +5,7 @@ pub use block::*;
 use abstractions::IUsizeAlias;
 use address::PhysicalAddress;
 use alloc::{boxed::Box, sync::Arc};
-use timing::TimeSpec;
+use timing::{TimeSpec, NSEC_PER_SEC};
 
 use crate::{BlockDeviceInode, IMachine};
 
