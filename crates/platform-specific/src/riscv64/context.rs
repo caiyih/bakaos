@@ -90,7 +90,7 @@ impl FloatRegisterContext {
                     "csrr   t0,    fcsr",
                     "sw     t0,    31*8(a0)",
                     in("a0") self,
-                    options(nostack, nomem)
+                    options(nostack)
                 );
             }
         }
@@ -137,7 +137,7 @@ impl FloatRegisterContext {
                     "lw     t0,    32*8(a0)",
                     "csrw   fcsr,  t0",
                     in("a0") self,
-                    options(nostack, nomem)
+                    options(nostack)
                 );
             }
         }

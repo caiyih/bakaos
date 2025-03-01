@@ -1,6 +1,7 @@
 use ::sbi_rt::{system_reset, NoReason, Shutdown, SystemFailure};
 use platform_specific::legacy_println;
 
+#[allow(clippy::empty_loop)]
 pub fn machine_shutdown(failure: bool) -> ! {
     match failure {
         true => system_reset(Shutdown, SystemFailure),

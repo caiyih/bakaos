@@ -7,7 +7,7 @@ impl Write for Console {
         #[cfg(target_arch = "riscv64")]
         {
             crate::console_writestr(_s.as_bytes());
-            return Ok(());
+            Ok(())
         }
 
         #[cfg(not(any(target_arch = "riscv64")))]

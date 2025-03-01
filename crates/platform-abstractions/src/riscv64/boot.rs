@@ -3,6 +3,7 @@ use ::core::arch::naked_asm;
 #[naked]
 #[no_mangle]
 #[link_section = ".text.entry"]
+#[allow(clippy::missing_safety_doc)]
 pub unsafe extern "C" fn _start() -> ! {
     naked_asm!(
         // Read the hart id

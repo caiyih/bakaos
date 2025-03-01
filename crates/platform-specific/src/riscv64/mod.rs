@@ -33,7 +33,10 @@ pub const fn phys_to_virt(paddr: usize) -> usize {
     paddr | VIRT_ADDR_OFFSET
 }
 
-#[allow(unused)]
+/// # Safety
+/// May not support all instructions or not work correctly if the pc does not point to the start of an instruction
+/// Returns the size of the instruction at the given address
+/// If the instruction is not recognized, returns the address of the instruction
 pub unsafe fn get_instruction_size(pc: usize) -> Result<usize, usize> {
     // https://stackoverflow.com/questions/56874101/how-does-risc-v-variable-length-of-instruction-work-in-detail?rq=3
 
@@ -63,7 +66,10 @@ pub unsafe fn get_instruction_size(pc: usize) -> Result<usize, usize> {
     Err(pc)
 }
 
-#[allow(unused)]
+/// # Safety
+/// May not support all instructions or not work correctly if the pc does not point to the start of an instruction
+/// Returns the address of the previous instruction
+/// If the instruction is not recognized, returns the address of the instruction
 pub unsafe fn find_previous_instruction(ra: usize) -> Result<usize, usize> {
     fn to<T>(ra: usize) -> *const T {
         (ra - core::mem::size_of::<T>()) as *const T
