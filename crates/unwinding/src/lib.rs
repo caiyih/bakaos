@@ -72,8 +72,8 @@ impl StackTrace {
                 skip_frames -= 1;
             }
 
-            fp = unsafe { *(fp as *const usize).offset(-2) };
             ra = unsafe { *(fp as *const usize).offset(-1) };
+            fp = unsafe { *(fp as *const usize).offset(-2) };
         }
 
         StackTrace { frames }
