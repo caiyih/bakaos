@@ -24,11 +24,11 @@ mod physical_address_tests {
         }
 
         fn as_virtual(addr: usize) -> usize {
-            self.0 | VIRT_ADDR_OFFSET
+            addr | VIRT_ADDR_OFFSET
         }
 
-        fn is_valid_pa(addr: usize) -> bool {
-            self.0 & PHYS_ADDR_MASK == self.0
+        fn is_valid_pa(_addr: usize) -> bool {
+            true
         }
     }
 

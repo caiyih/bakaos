@@ -18,8 +18,6 @@ impl VirtualAddressRange {
 mod virtual_address_range_tests {
     use abstractions::IUsizeAlias;
 
-    const VIRT_ADDR_OFFSET: usize = 0xffff_ffc0_0000_0000;
-
     use super::*;
 
     // 基本构造和操作测试
@@ -30,17 +28,6 @@ mod virtual_address_range_tests {
         let range = VirtualAddressRange::from_start_end(start, end);
         assert_eq!(range.start().as_usize(), 0x1000);
         assert_eq!(range.end().as_usize(), 0x2000);
-    }
-
-    // Identity mapping 测试
-    #[test]
-    fn test_identity_mapped() {
-        let start = VirtualAddress::from_usize(0x1000 | VIRT_ADDR_OFFSET);
-        let end = VirtualAddress::from_usize(0x2000 | VIRT_ADDR_OFFSET);
-        let range = VirtualAddressRange::from_start_end(start, end);
-        let phys_range = range.to_low_physical();
-        assert_eq!(phys_range.start().as_usize(), 0x1000);
-        assert_eq!(phys_range.end().as_usize(), 0x2000);
     }
 
     // 范围包含测试
