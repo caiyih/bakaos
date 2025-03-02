@@ -4,7 +4,7 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Define target architectures
-TARGETS=("riscv64gc-unknown-none-elf" "loongarch64-unknown-none")
+TARGETS=("riscv64gc-unknown-none-elf")
 
 # Crates that require all features, eg. drivers uses features for multi platform supports
 MULTI_FEATURES_CRATES=("drivers")
