@@ -14,9 +14,9 @@ constants = { path = "../crates/constants", default-features = false }
 abstractions = { path = "../crates/abstractions", default-features = false }
 address = { path = "../crates/address", default-features = false }
 path = { path = "../crates/path", default-features = false }
-allocation = { path = "../crates/allocation", features = ["no_std"] }
+allocation = { path = "../crates/allocation", features = ["no_std", "zero_page"] }
 timing = { path = "../crates/timing", default-features = false }
-filesystem-abstractions = { path = "../crates/filesystem-abstractions", features = ["no_std"] }
+filesystem-abstractions = { path = "../crates/filesystem-abstractions", features = ["no_std", "allocation"] }
 filesystem = { path = "../crates/filesystem", default-features = false }
 paging = { path = "../crates/paging", default-features = false }
 tasks = { path = "../crates/tasks", default-features = false }

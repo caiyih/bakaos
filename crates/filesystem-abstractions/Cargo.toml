@@ -21,5 +21,6 @@ allocation = { path = "../allocation", default-features = false }
 
 [features]
 default = ["no_std"]
+allocation = []
 std = []
 no_std = []

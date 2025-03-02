@@ -21,6 +21,7 @@ impl TrackedFrame {
 }
 
 fn zero_frame(_ppn: PhysicalPageNum) {
+    #[cfg(feature = "zero_page")]
     unsafe {
         use ::address::IConvertablePhysicalAddress;
 
