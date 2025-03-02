@@ -87,7 +87,7 @@ cat << EOF > .vscode/tasks.json
         {
             "label": "Qemu-debug",
             "type": "shell",
-            "command": "make -C kernel debug LOG=TRACE TARGET=${TARGET}",
+            "command": "make -C kernel debug LOG=TRACE ARCH=${ARCH}",
             "group": {
                 "kind": "none",
                 "isDefault": true
@@ -126,7 +126,7 @@ cat << EOF > .vscode/tasks.json
         {
             "label": "Qemu-release",
             "type": "shell",
-            "command": "make -C kernel debug MODE=release-with-debug LOG=TRACE TARGET=${TARGET}",
+            "command": "make -C kernel debug MODE=release-with-debug LOG=TRACE ARCH=${ARCH}",
             "group": {
                 "kind": "none",
                 "isDefault": true
