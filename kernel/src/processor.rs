@@ -1,6 +1,7 @@
 use core::mem::MaybeUninit;
 
 use alloc::sync::Arc;
+use constants::PROCESSOR_COUNT;
 use drivers::ITimer;
 use tasks::TaskControlBlock;
 
@@ -70,8 +71,6 @@ impl ProcessorUnit {
         current_processor()
     }
 }
-
-pub const PROCESSOR_COUNT: usize = 2;
 
 static mut PROCESSOR_POOL: MaybeUninit<[ProcessorUnit; PROCESSOR_COUNT]> = MaybeUninit::uninit();
 
