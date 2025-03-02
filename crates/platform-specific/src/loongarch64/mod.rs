@@ -13,8 +13,8 @@ pub use serial::*;
 // FIXME: Figure out the correct value for this
 pub const PLATFORM_STRING: &CStr = c"Loongarch64";
 
-pub const PHYS_ADDR_MASK: usize = 0x0000_FFFF_FFFF_FFFF;
-pub const VIRT_ADDR_OFFSET: usize = 0xFFFF_0000_0000_0000;
+pub const PHYS_ADDR_MASK: usize = 0x0FFF_FFFF_FFFF_FFFF;
+pub const VIRT_ADDR_OFFSET: usize = 0x9000_0000_0000_0000;
 
 // IMPORTANT: Must provide for every platform
 #[inline(always)]
