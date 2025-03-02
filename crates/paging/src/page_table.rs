@@ -394,7 +394,7 @@ impl PageTable {
 
         let ppn = self.get_entry_of(vpn)?.ppn();
 
-        let pa = ppn.at_offset_of_start::<PhysicalAddress>(offset);
+        let pa = ppn.at_offset_of_start(offset);
 
         Some((pa, pa.to_high_virtual()))
     }
@@ -749,7 +749,7 @@ impl PageTable {
         PageGuardBuilder {
             page_table: self,
             vpn_range,
-            ptr: vpn_range.start().start_addr::<VirtualAddress>().as_usize(),
+            ptr: vpn_range.start().start_addr().as_usize(),
             len: 0,
             _marker: PhantomData,
         }
@@ -845,7 +845,7 @@ impl<'a, T> UnsizedSlicePageGuardBuilder<'a, &'static [T]> {
                 // Still have the permission, check with the predicate
                 Some(_) => match &self.terminator_predicate {
                     Some(predicate) => {
-                        let page_end_va = current_vpn.end_addr::<VirtualAddress>().as_usize();
+                        let page_end_va = current_vpn.end_addr().as_usize();
                         while current_ptr < Ord::min(max_end_va, page_end_va) {
                             if predicate(&slice, idx) {
                                 let len = if self.exclusive_end { idx } else { idx + 1 };
@@ -857,14 +857,14 @@ impl<'a, T> UnsizedSlicePageGuardBuilder<'a, &'static [T]> {
                         }
                     }
                     None => {
-                        if max_end_va <= current_vpn.end_addr::<VirtualAddress>().as_usize() {
+                        if max_end_va <= current_vpn.end_addr().as_usize() {
                             return Some(self.build_guard(current_vpn + 1, self.max_len));
                         }
                     }
                 },
                 // Reached an end that does not meet the specified permission
                 None => {
-                    let page_va = current_vpn.start_addr::<VirtualAddress>().as_usize();
+                    let page_va = current_vpn.start_addr().as_usize();
                     let mut len = Ord::min(max_end_va, page_va) - self.ptr;
 
                     len -= len % core::mem::size_of::<T>();

@@ -4,7 +4,11 @@ use abstractions::{IArithOps, IBitwiseOps, IUsizeAlias};
 
 use crate::IPageNum;
 
-pub trait IAddressBase: IUsizeAlias + Copy + Clone + PartialEq + PartialOrd + Eq + Ord {}
+#[const_trait]
+pub trait IAddressBase:
+    ~const IUsizeAlias + Copy + Clone + PartialEq + PartialOrd + Eq + Ord
+{
+}
 
 pub trait IToPageNum<T>: IAddress
 where
@@ -53,7 +57,10 @@ pub trait IAlignableAddress: IAddressBase {
     }
 }
 
-pub trait IAddress: IAddressBase + IAlignableAddress + IArithOps + IBitwiseOps + Display {
+#[const_trait]
+pub trait IAddress:
+    ~const IAddressBase + IAlignableAddress + IArithOps + IBitwiseOps + Display
+{
     fn add_n<T>(self, n: usize) -> Self {
         self.add_by(size_of::<T>() * n)
     }
@@ -118,7 +125,7 @@ pub trait IAddress: IAddressBase + IAlignableAddress + IArithOps + IBitwiseOps +
 #[macro_export]
 macro_rules! impl_IAddress {
     ($type:ty) => {
-        impl abstractions::IUsizeAlias for $type {
+        impl const abstractions::IUsizeAlias for $type {
             #[inline(always)]
             fn as_usize(&self) -> usize {
                 self.0
@@ -130,7 +137,7 @@ macro_rules! impl_IAddress {
             }
         }
 
-        impl IAddressBase for $type {}
+        impl const IAddressBase for $type {}
 
         abstractions::impl_arith_ops!($type);
         abstractions::impl_bitwise_ops!($type);
@@ -138,7 +145,7 @@ macro_rules! impl_IAddress {
         impl IAlignableAddress for $type {}
 
         abstractions::impl_usize_display!($type);
-        impl IAddress for $type {}
+        impl const IAddress for $type {}
     };
 }
 
@@ -462,8 +469,8 @@ macro_rules! impl_IAddress {
 //     #[test]
 //     fn test_virtual_page_num_start_end_addr() {
 //         let vpn = VirtualPageNum::from_usize(0x10);
-//         let start_addr = vpn.start_addr::<VirtualAddress>();
-//         let end_addr = vpn.end_addr::<VirtualAddress>();
+//         let start_addr = vpn.start_addr();
+//         let end_addr = vpn.end_addr();
 //         assert_eq!(start_addr.as_usize(), 0x10000);
 //         assert_eq!(end_addr.as_usize(), 0x11000);
 //     }

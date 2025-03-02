@@ -50,9 +50,7 @@ impl ISyncSyscallHandler for SharedMemoryAttachSyscall {
 
         match shared_memory::apply_mapping_for(ctx, shmid) {
             None => SyscallError::InvalidArgument,
-            Some(page) => {
-                Ok(unsafe { page.start_addr::<VirtualAddress>().as_ptr::<()>() } as isize)
-            }
+            Some(page) => Ok(unsafe { page.start_addr().as_ptr::<()>() } as isize),
         }
     }
 
