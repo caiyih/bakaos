@@ -14,6 +14,10 @@ jobs:
   run:
     name: Grading
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        architecture: [riscv64gc-unknown-none-elf]
 
     steps:
       - uses: actions/checkout@v4
@@ -25,7 +29,7 @@ jobs:
           rustup toolchain install $TOOLCHAIN_VERSION --profile minimal
           rustup default $TOOLCHAIN_VERSION
           rustup override set $TOOLCHAIN_VERSION
-          rustup target add riscv64gc-unknown-none-elf
+          rustup target add ${{ matrix.architecture }}
           rustup component add llvm-tools
 
       - uses: taiki-e/cache-cargo-install-action@v2
@@ -35,7 +39,7 @@ jobs:
       - uses: ./.github/workflows/actions/setup-musl
 
       - name: Build Kernel
-        run: make build-final
+        run: make build-final TARGET=${{ matrix.architecture }}
       
       - uses: ./.github/workflows/actions/setup-qemu
 
@@ -66,12 +70,13 @@ jobs:
 
       - name: Run tests
         timeout-minutes: 5 # A temporary value
-        run: make _test_internal
+        run: make _test_internal TARGET=${{ matrix.architecture }}
 
       - uses: actions/upload-artifact@v4
         with:
           # A file, directory or wildcard pattern that describes what to upload
           # Required.
+          name: output-${{ matrix.architecture }}.log
           path: output.log
           if-no-files-found: error
           compression-level: 0

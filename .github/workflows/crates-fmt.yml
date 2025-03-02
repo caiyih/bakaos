@@ -16,6 +16,10 @@ jobs:
   lint:
     name: Code Lint
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        architecture: [riscv64gc-unknown-none-elf]
 
     defaults:
       run:
@@ -31,12 +35,13 @@ jobs:
           rustup toolchain install $TOOLCHAIN_VERSION --profile minimal
           rustup default $TOOLCHAIN_VERSION
           rustup override set $TOOLCHAIN_VERSION
+          rustup target add ${{ matrix.architecture }}
           rustup component add clippy
 
       - uses: ./.github/workflows/actions/setup-musl
 
       - name: Run clippy
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --target ${{ matrix.architecture }} -- -D warnings 
 
   fmt:
     name: Code Format
