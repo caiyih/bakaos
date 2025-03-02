@@ -34,8 +34,8 @@ pub unsafe extern "C" fn _start() -> ! {
             li.w		$t0, 0x00		# FPE=0, SXE=0, ASXE=0, BTE=0
             csrwr		$t0, 0x2        # LOONGARCH_CSR_EUEN
 
-            # TODO: figure out if this is correct
-            csrrd       $tp, 0x20           # cpuid
+            # aka. u0 in Linux
+            csrrd       $r21, 0x20           # cpuid
             la.global   $t0, __kernel_start_main
 
             # We can't use bl to jump to higher address, so we use jirl to jump to higher address.

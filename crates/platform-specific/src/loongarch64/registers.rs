@@ -84,9 +84,6 @@ prop_general_reg!(t6);
 prop_general_reg!(t7);
 prop_general_reg!(t8);
 
-// r21
-prop_general_reg!(u0);
-
 // r22
 prop_general_reg!(fp);
 

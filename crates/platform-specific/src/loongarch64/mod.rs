@@ -31,8 +31,7 @@ pub const fn phys_to_virt(paddr: usize) -> usize {
     paddr | VIRT_ADDR_OFFSET
 }
 
-#[inline]
+#[inline(always)]
 pub fn current_processor_index() -> usize {
-    // TODO: read from $tp
-    0
+    r21()
 }
