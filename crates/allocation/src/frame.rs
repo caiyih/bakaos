@@ -4,8 +4,7 @@ use core::iter::Iterator;
 use core::ops::Drop;
 
 use address::{
-    IConvertablePhysicalAddress, IConvertableVirtualAddress, IPageNum, PhysicalAddress,
-    PhysicalPageNum, PhysicalPageNumRange, VirtualAddress,
+    IConvertablePhysicalAddress, IPageNum, PhysicalAddress, PhysicalPageNum, PhysicalPageNumRange,
 };
 use hermit_sync::{Lazy, SpinMutex};
 use log::debug;
@@ -233,15 +232,7 @@ fn dealloc_frame(frame: &TrackedFrame) {
     FRAME_ALLOCATOR.lock().dealloc(frame);
 }
 
-pub fn init_frame_allocator(memory_end: usize) {
-    extern "C" {
-        fn ekernel();
-    }
-
-    let bottom = VirtualAddress::from_usize(ekernel as usize)
-        .to_low_physical()
-        .as_usize();
-
+pub fn init_frame_allocator(bottom: usize, memory_end: usize) {
     debug!(
         "Initializing frame allocator at {:#018x}..{:#018x}",
         bottom, memory_end

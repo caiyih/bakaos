@@ -20,6 +20,7 @@ mod statistics;
 mod syscalls;
 mod trap;
 
+use address::{IConvertablePhysicalAddress, PhysicalAddress};
 use alloc::{string::String, sync::Arc};
 use core::sync::atomic::AtomicBool;
 use dmesg::KernelMessageInode;
@@ -197,8 +198,13 @@ unsafe extern "C" fn __kernel_init() {
 
     memory::init();
 
+    extern "C" {
+        fn ekernel();
+    }
+
     let machine = drivers::machine();
-    allocation::init(machine.memory_end());
+    let bottom = PhysicalAddress::as_virtual(ekernel as usize);
+    allocation::init(bottom, machine.memory_end());
 
     // Must be called after allocation::init because it depends on frame allocator
     paging::init(PageTable::borrow_current());
