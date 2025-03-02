@@ -1,4 +1,4 @@
-use address::IPageNum;
+use address::{IConvertablePhysicalAddress, IPageNum};
 use alloc::{
     boxed::Box,
     collections::{BTreeMap, BTreeSet},

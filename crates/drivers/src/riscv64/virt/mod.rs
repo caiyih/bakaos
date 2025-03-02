@@ -4,7 +4,7 @@ pub mod hal;
 use block::VirtioDisk;
 
 use abstractions::IUsizeAlias;
-use address::PhysicalAddress;
+use address::{IConvertablePhysicalAddress, PhysicalAddress};
 use alloc::boxed::Box;
 use core::ptr::NonNull;
 use hal::VirtHal;

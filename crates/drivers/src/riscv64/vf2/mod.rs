@@ -3,6 +3,7 @@ mod block;
 pub use block::*;
 
 use abstractions::IUsizeAlias;
+use address::IConvertablePhysicalAddress;
 use address::PhysicalAddress;
 use alloc::{boxed::Box, sync::Arc};
 use timing::{TimeSpec, NSEC_PER_SEC};

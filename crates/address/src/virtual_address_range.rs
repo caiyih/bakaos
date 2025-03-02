@@ -7,15 +7,6 @@ pub type VirtualAddressRange = AddressRange<VirtualAddress>;
 impl_range_display!(VirtualAddressRange);
 
 impl VirtualAddressRange {
-    pub fn to_low_physical(&self) -> PhysicalAddressRange {
-        PhysicalAddressRange::from_start_end(
-            self.start().to_low_physical(),
-            self.end().to_low_physical(),
-        )
-    }
-}
-
-impl VirtualAddressRange {
     pub fn from_slice<T>(slice: &[T]) -> Self {
         let start = VirtualAddress::from_usize(slice.as_ptr() as usize);
         let end = VirtualAddress::from_usize(start.as_usize() + core::mem::size_of_val(slice));

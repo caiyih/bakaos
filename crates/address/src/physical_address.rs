@@ -8,12 +8,6 @@ pub struct PhysicalAddress(pub usize);
 
 impl_IAddress!(PhysicalAddress);
 
-impl PhysicalAddress {
-    pub fn to_high_virtual(self) -> VirtualAddress {
-        VirtualAddress::from_usize(self.as_usize() | constants::VIRT_ADDR_OFFSET)
-    }
-}
-
 impl IToPageNum<PhysicalPageNum> for PhysicalAddress {}
 
 #[cfg(test)]
@@ -21,6 +15,14 @@ mod physical_address_tests {
     use alloc::format;
 
     use super::*;
+
+    const VIRT_ADDR_OFFSET: usize = 0xFFFF_FFc0_0000_0000;
+
+    impl const IConvertablePhysicalAddress for PhysicalAddress {
+        fn to_high_virtual(&self) -> VirtualAddress {
+            VirtualAddress(self.0 | VIRT_ADDR_OFFSET)
+        }
+    }
 
     // 基本构造和操作测试
     #[test]
@@ -92,7 +94,7 @@ mod physical_address_tests {
         assert_eq!(addr.as_usize(), usize::MAX);
     }
 
-    // tovirtual address测试
+    // to virtual address测试
     #[test]
     fn test_to_virtual() {
         let phys_addr = PhysicalAddress::from_usize(0x1000);
