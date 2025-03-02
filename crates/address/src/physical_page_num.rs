@@ -10,6 +10,8 @@ impl_IPageNum!(PhysicalPageNum);
 
 #[cfg(test)]
 mod physical_page_num_tests {
+    use alloc::format;
+
     use super::*;
 
     // 基本构造和转换测试
