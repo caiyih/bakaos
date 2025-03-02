@@ -17,6 +17,6 @@ log = "0.4.22"
 hermit-sync = "0.1.6"
 
 [features]
-default = ["std"]
+default = ["no_std"]
 std = []
 no_std = []

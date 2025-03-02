@@ -10,6 +10,6 @@ constants = { path = "../constants" }
 abstractions = { path = "../abstractions", default-features = false }
 
 [features]
-default = ["std"]
+default = ["no_std"]
 std = []
 no_std = []
