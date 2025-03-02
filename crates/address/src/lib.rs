@@ -33,7 +33,3 @@ pub use virtual_page_num::*;
 pub use virtual_page_num_range::*;
 
 pub const PAGE_SIZE_BITS: usize = 0xc;
-
-pub trait IPhysicalAddress<T> {
-    fn to_virthal(&self) -> T;
-}
