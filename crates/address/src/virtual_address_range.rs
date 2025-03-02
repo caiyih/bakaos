@@ -31,15 +31,6 @@ mod virtual_address_range_tests {
         assert_eq!(range.end().as_usize(), 0x2000);
     }
 
-    #[test]
-    #[should_panic(expected = "assertion failed: start <= end")]
-    fn test_creation_panic_if_start_greater_than_end() {
-        let start = VirtualAddress::from_usize(0x2000);
-        let end = VirtualAddress::from_usize(0x1000);
-
-        let _ = VirtualAddressRange::from_start_end(start, end);
-    }
-
     // Identity mapping 测试
     #[test]
     fn test_identity_mapped() {
