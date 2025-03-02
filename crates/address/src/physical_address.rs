@@ -22,6 +22,14 @@ mod physical_address_tests {
         fn to_high_virtual(&self) -> VirtualAddress {
             VirtualAddress(self.0 | VIRT_ADDR_OFFSET)
         }
+
+        fn as_virtual(addr: usize) -> usize {
+            self.0 | VIRT_ADDR_OFFSET
+        }
+
+        fn is_valid_pa(addr: usize) -> bool {
+            self.0 & PHYS_ADDR_MASK == self.0
+        }
     }
 
     // 基本构造和操作测试
@@ -100,7 +108,7 @@ mod physical_address_tests {
         let phys_addr = PhysicalAddress::from_usize(0x1000);
         let virt_addr = phys_addr.to_high_virtual();
         assert_eq!(
-            phys_addr.as_usize() | constants::VIRT_ADDR_OFFSET,
+            phys_addr.as_usize() | VIRT_ADDR_OFFSET,
             virt_addr.as_usize()
         );
     }
