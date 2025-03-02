@@ -46,7 +46,7 @@ jobs:
 
       # driver crate has many features to support different platform
       - name: Clippy driver
-        run: cargo clippy --target ${{ matrix.architecture }} --all-features=${{ matrix.multi-features-crates }}/Cargo.toml -- -D warnings
+        run: cargo clippy --target ${{ matrix.architecture }} --all-features --manifest-path=${{ matrix.multi-features-crates }}/Cargo.toml -- -D warnings
 
   fmt:
     name: Code Format
