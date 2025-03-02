@@ -2,7 +2,10 @@ use core::arch::global_asm;
 
 use loongArch64::{
     self,
-    register::{pgdh, pgdl, pwch, pwcl, stlbps, tlbidx, tlbrehi, tlbrentry},
+    register::{
+        ecfg::{self, LineBasedInterrupt},
+        euen, pgdh, pgdl, pwch, pwcl, stlbps, tcfg, tlbidx, tlbrehi, tlbrentry,
+    },
 };
 use platform_specific::virt_to_phys;
 
@@ -36,6 +39,9 @@ pub unsafe extern "C" fn _start() -> ! {
 
             # aka. u0 in Linux
             csrrd       $r21, 0x20           # cpuid
+
+            bl          {processor_init}
+
             la.global   $t0, __kernel_start_main
 
             # We can't use bl to jump to higher address, so we use jirl to jump to higher address.
@@ -43,6 +49,7 @@ pub unsafe extern "C" fn _start() -> ! {
             ",
         init_boot_page_table = sym init_boot_page_table,
         init_mmu = sym init_mmu,
+        processor_init = sym processor_init,
     )
 }
 
@@ -93,7 +100,7 @@ unsafe fn init_tlb() {
     tlbrentry::set_tlbrentry(paddr);
 }
 
-unsafe fn init_mmu() {
+unsafe extern "C" fn init_mmu() {
     init_tlb();
 
     let paddr = virt_to_phys(&raw const PT_L0 as usize);
@@ -117,10 +124,23 @@ static mut PT_L1: [u64; 512] = {
     pt_l1
 };
 
-unsafe fn init_boot_page_table() {
-    unsafe {
-        let l1_va = &raw const PT_L1 as usize;
-        // 0x0000_0000_0000 ~ 0x0080_0000_0000, table
-        PT_L0[0] = virt_to_phys(l1_va) as u64;
-    }
+unsafe extern "C" fn init_boot_page_table() {
+    let l1_va = &raw const PT_L1 as usize;
+    // 0x0000_0000_0000 ~ 0x0080_0000_0000, table
+    PT_L0[0] = virt_to_phys(l1_va) as u64;
+}
+
+extern "C" fn processor_init() {
+    // Enable floating point
+    euen::set_fpe(true);
+
+    // Set one-shot mode
+    tcfg::set_periodic(true);
+
+    // Set interrupt mask
+    let inter = LineBasedInterrupt::TIMER
+        | LineBasedInterrupt::SWI0
+        | LineBasedInterrupt::SWI1
+        | LineBasedInterrupt::HWI0;
+    ecfg::set_lie(inter);
 }
