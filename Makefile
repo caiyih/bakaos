@@ -4,7 +4,7 @@
 
 KERNEL_ELF := kernel-qemu
 SBI_OUTPUT := sbi-qemu
-ARCH := riscv64gc-unknown-none-elf
+TARGET := riscv64gc-unknown-none-elf
 # The judge will use this Makefile to build the kernel and prepare the image for submission.
 # And it doesn't like non-ascii characters in the output. so we just completely disable the color output.
 LOG ?= OFF
@@ -23,11 +23,11 @@ build: _build_internal _prepare_image
 
 _build_internal:
 	@echo "Building..."
-	@cd kernel && LOG=$(LOG) cargo build --release
+	@cd kernel && LOG=$(LOG) cargo build --release --target ${TARGET}
 
 _prepare_image:
 	@echo "Preparing image..."
-	@cp kernel/target/${ARCH}/release/bakaos ${KERNEL_ELF}
+	@cp kernel/target/${TARGET}/release/bakaos ${KERNEL_ELF}
 	@rust-objcopy ${KERNEL_ELF} --strip-all -O binary ${KERNEL_ELF}
 	@cp kernel/binary/opensbi.bin ${SBI_OUTPUT}
 

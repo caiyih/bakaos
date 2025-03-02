@@ -6,7 +6,7 @@ use crate::*;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct AddressRange<T>
 where
-    T: IAddress,
+    T: const IAddress,
 {
     start: T,
     end: T,
@@ -14,21 +14,20 @@ where
 
 impl<T> AddressRange<T>
 where
-    T: IAddress,
+    T: const IAddress,
 {
-    pub fn from_start_len(start: T, len: usize) -> Self {
+    pub const fn from_start_len(start: T, len: usize) -> Self {
         AddressRange {
             start,
             end: T::from_usize(start.as_usize() + len),
         }
     }
 
-    pub fn from_start_end(start: T, end: T) -> Self {
-        debug_assert!(start <= end);
+    pub const fn from_start_end(start: T, end: T) -> Self {
         AddressRange { start, end }
     }
 
-    pub fn new(range: Range<T>) -> Self {
+    pub const fn new(range: Range<T>) -> Self {
         AddressRange {
             start: range.start,
             end: range.end,
@@ -116,7 +115,7 @@ where
 
 impl<T> IntoIterator for AddressRange<T>
 where
-    T: IAddress,
+    T: const IAddress,
 {
     type Item = T;
 
@@ -146,7 +145,7 @@ macro_rules! impl_range_display {
 
 pub struct AddressRangeIter<T>
 where
-    T: IAddress,
+    T: const IAddress,
 {
     range: AddressRange<T>,
     current: T,
@@ -154,7 +153,7 @@ where
 
 impl<T> Iterator for AddressRangeIter<T>
 where
-    T: IAddress,
+    T: const IAddress,
 {
     type Item = T;
 

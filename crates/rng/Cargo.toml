@@ -11,6 +11,6 @@ rand_xoshiro = { version = "0.6.0", default-features = false }
 hermit-sync = "0.1.6"
 
 [features]
-default = ["std"]
+default = ["no_std"]
 std = []
 no_std = []

@@ -1,6 +1,7 @@
+use drivers::current_timespec;
 use log::{self, Level, LevelFilter, Log, Metadata, Record};
 
-use crate::{legacy_println, timing::current_timespec};
+use platform_specific::legacy_println;
 
 struct GlobalLogger;
 

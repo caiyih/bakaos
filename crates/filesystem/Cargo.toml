@@ -21,6 +21,6 @@ hermit-sync = "0.1.6"
 lwext4_rust = { git = "https://github.com/neuq-rcore/lwext4_rust.git", rev = "ba1b701c02d0e62dcfe3133d551139882fcee495", features = ["shutfuckup"] }
 
 [features]
-default = ["std"]
+default = ["no_std"]
 std = []
 no_std = []

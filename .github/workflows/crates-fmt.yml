@@ -16,6 +16,11 @@ jobs:
   lint:
     name: Code Lint
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        architecture: [riscv64gc-unknown-none-elf]
+        multi-features-crates: [drivers]
 
     defaults:
       run:
@@ -31,12 +36,17 @@ jobs:
           rustup toolchain install $TOOLCHAIN_VERSION --profile minimal
           rustup default $TOOLCHAIN_VERSION
           rustup override set $TOOLCHAIN_VERSION
+          rustup target add ${{ matrix.architecture }}
           rustup component add clippy
 
       - uses: ./.github/workflows/actions/setup-musl
 
       - name: Run clippy
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --target ${{ matrix.architecture }} -- -D warnings
+
+      # driver crate has many features to support different platform
+      - name: Clippy driver
+        run: cargo clippy --target ${{ matrix.architecture }} --all-features --manifest-path=${{ matrix.multi-features-crates }}/Cargo.toml -- -D warnings
 
   fmt:
     name: Code Format
@@ -62,7 +72,7 @@ jobs:
 
       - name: Build Crates
         # Some crates requires build artifacts to be present before running fmt
-        run: cargo build
+        run: cargo build -p constants
 
       - name: Check formatting
         run: cargo fmt -- --check

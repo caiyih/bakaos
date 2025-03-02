@@ -20,12 +20,12 @@ impl TrackedFrame {
     }
 }
 
-fn zero_frame(ppn: PhysicalPageNum) {
+fn zero_frame(_ppn: PhysicalPageNum) {
+    #[cfg(feature = "zero_page")]
     unsafe {
-        let va = ppn
-            .start_addr::<PhysicalAddress>()
-            .to_high_virtual()
-            .as_mut_ptr::<u8>();
+        use ::address::IConvertablePhysicalAddress;
+
+        let va = _ppn.start_addr().to_high_virtual().as_mut_ptr::<u8>();
 
         core::ptr::write_bytes(va, 0, constants::PAGE_SIZE);
     }
@@ -233,13 +233,7 @@ fn dealloc_frame(frame: &TrackedFrame) {
     FRAME_ALLOCATOR.lock().dealloc(frame);
 }
 
-pub fn init_frame_allocator(memory_end: usize) {
-    extern "C" {
-        fn ekernel();
-    }
-
-    let bottom = ekernel as usize & constants::PHYS_ADDR_MASK;
-
+pub fn init_frame_allocator(bottom: usize, memory_end: usize) {
     debug!(
         "Initializing frame allocator at {:#018x}..{:#018x}",
         bottom, memory_end

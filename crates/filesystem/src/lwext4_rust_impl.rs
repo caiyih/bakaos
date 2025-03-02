@@ -1,5 +1,3 @@
-#![cfg(target_arch = "riscv64")]
-
 use core::cell::UnsafeCell;
 
 use alloc::{string::String, sync::Arc, vec::Vec};
@@ -24,6 +22,7 @@ unsafe impl Send for Lwext4FileSystem {}
 unsafe impl Sync for Lwext4FileSystem {}
 
 impl Lwext4FileSystem {
+    #[allow(clippy::result_unit_err)]
     pub fn new(device: Arc<DirectoryTreeNode>) -> Result<Lwext4FileSystem, ()> {
         let inner = Ext4BlockWrapper::<Lwext4Disk>::new(Lwext4Disk::new(device)).map_err(|_| ())?;
 
@@ -72,7 +71,7 @@ impl Drop for Lwext4Inode {
 impl Lwext4Inode {
     #[inline]
     pub fn new(path: &str, file_type: InodeTypes) -> Lwext4Inode {
-        let inner = Ext4File::new(&path, file_type);
+        let inner = Ext4File::new(path, file_type);
 
         Lwext4Inode {
             _inner: UnsafeCell::new(inner),
@@ -86,12 +85,13 @@ impl Lwext4Inode {
     #[inline(always)]
     fn file_open(&self, flags: u32) -> FileSystemResult<()> {
         self.inner()
-            .file_open(&self.path(), flags)
+            .file_open(self.path(), flags)
             .map_err(|_| FileSystemError::NotFound)?;
 
         Ok(())
     }
 
+    #[allow(clippy::mut_from_ref)]
     fn inner(&self) -> &mut Ext4File {
         unsafe { self._inner.get().as_mut().unwrap_unchecked() }
     }
@@ -163,7 +163,7 @@ impl IInode for Lwext4Inode {
         let size = self.inner().file_size() as usize;
 
         InodeMetadata {
-            filename: path::get_filename(&self.path()),
+            filename: path::get_filename(self.path()),
             entry_type: self.get_type(),
             size,
         }
@@ -371,7 +371,7 @@ impl IInode for Lwext4Inode {
 
         link_inode
             .inner()
-            .file_seek(0 as i64, SEEK_SET)
+            .file_seek(0, SEEK_SET)
             .map_err(|_| FileSystemError::InternalError)?;
 
         link_inode
@@ -391,7 +391,7 @@ impl IInode for Lwext4Inode {
 
         let _ = self.file_open(O_RDONLY).ok();
 
-        self.inner().file_seek(0 as i64, SEEK_SET).ok()?;
+        self.inner().file_seek(0, SEEK_SET).ok()?;
 
         let len = self.inner().file_read(&mut buffer).ok()?;
 

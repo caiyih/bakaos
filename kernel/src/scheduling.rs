@@ -15,19 +15,18 @@ use alloc::{
     vec,
     vec::Vec,
 };
+use drivers::current_timespec;
 use filesystem_abstractions::{
     global_mount_inode, DirectoryEntry, DirectoryEntryType, FileStatistics, FileStatisticsMode,
     FileSystemError, FileSystemResult, IInode, InodeMetadata,
 };
 use hermit_sync::SpinMutex;
 use log::debug;
+use platform_abstractions::return_to_user;
 use tasks::{TaskControlBlock, TaskStatus};
 use timing::TimeSpec;
 
-use crate::{
-    processor::ProcessorUnit,
-    trap::{return_to_user, user_trap_handler_async},
-};
+use crate::{processor::ProcessorUnit, trap::user_trap_handler_async};
 
 struct ExposeWakerFuture;
 
@@ -54,8 +53,7 @@ async fn task_loop(tcb: Arc<TaskControlBlock>) {
     unsafe {
         // We can't pass the waker(or the context) to nested functions, so we store it in the tcb.
         *tcb.waker.get() = MaybeUninit::new(ExposeWakerFuture.await);
-        *tcb.start_time.get().as_mut().unwrap() =
-            MaybeUninit::new(crate::timing::current_timespec());
+        *tcb.start_time.get().as_mut().unwrap() = MaybeUninit::new(current_timespec());
     }
 
     *tcb.task_status.lock() = TaskStatus::Running;

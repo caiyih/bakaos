@@ -11,6 +11,6 @@ async-task = { version = "4.7.1", default-features = false }
 hermit-sync = "0.1.6"
 
 [features]
-default = ["std"]
+default = ["no_std"]
 std = []
 no_std = []

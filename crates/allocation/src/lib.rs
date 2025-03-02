@@ -1,3 +1,4 @@
+#![feature(cfg_accessible)]
 #![feature(allocator_api)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -13,6 +14,6 @@ pub use frame::{
     TrackedFrame, TrackedFrameRange,
 };
 
-pub fn init(memory_end: usize) {
-    frame::init_frame_allocator(memory_end);
+pub fn init(bottom: usize, memory_end: usize) {
+    frame::init_frame_allocator(bottom, memory_end);
 }

@@ -1,4 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![feature(stmt_expr_attributes)]
+#![feature(cfg_accessible)]
 
 use alloc::{string::String, sync::Arc};
 use bitflags::bitflags;

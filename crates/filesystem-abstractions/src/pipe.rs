@@ -125,6 +125,10 @@ impl PipeBuilder {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec;
+
+    extern crate std;
+
     use super::PIPE_LIMIT;
     use core::ops::Deref;
     use std::sync::Arc;

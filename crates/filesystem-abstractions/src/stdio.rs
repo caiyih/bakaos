@@ -79,44 +79,6 @@ impl IFile for TeleTypewriter {
 
 static TTY_IN_QUEUE: SpinMutex<VecDeque<u8>> = SpinMutex::new(VecDeque::new());
 
-// TODO: Extract this into separate crate
-#[allow(unused_variables)]
-fn putchar_to_serial(ch: u8) {
-    #[cfg(not(target_arch = "riscv64"))]
-    panic!("putchar_to_serial not implemented for this target");
-
-    #[cfg(target_arch = "riscv64")]
-    unsafe {
-        core::arch::asm!(
-            "ecall",
-            in("a7") 0x01, // legacy putchar eid
-            in("a0") ch,
-        );
-    }
-}
-
-fn getchar_from_serial() -> Option<u8> {
-    #[cfg(not(target_arch = "riscv64"))]
-    panic!("getchar_from_serial not implemented for this target");
-
-    #[cfg(target_arch = "riscv64")]
-    {
-        let mut ch: i8;
-        unsafe {
-            core::arch::asm!(
-                "ecall",
-                in("a7") 0x02, // legacy getchar eid
-                lateout("a0") ch,
-            );
-        }
-
-        match ch {
-            -1 => None,
-            _ => Some(ch as u8),
-        }
-    }
-}
-
 fn read(buf: &mut [u8]) -> usize {
     let mut lock = TTY_IN_QUEUE.lock();
 
@@ -146,6 +108,20 @@ fn write(buf: &[u8]) -> usize {
     }
 
     written_bytes
+}
+
+fn putchar_to_serial(_c: u8) {
+    #[cfg_accessible(platform_specific::console_getchar)]
+    platform_specific::console_putchar(_c);
+}
+
+#[allow(unreachable_code)]
+#[inline(always)]
+fn getchar_from_serial() -> Option<u8> {
+    #[cfg_accessible(platform_specific::console_getchar)]
+    return platform_specific::console_getchar();
+
+    None
 }
 
 pub struct TeleTypewriterInode;

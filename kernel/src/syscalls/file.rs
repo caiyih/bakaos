@@ -13,6 +13,7 @@ use paging::{
     page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, MemoryMapFlags,
     MemoryMapProt, PageTableEntryFlags,
 };
+use platform_abstractions::ISyscallContext;
 
 use super::{ISyncSyscallHandler, SyscallContext, SyscallResult};
 

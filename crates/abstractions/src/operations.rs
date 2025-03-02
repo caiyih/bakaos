@@ -3,6 +3,7 @@ use core::ops::{
     Shr, ShrAssign, Sub, SubAssign,
 };
 
+#[const_trait]
 pub trait IUsizeAlias: Copy + Clone + PartialEq + PartialOrd + Eq + Ord {
     fn as_usize(&self) -> usize;
 
