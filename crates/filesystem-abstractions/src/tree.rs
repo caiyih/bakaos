@@ -1,4 +1,4 @@
-use address::{IPageNum, PhysicalAddress};
+use address::IPageNum;
 use alloc::{
     boxed::Box,
     collections::{BTreeMap, BTreeSet},
@@ -74,7 +74,7 @@ impl IInode for RamFileInode {
             let data_ptr = unsafe {
                 frame
                     .ppn()
-                    .start_addr::<PhysicalAddress>()
+                    .start_addr()
                     .to_high_virtual()
                     .as_mut_ptr::<u8>()
             };
@@ -105,13 +105,7 @@ impl IInode for RamFileInode {
             let in_page_start = current % 4096;
             let in_page_len = usize::min(4096, end_size - current);
 
-            let data_ptr = unsafe {
-                frame
-                    .ppn()
-                    .start_addr::<PhysicalAddress>()
-                    .to_high_virtual()
-                    .as_ptr::<u8>()
-            };
+            let data_ptr = unsafe { frame.ppn().start_addr().to_high_virtual().as_ptr::<u8>() };
             let data_slice =
                 unsafe { core::slice::from_raw_parts(data_ptr.add(in_page_start), in_page_len) };
 

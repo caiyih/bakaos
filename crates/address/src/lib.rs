@@ -1,3 +1,4 @@
+#![feature(const_trait_impl)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "std")]
@@ -32,7 +33,7 @@ pub use virtual_page_num::*;
 pub use virtual_page_num_range::*;
 
 pub const PAGE_SIZE_BITS: usize = 0xc;
-pub const PA_WIDTH_SV39: usize = 56;
-pub const VA_WIDTH_SV39: usize = 39;
-pub const PPN_WIDTH_SV39: usize = PA_WIDTH_SV39 - PAGE_SIZE_BITS;
-pub const VPN_WIDTH_SV39: usize = VA_WIDTH_SV39 - PAGE_SIZE_BITS;
+
+pub trait IPhysicalAddress<T> {
+    fn to_virthal(&self) -> T;
+}

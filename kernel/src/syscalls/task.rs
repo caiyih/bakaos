@@ -119,7 +119,7 @@ impl ISyncSyscallHandler for BrkSyscall {
 
         // new brk is in the same page, no need to allocate new pages
         // Only update brk position
-        let brk_page_end = brk_area.end().start_addr::<VirtualAddress>().as_usize();
+        let brk_page_end = brk_area.end().start_addr().as_usize();
         if brk < brk_page_end {
             pcb.brk_pos = brk;
             return Ok(brk as isize);

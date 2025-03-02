@@ -3,8 +3,7 @@ use core::{fmt::Debug, slice};
 
 use abstractions::IUsizeAlias;
 use address::{
-    IPageNum, IToPageNum, PhysicalAddress, PhysicalPageNum, VirtualAddress, VirtualPageNum,
-    VirtualPageNumRange,
+    IPageNum, IToPageNum, PhysicalPageNum, VirtualAddress, VirtualPageNum, VirtualPageNumRange,
 };
 use allocation::TrackedFrame;
 use bitflags::bitflags;
@@ -292,11 +291,8 @@ impl TaskMemoryMap {
                             let offset = idx * constants::PAGE_SIZE;
                             let length = core::cmp::min(constants::PAGE_SIZE, file.length - offset);
 
-                            let ptr = unsafe {
-                                ppn.start_addr::<PhysicalAddress>()
-                                    .to_high_virtual()
-                                    .as_mut_ptr::<u8>()
-                            };
+                            let ptr =
+                                unsafe { ppn.start_addr().to_high_virtual().as_mut_ptr::<u8>() };
                             let slice = unsafe { core::slice::from_raw_parts_mut(ptr, length) };
 
                             // ignore the result
@@ -410,11 +406,7 @@ impl MemoryMappedFile {
             let offset = idx * constants::PAGE_SIZE;
             let length = core::cmp::min(constants::PAGE_SIZE, size - offset);
 
-            let ptr = unsafe {
-                ppn.start_addr::<PhysicalAddress>()
-                    .to_high_virtual()
-                    .as_mut_ptr::<u8>()
-            };
+            let ptr = unsafe { ppn.start_addr().to_high_virtual().as_mut_ptr::<u8>() };
             let slice = unsafe { core::slice::from_raw_parts_mut(ptr, length) };
 
             inode.readat(offset, slice).ok()?;
@@ -507,11 +499,7 @@ impl IFile for MemoryMappedFile {
             let in_page_len = core::cmp::min(in_page_len, buf.len() - (current_offset - offset));
 
             let ppn = self.frames[current_frame_idx].ppn();
-            let ptr = unsafe {
-                ppn.start_addr::<PhysicalAddress>()
-                    .to_high_virtual()
-                    .as_mut_ptr::<u8>()
-            };
+            let ptr = unsafe { ppn.start_addr().to_high_virtual().as_mut_ptr::<u8>() };
 
             let bytes_read = current_offset - offset;
 
@@ -553,11 +541,7 @@ impl IFile for MemoryMappedFile {
             let in_page_len = core::cmp::min(in_page_len, buf.len() - (current_offset - offset));
 
             let ppn = self.frames[current_frame_idx].ppn();
-            let ptr = unsafe {
-                ppn.start_addr::<PhysicalAddress>()
-                    .to_high_virtual()
-                    .as_ptr::<u8>()
-            };
+            let ptr = unsafe { ppn.start_addr().to_high_virtual().as_ptr::<u8>() };
 
             let src_slice = unsafe { slice::from_raw_parts(ptr, in_page_len) };
             let dst_start = current_offset - offset;

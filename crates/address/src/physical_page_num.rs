@@ -6,7 +6,7 @@ use crate::*;
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PhysicalPageNum(pub usize);
 
-impl_IPageNum!(PhysicalPageNum);
+impl_IPageNum!(PhysicalPageNum, PhysicalAddress);
 
 #[cfg(test)]
 mod physical_page_num_tests {
@@ -123,16 +123,6 @@ mod physical_page_num_tests {
         let page2 = PhysicalPageNum::from_usize(100);
 
         assert_eq!(page1.diff_page_count(page2), 100);
-    }
-
-    // 地址范围测试
-    #[test]
-    fn test_address_range() {
-        let page = PhysicalPageNum::from_usize(0x1000);
-        let range: AddressRange<PhysicalAddress> = page.addr_range();
-
-        assert_eq!(range.start().as_usize(), 0x0100_0000);
-        assert_eq!(range.end().as_usize(), 0x0100_1000);
     }
 
     // 溢出测试

@@ -4,8 +4,8 @@ use abstractions::IUsizeAlias;
 use alloc::{collections::BTreeMap, string::String, vec::Vec};
 
 use address::{
-    IAlignableAddress, IPageNum, IToPageNum, PhysicalAddress, PhysicalPageNum, VirtualAddress,
-    VirtualAddressRange, VirtualPageNum, VirtualPageNumRange,
+    IAlignableAddress, IPageNum, IToPageNum, PhysicalPageNum, VirtualAddress, VirtualAddressRange,
+    VirtualPageNum, VirtualPageNumRange,
 };
 use allocation::{alloc_frame, TrackedFrame};
 use log::debug;
@@ -335,13 +335,13 @@ impl MemorySpace {
             for src_page in area.range.iter() {
                 let src_addr = them
                     .page_table
-                    .as_high_half(src_page.start_addr::<VirtualAddress>())
+                    .as_high_half(src_page.start_addr())
                     .expect("Virtual address is not mapped")
                     .1;
 
                 let dst_addr = this
                     .page_table
-                    .as_high_half(src_page.start_addr::<VirtualAddress>())
+                    .as_high_half(src_page.start_addr())
                     .expect("Virtual address is not mapped")
                     .1;
 
@@ -402,11 +402,7 @@ impl MemorySpace {
     // Map the whole kernel area to the memory space
     // See virtual memory layout in `main.rs` of the kernel for more details
     pub fn register_kernel_area(&mut self) {
-        let table_va = self
-            .page_table
-            .root_ppn()
-            .start_addr::<PhysicalAddress>()
-            .to_high_virtual();
+        let table_va = self.page_table.root_ppn().start_addr().to_high_virtual();
         let p_table = unsafe { &mut *table_va.as_mut_ptr::<[usize; 512]>() };
 
         // layout
@@ -522,8 +518,8 @@ impl MemorySpaceBuilder {
         min_start_vpn = min_start_vpn.max(VirtualPageNum(1));
 
         memory_space.elf_area = VirtualAddressRange::from_start_end(
-            min_start_vpn.start_addr::<VirtualAddress>(),
-            max_end_vpn.start_addr::<VirtualAddress>(),
+            min_start_vpn.start_addr(),
+            max_end_vpn.start_addr(),
         );
 
         log::debug!("Elf segments loaded, max_end_vpn: {:?}", max_end_vpn);
@@ -567,7 +563,7 @@ impl MemorySpaceBuilder {
             PageTableEntryFlags::empty(),
         ));
         memory_space.stack_guard_base = VirtualAddressRange::from_start_len(
-            max_end_vpn.start_addr::<VirtualAddress>(),
+            max_end_vpn.start_addr(),
             constants::USER_STACK_SIZE,
         );
 
@@ -583,22 +579,20 @@ impl MemorySpaceBuilder {
                 | PageTableEntryFlags::User,
         ));
         memory_space.stack_range = VirtualAddressRange::from_start_len(
-            max_end_vpn.start_addr::<VirtualAddress>(),
+            max_end_vpn.start_addr(),
             constants::USER_STACK_SIZE,
         );
 
         max_end_vpn += stack_page_count;
-        let stack_top = max_end_vpn.start_addr::<VirtualAddress>();
+        let stack_top = max_end_vpn.start_addr();
         memory_space.map_area(MappingArea::new(
             VirtualPageNumRange::from_single(max_end_vpn),
             AreaType::UserStackGuardTop,
             MapType::Framed,
             PageTableEntryFlags::empty(),
         ));
-        memory_space.stack_gurad_top = VirtualAddressRange::from_start_len(
-            max_end_vpn.start_addr::<VirtualAddress>(),
-            constants::PAGE_SIZE,
-        );
+        memory_space.stack_gurad_top =
+            VirtualAddressRange::from_start_len(max_end_vpn.start_addr(), constants::PAGE_SIZE);
 
         max_end_vpn += 1;
         memory_space.map_area(MappingArea::new(
@@ -617,15 +611,15 @@ impl MemorySpaceBuilder {
             .find(|(_, area)| area.area_type == AreaType::UserBrk)
             .expect("UserBrk area not found")
             .0;
-        memory_space.brk_start = max_end_vpn.start_addr::<VirtualAddress>();
+        memory_space.brk_start = max_end_vpn.start_addr();
 
         let entry_pc = VirtualAddress::from_usize(elf_info.header.pt2.entry_point() as usize);
 
         #[cfg(debug_assertions)]
         {
             for area in &memory_space.mapping_areas {
-                let start = area.range.start().start_addr::<VirtualAddress>();
-                let end = area.range.end().start_addr::<VirtualAddress>();
+                let start = area.range.start().start_addr();
+                let end = area.range.end().start_addr();
 
                 let area_type = area.area_type;
 
@@ -635,8 +629,8 @@ impl MemorySpaceBuilder {
             let trampoline_page = memory_space.signal_trampoline;
             log::debug!(
                 "SignalTrampoline: {}..{}",
-                trampoline_page.start_addr::<VirtualAddress>(),
-                trampoline_page.end_addr::<VirtualAddress>()
+                trampoline_page.start_addr(),
+                trampoline_page.end_addr()
             );
         }
 

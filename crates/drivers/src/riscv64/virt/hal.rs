@@ -14,10 +14,7 @@ unsafe impl virtio_drivers::Hal for VirtHal {
         let frame_range = frames.to_range();
         forget(frames); // Prevent deallocation
 
-        let paddr = frame_range
-            .start()
-            .start_addr::<PhysicalAddress>()
-            .as_usize();
+        let paddr = frame_range.start().start_addr().as_usize();
         let vaddr =
             unsafe { NonNull::new_unchecked((paddr | constants::VIRT_ADDR_OFFSET) as *mut u8) };
 
