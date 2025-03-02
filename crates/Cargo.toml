@@ -16,9 +16,9 @@ members = [
     "unwinding",
     "rng",
     "platform-specific",
+    "platform-abstractions",
 ]
 
 exclude = [
-    "platform-abstractions",
     "template",
 ]
