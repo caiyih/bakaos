@@ -56,15 +56,18 @@ pub trait IConvertableVirtualAddress {
 #[cfg_accessible(::platform_specific::phys_to_virt)]
 #[cfg_accessible(::platform_specific::virt_to_phys)]
 impl const IConvertableVirtualAddress for VirtualAddress {
+    #[inline(always)]
     fn to_low_physical(&self) -> PhysicalAddress {
         use abstractions::IUsizeAlias;
         PhysicalAddress::from_usize(Self::as_physical(self.as_usize()))
     }
 
+    #[inline(always)]
     fn as_physical(addr: usize) -> usize {
         ::platform_specific::virt_to_phys(addr)
     }
 
+    #[inline(always)]
     fn is_valid_va(addr: usize) -> bool {
         addr == ::platform_specific::phys_to_virt(addr)
     }
@@ -73,15 +76,18 @@ impl const IConvertableVirtualAddress for VirtualAddress {
 #[cfg_accessible(::platform_specific::virt_to_phys)]
 #[cfg_accessible(::platform_specific::phys_to_virt)]
 impl const IConvertablePhysicalAddress for PhysicalAddress {
+    #[inline(always)]
     fn to_high_virtual(&self) -> VirtualAddress {
         use abstractions::IUsizeAlias;
         VirtualAddress::from_usize(Self::as_virtual(self.as_usize()))
     }
 
+    #[inline(always)]
     fn as_virtual(addr: usize) -> usize {
         ::platform_specific::phys_to_virt(addr)
     }
 
+    #[inline(always)]
     fn is_valid_pa(addr: usize) -> bool {
         addr == ::platform_specific::virt_to_phys(addr)
     }
