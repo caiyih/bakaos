@@ -14,5 +14,6 @@ constants = { path = "../constants" }
 
 [features]
 default = ["no_std"]
+zero_page = []
 std = []
 no_std = []

@@ -3,9 +3,7 @@ use alloc::vec::Vec;
 use core::iter::Iterator;
 use core::ops::Drop;
 
-use address::{
-    IConvertablePhysicalAddress, IPageNum, PhysicalAddress, PhysicalPageNum, PhysicalPageNumRange,
-};
+use address::{IPageNum, PhysicalAddress, PhysicalPageNum, PhysicalPageNumRange};
 use hermit_sync::{Lazy, SpinMutex};
 use log::debug;
 
@@ -22,9 +20,12 @@ impl TrackedFrame {
     }
 }
 
-fn zero_frame(ppn: PhysicalPageNum) {
+fn zero_frame(_ppn: PhysicalPageNum) {
+    #[cfg(feature = "zero_page")]
     unsafe {
-        let va = ppn.start_addr().to_high_virtual().as_mut_ptr::<u8>();
+        use ::address::IConvertablePhysicalAddress;
+
+        let va = _ppn.start_addr().to_high_virtual().as_mut_ptr::<u8>();
 
         core::ptr::write_bytes(va, 0, constants::PAGE_SIZE);
     }

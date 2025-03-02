@@ -1,4 +1,3 @@
-use address::{IConvertablePhysicalAddress, IPageNum};
 use alloc::{
     boxed::Box,
     collections::{BTreeMap, BTreeSet},
@@ -6,7 +5,6 @@ use alloc::{
     sync::{Arc, Weak},
     vec::Vec,
 };
-use allocation::TrackedFrame;
 use constants::SyscallError;
 use core::{cell::UnsafeCell, mem::MaybeUninit, ops::DerefMut};
 use hermit_sync::{RwSpinLock, SpinMutex};
@@ -18,6 +16,8 @@ use crate::{
     FileStatisticsMode, FileSystemError, FileSystemResult, IFileSystem, IInode, InodeMetadata,
     NullInode, OpenFlags, TeleTypewriterInode, ZeroInode,
 };
+
+use allocation::TrackedFrame;
 
 struct RamFileInodeInner {
     frames: Vec<TrackedFrame>,
@@ -52,7 +52,10 @@ impl IInode for RamFileInode {
         }
     }
 
+    #[cfg(feature = "allocation")]
     fn writeat(&self, offset: usize, buffer: &[u8]) -> FileSystemResult<usize> {
+        use address::{IConvertablePhysicalAddress, IPageNum};
+
         let mut inner = self.inner.write();
 
         let end_size = offset + buffer.len();
@@ -90,7 +93,10 @@ impl IInode for RamFileInode {
         Ok(current - offset)
     }
 
+    #[cfg(feature = "allocation")]
     fn readat(&self, offset: usize, buffer: &mut [u8]) -> FileSystemResult<usize> {
+        use address::{IConvertablePhysicalAddress, IPageNum};
+
         let inner = self.inner.read();
 
         if offset >= inner.size {
