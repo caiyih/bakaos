@@ -20,6 +20,7 @@ jobs:
       fail-fast: false
       matrix:
         architecture: [riscv64gc-unknown-none-elf]
+        multi-features-crates: [drivers]
 
     defaults:
       run:
@@ -41,7 +42,11 @@ jobs:
       - uses: ./.github/workflows/actions/setup-musl
 
       - name: Run clippy
-        run: cargo clippy --target ${{ matrix.architecture }} -- -D warnings 
+        run: cargo clippy --target ${{ matrix.architecture }} -- -D warnings
+
+      # driver crate has many features to support different platform
+      - name: Clippy driver
+        run: cargo clippy --target ${{ matrix.architecture }} --all-features=${{ matrix.multi-features-crates }}/Cargo.toml -- -D warnings
 
   fmt:
     name: Code Format
