@@ -4,8 +4,9 @@ use abstractions::IUsizeAlias;
 use alloc::{collections::BTreeMap, string::String, vec::Vec};
 
 use address::{
-    IAlignableAddress, IPageNum, IToPageNum, PhysicalPageNum, VirtualAddress, VirtualAddressRange,
-    VirtualPageNum, VirtualPageNumRange,
+    IAlignableAddress, IConvertablePhysicalAddress, IConvertableVirtualAddress, IPageNum,
+    IToPageNum, PhysicalPageNum, VirtualAddress, VirtualAddressRange, VirtualPageNum,
+    VirtualPageNumRange,
 };
 use allocation::{alloc_frame, TrackedFrame};
 use log::debug;

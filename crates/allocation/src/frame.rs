@@ -3,7 +3,10 @@ use alloc::vec::Vec;
 use core::iter::Iterator;
 use core::ops::Drop;
 
-use address::{IPageNum, PhysicalAddress, PhysicalPageNum, PhysicalPageNumRange};
+use address::{
+    IConvertablePhysicalAddress, IConvertableVirtualAddress, IPageNum, PhysicalAddress,
+    PhysicalPageNum, PhysicalPageNumRange, VirtualAddress,
+};
 use hermit_sync::{Lazy, SpinMutex};
 use log::debug;
 
@@ -235,7 +238,9 @@ pub fn init_frame_allocator(memory_end: usize) {
         fn ekernel();
     }
 
-    let bottom = ekernel as usize & constants::PHYS_ADDR_MASK;
+    let bottom = VirtualAddress::from_usize(ekernel as usize)
+        .to_low_physical()
+        .as_usize();
 
     debug!(
         "Initializing frame allocator at {:#018x}..{:#018x}",

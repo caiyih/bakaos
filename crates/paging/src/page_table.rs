@@ -9,8 +9,9 @@ use log::{debug, trace};
 
 use abstractions::{impl_arith_ops, impl_bitwise_ops, impl_bitwise_ops_with, IUsizeAlias};
 use address::{
-    IAddress, IAlignableAddress, IPageNum, IToPageNum, PhysicalAddress, PhysicalPageNum,
-    VirtualAddress, VirtualAddressRange, VirtualPageNum, VirtualPageNumRange,
+    IAddress, IAlignableAddress, IConvertablePhysicalAddress, IConvertableVirtualAddress, IPageNum,
+    IToPageNum, PhysicalAddress, PhysicalPageNum, VirtualAddress, VirtualAddressRange,
+    VirtualPageNum, VirtualPageNumRange,
 };
 use allocation::frame::TrackedFrame;
 use bitflags::bitflags;

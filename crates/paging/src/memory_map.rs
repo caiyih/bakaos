@@ -3,7 +3,8 @@ use core::{fmt::Debug, slice};
 
 use abstractions::IUsizeAlias;
 use address::{
-    IPageNum, IToPageNum, PhysicalPageNum, VirtualAddress, VirtualPageNum, VirtualPageNumRange,
+    IConvertablePhysicalAddress, IPageNum, IToPageNum, PhysicalPageNum, VirtualAddress,
+    VirtualPageNum, VirtualPageNumRange,
 };
 use allocation::TrackedFrame;
 use bitflags::bitflags;
