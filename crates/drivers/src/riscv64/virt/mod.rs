@@ -21,7 +21,7 @@ pub struct VirtMachine;
 
 impl IMachine for VirtMachine {
     fn name(&self) -> &'static str {
-        "QEMU Virt Machine"
+        "QEMU Virt Machine(RISC-V)"
     }
 
     fn clock_freq(&self) -> u64 {
