@@ -50,6 +50,8 @@ impl IToPageNum<VirtualPageNum> for VirtualAddress {}
 
 #[cfg(test)]
 mod virtual_address_tests {
+    use alloc::format;
+
     use super::*;
 
     // 基本构造和操作测试
