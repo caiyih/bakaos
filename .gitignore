@@ -32,6 +32,10 @@ __pycache__
 
 .vscode
 
+# We want to ignore the workspace setup script by default
+# So that developers can modify it freely without worrying about git
+SetupRV64Workspace.sh
+
 *.sln
 bin
 obj
