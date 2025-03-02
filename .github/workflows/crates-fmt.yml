@@ -72,7 +72,7 @@ jobs:
 
       - name: Build Crates
         # Some crates requires build artifacts to be present before running fmt
-        run: cargo build
+        run: cargo build -p constants
 
       - name: Check formatting
         run: cargo fmt -- --check
