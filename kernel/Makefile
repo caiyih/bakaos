@@ -49,7 +49,7 @@ QEMU-ARGS-loongarch64 := $(QEMU-ARGS-common) \
 			 -m 1G \
 			 -no-reboot \
 
-all: build
+all: help
 
 build:
 	$(CARGO) build $(CARGO_FLAGS)
@@ -91,7 +91,19 @@ connect:
 		-ex 'layout src'
 
 help:
+	@echo 'BakaOS build system'
+	@echo 'Usage:'
+	@echo '- make help    : Show this help message'
 	@echo '- make build   : Build os kernel'
 	@echo '- make run     : Run os kernel with qemu'
 	@echo '- make debug   : Launch the os with qemu and wait for gdb'
 	@echo '- make connect : Launch gdb and connect to qemu'
+	@echo '- make clean   : Clean the build artifacts'
+	@echo '- make stacktrace : Parse and generate the stacktrace of qemu output'
+	@echo '- make symboltable: Generate symbol table of current elf file at kernel/.disassembled'
+	@echo '- make strip   : Strip the kernel elf file, usually this is unnecessary'
+	@echo ''
+	@echo 'Environment variables:'
+	@echo '- ARCH=riscv64(default)|loongarch64            : Set the target architecture'
+	@echo '- MODE=debug(default)|release-with-debug       : Set the build mode'
+	@echo '- LOG=TRACE|DEBUG|INFO(default)|WARN|ERROR|OFF : Set the log level'
