@@ -20,6 +20,6 @@ lock_api = "0.4.12"
 log = "0.4.22"
 
 [features]
-default = ["std"]
+default = ["no_std"]
 std = []
 no_std = []
