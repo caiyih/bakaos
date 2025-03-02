@@ -30,6 +30,8 @@ output.log
 results.json
 __pycache__
 
+.vscode
+
 *.sln
 bin
 obj
