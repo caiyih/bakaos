@@ -52,7 +52,6 @@ impl IInode for RamFileInode {
         }
     }
 
-    #[cfg(feature = "allocation")]
     fn writeat(&self, offset: usize, buffer: &[u8]) -> FileSystemResult<usize> {
         use address::{IConvertablePhysicalAddress, IPageNum};
 
@@ -93,7 +92,6 @@ impl IInode for RamFileInode {
         Ok(current - offset)
     }
 
-    #[cfg(feature = "allocation")]
     fn readat(&self, offset: usize, buffer: &mut [u8]) -> FileSystemResult<usize> {
         use address::{IConvertablePhysicalAddress, IPageNum};
 
