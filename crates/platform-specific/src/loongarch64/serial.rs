@@ -1,8 +1,6 @@
 use core::mem::MaybeUninit;
 use ns16550a::Uart;
 
-use super::phys_to_virt;
-
 // TODO: figure out if this is correct
 // uart.put(c) never succeeds with the current implementation
 const UART_BASE: usize = 0x1FE001E0;
@@ -11,7 +9,8 @@ static mut UART: MaybeUninit<Uart> = MaybeUninit::zeroed();
 #[allow(static_mut_refs)]
 // Don't rename, cross crates inter-operation
 pub fn init_serial() {
-    let base_va = phys_to_virt(UART_BASE);
+    // 0x8000_XXXX_XXXX_XXXX is uncached, which is good for mmio access.
+    let base_va = UART_BASE | 0x8000_0000_0000_0000;
     let uart = Uart::new(base_va);
 
     *unsafe { UART.assume_init_mut() } = uart;
