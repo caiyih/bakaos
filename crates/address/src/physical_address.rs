@@ -18,6 +18,8 @@ impl IToPageNum<PhysicalPageNum> for PhysicalAddress {}
 
 #[cfg(test)]
 mod physical_address_tests {
+    use alloc::format;
+
     use super::*;
 
     // 基本构造和操作测试
