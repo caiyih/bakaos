@@ -5,9 +5,9 @@ use constants::PROCESSOR_COUNT;
 #[repr(C)]
 #[derive(Default, Clone, Copy, Debug)]
 struct CoroutineSavedContext {
-    saved: [usize; 12], // 36 - 47
-    kra: usize,         // kernel return address, 34
-    ksp: usize,         // kernel sp, 35
+    saved: [usize; 12], // 0 - 11
+    kra: usize,         // kernel return address, 12
+    ksp: usize,         // kernel sp, 13
 }
 
 #[repr(C)]
