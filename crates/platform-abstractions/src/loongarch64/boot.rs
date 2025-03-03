@@ -9,11 +9,14 @@ use loongArch64::{
 };
 use platform_specific::virt_to_phys;
 
+use crate::clear_bss;
+
 #[naked]
 #[no_mangle]
 #[link_section = ".text.entry"] // Don't rename, cross crates inter-operation
 pub unsafe extern "C" fn _start() -> ! {
-    ::core::arch::naked_asm!("
+    ::core::arch::naked_asm!(
+        "
             ori         $t0, $zero, 0x1     # CSR_DMW1_PLV0
             lu52i.d     $t0, $t0, -2048     # UC, PLV0, 0x8000 xxxx xxxx xxxx
             csrwr       $t0, 0x180          # LOONGARCH_CSR_DMWIN0
@@ -40,7 +43,7 @@ pub unsafe extern "C" fn _start() -> ! {
             # aka. u0 in Linux
             csrrd       $r21, 0x20           # cpuid
 
-            bl          {processor_init}
+            bl          {main_processor_init}
 
             la.global   $t0, __kernel_start_main
 
@@ -49,7 +52,7 @@ pub unsafe extern "C" fn _start() -> ! {
             ",
         init_boot_page_table = sym init_boot_page_table,
         init_mmu = sym init_mmu,
-        processor_init = sym processor_init,
+        main_processor_init = sym main_processor_init,
     )
 }
 
@@ -126,11 +129,17 @@ static mut PT_L1: [u64; 512] = {
 
 unsafe extern "C" fn init_boot_page_table() {
     let l1_va = &raw const PT_L1 as usize;
-    // 0x0000_0000_0000 ~ 0x0080_0000_0000, table
-    PT_L0[0] = virt_to_phys(l1_va) as u64;
+    let l1_pa = virt_to_phys(l1_va) as u64;
+
+    // 0x0000_0000_0000 ~ 0x0080_0000_0000 identity mapping
+    // but we are access using higher half address space, so accessing with an offsest of  0xffff_0000_0000_0000
+    // See LoongArch64 reference manual 5.4.5 and 7.5.6 for more info
+    PT_L0[0] = l1_pa;
 }
 
-extern "C" fn processor_init() {
+extern "C" fn main_processor_init() {
+    unsafe { clear_bss() };
+
     // Enable floating point
     euen::set_fpe(true);
 

@@ -190,7 +190,6 @@ unsafe extern "C" fn __kernel_init() {
         return;
     }
 
-    clear_bss();
     debug_info();
     logging::init();
     drivers::initialize();

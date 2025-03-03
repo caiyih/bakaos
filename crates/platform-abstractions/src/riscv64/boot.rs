@@ -1,5 +1,6 @@
 use ::core::arch::naked_asm;
 
+use crate::clear_bss;
 use super::context::init_thread_info;
 
 #[naked]
@@ -85,5 +86,7 @@ static mut PAGE_TABLE: [usize; 512] = {
 };
 
 unsafe extern "C" fn pre_boot_init() {
+    unsafe { clear_bss() };
+
     init_thread_info();
 }
