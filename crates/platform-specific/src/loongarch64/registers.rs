@@ -97,3 +97,22 @@ prop_general_reg!(s5);
 prop_general_reg!(s6);
 prop_general_reg!(s7);
 prop_general_reg!(s8);
+
+macro_rules! prop_privileged_reg {
+    ($reg:ident, $csr:literal) => {
+        #[inline(always)]
+        pub fn $reg() -> usize {
+            let v;
+            unsafe {
+                ::core::arch::asm!(
+                    ::core::concat!("csrrd {0}, ", ::core::stringify!($csr)),
+                    out(reg) v
+                );
+            }
+            v
+        }
+    };
+}
+
+prop_privileged_reg!(pgdh, 0x1a);
+prop_privileged_reg!(pgdl, 0x19);
