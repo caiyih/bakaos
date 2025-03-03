@@ -158,24 +158,13 @@ impl FloatRegisterContext {
     }
 }
 
-// Saved context for coroutine
-// Following calling convention that only caller-saved registers are saved
-#[repr(C)]
-#[derive(Clone, Copy, Debug)]
-struct CoroutineSavedContext {
-    pub saved: [usize; 12], // 36 - 47
-}
-
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct TaskTrapContext {
     pub regs: GeneralRegisterContext, // 0 - 30
     pub sstatus: usize,               // 31
     pub sepc: usize,                  // 32
-    ksp: usize,                       // kernel stack pointer, 33
-    kra: usize,                       // kernel return address, 34
-    ktp: usize,                       // kernel tp, 35
-    kregs: CoroutineSavedContext,     // 36 - 47
+    ktp: usize,                       // kernel thread info pointer, 33
     pub fregs: FloatRegisterContext,  // Dont' rename, cross crates inter-operation
 }
 

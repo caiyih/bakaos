@@ -1,5 +1,7 @@
 use ::core::arch::naked_asm;
 
+use super::context::init_thread_info;
+
 #[naked]
 #[no_mangle]
 #[link_section = ".text.entry"]
@@ -47,8 +49,10 @@ unsafe extern "C" fn _start_virtualized() -> ! {
         "la sp, __tmp_stack_top",
         "li t0, {virt_addr_offset}",
         "or sp, t0, sp",
+        "call {pre_boot_init}",
         "j __kernel_start_main",
         virt_addr_offset = const platform_specific::VIRT_ADDR_OFFSET,
+        pre_boot_init = sym pre_boot_init,
     )
 }
 
@@ -79,3 +83,7 @@ static mut PAGE_TABLE: [usize; 512] = {
     arr[0x102] = (0x80000 << 10) | 0xcf;
     arr
 };
+
+unsafe extern "C" fn pre_boot_init() {
+    init_thread_info();
+}

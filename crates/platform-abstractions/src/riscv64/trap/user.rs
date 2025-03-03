@@ -73,22 +73,23 @@ unsafe extern "C" fn __on_user_trap() {
         "sd   t0, 1*8(sp)",
         // Restore CoroutineSavedContext
         // Basically a reverse order of saving
-        "ld s0,     36*8(sp)",
-        "ld s1,     37*8(sp)",
-        "ld s2,     38*8(sp)",
-        "ld s3,     39*8(sp)",
-        "ld s4,     40*8(sp)",
-        "ld s5,     41*8(sp)",
-        "ld s6,     42*8(sp)",
-        "ld s7,     43*8(sp)",
-        "ld s8,     44*8(sp)",
-        "ld s9,     45*8(sp)",
-        "ld s10,    46*8(sp)",
-        "ld s11,    47*8(sp)",
+        // lets restore tp first, as other coroutine context are saved in *tp
+        "ld tp,     33*8(sp)",
+        "ld s0,      0*8(tp)",
+        "ld s1,      1*8(tp)",
+        "ld s2,      2*8(tp)",
+        "ld s3,      3*8(tp)",
+        "ld s4,      4*8(tp)",
+        "ld s5,      5*8(tp)",
+        "ld s6,      6*8(tp)",
+        "ld s7,      7*8(tp)",
+        "ld s8,      8*8(tp)",
+        "ld s9,      9*8(tp)",
+        "ld s10,    10*8(tp)",
+        "ld s11,    11*8(tp)",
         // Restore other kernel state
-        "ld ra,     34*8(sp)",
-        "ld tp,     35*8(sp)",
-        "ld sp,     33*8(sp)", // Must restore sp at last
+        "ld ra,     12*8(tp)",
+        "ld sp,     13*8(tp)", // Must restore sp at last
         "ret",                 // Return to kernel return address
     );
 }
@@ -113,30 +114,32 @@ unsafe extern "C" fn __return_from_user_trap(p_ctx: *mut TaskTrapContext) {
     // |   ...   |
     // +---------+
     naked_asm!(
-        "csrw sscratch, a0",
-        // Saving kernel stack pointer
-        "sd sp,     33*8(a0)",
         // Saving kernel return address
-        "sd ra,     34*8(a0)",
-        "sd tp,     35*8(a0)",
+        "sd ra,     12*8(tp)",
+        // Saving kernel stack pointer
+        "sd sp,     13*8(tp)",
         // Save CoroutineSavedContext
-        "sd s0,     36*8(a0)",
-        "sd s1,     37*8(a0)",
-        "sd s2,     38*8(a0)",
-        "sd s3,     39*8(a0)",
-        "sd s4,     40*8(a0)",
-        "sd s5,     41*8(a0)",
-        "sd s6,     42*8(a0)",
-        "sd s7,     43*8(a0)",
-        "sd s8,     44*8(a0)",
-        "sd s9,     45*8(a0)",
-        "sd s10,    46*8(a0)",
-        "sd s11,    47*8(a0)",
+        "sd s0,      0*8(tp)",
+        "sd s1,      1*8(tp)",
+        "sd s2,      2*8(tp)",
+        "sd s3,      3*8(tp)",
+        "sd s4,      4*8(tp)",
+        "sd s5,      5*8(tp)",
+        "sd s6,      6*8(tp)",
+        "sd s7,      7*8(tp)",
+        "sd s8,      8*8(tp)",
+        "sd s9,      9*8(tp)",
+        "sd s10,    10*8(tp)",
+        "sd s11,    11*8(tp)",
+        // Store thread info pointer in TaskTrapContext
+        "sd tp,     33*8(a0)",
         // Restore privilege registers
         "ld t0,     31*8(a0)",
         "ld t1,     32*8(a0)",
         "csrw sstatus, t0",
         "csrw sepc, t1",
+        // Keep a backup for pTaskTrapContext
+        "csrw sscratch, a0",
         // Restore general registers of user task
         // x0        : zero      (Hard-wired zero, so we don't need to snapshot/restore it)
         // x1        : ra        (Returrn Address)
