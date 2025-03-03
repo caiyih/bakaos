@@ -26,7 +26,6 @@ pub use loongarch64::*;
 pub use interrupts::*;
 pub use syscalls::*;
 
-
 #[cfg(any(target_arch = "riscv64", target_arch = "loongarch64"))]
 pub(crate) unsafe fn clear_bss() {
     extern "C" {

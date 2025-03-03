@@ -1,7 +1,7 @@
 use ::core::arch::naked_asm;
 
-use crate::clear_bss;
 use super::context::init_thread_info;
+use crate::clear_bss;
 
 #[naked]
 #[no_mangle]
