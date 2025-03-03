@@ -116,5 +116,6 @@ pub unsafe fn find_previous_instruction(ra: usize) -> Result<usize, usize> {
 
 #[inline]
 pub fn current_processor_index() -> usize {
-    tp()
+    // See layout in platform-abstractions/src/riscv64/context.rs
+    unsafe { (tp() as *const usize).sub(1).read() }
 }

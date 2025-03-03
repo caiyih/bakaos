@@ -1,4 +1,5 @@
 mod boot;
+mod context;
 mod syscalls;
 mod system;
 mod trap;
