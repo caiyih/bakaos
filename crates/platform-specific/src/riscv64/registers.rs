@@ -64,3 +64,4 @@ macro_rules! prop_privileged_reg {
 }
 
 prop_privileged_reg!(time);
+prop_privileged_reg!(satp);
