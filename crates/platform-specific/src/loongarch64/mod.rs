@@ -14,8 +14,8 @@ pub use serial::*;
 // FIXME: Figure out the correct value for this
 pub const PLATFORM_STRING: &CStr = c"Loongarch64";
 
-pub const PHYS_ADDR_MASK: usize = 0x0FFF_FFFF_FFFF_FFFF;
-pub const VIRT_ADDR_OFFSET: usize = 0x9000_0000_0000_0000;
+pub const PHYS_ADDR_MASK: usize = 0x0000_7FFF_FFFF_FFFF; // keep to lower half
+pub const VIRT_ADDR_OFFSET: usize = 0xFFFF_0000_0000_0000; // to higher half
 
 pub use registers::*;
 
@@ -28,7 +28,7 @@ pub const fn virt_to_phys(vaddr: usize) -> usize {
 // IMPORTANT: Must provide for every platform
 #[inline(always)]
 pub const fn phys_to_virt(paddr: usize) -> usize {
-    paddr | VIRT_ADDR_OFFSET
+    (paddr & PHYS_ADDR_MASK) | VIRT_ADDR_OFFSET
 }
 
 #[inline(always)]
