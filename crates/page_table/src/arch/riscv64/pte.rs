@@ -1,0 +1,350 @@
+use ::core::fmt::Debug;
+
+use abstractions::IUsizeAlias;
+use address::PhysicalAddress;
+
+use crate::pte::{
+    GenericMappingFlags, IArchPageTableEntry, IArchPageTableEntryBase, IGenericMappingFlags,
+};
+
+bitflags::bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, PartialOrd, Ord)]
+    pub struct RV64PageTableEntryFlags : usize {
+        const Valid = 1 << 0;
+        const Readable = 1 << 1;
+        const Writable = 1 << 2;
+        const Executable = 1 << 3;
+        const User = 1 << 4;
+        const Global = 1 << 5;
+        const Accessed = 1 << 6;
+        const Dirty = 1 << 7;
+        const _Reserved8 = 1 << 8;
+    }
+}
+
+impl const IGenericMappingFlags for GenericMappingFlags {
+    type ArchMappingFlags = RV64PageTableEntryFlags;
+
+    fn to_arch(self) -> Self::ArchMappingFlags {
+        let mut result = RV64PageTableEntryFlags::empty();
+
+        if self.contains(GenericMappingFlags::Readable) {
+            result = result.union(RV64PageTableEntryFlags::Readable);
+        }
+        if self.contains(GenericMappingFlags::Writable) {
+            result = result.union(RV64PageTableEntryFlags::Writable);
+        }
+        if self.contains(GenericMappingFlags::Executable) {
+            result = result.union(RV64PageTableEntryFlags::Executable);
+        }
+        if self.contains(GenericMappingFlags::User) {
+            result = result.union(RV64PageTableEntryFlags::User);
+        }
+
+        result
+    }
+
+    fn from_arch(flags: Self::ArchMappingFlags) -> Self {
+        // The kernel should be able to access the whole user space under RISC-V
+        let mut result = GenericMappingFlags::Kernel;
+
+        if flags.contains(RV64PageTableEntryFlags::User) {
+            result = result.union(GenericMappingFlags::User);
+        }
+        if flags.contains(RV64PageTableEntryFlags::Readable) {
+            result = result.union(GenericMappingFlags::Readable);
+        }
+        if flags.contains(RV64PageTableEntryFlags::Writable) {
+            result = result.union(GenericMappingFlags::Writable);
+        }
+        if flags.contains(RV64PageTableEntryFlags::Executable) {
+            result = result.union(GenericMappingFlags::Executable);
+        }
+
+        result
+    }
+}
+
+const PTE_FLAGS_MASK: u64 = 0x1FF;
+const PTE_PHYS_MASK: u64 = (1 << 54) - (1 << 10); // bits 10..54
+
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct RV64PageTableEntry(u64);
+
+impl RV64PageTableEntry {
+    const fn flags(&self) -> RV64PageTableEntryFlags {
+        RV64PageTableEntryFlags::from_bits_truncate((self.bits() & PTE_FLAGS_MASK) as usize)
+    }
+}
+
+impl const IArchPageTableEntryBase for RV64PageTableEntry {
+    type RawType = u64;
+
+    fn from_bits(bits: Self::RawType) -> Self {
+        RV64PageTableEntry(bits)
+    }
+
+    fn bits(&self) -> Self::RawType {
+        self.0
+    }
+
+    fn empty() -> Self {
+        RV64PageTableEntry(0)
+    }
+
+    fn is_present(&self) -> bool {
+        RV64PageTableEntryFlags::from_bits_truncate(self.bits() as usize)
+            .contains(RV64PageTableEntryFlags::Valid)
+    }
+
+    fn is_huge(&self) -> bool {
+        // workaround to determine if it's a huge page
+        RV64PageTableEntryFlags::from_bits_truncate(self.0 as usize).intersects(
+            RV64PageTableEntryFlags::union(
+                RV64PageTableEntryFlags::Readable,
+                RV64PageTableEntryFlags::Executable,
+            ),
+        )
+    }
+
+    fn is_empty(&self) -> bool {
+        self.bits() == 0
+    }
+}
+
+impl IArchPageTableEntry for RV64PageTableEntry {
+    fn new_page(paddr: PhysicalAddress, flags: GenericMappingFlags, _huge: bool) -> Self {
+        let flags =
+            flags.to_arch() | RV64PageTableEntryFlags::Accessed | RV64PageTableEntryFlags::Dirty;
+        Self(flags.bits() as u64 | ((paddr.as_usize() >> 2) as u64 & PTE_PHYS_MASK))
+    }
+
+    fn new_table(paddr: PhysicalAddress) -> Self {
+        const FLAGS: RV64PageTableEntryFlags = RV64PageTableEntryFlags::Valid;
+        Self::from_bits(((paddr.as_usize() >> 2) as u64 & PTE_PHYS_MASK) | FLAGS.bits() as u64)
+    }
+
+    fn paddr(&self) -> PhysicalAddress {
+        PhysicalAddress::from_usize(((self.bits() & PTE_PHYS_MASK) << 2) as usize)
+    }
+
+    fn flags(&self) -> GenericMappingFlags {
+        GenericMappingFlags::from_arch(self.flags())
+    }
+
+    fn set_paddr(&mut self, paddr: PhysicalAddress) {
+        self.0 = (self.0 & !(PTE_PHYS_MASK)) // keep flags
+            | ((paddr.as_usize() as u64 >> 2) & PTE_PHYS_MASK); // new paddr
+    }
+
+    fn set_flags(&mut self, flags: GenericMappingFlags, _huge: bool) {
+        let flags =
+            flags.to_arch() | RV64PageTableEntryFlags::Accessed | RV64PageTableEntryFlags::Dirty;
+        self.0 = (self.0 & PTE_PHYS_MASK) | flags.bits() as u64;
+    }
+
+    fn clear(&mut self) {
+        self.0 = 0;
+    }
+
+    fn remove_flags(&mut self, flags: GenericMappingFlags) {
+        let to_remove = !(flags.to_arch().bits() as u64);
+        self.0 &= to_remove;
+    }
+
+    fn add_flags(&mut self, flags: GenericMappingFlags) {
+        let to_add = flags.to_arch().bits() as u64;
+        self.0 |= to_add;
+    }
+}
+
+impl Debug for RV64PageTableEntry {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("RV64PageTableEntry")
+            .field("paddr", &self.paddr())
+            .field("flags", &self.flags())
+            .finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use alloc::format;
+
+    use super::*;
+    use crate::pte::GenericMappingFlags;
+
+    #[test]
+    fn test_flag_conversions() {
+        let gm_flags = GenericMappingFlags::Readable;
+        let rv_flags = gm_flags.to_arch();
+        assert!(rv_flags.contains(RV64PageTableEntryFlags::Readable));
+        assert_eq!(
+            GenericMappingFlags::from_arch(rv_flags),
+            gm_flags | GenericMappingFlags::Kernel
+        );
+
+        let gm_flags = GenericMappingFlags::Writable;
+        let rv_flags = gm_flags.to_arch();
+        assert!(rv_flags.contains(RV64PageTableEntryFlags::Writable));
+        assert_eq!(
+            GenericMappingFlags::from_arch(rv_flags),
+            gm_flags | GenericMappingFlags::Kernel
+        );
+
+        let gm_flags = GenericMappingFlags::Executable;
+        let rv_flags = gm_flags.to_arch();
+        assert!(rv_flags.contains(RV64PageTableEntryFlags::Executable));
+        assert_eq!(
+            GenericMappingFlags::from_arch(rv_flags),
+            gm_flags | GenericMappingFlags::Kernel
+        );
+
+        let gm_flags = GenericMappingFlags::User;
+        let rv_flags = gm_flags.to_arch();
+        assert!(rv_flags.contains(RV64PageTableEntryFlags::User));
+        assert_eq!(
+            GenericMappingFlags::from_arch(rv_flags),
+            gm_flags | GenericMappingFlags::Kernel
+        );
+
+        let gm_flags = GenericMappingFlags::Readable
+            | GenericMappingFlags::Writable
+            | GenericMappingFlags::Executable
+            | GenericMappingFlags::User;
+        let rv_flags = gm_flags.to_arch();
+        assert!(rv_flags.contains(
+            RV64PageTableEntryFlags::Readable
+                | RV64PageTableEntryFlags::Writable
+                | RV64PageTableEntryFlags::Executable
+                | RV64PageTableEntryFlags::User
+        ));
+        assert_eq!(
+            GenericMappingFlags::from_arch(rv_flags),
+            gm_flags | GenericMappingFlags::Kernel
+        );
+
+        let rv_flags = RV64PageTableEntryFlags::Valid | RV64PageTableEntryFlags::User;
+        let gm_flags = GenericMappingFlags::from_arch(rv_flags);
+        assert!(gm_flags.contains(GenericMappingFlags::User));
+        assert!(gm_flags.contains(GenericMappingFlags::Kernel));
+
+        let rv_flags = RV64PageTableEntryFlags::Valid;
+        let gm_flags = GenericMappingFlags::from_arch(rv_flags);
+        assert!(!gm_flags.contains(GenericMappingFlags::User));
+        assert!(gm_flags.contains(GenericMappingFlags::Kernel));
+    }
+
+    #[test]
+    fn test_pte_construction() {
+        let paddr = PhysicalAddress::from_usize(0x4000);
+        let flags = GenericMappingFlags::Readable | GenericMappingFlags::Writable;
+        let pte = RV64PageTableEntry::new_page(paddr, flags, false);
+
+        assert_eq!(pte.paddr(), paddr);
+
+        let rv_flags = pte.flags();
+        assert!(rv_flags.contains(RV64PageTableEntryFlags::Readable));
+        assert!(rv_flags.contains(RV64PageTableEntryFlags::Writable));
+        assert!(rv_flags.contains(RV64PageTableEntryFlags::Accessed));
+        assert!(rv_flags.contains(RV64PageTableEntryFlags::Dirty));
+        assert!(!rv_flags.contains(RV64PageTableEntryFlags::Executable));
+        assert!(!rv_flags.contains(RV64PageTableEntryFlags::User));
+
+        let table_pte = RV64PageTableEntry::new_table(paddr);
+        assert_eq!(table_pte.paddr(), paddr);
+        assert!(table_pte.flags().contains(RV64PageTableEntryFlags::Valid));
+        assert!(!table_pte
+            .flags()
+            .contains(RV64PageTableEntryFlags::Accessed));
+    }
+
+    #[test]
+    fn test_set_paddr() {
+        let mut pte = RV64PageTableEntry::new_page(
+            PhysicalAddress::from_usize(0x1000),
+            GenericMappingFlags::empty(),
+            false,
+        );
+        let new_paddr = PhysicalAddress::from_usize(0x2000);
+        pte.set_paddr(new_paddr);
+        assert_eq!(pte.paddr(), new_paddr);
+
+        let original_flags = pte.flags();
+        pte.set_paddr(PhysicalAddress::from_usize(0x3000));
+        assert_eq!(pte.flags(), original_flags);
+    }
+
+    #[test]
+    fn test_set_flags() {
+        let mut pte = RV64PageTableEntry::new_page(
+            PhysicalAddress::from_usize(0x1000),
+            GenericMappingFlags::Readable,
+            false,
+        );
+
+        pte.set_flags(
+            GenericMappingFlags::Executable | GenericMappingFlags::User,
+            false,
+        );
+        let rv_flags = pte.flags();
+        assert!(rv_flags.contains(RV64PageTableEntryFlags::Executable));
+        assert!(rv_flags.contains(RV64PageTableEntryFlags::User));
+
+        assert!(rv_flags.contains(RV64PageTableEntryFlags::Accessed));
+        assert!(rv_flags.contains(RV64PageTableEntryFlags::Dirty));
+
+        pte.set_flags(GenericMappingFlags::empty(), false);
+        let rv_flags = pte.flags();
+        assert!(!rv_flags.contains(RV64PageTableEntryFlags::Readable));
+        assert!(!rv_flags.contains(RV64PageTableEntryFlags::Writable));
+        assert!(rv_flags.contains(RV64PageTableEntryFlags::Accessed));
+        assert!(rv_flags.contains(RV64PageTableEntryFlags::Dirty));
+    }
+
+    #[test]
+    fn test_add_remove_flags() {
+        let mut pte = RV64PageTableEntry::new_page(
+            PhysicalAddress::from_usize(0x1000),
+            GenericMappingFlags::Readable,
+            false,
+        );
+
+        pte.add_flags(GenericMappingFlags::Writable);
+        assert!(pte.flags().contains(RV64PageTableEntryFlags::Writable));
+
+        pte.remove_flags(GenericMappingFlags::Readable);
+        assert!(!pte.flags().contains(RV64PageTableEntryFlags::Readable));
+        assert!(pte.flags().contains(RV64PageTableEntryFlags::Writable));
+
+        assert!(pte.flags().contains(RV64PageTableEntryFlags::Accessed));
+        assert!(pte.flags().contains(RV64PageTableEntryFlags::Dirty));
+    }
+
+    #[test]
+    fn test_clear_pte() {
+        let mut pte = RV64PageTableEntry::new_page(
+            PhysicalAddress::from_usize(0x1000),
+            GenericMappingFlags::Readable,
+            false,
+        );
+        pte.clear();
+        assert_eq!(pte.bits(), 0);
+    }
+
+    #[test]
+    fn test_debug_output() {
+        let pte = RV64PageTableEntry::new_page(
+            PhysicalAddress::from_usize(0x1000),
+            GenericMappingFlags::Executable,
+            false,
+        );
+        let debug_str = format!("{:?}", pte);
+        assert!(debug_str.contains("paddr: PhysicalAddress(4096)"));
+        assert!(debug_str.contains("flags"));
+        assert!(debug_str.contains("Executable"));
+        assert!(debug_str.contains("Accessed"));
+        assert!(debug_str.contains("Dirty"));
+    }
+}

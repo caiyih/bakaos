@@ -1,0 +1,24 @@
+[package]
+name = "page_table"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bitflags = "2.6.0"
+constants = { path = "../constants", default-features = false }
+address = { path = "../address", default-features = false }
+abstractions = { path = "../abstractions", default-features = false }
+allocation = { path = "../allocation", features = ["no_std"] }
+
+[target.'cfg(target_os = "none")'.dependencies]
+platform-specific = { path = "../platform-specific" }
+
+[target.'cfg(target_arch = "riscv64")'.dependencies]
+riscv = "0.12"
+
+[features]
+default = ["no_std"]
+std = []
+no_std = []

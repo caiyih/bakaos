@@ -17,6 +17,7 @@ members = [
     "rng",
     "platform-specific",
     "platform-abstractions",
+    "page_table",
 ]
 
 exclude = [
