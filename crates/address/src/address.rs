@@ -156,6 +156,9 @@ macro_rules! impl_IAddress {
 
         abstractions::impl_usize_display!($type);
         impl const IAddress for $type {}
+
+        unsafe impl Sync for $type {}
+        unsafe impl Send for $type {}
     };
 }
 

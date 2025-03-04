@@ -362,5 +362,11 @@ macro_rules! impl_usize_display {
                 write!(f, "{}({:#x})", stringify!($type), self.as_usize())
             }
         }
+
+        impl core::fmt::Debug for $type {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                write!(f, "{}({:#x})", stringify!($type), self.as_usize())
+            }
+        }
     };
 }

@@ -3,7 +3,7 @@ use abstractions::IUsizeAlias;
 use crate::*;
 
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PhysicalPageNum(pub usize);
 
 impl_IPageNum!(PhysicalPageNum, PhysicalAddress);
@@ -155,7 +155,7 @@ mod physical_page_num_tests {
     #[test]
     fn test_debug_and_display() {
         let page = PhysicalPageNum::from_usize(0x1234);
-        assert_eq!(format!("{:?}", page), "PhysicalPageNum(4660)");
+        assert_eq!(format!("{:?}", page), "PhysicalPageNum(0x1234)");
         assert_eq!(format!("{}", page), "PhysicalPageNum(0x1234)");
     }
 }

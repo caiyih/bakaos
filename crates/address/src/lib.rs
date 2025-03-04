@@ -1,5 +1,6 @@
 #![feature(cfg_accessible)]
 #![feature(const_trait_impl)]
+#![feature(debug_closure_helpers)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "std")]

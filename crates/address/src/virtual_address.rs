@@ -2,11 +2,9 @@ use abstractions::IUsizeAlias;
 
 use crate::*;
 
-// FIXME: changing the inner to NonZeroUsize/NonNull<()> causes panic in kernel due to optimization issue
-//        So using usize for now
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct VirtualAddress(usize);
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct VirtualAddress(*const ());
 
 impl_IAddress!(VirtualAddress);
 
@@ -168,7 +166,7 @@ mod virtual_address_tests {
     #[test]
     fn test_debug_and_display() {
         let addr = VirtualAddress::from_usize(0x1234);
-        assert_eq!(format!("{:?}", addr), "VirtualAddress(4660)");
+        assert_eq!(format!("{:?}", addr), "VirtualAddress(0x1234)");
         assert_eq!(format!("{}", addr), "VirtualAddress(0x1234)");
     }
 }
