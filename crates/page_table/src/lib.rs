@@ -11,7 +11,9 @@ pub use arch::*;
 pub use flush_handle::*;
 #[allow(unused_imports)]
 pub use pt::*;
-pub use pte::{GenericMappingFlags, IArchPageTableEntry, IArchPageTableEntryBase};
+pub use pte::{
+    GenericMappingFlags, IArchPageTableEntry, IArchPageTableEntryBase, IGenericMappingFlags,
+};
 
 mod arch;
 mod flush_handle;
