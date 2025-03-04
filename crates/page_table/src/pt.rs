@@ -289,7 +289,7 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, 
             } else if entry.is_huge() {
                 Err(PagingError::MappedToHugePage)
             } else {
-                Ok(Self::raw_table_of(entry.paddr()))
+                Ok(self.raw_table_of(entry.paddr()))
             }
         }
     }
