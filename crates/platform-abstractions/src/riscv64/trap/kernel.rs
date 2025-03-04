@@ -106,8 +106,8 @@ unsafe fn __unhandled_kernel_exception(e: Exception, stval: usize) -> ! {
             SKIP_PANIC_FRAME.store(true, core::sync::atomic::Ordering::Relaxed);
 
             panic!(
-                "Unhandled Supervisor exception: {:?}, stval: {:#018x}",
-                e, stval
+                "Unhandled Supervisor exception: {:?}, sepc: {:#018x}, stval: {:#018x}",
+                e, sepc, stval
             )
         }
     }
