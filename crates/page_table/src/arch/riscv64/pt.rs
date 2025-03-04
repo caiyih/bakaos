@@ -1,5 +1,5 @@
 use abstractions::IUsizeAlias;
-use address::{PhysicalAddress, VirtualAddress};
+use address::{IAddressBase, PhysicalAddress, VirtualAddress};
 
 use crate::pt::IPageTableArchAttribute;
 
@@ -10,9 +10,9 @@ impl IPageTableArchAttribute for SV39PageTableAttribute {
     const PA_MAX_BITS: usize = 56;
     const VA_MAX_BITS: usize = 39;
 
-    fn flush_tlb(vaddr: address::VirtualAddress) {
+    fn flush_tlb(vaddr: VirtualAddress) {
         unsafe {
-            if vaddr == VirtualAddress::from_usize(0) {
+            if vaddr.is_null() {
                 ::core::arch::asm!("sfence.vma");
             } else {
                 ::core::arch::asm!("sfence.vma {0}, {1}", in(reg) vaddr.as_usize(), in(reg) 0);
