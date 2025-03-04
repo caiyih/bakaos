@@ -45,6 +45,7 @@ const GENERIC_EXECUTABLE_OFFSET: usize = 2;
 impl const IGenericMappingFlags for GenericMappingFlags {
     type ArchMappingFlags = RV64PageTableEntryFlags;
 
+    #[inline(always)]
     fn to_arch(self) -> Self::ArchMappingFlags {
         let bits = self.bits();
 
@@ -64,6 +65,7 @@ impl const IGenericMappingFlags for GenericMappingFlags {
             ))
     }
 
+    #[inline(always)]
     fn from_arch(flags: Self::ArchMappingFlags) -> Self {
         let bits = flags.bits();
 
@@ -92,6 +94,7 @@ const PTE_PHYS_MASK: u64 = (1 << 54) - (1 << 10); // bits 10..54
 pub struct RV64PageTableEntry(u64);
 
 impl RV64PageTableEntry {
+    #[inline(always)]
     const fn flags(&self) -> RV64PageTableEntryFlags {
         RV64PageTableEntryFlags::from_bits_truncate((self.bits() & PTE_FLAGS_MASK) as usize)
     }
@@ -100,23 +103,28 @@ impl RV64PageTableEntry {
 impl const IArchPageTableEntryBase for RV64PageTableEntry {
     type RawType = u64;
 
+    #[inline(always)]
     fn from_bits(bits: Self::RawType) -> Self {
         RV64PageTableEntry(bits)
     }
 
+    #[inline(always)]
     fn bits(&self) -> Self::RawType {
         self.0
     }
 
+    #[inline(always)]
     fn empty() -> Self {
         RV64PageTableEntry(0)
     }
 
+    #[inline(always)]
     fn is_present(&self) -> bool {
         RV64PageTableEntryFlags::from_bits_truncate(self.bits() as usize)
             .contains(RV64PageTableEntryFlags::Valid)
     }
 
+    #[inline(always)]
     fn is_huge(&self) -> bool {
         // workaround to determine if it's a huge page
         RV64PageTableEntryFlags::from_bits_truncate(self.0 as usize).intersects(
@@ -127,31 +135,39 @@ impl const IArchPageTableEntryBase for RV64PageTableEntry {
         )
     }
 
+    #[inline(always)]
     fn is_empty(&self) -> bool {
         self.bits() == 0
     }
-}
 
-impl IArchPageTableEntry for RV64PageTableEntry {
-    fn new_page(paddr: PhysicalAddress, flags: GenericMappingFlags, _huge: bool) -> Self {
-        let flags =
-            flags.to_arch() | RV64PageTableEntryFlags::Accessed | RV64PageTableEntryFlags::Dirty;
-        Self(flags.bits() as u64 | ((paddr.as_usize() >> 2) as u64 & PTE_PHYS_MASK))
-    }
-
+    #[inline(always)]
     fn new_table(paddr: PhysicalAddress) -> Self {
         const FLAGS: RV64PageTableEntryFlags = RV64PageTableEntryFlags::Valid;
         Self::from_bits(((paddr.as_usize() >> 2) as u64 & PTE_PHYS_MASK) | FLAGS.bits() as u64)
     }
 
+    #[inline(always)]
     fn paddr(&self) -> PhysicalAddress {
         PhysicalAddress::from_usize(((self.bits() & PTE_PHYS_MASK) << 2) as usize)
     }
 
+    #[inline(always)]
     fn flags(&self) -> GenericMappingFlags {
         GenericMappingFlags::from_arch(self.flags())
     }
 
+    #[inline(always)]
+    fn new_page(paddr: PhysicalAddress, flags: GenericMappingFlags, _huge: bool) -> Self {
+        let flags = flags
+            .to_arch()
+            .union(RV64PageTableEntryFlags::Accessed)
+            .union(RV64PageTableEntryFlags::Dirty);
+
+        Self(flags.bits() as u64 | ((paddr.as_usize() >> 2) as u64 & PTE_PHYS_MASK))
+    }
+}
+
+impl IArchPageTableEntry for RV64PageTableEntry {
     fn set_paddr(&mut self, paddr: PhysicalAddress) {
         self.0 = (self.0 & !(PTE_PHYS_MASK)) // keep flags
             | ((paddr.as_usize() as u64 >> 2) & PTE_PHYS_MASK); // new paddr

@@ -37,16 +37,15 @@ pub trait IArchPageTableEntryBase:
     fn is_huge(&self) -> bool;
 
     fn is_empty(&self) -> bool;
+
+    fn new_table(paddr: PhysicalAddress) -> Self;
+    fn paddr(&self) -> PhysicalAddress;
+    fn flags(&self) -> GenericMappingFlags;
+
+    fn new_page(paddr: PhysicalAddress, flags: GenericMappingFlags, huge: bool) -> Self;
 }
 
 pub trait IArchPageTableEntry: const IArchPageTableEntryBase {
-    fn new_page(paddr: PhysicalAddress, flags: GenericMappingFlags, huge: bool) -> Self;
-
-    fn new_table(paddr: PhysicalAddress) -> Self;
-
-    fn paddr(&self) -> PhysicalAddress;
-
-    fn flags(&self) -> GenericMappingFlags;
     fn set_paddr(&mut self, paddr: PhysicalAddress);
     fn set_flags(&mut self, flags: GenericMappingFlags, huge: bool);
     fn clear(&mut self);
