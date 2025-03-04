@@ -280,7 +280,7 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, 
 
 #[cfg(target_os = "none")]
 impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, PTE> {
-    pub fn map(
+    pub fn map_single(
         &mut self,
         vaddr: VirtualAddress,
         target: PhysicalAddress,
@@ -300,7 +300,7 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, 
         Ok(FlushHandle::new(vaddr))
     }
 
-    pub fn remap(
+    pub fn remap_single(
         &mut self,
         vaddr: VirtualAddress,
         new_target: PhysicalAddress,
@@ -316,7 +316,7 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, 
         Ok((FlushHandle::new(vaddr), size))
     }
 
-    pub fn unmap(
+    pub fn unmap_single(
         &mut self,
         vaddr: VirtualAddress,
     ) -> PagingResult<(PhysicalAddress, PageSize, FlushHandle<Arch>)> {
