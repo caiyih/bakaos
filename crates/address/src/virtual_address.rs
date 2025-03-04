@@ -1,12 +1,12 @@
-use core::num::NonZeroUsize;
-
 use abstractions::IUsizeAlias;
 
 use crate::*;
 
+// FIXME: changing the inner to NonZeroUsize/NonNull<()> causes panic in kernel due to optimization issue
+//        So using usize for now
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct VirtualAddress(NonZeroUsize);
+pub struct VirtualAddress(usize);
 
 impl_IAddress!(VirtualAddress);
 

@@ -137,12 +137,13 @@ macro_rules! impl_IAddress {
         impl const abstractions::IUsizeAlias for $type {
             #[inline(always)]
             fn as_usize(&self) -> usize {
-                self.0.get()
+                unsafe { ::core::mem::transmute::<Self, usize>(*self) }
             }
 
             #[inline(always)]
+            #[allow(clippy::transmute_int_to_non_zero)]
             fn from_usize(value: usize) -> Self {
-                Self(unsafe { ::core::mem::transmute::<usize, ::core::num::NonZeroUsize>(value) })
+                unsafe { ::core::mem::transmute::<usize, Self>(value) }
             }
         }
 
