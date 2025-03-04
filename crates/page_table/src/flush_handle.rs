@@ -28,4 +28,12 @@ impl<Arch: IPageTableArchAttribute> FlushHandle<Arch> {
     pub fn flush(self) {
         Arch::flush_tlb(self.vaddr)
     }
+
+    pub fn vaddr(&self) -> VirtualAddress {
+        self.vaddr
+    }
+
+    pub fn is_flush_all(&self) -> bool {
+        self.vaddr.is_null()
+    }
 }
