@@ -27,6 +27,8 @@ pub trait IPageTableArchAttribute {
     fn is_lower_half_activated(paddr: PhysicalAddress) -> bool;
 
     fn activate(paddr: PhysicalAddress, lazy_flush: bool);
+
+    fn activated_table() -> PhysicalAddress;
 }
 
 pub struct PageTable64<Arch, PTE>
@@ -79,6 +81,14 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, 
         {
             !self.frames.is_empty()
         }
+    }
+
+    pub fn activated_table() -> PhysicalAddress {
+        Arch::activated_table()
+    }
+
+    pub fn flush_tlb(vaddr: VirtualAddress) {
+        Arch::flush_tlb(vaddr);
     }
 }
 

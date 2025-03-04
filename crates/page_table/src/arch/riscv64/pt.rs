@@ -1,5 +1,5 @@
 use abstractions::IUsizeAlias;
-use address::{IAddressBase, PhysicalAddress, VirtualAddress};
+use address::{IAddressBase, IPageNum, PhysicalAddress, PhysicalPageNum, VirtualAddress};
 
 use crate::pt::IPageTableArchAttribute;
 
@@ -61,6 +61,11 @@ impl IPageTableArchAttribute for SV39PageTableAttribute {
                 );
             }
         }
+    }
+
+    #[inline(always)]
+    fn activated_table() -> PhysicalAddress {
+        PhysicalPageNum::from_usize(platform_specific::satp() & 0x7FFFFFFFFFFFFFFF).start_addr()
     }
 }
 

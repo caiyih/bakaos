@@ -12,9 +12,9 @@ use page_table::{
 
 use abstractions::IUsizeAlias;
 use address::{
-    IAddress, IAlignableAddress, IConvertablePhysicalAddress, IConvertableVirtualAddress, IPageNum,
-    IToPageNum, PhysicalAddress, PhysicalPageNum, VirtualAddress, VirtualAddressRange,
-    VirtualPageNum, VirtualPageNumRange,
+    IAddress, IAddressBase, IAlignableAddress, IConvertablePhysicalAddress,
+    IConvertableVirtualAddress, IPageNum, IToPageNum, PhysicalAddress, VirtualAddress,
+    VirtualAddressRange, VirtualPageNum, VirtualPageNumRange,
 };
 
 static mut KERNEL_PAGE_TABLE: Option<PageTable> = None;
@@ -67,19 +67,9 @@ impl PageTable {
     }
 
     pub fn borrow_current() -> PageTable {
-        #[cfg(not(target_arch = "riscv64"))]
-        panic!("Unsupported architecture");
+        let root = PageTable64Impl::activated_table();
 
-        #[cfg(target_arch = "riscv64")]
-        {
-            let satp: usize;
-            unsafe {
-                core::arch::asm!("csrr {}, satp", out(reg) satp);
-            }
-
-            let root_ppn = PhysicalPageNum::from_usize(satp & 0x7FFFFFFFFFFFFFFF).start_addr();
-            PageTable::borrow_from_root(root_ppn)
-        }
+        PageTable::borrow_from_root(root)
     }
 }
 
@@ -454,13 +444,7 @@ impl PageTable {
     }
 
     pub fn flush_tlb(&self) {
-        #[cfg(not(target_arch = "riscv64"))]
-        panic!("Unsupported architecture");
-
-        #[cfg(target_arch = "riscv64")]
-        unsafe {
-            core::arch::asm!("sfence.vma")
-        }
+        PageTable64Impl::flush_tlb(VirtualAddress::null());
     }
 }
 
