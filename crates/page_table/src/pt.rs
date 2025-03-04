@@ -83,10 +83,12 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, 
 }
 
 impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, PTE> {
+    #[inline(always)]
     pub fn is_higher_activated(&self) -> bool {
         Arch::is_higher_half_activated(self.root())
     }
 
+    #[inline(always)]
     pub fn is_lower_activated(&self) -> bool {
         Arch::is_lower_half_activated(self.root())
     }
