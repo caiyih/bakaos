@@ -50,4 +50,14 @@ pub enum PageSize {
     _1G = 0x4000_0000,
 }
 
+impl PageSize {
+    pub const fn alignment(&self) -> usize {
+        match self {
+            PageSize::_4K => 0x1000,
+            PageSize::_2M => 0x20_0000,
+            PageSize::_1G => 0x4000_0000,
+        }
+    }
+}
+
 pub type PagingResult<TValue> = Result<TValue, PagingError>;

@@ -5,10 +5,10 @@ use address::{PhysicalAddress, VirtualAddress};
 use alloc::{vec, vec::Vec};
 
 #[cfg(target_os = "none")]
-use crate::{PageSize, PagingError, PagingResult};
+use crate::{FlushHandle, GenericMappingFlags, PageSize, PagingError, PagingResult};
 
 #[cfg(target_os = "none")]
-use address::{IAlignableAddress, IConvertablePhysicalAddress, IToPageNum};
+use address::{IAddressBase, IAlignableAddress, IConvertablePhysicalAddress, IToPageNum};
 
 #[cfg(target_os = "none")]
 use abstractions::IUsizeAlias;
@@ -107,10 +107,7 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> Drop for PageTable
     fn drop(&mut self) {
         if self.is_owned() {
             for frame in self.frames.iter() {
-                unsafe {
-                    debug_assert!(frame.is_page_aligned());
-                    allocation::dealloc_frame_unchecked(frame.to_floor_page_num());
-                }
+                Self::deallocate_frame(*frame);
             }
         }
     }
@@ -139,6 +136,8 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, 
 #[cfg(target_os = "none")]
 impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, PTE> {
     fn get_entry_internal(&self, vaddr: VirtualAddress) -> PagingResult<(&mut PTE, PageSize)> {
+        debug_assert!(vaddr.is_page_aligned());
+
         let vaddr = vaddr.as_usize();
 
         debug_assert_eq!(Arch::LEVELS, 3);
@@ -166,6 +165,8 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, 
     }
 
     pub fn get_entry_mut(&mut self, vaddr: VirtualAddress) -> PagingResult<(&mut PTE, PageSize)> {
+        debug_assert!(self.is_owned());
+
         self.get_entry_internal(vaddr)
     }
 }
@@ -180,6 +181,16 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, 
         core::mem::forget(frame);
 
         pa
+    }
+
+    fn deallocate_frame(frame: PhysicalAddress) {
+        if !frame.is_null() {
+            unsafe {
+                debug_assert!(frame.is_page_aligned());
+
+                allocation::dealloc_frame_unchecked(frame.to_floor_page_num())
+            };
+        }
     }
 
     pub fn allocate() -> Self {
@@ -209,6 +220,7 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, 
         size: PageSize,
     ) -> PagingResult<&mut PTE> {
         debug_assert!(self.is_owned());
+        debug_assert!(vaddr.is_page_aligned());
 
         let vaddr = vaddr.as_usize();
 
@@ -263,5 +275,79 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, 
                 Ok(Self::raw_table_of(entry.paddr()))
             }
         }
+    }
+}
+
+#[cfg(target_os = "none")]
+impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, PTE> {
+    pub fn map(
+        &mut self,
+        vaddr: VirtualAddress,
+        target: PhysicalAddress,
+        size: PageSize,
+        flags: GenericMappingFlags,
+    ) -> PagingResult<FlushHandle<Arch>> {
+        debug_assert!(self.is_owned());
+        debug_assert!(vaddr.is_page_aligned());
+        debug_assert!(target.is_page_aligned());
+
+        let entry = self.get_create_entry(vaddr, size)?;
+        if !entry.is_empty() {
+            return Err(PagingError::AlreadyMapped);
+        }
+
+        *entry = PTE::new_page(target.page_down(), flags, size != PageSize::_4K);
+        Ok(FlushHandle::new(vaddr))
+    }
+
+    pub fn remap(
+        &mut self,
+        vaddr: VirtualAddress,
+        new_target: PhysicalAddress,
+        flags: GenericMappingFlags,
+    ) -> PagingResult<(FlushHandle<Arch>, PageSize)> {
+        debug_assert!(self.is_owned());
+        debug_assert!(vaddr.is_page_aligned());
+        debug_assert!(new_target.is_page_aligned());
+
+        let (entry, size) = self.get_entry_mut(vaddr)?;
+        entry.set_paddr(new_target);
+        entry.set_flags(flags, size != PageSize::_4K);
+        Ok((FlushHandle::new(vaddr), size))
+    }
+
+    pub fn unmap(
+        &mut self,
+        vaddr: VirtualAddress,
+    ) -> PagingResult<(PhysicalAddress, PageSize, FlushHandle<Arch>)> {
+        debug_assert!(self.is_owned());
+        debug_assert!(vaddr.is_page_aligned());
+
+        let (entry, size) = self.get_entry_mut(vaddr)?;
+        if !entry.is_present() {
+            entry.clear();
+            return Err(PagingError::NotMapped);
+        }
+
+        let paddr = entry.paddr();
+
+        entry.clear();
+        self.frames.retain(|f| *f != paddr);
+
+        Ok((paddr, size, FlushHandle::new(vaddr)))
+    }
+
+    pub fn query_virtual(
+        &self,
+        vaddr: VirtualAddress,
+    ) -> PagingResult<(PhysicalAddress, GenericMappingFlags, PageSize)> {
+        let (entry, size) = self.get_entry(vaddr)?;
+
+        if entry.is_empty() {
+            return Err(PagingError::NotMapped);
+        }
+
+        let offset = vaddr.as_usize() & (size.alignment() - 1);
+        Ok((entry.paddr() | offset, entry.flags(), size))
     }
 }
