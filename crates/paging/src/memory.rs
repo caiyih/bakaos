@@ -389,7 +389,7 @@ impl MemorySpace {
 
         assert!(self.signal_trampoline != VirtualPageNum::from_usize(0));
 
-        debug_assert!(sigreturn.as_usize() > constants::VIRT_ADDR_OFFSET);
+        debug_assert!(VirtualAddress::is_valid_va(sigreturn.as_usize()));
 
         // extract physical page of the function
         let sigreturn_page = sigreturn.to_floor_page_num();

@@ -9,10 +9,7 @@ use alloc::boxed::Box;
 use core::ptr::NonNull;
 use hal::VirtHal;
 use timing::{TimeSpec, NSEC_PER_SEC};
-use virtio_drivers::{
-    device::blk::VirtIOBlk,
-    transport::mmio::{MmioTransport, VirtIOHeader},
-};
+use virtio_drivers::{device::blk::VirtIOBlk, transport::mmio::MmioTransport};
 
 use crate::{BlockDeviceInode, IMachine};
 
@@ -51,9 +48,9 @@ impl IMachine for VirtMachine {
 
     fn create_block_device_at(&self, device_id: usize) -> alloc::sync::Arc<BlockDeviceInode> {
         let mmio_pa = self.mmc_driver(device_id);
-        let mmio_va = mmio_pa | constants::VIRT_ADDR_OFFSET;
+        let mmio_va = PhysicalAddress::from_usize(mmio_pa).to_high_virtual();
 
-        let ptr = unsafe { NonNull::new_unchecked(mmio_va as *mut VirtIOHeader) };
+        let ptr = unsafe { NonNull::new_unchecked(mmio_va.as_mut()) };
         let mmio_transport = unsafe {
             MmioTransport::new(ptr, self.bus_width())
                 .expect("Failed to initialize virtio mmio transport")
