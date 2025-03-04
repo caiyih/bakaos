@@ -8,16 +8,21 @@ extern crate alloc;
 
 #[allow(unused_imports)]
 pub use arch::*;
+pub use flush_handle::*;
 #[allow(unused_imports)]
 pub use pt::*;
 pub use pte::{GenericMappingFlags, IArchPageTableEntry, IArchPageTableEntryBase};
 
 mod arch;
+mod flush_handle;
 mod pt;
 mod pte;
 
 #[cfg(target_arch = "riscv64")]
 pub type PageTable64Impl = PageTable64<SV39PageTableAttribute, RV64PageTableEntry>;
+
+#[cfg(target_arch = "riscv64")]
+pub type FlushHandleImpl = FlushHandle<SV39PageTableAttribute>;
 
 /// The error type for page table operation failures.
 #[derive(Debug, PartialEq, Eq)]
