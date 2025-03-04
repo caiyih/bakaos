@@ -265,7 +265,7 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, 
 impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, PTE> {
     fn raw_table_of<'a>(&self, paddr: PhysicalAddress) -> &'a mut [PTE] {
         debug_assert!(paddr.is_page_aligned());
-        debug_assert_ne!(paddr, PhysicalAddress::from_usize(0));
+        debug_assert!(!paddr.is_null());
 
         let ptr = unsafe { paddr.to_high_virtual().as_mut_ptr() };
         unsafe { core::slice::from_raw_parts_mut(ptr, Self::NUM_ENTRIES) }
@@ -284,7 +284,7 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, 
         }
         #[cfg(target_arch = "loongarch64")]
         {
-            if entry.paddr() == PhysicalAddress::from_usize(0) {
+            if entry.paddr().is_null() {
                 Err(PagingError::NotMapped)
             } else if entry.is_huge() {
                 Err(PagingError::MappedToHugePage)
