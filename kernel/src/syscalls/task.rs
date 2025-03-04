@@ -7,10 +7,8 @@ use constants::{ErrNo, SyscallError};
 use drivers::{current_timespec, current_timeval, ITimer};
 use filesystem_abstractions::DirectoryEntryType;
 use log::debug;
-use paging::{
-    page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, PageTable,
-    PageTableEntryFlags,
-};
+use page_table::GenericMappingFlags;
+use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, PageTable};
 use platform_abstractions::ISyscallContext;
 use platform_specific::ITaskContext;
 use tasks::{TaskCloneFlags, TaskStatus};
@@ -321,16 +319,16 @@ impl ISyncSyscallHandler for ExecveSyscall {
         ) -> Option<Vec<&str>> {
             match pt
                 .guard_unsized_cstr_array(ptr, 1024)
-                .must_have(PageTableEntryFlags::User)
-                .with(PageTableEntryFlags::Readable)
+                .must_have(GenericMappingFlags::User)
+                .with(GenericMappingFlags::Readable)
             {
                 Some(_) => {
                     let mut array = Vec::new();
                     while !unsafe { ptr.read_volatile().is_null() } {
                         match pt
                             .guard_cstr(unsafe { *ptr }, 1024)
-                            .must_have(PageTableEntryFlags::User)
-                            .with(PageTableEntryFlags::Readable)
+                            .must_have(GenericMappingFlags::User)
+                            .with(GenericMappingFlags::Readable)
                         {
                             Some(str_guard) => unsafe {
                                 let bytes = core::slice::from_raw_parts(*ptr, str_guard.len());
@@ -357,7 +355,7 @@ impl ISyncSyscallHandler for ExecveSyscall {
         match ctx
             .borrow_page_table()
             .guard_cstr(pathname, 1024)
-            .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
+            .must_have(GenericMappingFlags::User | GenericMappingFlags::Readable)
         {
             Some(path_guard) => {
                 let path = str::from_utf8(&path_guard).map_err(|_| ErrNo::InvalidArgument)?;
@@ -421,7 +419,7 @@ impl ISyncSyscallHandler for ChdirSyscall {
         match ctx
             .borrow_page_table()
             .guard_cstr(p_path, 1024)
-            .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
+            .must_have(GenericMappingFlags::User | GenericMappingFlags::Readable)
         {
             Some(guard) => {
                 let path = str::from_utf8(&guard).map_err(|_| ErrNo::InvalidArgument)?;

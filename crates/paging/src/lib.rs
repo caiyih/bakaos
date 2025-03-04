@@ -8,8 +8,8 @@ pub mod page_table;
 pub use memory::*;
 pub use memory_map::*;
 pub use page_table::{
-    IWithPageGuardBuilder, MustHavePageGuard, PageGuardBuilder, PageTable, PageTableEntry,
-    PageTableEntryFlags, TemporaryModificationGuard, WithPageGuard,
+    IWithPageGuardBuilder, MustHavePageGuard, PageGuardBuilder, PageTable,
+    TemporaryModificationGuard, WithPageGuard,
 };
 
 pub fn init(kernel_table: PageTable) {

@@ -3,6 +3,7 @@ use core::slice;
 use abstractions::IUsizeAlias;
 use alloc::{collections::BTreeMap, string::String, vec::Vec};
 
+use ::page_table::GenericMappingFlags;
 use address::{
     IAlignableAddress, IConvertablePhysicalAddress, IConvertableVirtualAddress, IPageNum,
     IToPageNum, PhysicalPageNum, VirtualAddress, VirtualAddressRange, VirtualPageNum,
@@ -12,7 +13,7 @@ use allocation::{alloc_frame, TrackedFrame};
 use log::debug;
 use xmas_elf::ElfFile;
 
-use crate::{page_table, PageTable, PageTableEntryFlags};
+use crate::{page_table, PageTable};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MapType {
@@ -75,7 +76,7 @@ pub struct MappingArea {
     area_type: AreaType,
     map_type: MapType,
     allocated_frames: BTreeMap<VirtualPageNum, TrackedFrame>,
-    permissions: PageTableEntryFlags,
+    permissions: GenericMappingFlags,
 }
 
 impl MappingArea {
@@ -83,7 +84,7 @@ impl MappingArea {
         self.range
     }
 
-    pub fn permissions(&self) -> PageTableEntryFlags {
+    pub fn permissions(&self) -> GenericMappingFlags {
         self.permissions
     }
 
@@ -95,7 +96,7 @@ impl MappingArea {
         range: VirtualPageNumRange,
         area_type: AreaType,
         map_type: MapType,
-        permissions: PageTableEntryFlags,
+        permissions: GenericMappingFlags,
     ) -> Self {
         Self {
             range,
@@ -130,7 +131,7 @@ impl MappingArea {
         &mut self,
         vpn: VirtualPageNum,
         frame: Option<TrackedFrame>,
-        register_to_table: &mut impl FnMut(VirtualPageNum, PhysicalPageNum, PageTableEntryFlags),
+        register_to_table: &mut impl FnMut(VirtualPageNum, PhysicalPageNum, GenericMappingFlags),
     ) {
         let frame = frame.unwrap_or(alloc_frame().unwrap());
         register_to_table(vpn, frame.ppn(), self.permissions);
@@ -139,7 +140,7 @@ impl MappingArea {
 
     pub fn apply_mapping(
         &mut self,
-        mut register_to_table: impl FnMut(VirtualPageNum, PhysicalPageNum, PageTableEntryFlags),
+        mut register_to_table: impl FnMut(VirtualPageNum, PhysicalPageNum, GenericMappingFlags),
     ) {
         for vpn in self.range.iter() {
             self.apply_mapping_single(vpn, None, &mut register_to_table);
@@ -177,7 +178,14 @@ pub struct MemorySpace {
 impl MemorySpace {
     pub fn map_area(&mut self, mut area: MappingArea) {
         area.apply_mapping(|vpn, ppn, flags| {
-            self.page_table.map_single(vpn, ppn, flags);
+            self.page_table
+                .map_single(
+                    vpn.start_addr(),
+                    ppn.start_addr(),
+                    ::page_table::PageSize::_4K,
+                    flags,
+                )
+                .unwrap();
         });
         self.mapping_areas.push(area);
     }
@@ -187,7 +195,7 @@ impl MemorySpace {
             Some(index) => {
                 let mut area = self.mapping_areas.remove(index);
                 area.revoke_mapping(|vpn| {
-                    self.page_table.unmap_single(vpn);
+                    self.page_table.unmap_single(vpn.start_addr()).unwrap();
                 });
                 true
             }
@@ -234,7 +242,14 @@ impl MemorySpace {
 
         for vpn in increased_range.iter() {
             brk_area.apply_mapping_single(vpn, None, &mut |vpn, ppn, flags| {
-                self.page_table.map_single(vpn, ppn, flags);
+                self.page_table
+                    .map_single(
+                        vpn.start_addr(),
+                        ppn.start_addr(),
+                        ::page_table::PageSize::_4K,
+                        flags,
+                    )
+                    .unwrap();
             });
         }
 
@@ -266,7 +281,7 @@ impl MemorySpace {
 
         for vpn in decreased_range.iter() {
             brk_area.revoke_mapping_single(vpn, &mut |vpn| {
-                self.page_table.unmap_single(vpn);
+                self.page_table.unmap_single(vpn.start_addr()).unwrap();
             });
         }
 
@@ -367,10 +382,10 @@ impl MemorySpace {
     }
 
     pub fn register_signal_trampoline(&mut self, sigreturn: VirtualAddress) {
-        let permissions = PageTableEntryFlags::User
-            | PageTableEntryFlags::Valid
-            | PageTableEntryFlags::Readable
-            | PageTableEntryFlags::Executable;
+        const PERMISSIONS: GenericMappingFlags = GenericMappingFlags::Kernel
+            .union(GenericMappingFlags::User)
+            .union(GenericMappingFlags::Readable)
+            .union(GenericMappingFlags::Executable);
 
         assert!(self.signal_trampoline != VirtualPageNum::from_usize(0));
 
@@ -386,20 +401,27 @@ impl MemorySpace {
         let trampoline_page = self.signal_trampoline;
 
         self.page_table
-            .map_single(trampoline_page, ppn, permissions);
+            .map_single(
+                trampoline_page.start_addr(),
+                ppn.start_addr(),
+                ::page_table::PageSize::_4K,
+                PERMISSIONS,
+            )
+            .unwrap();
+
         self.mapping_areas.push(MappingArea {
             range: VirtualPageNumRange::from_start_count(trampoline_page, 1),
             area_type: AreaType::SignalTrampoline,
             map_type: MapType::Framed,
             allocated_frames: BTreeMap::new(),
-            permissions,
+            permissions: PERMISSIONS,
         });
     }
 
     // Map the whole kernel area to the memory space
     // See virtual memory layout in `main.rs` of the kernel for more details
     pub fn register_kernel_area(&mut self) {
-        let table_va = self.page_table.root_ppn().start_addr().to_high_virtual();
+        let table_va = self.page_table.root().to_high_virtual();
         let p_table = unsafe { &mut *table_va.as_mut_ptr::<[usize; 512]>() };
 
         // layout
@@ -414,7 +436,7 @@ impl MemorySpace {
         p_table[0x101] = (0x40000 << 10) | 0xcf;
         p_table[0x102] = (0x80000 << 10) | 0xcf;
 
-        debug!("Kernel area registered for {:}", self.page_table.root_ppn());
+        debug!("Kernel area registered for {:}", self.page_table.root());
     }
 }
 
@@ -472,18 +494,18 @@ impl MemorySpaceBuilder {
             min_start_vpn = min_start_vpn.min(start.to_floor_page_num());
             max_end_vpn = max_end_vpn.max(end.to_floor_page_num());
 
-            let mut segment_permissions = PageTableEntryFlags::Valid | PageTableEntryFlags::User;
+            let mut segment_permissions = GenericMappingFlags::User | GenericMappingFlags::Kernel;
 
             if ph.flags().is_read() {
-                segment_permissions |= PageTableEntryFlags::Readable;
+                segment_permissions |= GenericMappingFlags::Readable;
             }
 
             if ph.flags().is_write() {
-                segment_permissions |= PageTableEntryFlags::Writable;
+                segment_permissions |= GenericMappingFlags::Writable;
             }
 
             if ph.flags().is_execute() {
-                segment_permissions |= PageTableEntryFlags::Executable;
+                segment_permissions |= GenericMappingFlags::Executable;
             }
 
             let page_range = VirtualPageNumRange::from_start_end(
@@ -557,7 +579,7 @@ impl MemorySpaceBuilder {
             VirtualPageNumRange::from_single(max_end_vpn),
             AreaType::UserStackGuardBase,
             MapType::Framed,
-            PageTableEntryFlags::empty(),
+            GenericMappingFlags::empty(),
         ));
         memory_space.stack_guard_base = VirtualAddressRange::from_start_len(
             max_end_vpn.start_addr(),
@@ -570,10 +592,9 @@ impl MemorySpaceBuilder {
             VirtualPageNumRange::from_start_count(max_end_vpn, stack_page_count),
             AreaType::UserStack,
             MapType::Framed,
-            PageTableEntryFlags::Valid
-                | PageTableEntryFlags::Writable
-                | PageTableEntryFlags::Readable
-                | PageTableEntryFlags::User,
+            GenericMappingFlags::User
+                .union(GenericMappingFlags::Readable)
+                .union(GenericMappingFlags::Writable),
         ));
         memory_space.stack_range = VirtualAddressRange::from_start_len(
             max_end_vpn.start_addr(),
@@ -586,7 +607,7 @@ impl MemorySpaceBuilder {
             VirtualPageNumRange::from_single(max_end_vpn),
             AreaType::UserStackGuardTop,
             MapType::Framed,
-            PageTableEntryFlags::empty(),
+            GenericMappingFlags::empty(),
         ));
         memory_space.stack_gurad_top =
             VirtualAddressRange::from_start_len(max_end_vpn.start_addr(), constants::PAGE_SIZE);
@@ -596,10 +617,9 @@ impl MemorySpaceBuilder {
             VirtualPageNumRange::from_start_count(max_end_vpn, 0),
             AreaType::UserBrk,
             MapType::Framed,
-            PageTableEntryFlags::Valid
-                | PageTableEntryFlags::Writable
-                | PageTableEntryFlags::Readable
-                | PageTableEntryFlags::User,
+            GenericMappingFlags::User
+                .union(GenericMappingFlags::Readable)
+                .union(GenericMappingFlags::Writable),
         ));
         memory_space.brk_area_idx = memory_space
             .mapping_areas

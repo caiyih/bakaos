@@ -45,6 +45,17 @@ unsafe fn rust_begin_unwind(info: &::core::panic::PanicInfo) -> ! {
             "[BAKA-OS] Kernel panicked while handling another panic: {}",
             info.message()
         );
+        match info.location() {
+            Some(location) => {
+                legacy_println!(
+                    "[BAKA-OS]     at {}:{}:{}",
+                    location.file(),
+                    location.line(),
+                    location.column()
+                );
+            }
+            None => legacy_println!("[BAKA-OS]     No location information available."),
+        }
         legacy_println!("[BAKA-OS]     This is a bug in the kernel.");
         legacy_println!("[BAKA-OS]     The kernel will now shutdown.");
     }

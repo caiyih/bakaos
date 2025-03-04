@@ -9,9 +9,10 @@ use filesystem_abstractions::{
     FileMode, FileStatistics, FrozenFileDescriptorBuilder, ICacheableFile, IFile, OpenFlags,
     PipeBuilder,
 };
+use page_table::GenericMappingFlags;
 use paging::{
     page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, MemoryMapFlags,
-    MemoryMapProt, PageTableEntryFlags,
+    MemoryMapProt,
 };
 use platform_abstractions::ISyscallContext;
 
@@ -81,7 +82,7 @@ impl ISyncSyscallHandler for OpenAtSyscall {
         match ctx
             .borrow_page_table()
             .guard_cstr(p_path, 1024)
-            .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
+            .must_have(GenericMappingFlags::User | GenericMappingFlags::Readable)
         {
             Some(guard) => {
                 let dir_inode = {
@@ -247,9 +248,9 @@ impl ISyncSyscallHandler for MountSyscall {
 
         match (
             pt.guard_cstr(source, 1024)
-                .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable),
+                .must_have(GenericMappingFlags::User | GenericMappingFlags::Readable),
             pt.guard_cstr(target, 1024)
-                .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable),
+                .must_have(GenericMappingFlags::User | GenericMappingFlags::Readable),
         ) {
             (Some(source_guard), Some(target_guard)) => {
                 let source_path =
@@ -297,7 +298,7 @@ impl ISyncSyscallHandler for UmountSyscall {
         match ctx
             .borrow_page_table()
             .guard_cstr(target, 1024)
-            .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
+            .must_have(GenericMappingFlags::User | GenericMappingFlags::Readable)
         {
             Some(guard) => {
                 let mut target_path =
@@ -341,7 +342,7 @@ impl ISyncSyscallHandler for MkdirAtSyscall {
         match ctx
             .borrow_page_table()
             .guard_cstr(p_path, 1024)
-            .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
+            .must_have(GenericMappingFlags::User | GenericMappingFlags::Readable)
         {
             Some(guard) => {
                 let dir_inode = {
@@ -400,7 +401,7 @@ impl ISyncSyscallHandler for NewFstatatSyscall {
 
         match (
             pt.guard_cstr(p_path, 1024)
-                .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable),
+                .must_have(GenericMappingFlags::User | GenericMappingFlags::Readable),
             pt.guard_ptr(p_stat)
                 .mustbe_user()
                 .mustbe_readable()
@@ -600,7 +601,7 @@ impl ISyncSyscallHandler for UnlinkAtSyscall {
         match ctx
             .borrow_page_table()
             .guard_cstr(p_path, 1024)
-            .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
+            .must_have(GenericMappingFlags::User | GenericMappingFlags::Readable)
         {
             Some(guard) => {
                 let dir_inode = {
@@ -783,7 +784,7 @@ impl ISyncSyscallHandler for ReadLinkAtSyscall {
         let buf = unsafe { core::slice::from_raw_parts_mut(p_buf, len) };
         match (
             pt.guard_cstr(p_path, 1024)
-                .must_have(PageTableEntryFlags::User)
+                .must_have(GenericMappingFlags::User)
                 .with_read(),
             pt.guard_slice(buf)
                 .mustbe_user()
@@ -827,10 +828,10 @@ impl ISyncSyscallHandler for SymbolLinkAtSyscall {
 
         match (
             pt.guard_cstr(p_existing, 1024)
-                .must_have(PageTableEntryFlags::User)
+                .must_have(GenericMappingFlags::User)
                 .with_read(),
             pt.guard_cstr(p_linkto, 1024)
-                .must_have(PageTableEntryFlags::User)
+                .must_have(GenericMappingFlags::User)
                 .with_read(),
         ) {
             (Some(existing), Some(linkto)) => {
@@ -898,13 +899,13 @@ impl ISyncSyscallHandler for LinkAtSyscall {
 
             let oldpath = pt
                 .guard_cstr(oldpath_ptr, 1024)
-                .must_have(PageTableEntryFlags::User)
+                .must_have(GenericMappingFlags::User)
                 .with_read()
                 .ok_or(ErrNo::BadAddress)?;
 
             let newpath = pt
                 .guard_cstr(newpath_ptr, 1024)
-                .must_have(PageTableEntryFlags::User)
+                .must_have(GenericMappingFlags::User)
                 .with_read()
                 .ok_or(ErrNo::BadAddress)?;
 

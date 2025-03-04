@@ -11,6 +11,7 @@ address = { path = "../address", default-features = false }
 allocation = { path = "../allocation", default-features = false }
 abstractions = { path = "../abstractions", default-features = false }
 filesystem-abstractions = { path = "../filesystem-abstractions", default-features = false }
+page_table = { path = "../page_table" }
 bitflags = "2.6.0"
 xmas-elf = "0.9.1"
 log = "0.4.22"
