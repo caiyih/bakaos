@@ -289,7 +289,9 @@ mod tests {
 
         let table_pte = RV64PageTableEntry::new_table(paddr);
         assert_eq!(table_pte.paddr(), paddr);
-        assert!(table_pte.flags_internal().contains(RV64PageTableEntryFlags::Valid));
+        assert!(table_pte
+            .flags_internal()
+            .contains(RV64PageTableEntryFlags::Valid));
         assert!(!table_pte
             .flags_internal()
             .contains(RV64PageTableEntryFlags::Accessed));
@@ -347,14 +349,24 @@ mod tests {
         );
 
         pte.add_flags(GenericMappingFlags::Writable);
-        assert!(pte.flags_internal().contains(RV64PageTableEntryFlags::Writable));
+        assert!(pte
+            .flags_internal()
+            .contains(RV64PageTableEntryFlags::Writable));
 
         pte.remove_flags(GenericMappingFlags::Readable);
-        assert!(!pte.flags_internal().contains(RV64PageTableEntryFlags::Readable));
-        assert!(pte.flags_internal().contains(RV64PageTableEntryFlags::Writable));
+        assert!(!pte
+            .flags_internal()
+            .contains(RV64PageTableEntryFlags::Readable));
+        assert!(pte
+            .flags_internal()
+            .contains(RV64PageTableEntryFlags::Writable));
 
-        assert!(pte.flags_internal().contains(RV64PageTableEntryFlags::Accessed));
-        assert!(pte.flags_internal().contains(RV64PageTableEntryFlags::Dirty));
+        assert!(pte
+            .flags_internal()
+            .contains(RV64PageTableEntryFlags::Accessed));
+        assert!(pte
+            .flags_internal()
+            .contains(RV64PageTableEntryFlags::Dirty));
     }
 
     #[test]
