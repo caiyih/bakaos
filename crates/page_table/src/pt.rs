@@ -135,7 +135,12 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, 
 
 #[cfg(target_os = "none")]
 impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, PTE> {
-    fn get_entry_internal(&self, vaddr: VirtualAddress) -> PagingResult<(&mut PTE, PageSize)> {
+    /// # Safety
+    /// This breaks Rust's mutability rule, use it properly
+    pub unsafe fn get_entry_internal(
+        &self,
+        vaddr: VirtualAddress,
+    ) -> PagingResult<(&mut PTE, PageSize)> {
         debug_assert!(vaddr.is_page_aligned());
 
         let vaddr = vaddr.as_usize();
@@ -160,14 +165,16 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, 
     }
 
     pub fn get_entry(&self, vaddr: VirtualAddress) -> PagingResult<(&PTE, PageSize)> {
-        self.get_entry_internal(vaddr)
-            .map(|(pte, size)| (pte as &_, size))
+        unsafe {
+            self.get_entry_internal(vaddr)
+                .map(|(pte, size)| (pte as &_, size))
+        }
     }
 
     pub fn get_entry_mut(&mut self, vaddr: VirtualAddress) -> PagingResult<(&mut PTE, PageSize)> {
         debug_assert!(self.is_owned());
 
-        self.get_entry_internal(vaddr)
+        unsafe { self.get_entry_internal(vaddr) }
     }
 }
 
@@ -332,7 +339,11 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, 
         let paddr = entry.paddr();
 
         entry.clear();
-        self.frames.retain(|f| *f != paddr);
+
+        if self.is_owned() {
+            Self::deallocate_frame(paddr);
+            self.frames.retain(|f| *f != paddr);
+        }
 
         Ok((paddr, size, FlushHandle::new(vaddr)))
     }
