@@ -14,7 +14,7 @@ bitflags::bitflags! {
 
 #[allow(unused)]
 #[const_trait]
-pub trait IGenericMappingFlags: Clone + Copy {
+pub(crate) trait IGenericMappingFlags: Clone + Copy {
     type ArchMappingFlags;
 
     fn to_arch(self) -> Self::ArchMappingFlags;
