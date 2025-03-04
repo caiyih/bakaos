@@ -303,10 +303,6 @@ impl MemorySpace {
         }
     }
 
-    pub fn satp(&self) -> usize {
-        self.page_table.satp()
-    }
-
     pub fn page_table(&self) -> &PageTable {
         &self.page_table
     }

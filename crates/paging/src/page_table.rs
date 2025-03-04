@@ -111,7 +111,7 @@ impl PageTableEntry {
     }
 }
 
-pub trait IRawPageTable: IPageNum {
+trait IRawPageTable: IPageNum {
     /// Create a slice of page table entries from the physical page number
     /// The returned slice is in the virtual address space, so we can use it directly
     /// # Safety
@@ -248,7 +248,7 @@ impl PageTable {
         self.root
     }
 
-    pub fn satp(&self) -> usize {
+    fn satp(&self) -> usize {
         self.root.as_usize() | (8 << 60)
     }
 
@@ -327,7 +327,7 @@ impl PageTable {
 
 // internal methods
 impl PageTable {
-    pub fn get_entry_of(&self, vpn: VirtualPageNum) -> Option<&mut PageTableEntry> {
+    fn get_entry_of(&self, vpn: VirtualPageNum) -> Option<&mut PageTableEntry> {
         let indices = vpn.page_table_indices();
         let mut table_ppn = self.root_ppn();
 
