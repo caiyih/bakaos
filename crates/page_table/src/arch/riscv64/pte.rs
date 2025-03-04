@@ -46,43 +46,34 @@ impl const IGenericMappingFlags for GenericMappingFlags {
     type ArchMappingFlags = RV64PageTableEntryFlags;
 
     #[inline(always)]
-    fn to_arch(self) -> Self::ArchMappingFlags {
-        let bits = self.bits();
+    fn from_arch(flags: Self::ArchMappingFlags) -> Self {
+        const KERNEL: usize = GenericMappingFlags::Kernel.bits();
 
-        RV64PageTableEntryFlags::empty()
-            .union(RV64PageTableEntryFlags::from_bits_retain(
-                (bits & GENERIC_USER_MASK) >> GENERIC_USER_OFFSET << RV64_USER_OFFSET,
-            ))
-            .union(RV64PageTableEntryFlags::from_bits_retain(
-                (bits & GENERIC_READABLE_MASK) >> GENERIC_READABLE_OFFSET << RV64_READABLE_OFFSET,
-            ))
-            .union(RV64PageTableEntryFlags::from_bits_retain(
-                (bits & GENERIC_WRITABLE_MASK) >> GENERIC_WRITABLE_OFFSET << RV64_WRITABLE_OFFSET,
-            ))
-            .union(RV64PageTableEntryFlags::from_bits_retain(
-                (bits & GENERIC_EXECUTABLE_MASK) >> GENERIC_EXECUTABLE_OFFSET
-                    << RV64_EXECUTABLE_OFFSET,
-            ))
+        let bits = flags.bits();
+
+        GenericMappingFlags::from_bits_truncate(
+            KERNEL // The kernel should be able to access the whole user space under RISC-V
+                | ((bits & RV64_USER_MASK) >> (RV64_USER_OFFSET - GENERIC_USER_OFFSET))
+                | ((bits & RV64_READABLE_MASK) >> (RV64_READABLE_OFFSET - GENERIC_READABLE_OFFSET))
+                | ((bits & RV64_WRITABLE_MASK) >> (RV64_WRITABLE_OFFSET - GENERIC_WRITABLE_OFFSET))
+                | ((bits & RV64_EXECUTABLE_MASK) >> (RV64_EXECUTABLE_OFFSET - GENERIC_EXECUTABLE_OFFSET)),
+        )
     }
 
     #[inline(always)]
-    fn from_arch(flags: Self::ArchMappingFlags) -> Self {
-        let bits = flags.bits();
+    fn to_arch(self) -> Self::ArchMappingFlags {
+        let bits = self.bits();
 
-        GenericMappingFlags::Kernel // The kernel should be able to access the whole user space under RISC-V
-            .union(GenericMappingFlags::from_bits_retain(
-                ((bits & RV64_USER_MASK) >> RV64_USER_OFFSET) << GENERIC_USER_OFFSET,
-            ))
-            .union(GenericMappingFlags::from_bits_retain(
-                ((bits & RV64_READABLE_MASK) >> RV64_READABLE_OFFSET) << GENERIC_READABLE_OFFSET,
-            ))
-            .union(GenericMappingFlags::from_bits_retain(
-                ((bits & RV64_WRITABLE_MASK) >> RV64_WRITABLE_OFFSET) << GENERIC_WRITABLE_OFFSET,
-            ))
-            .union(GenericMappingFlags::from_bits_retain(
-                ((bits & RV64_EXECUTABLE_MASK) >> RV64_EXECUTABLE_OFFSET)
-                    << GENERIC_EXECUTABLE_OFFSET,
-            ))
+        RV64PageTableEntryFlags::from_bits_truncate(
+            ((bits != 0) as usize) // valid bit
+                | ((bits & GENERIC_USER_MASK) << (RV64_USER_OFFSET - GENERIC_USER_OFFSET))
+                | ((bits & GENERIC_READABLE_MASK)
+                    << (RV64_READABLE_OFFSET - GENERIC_READABLE_OFFSET))
+                | ((bits & GENERIC_WRITABLE_MASK)
+                    << (RV64_WRITABLE_OFFSET - GENERIC_WRITABLE_OFFSET))
+                | ((bits & GENERIC_EXECUTABLE_MASK)
+                    << (RV64_EXECUTABLE_OFFSET - GENERIC_EXECUTABLE_OFFSET)),
+        )
     }
 }
 
