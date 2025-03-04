@@ -91,7 +91,12 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, 
         Arch::is_lower_half_activated(self.root())
     }
 
-    pub fn activate(&self, lazy_flush: bool) {
+    pub fn activate(&self, mut lazy_flush: bool) {
+        #[cfg(target_arch = "riscv64")]
+        {
+            lazy_flush |= self.is_lower_activated();
+        }
+
         Arch::activate(self.root(), lazy_flush);
     }
 }
