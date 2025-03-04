@@ -360,7 +360,7 @@ mod tests {
             false,
         );
         let debug_str = format!("{:?}", pte);
-        assert!(debug_str.contains("paddr: PhysicalAddress(4096)"));
+        assert!(debug_str.contains("paddr: PhysicalAddress(0x1000)"));
         assert!(debug_str.contains("flags"));
         assert!(debug_str.contains("Executable"));
         assert!(debug_str.contains("Accessed"));
