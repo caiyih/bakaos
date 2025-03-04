@@ -142,7 +142,7 @@ macro_rules! impl_IAddress {
 
             #[inline(always)]
             fn from_usize(value: usize) -> Self {
-                unsafe { Self(::core::num::NonZeroUsize::new_unchecked(value)) }
+                Self(unsafe { ::core::mem::transmute::<usize, ::core::num::NonZeroUsize>(value) })
             }
         }
 
