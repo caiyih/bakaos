@@ -95,7 +95,7 @@ pub struct RV64PageTableEntry(u64);
 
 impl RV64PageTableEntry {
     #[inline(always)]
-    const fn flags(&self) -> RV64PageTableEntryFlags {
+    const fn flags_internal(&self) -> RV64PageTableEntryFlags {
         RV64PageTableEntryFlags::from_bits_truncate((self.bits() & PTE_FLAGS_MASK) as usize)
     }
 }
@@ -153,7 +153,7 @@ impl const IArchPageTableEntryBase for RV64PageTableEntry {
 
     #[inline(always)]
     fn flags(&self) -> GenericMappingFlags {
-        GenericMappingFlags::from_arch(self.flags())
+        GenericMappingFlags::from_arch(self.flags_internal())
     }
 
     #[inline(always)]
@@ -198,7 +198,7 @@ impl Debug for RV64PageTableEntry {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("RV64PageTableEntry")
             .field("paddr", &self.paddr())
-            .field("flags", &self.flags())
+            .field("flags", &self.flags_internal())
             .finish()
     }
 }
@@ -279,7 +279,7 @@ mod tests {
 
         assert_eq!(pte.paddr(), paddr);
 
-        let rv_flags = pte.flags();
+        let rv_flags = pte.flags_internal();
         assert!(rv_flags.contains(RV64PageTableEntryFlags::Readable));
         assert!(rv_flags.contains(RV64PageTableEntryFlags::Writable));
         assert!(rv_flags.contains(RV64PageTableEntryFlags::Accessed));
@@ -289,9 +289,9 @@ mod tests {
 
         let table_pte = RV64PageTableEntry::new_table(paddr);
         assert_eq!(table_pte.paddr(), paddr);
-        assert!(table_pte.flags().contains(RV64PageTableEntryFlags::Valid));
+        assert!(table_pte.flags_internal().contains(RV64PageTableEntryFlags::Valid));
         assert!(!table_pte
-            .flags()
+            .flags_internal()
             .contains(RV64PageTableEntryFlags::Accessed));
     }
 
@@ -306,9 +306,9 @@ mod tests {
         pte.set_paddr(new_paddr);
         assert_eq!(pte.paddr(), new_paddr);
 
-        let original_flags = pte.flags();
+        let original_flags = pte.flags_internal();
         pte.set_paddr(PhysicalAddress::from_usize(0x3000));
-        assert_eq!(pte.flags(), original_flags);
+        assert_eq!(pte.flags_internal(), original_flags);
     }
 
     #[test]
@@ -323,7 +323,7 @@ mod tests {
             GenericMappingFlags::Executable | GenericMappingFlags::User,
             false,
         );
-        let rv_flags = pte.flags();
+        let rv_flags = pte.flags_internal();
         assert!(rv_flags.contains(RV64PageTableEntryFlags::Executable));
         assert!(rv_flags.contains(RV64PageTableEntryFlags::User));
 
@@ -331,7 +331,7 @@ mod tests {
         assert!(rv_flags.contains(RV64PageTableEntryFlags::Dirty));
 
         pte.set_flags(GenericMappingFlags::empty(), false);
-        let rv_flags = pte.flags();
+        let rv_flags = pte.flags_internal();
         assert!(!rv_flags.contains(RV64PageTableEntryFlags::Readable));
         assert!(!rv_flags.contains(RV64PageTableEntryFlags::Writable));
         assert!(rv_flags.contains(RV64PageTableEntryFlags::Accessed));
@@ -347,14 +347,14 @@ mod tests {
         );
 
         pte.add_flags(GenericMappingFlags::Writable);
-        assert!(pte.flags().contains(RV64PageTableEntryFlags::Writable));
+        assert!(pte.flags_internal().contains(RV64PageTableEntryFlags::Writable));
 
         pte.remove_flags(GenericMappingFlags::Readable);
-        assert!(!pte.flags().contains(RV64PageTableEntryFlags::Readable));
-        assert!(pte.flags().contains(RV64PageTableEntryFlags::Writable));
+        assert!(!pte.flags_internal().contains(RV64PageTableEntryFlags::Readable));
+        assert!(pte.flags_internal().contains(RV64PageTableEntryFlags::Writable));
 
-        assert!(pte.flags().contains(RV64PageTableEntryFlags::Accessed));
-        assert!(pte.flags().contains(RV64PageTableEntryFlags::Dirty));
+        assert!(pte.flags_internal().contains(RV64PageTableEntryFlags::Accessed));
+        assert!(pte.flags_internal().contains(RV64PageTableEntryFlags::Dirty));
     }
 
     #[test]
