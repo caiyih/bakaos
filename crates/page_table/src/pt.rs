@@ -91,6 +91,7 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, 
         Arch::is_lower_half_activated(self.root())
     }
 
+    #[allow(unused_mut)]
     pub fn activate(&self, mut lazy_flush: bool) {
         #[cfg(target_arch = "riscv64")]
         {
