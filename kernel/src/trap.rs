@@ -56,13 +56,6 @@ pub async fn user_trap_handler_async(tcb: &Arc<TaskControlBlock>) {
                 e
             );
 
-            let pt = PageTable::borrow_current();
-
-            log::error!(
-                "Entry for 0x1000: {:?}",
-                pt.get_entry(VirtualAddress::from_usize(0x1000))
-            );
-
             *tcb.task_status.lock() = TaskStatus::Exited;
         }
     }
