@@ -141,8 +141,6 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, 
         &self,
         vaddr: VirtualAddress,
     ) -> PagingResult<(&mut PTE, PageSize)> {
-        debug_assert!(vaddr.is_page_aligned());
-
         let vaddr = vaddr.as_usize();
 
         debug_assert_eq!(Arch::LEVELS, 3);
@@ -354,7 +352,7 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, 
         &self,
         vaddr: VirtualAddress,
     ) -> PagingResult<(PhysicalAddress, GenericMappingFlags, PageSize)> {
-        let (entry, size) = self.get_entry(vaddr)?;
+        let (entry, size) = self.get_entry(vaddr.page_down())?;
 
         if entry.is_empty() {
             return Err(PagingError::NotMapped);
