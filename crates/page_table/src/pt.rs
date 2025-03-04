@@ -340,10 +340,12 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, 
 
         entry.clear();
 
-        if self.is_owned() {
-            Self::deallocate_frame(paddr);
-            self.frames.retain(|f| *f != paddr);
-        }
+        // Should we deallocate here? The code below causes kernel panic
+        // So remove it for now
+        // if self.is_owned() {
+        //     self.frames.retain(|f| *f != paddr);
+        //     Self::deallocate_frame(paddr);
+        // }
 
         Ok((paddr, size, FlushHandle::new(vaddr)))
     }
