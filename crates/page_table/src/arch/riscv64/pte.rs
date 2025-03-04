@@ -22,24 +22,24 @@ bitflags::bitflags! {
     }
 }
 
-const RV64_USER_MASK: usize = !(usize::MAX - RV64PageTableEntryFlags::User.bits());
+const RV64_USER_MASK: usize = RV64PageTableEntryFlags::User.bits();
 const RV64_USER_OFFSET: usize = 4;
-const GENERIC_USER_MASK: usize = !(usize::MAX - GenericMappingFlags::User.bits());
+const GENERIC_USER_MASK: usize = GenericMappingFlags::User.bits();
 const GENERIC_USER_OFFSET: usize = 3;
 
-const RV64_READABLE_MASK: usize = !(usize::MAX - RV64PageTableEntryFlags::Readable.bits());
+const RV64_READABLE_MASK: usize = RV64PageTableEntryFlags::Readable.bits();
 const RV64_READABLE_OFFSET: usize = 1;
-const GENERIC_READABLE_MASK: usize = !(usize::MAX - GenericMappingFlags::Readable.bits());
+const GENERIC_READABLE_MASK: usize = GenericMappingFlags::Readable.bits();
 const GENERIC_READABLE_OFFSET: usize = 0;
 
-const RV64_WRITABLE_MASK: usize = !(usize::MAX - RV64PageTableEntryFlags::Writable.bits());
+const RV64_WRITABLE_MASK: usize = RV64PageTableEntryFlags::Writable.bits();
 const RV64_WRITABLE_OFFSET: usize = 2;
-const GENERIC_WRITABLE_MASK: usize = !(usize::MAX - GenericMappingFlags::Writable.bits());
+const GENERIC_WRITABLE_MASK: usize = GenericMappingFlags::Writable.bits();
 const GENERIC_WRITABLE_OFFSET: usize = 1;
 
-const RV64_EXECUTABLE_MASK: usize = !(usize::MAX - RV64PageTableEntryFlags::Executable.bits());
+const RV64_EXECUTABLE_MASK: usize = RV64PageTableEntryFlags::Executable.bits();
 const RV64_EXECUTABLE_OFFSET: usize = 3;
-const GENERIC_EXECUTABLE_MASK: usize = !(usize::MAX - GenericMappingFlags::Executable.bits());
+const GENERIC_EXECUTABLE_MASK: usize = GenericMappingFlags::Executable.bits();
 const GENERIC_EXECUTABLE_OFFSET: usize = 2;
 
 impl const IGenericMappingFlags for GenericMappingFlags {
