@@ -33,7 +33,7 @@ unsafe fn rust_begin_unwind(info: &::core::panic::PanicInfo) -> ! {
 
         legacy_println!("[BAKA-OS]     Can unwind: {}", info.can_unwind());
 
-        let mut skip_frames = 1;
+        let mut skip_frames = 2;
 
         if SKIP_PANIC_FRAME.load(core::sync::atomic::Ordering::Relaxed) {
             skip_frames += 1;
