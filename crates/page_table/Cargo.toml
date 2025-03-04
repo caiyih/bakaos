@@ -15,9 +15,6 @@ allocation = { path = "../allocation", features = ["no_std"] }
 [target.'cfg(target_os = "none")'.dependencies]
 platform-specific = { path = "../platform-specific" }
 
-[target.'cfg(target_arch = "riscv64")'.dependencies]
-riscv = "0.12"
-
 [features]
 default = ["no_std"]
 std = []

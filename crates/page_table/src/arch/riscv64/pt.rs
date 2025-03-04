@@ -13,9 +13,9 @@ impl IPageTableArchAttribute for SV39PageTableAttribute {
     fn flush_tlb(vaddr: address::VirtualAddress) {
         unsafe {
             if vaddr == VirtualAddress::from_usize(0) {
-                riscv::asm::sfence_vma_all();
+                ::core::arch::asm!("sfence.vma");
             } else {
-                riscv::asm::sfence_vma(0, vaddr.as_usize())
+                ::core::arch::asm!("sfence.vma {0}, {1}", in(reg) vaddr.as_usize(), in(reg) 0);
             }
         }
     }
