@@ -1,5 +1,6 @@
 use alloc::{sync::Arc, vec::Vec};
 use core::{fmt::Debug, slice};
+use page_table::GenericMappingFlags;
 
 use abstractions::IUsizeAlias;
 use address::{
@@ -12,8 +13,6 @@ use filesystem_abstractions::{
     DirectoryEntryType, DirectoryTreeNode, FileCacheAccessor, FileDescriptor, FileMetadata,
     ICacheableFile, IFile,
 };
-
-use crate::PageTableEntryFlags;
 
 bitflags! {
     #[derive(Debug, Clone, Copy)]
@@ -121,7 +120,7 @@ impl TaskMemoryMap {
         prot: MemoryMapProt,
         offset: usize,
         length: usize,
-        mut register_page: impl FnMut(VirtualPageNum, PhysicalPageNum, PageTableEntryFlags),
+        mut register_page: impl FnMut(VirtualPageNum, PhysicalPageNum, GenericMappingFlags),
     ) -> Option<VirtualAddress> {
         let mapped_file_idx = self.get_create_mapped_file(fd, flags, length)?;
 
@@ -140,21 +139,19 @@ impl TaskMemoryMap {
             let ppn = mapped_file.frames[start_frame_idx + i].ppn();
             let vpn = start_page + i;
 
-            let mut permissions = PageTableEntryFlags::Valid
-                | PageTableEntryFlags::User
-                | PageTableEntryFlags::Dirty
-                | PageTableEntryFlags::Accessed;
+            let mut permissions = GenericMappingFlags::User;
 
+            // TODO: Can be optimized with bit ops
             if prot.contains(MemoryMapProt::READ) {
-                permissions |= PageTableEntryFlags::Readable;
+                permissions |= GenericMappingFlags::Readable;
             }
 
             if prot.contains(MemoryMapProt::WRITE) {
-                permissions |= PageTableEntryFlags::Writable;
+                permissions |= GenericMappingFlags::Writable;
             }
 
             if prot.contains(MemoryMapProt::EXECUTE) {
-                permissions |= PageTableEntryFlags::Executable;
+                permissions |= GenericMappingFlags::Executable;
             }
 
             register_page(vpn, ppn, permissions);

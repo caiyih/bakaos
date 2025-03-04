@@ -3,8 +3,8 @@ use abstractions::IUsizeAlias;
 use crate::*;
 
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct PhysicalAddress(pub usize);
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PhysicalAddress(*const ());
 
 impl_IAddress!(PhysicalAddress);
 
@@ -20,7 +20,7 @@ mod physical_address_tests {
 
     impl const IConvertablePhysicalAddress for PhysicalAddress {
         fn to_high_virtual(&self) -> VirtualAddress {
-            VirtualAddress(self.0 | VIRT_ADDR_OFFSET)
+            VirtualAddress::from_usize(self.as_usize() | VIRT_ADDR_OFFSET)
         }
 
         fn as_virtual(addr: usize) -> usize {
@@ -159,7 +159,7 @@ mod physical_address_tests {
     #[test]
     fn test_debug_and_display() {
         let addr = PhysicalAddress::from_usize(0x1234);
-        assert_eq!(format!("{:?}", addr), "PhysicalAddress(4660)");
+        assert_eq!(format!("{:?}", addr), "PhysicalAddress(0x1234)");
         assert_eq!(format!("{}", addr), "PhysicalAddress(0x1234)");
     }
 }

@@ -1,4 +1,4 @@
-use alloc::{collections::BTreeMap, sync::Arc, vec, vec::Vec};
+use alloc::{collections::BTreeMap, sync::Arc};
 use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
@@ -6,130 +6,16 @@ use core::{
 };
 use hermit_sync::SpinMutex;
 use log::{debug, trace};
-
-use abstractions::{impl_arith_ops, impl_bitwise_ops, impl_bitwise_ops_with, IUsizeAlias};
-use address::{
-    IAddress, IAlignableAddress, IConvertablePhysicalAddress, IConvertableVirtualAddress, IPageNum,
-    IToPageNum, PhysicalAddress, PhysicalPageNum, VirtualAddress, VirtualAddressRange,
-    VirtualPageNum, VirtualPageNumRange,
+use page_table::{
+    GenericMappingFlags, IArchPageTableEntry, IArchPageTableEntryBase, PageTable64Impl,
 };
-use allocation::frame::TrackedFrame;
-use bitflags::bitflags;
 
-bitflags! {
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, PartialOrd, Ord)]
-    pub struct PageTableEntryFlags : usize {
-        const Valid = 1 << 0;
-        const Readable = 1 << 1;
-        const Writable = 1 << 2;
-        const Executable = 1 << 3;
-        const User = 1 << 4;
-        const Global = 1 << 5;
-        const Accessed = 1 << 6;
-        const Dirty = 1 << 7;
-        // Reserved 1 << 8
-        const _Reserved8 = 1 << 8;
-    }
-}
-
-impl abstractions::IUsizeAlias for PageTableEntryFlags {
-    fn as_usize(&self) -> usize {
-        self.bits()
-    }
-
-    fn from_usize(value: usize) -> Self {
-        Self::from_bits_retain(value)
-    }
-}
-
-impl_bitwise_ops_with!(PageTableEntryFlags, PageTableEntry);
-
-pub const PAGE_TABLE_ENTRY_FLAGS_MASK: usize = 0x1FF;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct PageTableEntry(usize);
-
-impl PageTableEntry {
-    pub const fn new(ppn: PhysicalPageNum, flags: PageTableEntryFlags) -> Self {
-        PageTableEntry((ppn.0 << 10) | flags.bits())
-    }
-
-    pub fn flags(&self) -> PageTableEntryFlags {
-        PageTableEntryFlags::from_bits_truncate(self.0)
-    }
-
-    pub fn ppn(&self) -> PhysicalPageNum {
-        PhysicalPageNum::from_usize((self.0 >> 10) & ((1usize << 44) - 1))
-    }
-
-    pub fn empty() -> Self {
-        PageTableEntry(0)
-    }
-}
-
-impl abstractions::IUsizeAlias for PageTableEntry {
-    fn as_usize(&self) -> usize {
-        self.0
-    }
-
-    fn from_usize(value: usize) -> Self {
-        PageTableEntry(value)
-    }
-}
-
-impl_arith_ops!(PageTableEntry);
-impl_bitwise_ops!(PageTableEntry);
-impl_bitwise_ops_with!(PageTableEntry, PageTableEntryFlags);
-
-impl PageTableEntry {
-    pub fn is_valid(&self) -> bool {
-        self.flags().contains(PageTableEntryFlags::Valid)
-    }
-
-    pub fn is_readable(&self) -> bool {
-        self.flags().contains(PageTableEntryFlags::Readable)
-    }
-
-    pub fn is_writable(&self) -> bool {
-        self.flags().contains(PageTableEntryFlags::Writable)
-    }
-
-    pub fn is_executable(&self) -> bool {
-        self.flags().contains(PageTableEntryFlags::Executable)
-    }
-
-    pub fn is_user(&self) -> bool {
-        self.flags().contains(PageTableEntryFlags::User)
-    }
-
-    pub fn is_accessed(&self) -> bool {
-        self.flags().contains(PageTableEntryFlags::Accessed)
-    }
-
-    pub fn is_dirty(&self) -> bool {
-        self.flags().contains(PageTableEntryFlags::Dirty)
-    }
-}
-
-pub trait IRawPageTable: IPageNum {
-    /// Create a slice of page table entries from the physical page number
-    /// The returned slice is in the virtual address space, so we can use it directly
-    /// # Safety
-    /// The caller must ensure that the physical page number is valid
-    unsafe fn as_entries(&self) -> &'static mut [PageTableEntry] {
-        let page_num = self.as_usize();
-        let ptr = (page_num << 12) | constants::VIRT_ADDR_OFFSET;
-
-        unsafe {
-            core::slice::from_raw_parts_mut(
-                ptr as *mut PageTableEntry,
-                constants::PAGE_SIZE / core::mem::size_of::<PageTableEntry>(), // 512
-            )
-        }
-    }
-}
-
-impl IRawPageTable for PhysicalPageNum {}
+use abstractions::IUsizeAlias;
+use address::{
+    IAddress, IAddressBase, IAlignableAddress, IConvertablePhysicalAddress,
+    IConvertableVirtualAddress, IPageNum, IToPageNum, PhysicalAddress, VirtualAddress,
+    VirtualAddressRange, VirtualPageNum, VirtualPageNumRange,
+};
 
 static mut KERNEL_PAGE_TABLE: Option<PageTable> = None;
 
@@ -149,7 +35,7 @@ impl Drop for PageTable {
                 let activated = self.is_activated();
                 trace!(
                     "Droping owned page table: {}, activated: {}",
-                    self.root_ppn(),
+                    self.root(),
                     activated
                 );
 
@@ -167,34 +53,23 @@ impl Drop for PageTable {
                     }
                 }
             }
-            None => debug!("Droping borrowed page table: {}", self.root_ppn()),
+            None => debug!("Droping borrowed page table: {}", self.root()),
         }
     }
 }
 
 impl PageTable {
-    pub fn borrow_from_root(root_ppn: PhysicalPageNum) -> PageTable {
+    pub fn borrow_from_root(root: PhysicalAddress) -> PageTable {
         PageTable {
-            root: root_ppn,
+            inner: PageTable64Impl::from_borrowed(root),
             tracker: None,
         }
     }
 
     pub fn borrow_current() -> PageTable {
-        #[cfg(not(target_arch = "riscv64"))]
-        panic!("Unsupported architecture");
+        let root = PageTable64Impl::activated_table();
 
-        #[cfg(target_arch = "riscv64")]
-        {
-            let satp: usize;
-            unsafe {
-                core::arch::asm!("csrr {}, satp", out(reg) satp);
-            }
-
-            let root_ppn = PhysicalPageNum::from_usize(satp & 0x7FFFFFFFFFFFFFFF);
-
-            PageTable::borrow_from_root(root_ppn)
-        }
+        PageTable::borrow_from_root(root)
     }
 }
 
@@ -205,10 +80,9 @@ pub fn init_kernel_page_table(kernel_table: PageTable) {
 }
 
 struct ModifiablePageTable {
-    table_frames: Vec<TrackedFrame>,
     /// # WARNING
     /// Remember to call `restore_temporary_modified_pages` before returning to the user space
-    temporary_modified_pages: BTreeMap<VirtualPageNum, TemporaryModifiedPage>,
+    temporary_modified_pages: BTreeMap<VirtualAddress, TemporaryModifiedPage>,
 }
 
 unsafe impl Sync for ModifiablePageTable {}
@@ -218,7 +92,7 @@ unsafe impl Send for ModifiablePageTable {}
 // Represent a SV39 page table and exposes many useful methods
 // to work with the memory space of the current page table
 pub struct PageTable {
-    root: PhysicalPageNum,
+    inner: PageTable64Impl,
     tracker: Option<Arc<SpinMutex<ModifiablePageTable>>>,
 }
 
@@ -226,30 +100,18 @@ pub struct PageTable {
 impl PageTable {
     #[allow(clippy::vec_init_then_push)] // see comments below
     pub fn allocate() -> Self {
-        let frame =
-            allocation::alloc_frame().expect("Failed to allocate a frame for the root page table");
+        let inner = PageTable64Impl::allocate();
 
-        let root = frame.ppn();
-
-        debug!("Allocating page table at: {}", root);
+        debug!("Allocating page table at: {}", inner.root());
 
         let tracker = ModifiablePageTable {
-            table_frames: vec![frame],
             temporary_modified_pages: BTreeMap::new(),
         };
 
         Self {
-            root,
+            inner,
             tracker: Some(Arc::new(SpinMutex::new(tracker))),
         }
-    }
-
-    pub fn root_ppn(&self) -> PhysicalPageNum {
-        self.root
-    }
-
-    pub fn satp(&self) -> usize {
-        self.root.as_usize() | (8 << 60)
     }
 
     /// Writes the token of this page table to the satp register
@@ -258,126 +120,28 @@ impl PageTable {
     /// If the page table is not valid or not mapped the higher half address,
     /// it will cause a page fault
     pub unsafe fn activate(&self) {
-        #[cfg(not(target_arch = "riscv64"))]
-        panic!("Unsupported architecture");
+        log::trace!("Activating page table: {:?}", self.root());
 
-        #[cfg(target_arch = "riscv64")]
-        {
-            // This avoids losing CPU cache if the page table is already activated
-            // But the scheduler still have to do something else to avoid calling this method multiple times
-            if self.is_activated() {
-                return;
-            }
-
-            trace!("Activating page table: {}", self.root_ppn());
-
-            let satp = self.satp();
-
-            unsafe {
-                core::arch::asm!("csrw satp, {}", in(reg) satp);
-            }
-
-            self.flush_tlb();
-        }
+        // TODO: remove this, and uses deref
+        self.inner.activate(false);
     }
 
     pub fn is_activated(&self) -> bool {
-        #[cfg(not(target_arch = "riscv64"))]
-        panic!("Unsupported architecture");
-
-        #[cfg(target_arch = "riscv64")]
-        {
-            let current_satp: usize;
-
-            unsafe {
-                core::arch::asm!("csrr {}, satp", out(reg) current_satp);
-            }
-
-            current_satp == self.satp()
-        }
+        self.inner.is_lower_activated()
     }
 }
 
-// Methods
-impl PageTable {
-    pub fn map_single(
-        &mut self,
-        vpn: VirtualPageNum,
-        ppn: PhysicalPageNum,
-        flags: PageTableEntryFlags,
-    ) {
-        let entry = self.get_create_entry_of(vpn);
-        assert!(!entry.is_valid(), "The entry is already mapped.");
-        *entry = PageTableEntry::new(
-            ppn,
-            flags
-                | PageTableEntryFlags::Valid
-                | PageTableEntryFlags::Accessed
-                | PageTableEntryFlags::Dirty,
-        );
-    }
+impl Deref for PageTable {
+    type Target = PageTable64Impl;
 
-    pub fn unmap_single(&mut self, vpn: VirtualPageNum) {
-        let entry = self
-            .get_entry_of(vpn)
-            .expect("Attempted to unmap an unmapped page");
-        *entry = PageTableEntry::empty();
+    fn deref(&self) -> &Self::Target {
+        &self.inner
     }
 }
 
-// internal methods
-impl PageTable {
-    pub fn get_entry_of(&self, vpn: VirtualPageNum) -> Option<&mut PageTableEntry> {
-        let indices = vpn.page_table_indices();
-        let mut table_ppn = self.root_ppn();
-
-        let mut res = Option::None;
-
-        for (level, index) in indices.iter().enumerate() {
-            let table = unsafe { table_ppn.as_entries() };
-            let entry = &mut table[*index];
-
-            if level == 2 {
-                res = Some(entry);
-                break;
-            }
-
-            if !entry.is_valid() {
-                return None;
-            }
-
-            table_ppn = entry.ppn();
-        }
-
-        res
-    }
-
-    fn get_create_entry_of(&mut self, vpn: VirtualPageNum) -> &mut PageTableEntry {
-        debug_assert!(self.tracker.is_some(), "Page table is not modifiable");
-
-        let indices = vpn.page_table_indices();
-        let mut table_ppn = self.root_ppn();
-
-        let tracker = unsafe { &mut self.tracker.as_mut().unwrap_unchecked().lock() };
-        for (level, index) in indices.iter().enumerate() {
-            let table = unsafe { table_ppn.as_entries() };
-            let entry = &mut table[*index];
-
-            if level == 2 {
-                return entry;
-            }
-
-            if !entry.is_valid() {
-                let frame = allocation::alloc_frame()
-                    .expect("Failed to allocate a frame for the page table");
-                *entry = PageTableEntry::new(frame.ppn(), PageTableEntryFlags::Valid);
-                tracker.table_frames.push(frame);
-            }
-
-            table_ppn = entry.ppn();
-        }
-
-        unreachable!()
+impl DerefMut for PageTable {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
     }
 }
 
@@ -386,18 +150,15 @@ impl PageTable {
     // And returns the high half mapped virtual address
     pub fn as_high_half(&self, addr: VirtualAddress) -> Option<(PhysicalAddress, VirtualAddress)> {
         // Fast path for already mapped high half address
-        if addr.as_usize() & constants::VIRT_ADDR_OFFSET == constants::VIRT_ADDR_OFFSET {
+
+        if VirtualAddress::is_valid_va(addr.as_usize()) {
             return Some((addr.to_low_physical(), addr));
         }
 
-        let vpn = addr.to_floor_page_num();
-        let offset = addr.in_page_offset();
-
-        let ppn = self.get_entry_of(vpn)?.ppn();
-
-        let pa = ppn.at_offset_of_start(offset);
-
-        Some((pa, pa.to_high_virtual()))
+        match self.inner.query_virtual(addr) {
+            Ok((pa, _, _)) => Some((pa, pa.to_high_virtual())),
+            Err(_) => None,
+        }
     }
 
     /// Get physical address of a virtual address in current page table
@@ -409,7 +170,7 @@ impl PageTable {
     pub unsafe fn as_high_half_ptr<T>(&self, ptr: *const T) -> Option<(PhysicalAddress, *mut T)> {
         let addr = VirtualAddress::from_ptr(ptr);
         self.as_high_half(addr)
-            .map(|(pa, _)| (pa, unsafe { pa.to_high_virtual().as_mut_ptr::<T>() }))
+            .map(|(pa, va)| (pa, unsafe { va.as_mut_ptr::<T>() }))
     }
 }
 
@@ -622,8 +383,15 @@ impl PageTable {
                         "Restoring page: {} to {:?}, current: {:?}",
                         modification.0, modification.1.previous, modification.1.now
                     );
-                    let entry = self.get_entry_of(*modification.0).unwrap();
-                    *entry = PageTableEntry::new(entry.ppn(), modification.1.previous);
+
+                    let (entry, _) = unsafe { self.get_entry_internal(*modification.0).unwrap() };
+
+                    // now & ~previous
+                    let to_remove = modification
+                        .1
+                        .now
+                        .intersection(modification.1.previous.complement());
+                    entry.remove_flags(to_remove);
                 }
 
                 modified_pages.clear();
@@ -636,19 +404,20 @@ impl PageTable {
     /// If you want to modify the page table persistently,
     /// you should use the following methods instead of modifying the page table directly
     #[allow(clippy::option_map_unit_fn)]
-    pub fn persistent_add(&mut self, vpn: VirtualPageNum, flags: PageTableEntryFlags) {
+    pub fn persistent_add(&mut self, vpn: VirtualPageNum, flags: GenericMappingFlags) {
         debug_assert!(self.tracker.is_some(), "Page table is not modifiable");
 
-        let entry = self.get_create_entry_of(vpn);
-        *entry |= flags;
+        let va = vpn.start_addr();
+        let (entry, _) = self.get_entry_mut(va).unwrap();
+        entry.add_flags(flags);
 
         let tracker = unsafe { &mut self.tracker.as_mut().unwrap_unchecked() };
         // Update the temporary modified pages
         tracker
             .lock()
             .temporary_modified_pages
-            .entry(vpn)
-            .and_modify(|e| e.now |= flags); // not add if not exist
+            .entry(va)
+            .and_modify(|e| e.previous |= flags); // not add if not exist
 
         self.flush_tlb();
     }
@@ -656,31 +425,26 @@ impl PageTable {
     /// If you want to modify the page table persistently,
     /// you should use the following methods instead of modifying the page table directly
     #[allow(clippy::option_map_unit_fn)]
-    pub fn persistent_remove(&mut self, vpn: VirtualPageNum, flags: PageTableEntryFlags) {
+    pub fn persistent_remove(&mut self, vpn: VirtualPageNum, flags: GenericMappingFlags) {
         debug_assert!(self.tracker.is_some(), "Page table is not modifiable");
 
-        let entry = self.get_entry_of(vpn).unwrap();
-        *entry &= !flags;
+        let va = vpn.start_addr();
+        let (entry, _) = self.get_entry_mut(va).unwrap();
+        entry.remove_flags(flags);
 
         let tracker = unsafe { self.tracker.as_mut().unwrap_unchecked() };
         // Update the temporary modified pages
         tracker
             .lock()
             .temporary_modified_pages
-            .entry(vpn)
-            .and_modify(|e| e.now &= !flags); // not add if not exist
+            .entry(va)
+            .and_modify(|e| e.previous &= !flags); // not add if not exist
 
         self.flush_tlb();
     }
 
     pub fn flush_tlb(&self) {
-        #[cfg(not(target_arch = "riscv64"))]
-        panic!("Unsupported architecture");
-
-        #[cfg(target_arch = "riscv64")]
-        unsafe {
-            core::arch::asm!("sfence.vma")
-        }
+        PageTable64Impl::flush_tlb(VirtualAddress::null());
     }
 }
 
@@ -832,7 +596,7 @@ pub struct UnsizedSlicePageGuardBuilder<'a, T> {
 impl<'a, T> UnsizedSlicePageGuardBuilder<'a, &'static [T]> {
     pub fn must_have(
         &self,
-        flags: PageTableEntryFlags,
+        flags: GenericMappingFlags,
     ) -> Option<MustHavePageGuard<'a, &'static [T]>> {
         let mut idx = 0;
         let mut current_ptr = self.ptr;
@@ -901,8 +665,8 @@ impl<'a, T> UnsizedSlicePageGuardBuilder<'a, &'static [T]> {
 #[allow(unused)]
 struct TemporaryModifiedPage {
     page: VirtualPageNum,
-    previous: PageTableEntryFlags,
-    now: PageTableEntryFlags,
+    previous: GenericMappingFlags,
+    now: GenericMappingFlags,
 }
 
 pub struct WithPageGuard<'a, T> {
@@ -933,33 +697,32 @@ pub trait IOptionalPageGuardBuilderExtension {
 
 impl<T> IOptionalPageGuardBuilderExtension for Option<PageGuardBuilder<'_, T>> {
     fn mustbe_user(self) -> Self {
-        self?.must_be_internal(PageTableEntryFlags::User)
+        self?.must_be_internal(GenericMappingFlags::User)
     }
 
     fn mustbe_readable(self) -> Self {
-        self?.must_be_internal(PageTableEntryFlags::Readable)
+        self?.must_be_internal(GenericMappingFlags::Readable)
     }
 
     fn mustbe_writable(self) -> Self {
-        self?.must_be_internal(PageTableEntryFlags::Writable)
+        self?.must_be_internal(GenericMappingFlags::Writable)
     }
 
     fn mustbe_executable(self) -> Self {
-        self?.must_be_internal(PageTableEntryFlags::Executable)
+        self?.must_be_internal(GenericMappingFlags::Executable)
     }
 }
 
 impl<'a, T> PageGuardBuilder<'a, T> {
-    fn must_be_internal(self, mut flags: PageTableEntryFlags) -> Option<Self> {
+    fn must_be_internal(self, flags: GenericMappingFlags) -> Option<Self> {
         // Fast path for rejecting null pointer
         if self.vpn_range.start().as_usize() == 0 {
             return None;
         }
 
-        flags |= PageTableEntryFlags::Valid;
         for page in self.vpn_range.iter() {
-            let entry = self.page_table.get_entry_of(page)?;
-            if !entry.flags().contains(flags) {
+            let (entry, _) = self.page_table.get_entry(page.start_addr()).ok()?;
+            if !entry.is_present() || !entry.flags().contains(flags) {
                 return None;
             }
         }
@@ -967,32 +730,32 @@ impl<'a, T> PageGuardBuilder<'a, T> {
         Some(self)
     }
 
-    pub fn must_have(self, flags: PageTableEntryFlags) -> Option<MustHavePageGuard<'a, T>> {
+    pub fn must_have(self, flags: GenericMappingFlags) -> Option<MustHavePageGuard<'a, T>> {
         let this = self.must_be_internal(flags)?;
 
         Some(MustHavePageGuard { builder: this })
     }
 
     pub fn mustbe_user(self) -> Option<Self> {
-        self.must_be_internal(PageTableEntryFlags::User)
+        self.must_be_internal(GenericMappingFlags::User)
     }
 
     pub fn mustbe_readable(self) -> Option<Self> {
-        self.must_be_internal(PageTableEntryFlags::Readable)
+        self.must_be_internal(GenericMappingFlags::Readable)
     }
 
     pub fn mustbe_writable(self) -> Option<Self> {
-        self.must_be_internal(PageTableEntryFlags::Writable)
+        self.must_be_internal(GenericMappingFlags::Writable)
     }
 
     pub fn mustbe_executable(self) -> Option<Self> {
-        self.must_be_internal(PageTableEntryFlags::Executable)
+        self.must_be_internal(GenericMappingFlags::Executable)
     }
 
     #[allow(invalid_reference_casting)]
-    fn with_internal(self, flags: PageTableEntryFlags) -> Option<WithPageGuard<'a, T>> {
+    fn with_internal(self, flags: GenericMappingFlags) -> Option<WithPageGuard<'a, T>> {
         // Bypass `get_entry_of` as it's unable to handle giant page
-        if self.vpn_range.start().as_usize() >= 0xffff_ffc0_0000_0000 / constants::PAGE_SIZE {
+        if VirtualAddress::is_valid_va(self.vpn_range.start().start_addr().as_usize()) {
             return Some(WithPageGuard { builder: self });
         }
 
@@ -1005,18 +768,18 @@ impl<'a, T> PageGuardBuilder<'a, T> {
         let mut modified = false;
 
         for page in self.vpn_range.iter() {
-            // TODO: if the page is not mapped, we should do something
-            let entry = self.page_table.get_entry_of(page)?;
+            let va = page.start_addr();
+            let (entry, _) = unsafe { self.page_table.get_entry_internal(va).ok() }?;
 
             let existing_flags = entry.flags();
 
             if !existing_flags.contains(flags) {
                 modified = true;
-                *entry |= flags;
+                entry.add_flags(flags);
 
                 tracker
                     .temporary_modified_pages
-                    .entry(page)
+                    .entry(va)
                     // merge the flags if the entry already exists
                     .and_modify(|f| {
                         debug_assert!(f.previous == existing_flags);
@@ -1040,7 +803,7 @@ impl<'a, T> PageGuardBuilder<'a, T> {
 }
 
 pub trait IWithPageGuardBuilder<'a, T> {
-    fn with(self, flags: PageTableEntryFlags) -> Option<WithPageGuard<'a, T>>;
+    fn with(self, flags: GenericMappingFlags) -> Option<WithPageGuard<'a, T>>;
 
     fn with_read(self) -> Option<WithPageGuard<'a, T>>;
 
@@ -1048,44 +811,44 @@ pub trait IWithPageGuardBuilder<'a, T> {
 }
 
 impl<'a, T> IWithPageGuardBuilder<'a, T> for PageGuardBuilder<'a, T> {
-    fn with(self, flags: PageTableEntryFlags) -> Option<WithPageGuard<'a, T>> {
+    fn with(self, flags: GenericMappingFlags) -> Option<WithPageGuard<'a, T>> {
         self.with_internal(flags)
     }
 
     fn with_read(self) -> Option<WithPageGuard<'a, T>> {
-        self.with(PageTableEntryFlags::Readable)
+        self.with(GenericMappingFlags::Readable)
     }
 
     fn with_write(self) -> Option<WithPageGuard<'a, T>> {
-        self.with(PageTableEntryFlags::Readable | PageTableEntryFlags::Writable)
+        self.with(GenericMappingFlags::Readable | GenericMappingFlags::Writable)
     }
 }
 
 impl<'a, T> IWithPageGuardBuilder<'a, T> for Option<PageGuardBuilder<'a, T>> {
-    fn with(self, flags: PageTableEntryFlags) -> Option<WithPageGuard<'a, T>> {
+    fn with(self, flags: GenericMappingFlags) -> Option<WithPageGuard<'a, T>> {
         self?.with_internal(flags)
     }
 
     fn with_read(self) -> Option<WithPageGuard<'a, T>> {
-        self.with(PageTableEntryFlags::Readable)
+        self.with(GenericMappingFlags::Readable)
     }
 
     fn with_write(self) -> Option<WithPageGuard<'a, T>> {
-        self.with(PageTableEntryFlags::Readable | PageTableEntryFlags::Writable)
+        self.with(GenericMappingFlags::Readable | GenericMappingFlags::Writable)
     }
 }
 
 impl<'a, T> IWithPageGuardBuilder<'a, T> for Option<MustHavePageGuard<'a, T>> {
-    fn with(self, flags: PageTableEntryFlags) -> Option<WithPageGuard<'a, T>> {
+    fn with(self, flags: GenericMappingFlags) -> Option<WithPageGuard<'a, T>> {
         self?.builder.with_internal(flags)
     }
 
     fn with_read(self) -> Option<WithPageGuard<'a, T>> {
-        self.with(PageTableEntryFlags::Readable)
+        self.with(GenericMappingFlags::Readable)
     }
 
     fn with_write(self) -> Option<WithPageGuard<'a, T>> {
-        self.with(PageTableEntryFlags::Readable | PageTableEntryFlags::Writable)
+        self.with(GenericMappingFlags::Readable | GenericMappingFlags::Writable)
     }
 }
 

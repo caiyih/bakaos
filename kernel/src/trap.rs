@@ -1,5 +1,8 @@
+use abstractions::IUsizeAlias;
+use address::VirtualAddress;
 use alloc::sync::Arc;
 use log::{trace, warn};
+use paging::PageTable;
 use platform_abstractions::{ISyscallContext, ISyscallContextBase, SyscallContext, UserInterrupt};
 use platform_specific::ITaskContext;
 use tasks::{TaskControlBlock, TaskStatus};
@@ -51,6 +54,13 @@ pub async fn user_trap_handler_async(tcb: &Arc<TaskControlBlock>) {
                 "[Task: {}] User mode exeption occurred: {:?}, kernel killing it.",
                 tcb.task_id.id(),
                 e
+            );
+
+            let pt = PageTable::borrow_current();
+
+            log::error!(
+                "Entry for 0x1000: {:?}",
+                pt.get_entry(VirtualAddress::from_usize(0x1000))
             );
 
             *tcb.task_status.lock() = TaskStatus::Exited;

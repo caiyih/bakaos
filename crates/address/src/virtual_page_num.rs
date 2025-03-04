@@ -3,7 +3,7 @@ use abstractions::IUsizeAlias;
 use crate::*;
 
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct VirtualPageNum(pub usize);
 
 impl_IPageNum!(VirtualPageNum, VirtualAddress);

@@ -1,8 +1,4 @@
-#![cfg_attr(not(feature = "std"), no_std)]
-
-#[cfg(feature = "std")]
-extern crate std;
-
+#![no_std]
 extern crate alloc;
 
 pub mod memory;
@@ -12,8 +8,8 @@ pub mod page_table;
 pub use memory::*;
 pub use memory_map::*;
 pub use page_table::{
-    IRawPageTable, IWithPageGuardBuilder, MustHavePageGuard, PageGuardBuilder, PageTable,
-    PageTableEntry, PageTableEntryFlags, TemporaryModificationGuard, WithPageGuard,
+    IWithPageGuardBuilder, MustHavePageGuard, PageGuardBuilder, PageTable,
+    TemporaryModificationGuard, WithPageGuard,
 };
 
 pub fn init(kernel_table: PageTable) {

@@ -9,7 +9,7 @@ use filesystem_abstractions::FileDescriptorTable;
 use platform_specific::{ITaskContext, TaskTrapContext};
 use timing::TimeSpec;
 
-use address::VirtualAddress;
+use address::{IPageNum, VirtualAddress};
 use hermit_sync::SpinMutex;
 use paging::{
     MemoryMapFlags, MemoryMapProt, MemorySpace, MemorySpaceBuilder, PageTable, TaskMemoryMap,
@@ -274,7 +274,14 @@ impl TaskControlBlock {
             offset,
             length,
             |vpn, ppn, flags| {
-                page_table.map_single(vpn, ppn, flags);
+                page_table
+                    .map_single(
+                        vpn.start_addr(),
+                        ppn.start_addr(),
+                        page_table::PageSize::_4K,
+                        flags,
+                    )
+                    .unwrap();
             },
         );
 
@@ -292,7 +299,7 @@ impl TaskControlBlock {
         let page_table = pcb_.memory_space.page_table_mut();
 
         let ret = pcb.mmaps.munmap(addr, length, |vpn| {
-            page_table.unmap_single(vpn);
+            page_table.unmap_single(vpn.start_addr()).unwrap();
         });
 
         mem::forget(pcb);

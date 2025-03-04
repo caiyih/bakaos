@@ -12,7 +12,7 @@ paging = { path = "../paging", default-features = false }
 address = { path = "../address", default-features = false }
 abstractions = { path = "../abstractions", default-features = false }
 filesystem-abstractions = { path = "../filesystem-abstractions", default-features = false }
-riscv = "0.12"
+page_table = { path = "../page_table" }
 platform-specific = { path = "../platform-specific" }
 lock_api = "0.4.12"
 bitflags = "2.6.0"

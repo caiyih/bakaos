@@ -1,18 +1,21 @@
 [package]
-name = "paging"
+name = "page_table"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bitflags = "2.6.0"
 constants = { path = "../constants", default-features = false }
 address = { path = "../address", default-features = false }
-allocation = { path = "../allocation", default-features = false }
 abstractions = { path = "../abstractions", default-features = false }
-filesystem-abstractions = { path = "../filesystem-abstractions", default-features = false }
-page_table = { path = "../page_table" }
-bitflags = "2.6.0"
-xmas-elf = "0.9.1"
-log = "0.4.22"
-hermit-sync = "0.1.6"
+allocation = { path = "../allocation", features = ["no_std"] }
+
+[target.'cfg(target_os = "none")'.dependencies]
+platform-specific = { path = "../platform-specific" }
+
+[features]
+default = ["no_std"]
+std = []
+no_std = []

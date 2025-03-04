@@ -116,6 +116,13 @@ pub unsafe fn find_previous_instruction(ra: usize) -> Result<usize, usize> {
 
 #[inline]
 pub fn current_processor_index() -> usize {
-    // See layout in platform-abstractions/src/riscv64/context.rs
+    // We use tp to save the pointer to thread local infomation
+    // Kernel thread context layout:
+    // | hartid | kernel coroutine saved context |
+    //          ^
+    //          |
+    //          tp
+    // hartid is register-sized
+    // See code in platform-abstractions/src/riscv64/context.rs
     unsafe { (tp() as *const usize).sub(1).read() }
 }
