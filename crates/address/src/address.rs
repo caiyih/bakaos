@@ -8,6 +8,15 @@ use crate::IPageNum;
 pub trait IAddressBase:
     ~const IUsizeAlias + Copy + Clone + PartialEq + PartialOrd + Eq + Ord
 {
+    #[inline(always)]
+    fn is_null(self) -> bool {
+        self.as_usize() == 0
+    }
+
+    #[inline(always)]
+    fn null() -> Self {
+        Self::from_usize(0)
+    }
 }
 
 pub trait IToPageNum<T>: IAddress
@@ -128,12 +137,12 @@ macro_rules! impl_IAddress {
         impl const abstractions::IUsizeAlias for $type {
             #[inline(always)]
             fn as_usize(&self) -> usize {
-                self.0
+                self.0.get()
             }
 
             #[inline(always)]
             fn from_usize(value: usize) -> Self {
-                Self(value)
+                unsafe { Self(::core::num::NonZeroUsize::new_unchecked(value)) }
             }
         }
 

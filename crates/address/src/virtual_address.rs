@@ -1,10 +1,12 @@
+use core::num::NonZeroUsize;
+
 use abstractions::IUsizeAlias;
 
 use crate::*;
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct VirtualAddress(pub usize);
+pub struct VirtualAddress(NonZeroUsize);
 
 impl_IAddress!(VirtualAddress);
 

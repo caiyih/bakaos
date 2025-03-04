@@ -1,10 +1,12 @@
+use core::num::NonZeroUsize;
+
 use abstractions::IUsizeAlias;
 
 use crate::*;
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct PhysicalAddress(pub usize);
+pub struct PhysicalAddress(NonZeroUsize);
 
 impl_IAddress!(PhysicalAddress);
 
@@ -20,7 +22,7 @@ mod physical_address_tests {
 
     impl const IConvertablePhysicalAddress for PhysicalAddress {
         fn to_high_virtual(&self) -> VirtualAddress {
-            VirtualAddress(self.0 | VIRT_ADDR_OFFSET)
+            VirtualAddress::from_usize(self.as_usize() | VIRT_ADDR_OFFSET)
         }
 
         fn as_virtual(addr: usize) -> usize {
