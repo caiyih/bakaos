@@ -4,8 +4,7 @@ use loongArch64::{
     self,
     register::{
         ecfg::{self},
-        eentry,
-        euen, pgdh, pgdl, pwch, pwcl, stlbps, tcfg, tlbidx, tlbrehi, tlbrentry,
+        eentry, euen, pgdh, pgdl, pwch, pwcl, stlbps, tcfg, tlbidx, tlbrehi, tlbrentry,
     },
 };
 use platform_specific::virt_to_phys;
