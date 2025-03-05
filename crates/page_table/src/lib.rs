@@ -23,6 +23,12 @@ pub type PageTable64Impl = PageTable64<SV39PageTableAttribute, RV64PageTableEntr
 #[cfg(target_arch = "riscv64")]
 pub type FlushHandleImpl = FlushHandle<SV39PageTableAttribute>;
 
+#[cfg(target_arch = "loongarch64")]
+pub type PageTable64Impl = PageTable64<LA64PageTableAttribute, LA64PageTableEntry>;
+
+#[cfg(target_arch = "loongarch64")]
+pub type FlushHandleImpl = FlushHandle<LA64PageTableAttribute>;
+
 /// The error type for page table operation failures.
 #[derive(Debug, PartialEq, Eq)]
 pub enum PagingError {
