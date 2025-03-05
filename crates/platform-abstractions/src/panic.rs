@@ -68,7 +68,7 @@ pub trait IDisplayableStackTrace {
     fn print_trace(&self);
 }
 
-impl<const N: usize>  IDisplayableStackTrace for StackTrace<N> {
+impl<const N: usize> IDisplayableStackTrace for StackTrace<N> {
     fn print_trace(&self) {
         let frames = self.stack_frames();
 
