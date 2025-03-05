@@ -1,6 +1,7 @@
+use alloc::sync::Arc;
 use timing::TimeSpec;
 
-use crate::IMachine;
+use crate::{BlockDeviceInode, IMachine};
 
 #[derive(Clone, Copy)]
 pub struct VirtMachine;
@@ -11,12 +12,16 @@ impl IMachine for VirtMachine {
     }
 
     fn clock_freq(&self) -> u64 {
-        // TODO: figure out the correct value
-        12_500_000
+        100_000_000
     }
 
     fn mmio(&self) -> &[(usize, usize)] {
-        &[]
+        &[
+            (0x100E_0000, 0x0000_1000), // GED
+            (0x1FE0_0000, 0x0000_1000), // UART
+            (0x2000_0000, 0x1000_0000), // PCI
+            (0x4000_0000, 0x0002_0000), // PCI RANGES
+        ]
     }
 
     fn memory_end(&self) -> usize {
@@ -25,8 +30,8 @@ impl IMachine for VirtMachine {
     }
 
     fn get_board_tick(&self) -> usize {
-        // TODO: figure out the correct value
-        12_500_000
+        // TODO: Implement this
+        0
     }
 
     fn bus0(&self) -> usize {
@@ -41,10 +46,7 @@ impl IMachine for VirtMachine {
         TimeSpec::zero()
     }
 
-    fn create_block_device_at(
-        &self,
-        _device_id: usize,
-    ) -> alloc::sync::Arc<crate::BlockDeviceInode> {
+    fn create_block_device_at(&self, _device_id: usize) -> Arc<BlockDeviceInode> {
         todo!()
     }
 }
