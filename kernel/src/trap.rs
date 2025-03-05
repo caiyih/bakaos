@@ -1,7 +1,5 @@
-use address::VirtualAddress;
 use alloc::sync::Arc;
 use log::{trace, warn};
-use paging::PageTable;
 use platform_abstractions::{ISyscallContext, ISyscallContextBase, SyscallContext, UserInterrupt};
 use platform_specific::ITaskContext;
 use tasks::{TaskControlBlock, TaskStatus};
