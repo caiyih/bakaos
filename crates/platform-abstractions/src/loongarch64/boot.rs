@@ -152,4 +152,6 @@ extern "C" fn main_processor_init() {
         | LineBasedInterrupt::SWI1
         | LineBasedInterrupt::HWI0;
     ecfg::set_lie(inter);
+
+    unsafe { init_thread_info() };
 }
