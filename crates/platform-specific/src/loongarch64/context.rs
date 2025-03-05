@@ -1,18 +1,53 @@
 use crate::ITaskContext;
 
 #[derive(Debug, Clone, Copy)]
+pub struct GeneralRegisterContext {
+    pub r0: usize, //  0
+    pub ra: usize, //  1
+    pub tp: usize, //  2
+    pub sp: usize, //  3
+    pub a0: usize, //  4
+    pub a1: usize, //  5
+    pub a2: usize, //  6
+    pub a3: usize, //  7
+    pub a4: usize, //  8
+    pub a5: usize, //  9
+    pub a6: usize, // 10
+    pub a7: usize, // 11
+    pub t0: usize, // 12
+    pub t1: usize, // 13
+    pub t2: usize, // 14
+    pub t3: usize, // 15
+    pub t4: usize, // 16
+    pub t5: usize, // 17
+    pub t6: usize, // 18
+    pub t7: usize, // 19
+    pub t8: usize, // 20
+    pub u0: usize, // 21
+    pub fp: usize, // 22
+    pub s0: usize, // 23
+    pub s1: usize, // 24
+    pub s2: usize, // 25
+    pub s3: usize, // 26
+    pub s4: usize, // 27
+    pub s5: usize, // 28
+    pub s6: usize, // 29
+    pub s7: usize, // 30
+    pub s8: usize, // 31
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct TaskTrapContext {
     /// general registers.
-    pub regs: [usize; 32],
+    pub regs: GeneralRegisterContext, // 0 - 31
     /// Pre-exception Mode Information
-    pub prmd: usize,
+    pub prmd: usize, // 32
     /// Exception Return Address
-    pub era: usize,
+    pub era: usize, // 33
     /// Access Memory Address When Exception
-    pub badv: usize,
+    pub badv: usize, // 34
     /// Current Mode Information
-    pub crmd: usize,
-    // TODO: Add kernel coroutine context and float point context
+    pub crmd: usize, // 35
 }
 
 impl ITaskContext for TaskTrapContext {
@@ -27,20 +62,20 @@ impl ITaskContext for TaskTrapContext {
         const PIE: usize = 1 << 2;
         let mut ctx = unsafe { core::mem::zeroed::<Self>() };
 
-        ctx.regs[3] = stack_top;
+        ctx.regs.sp = stack_top;
         ctx.era = entry_pc;
         ctx.prmd = PPLV_UMODE | PIE;
 
-        ctx.regs[4] = argv_base;
+        ctx.regs.a0 = argv_base;
 
         ctx
     }
 
     fn set_stack_top(&mut self, stack_top: usize) {
-        self.regs[3] = stack_top;
+        self.regs.sp = stack_top;
     }
 
     fn set_syscall_return_value(&mut self, ret: usize) {
-        self.regs[4] = ret;
+        self.regs.a0 = ret;
     }
 }
