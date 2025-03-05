@@ -47,16 +47,15 @@ impl const IGenericMappingFlags for GenericMappingFlags {
 
     #[inline(always)]
     fn from_arch(flags: Self::ArchMappingFlags) -> Self {
-        const KERNEL: usize = GenericMappingFlags::Kernel.bits();
-
         let bits = flags.bits();
+        let valid = bits & 0b1;
 
         GenericMappingFlags::from_bits_truncate(
-            KERNEL // The kernel should be able to access the whole user space under RISC-V
-                | ((bits & RV64_USER_MASK) >> (RV64_USER_OFFSET - GENERIC_USER_OFFSET))
-                | ((bits & RV64_READABLE_MASK) >> (RV64_READABLE_OFFSET - GENERIC_READABLE_OFFSET))
-                | ((bits & RV64_WRITABLE_MASK) >> (RV64_WRITABLE_OFFSET - GENERIC_WRITABLE_OFFSET))
-                | ((bits & RV64_EXECUTABLE_MASK) >> (RV64_EXECUTABLE_OFFSET - GENERIC_EXECUTABLE_OFFSET)),
+            (valid << 4) // The kernel should be able to access the whole user space under RISC-V
+                | ((valid << GENERIC_USER_OFFSET) & ((bits & RV64_USER_MASK) >> (RV64_USER_OFFSET - GENERIC_USER_OFFSET)))
+                | ((valid << GENERIC_READABLE_OFFSET) & ((bits & RV64_READABLE_MASK) >> (RV64_READABLE_OFFSET - GENERIC_READABLE_OFFSET)))
+                | ((valid << GENERIC_WRITABLE_OFFSET) & ((bits & RV64_WRITABLE_MASK) >> (RV64_WRITABLE_OFFSET - GENERIC_WRITABLE_OFFSET)))
+                | ((valid << GENERIC_EXECUTABLE_OFFSET) & ((bits & RV64_EXECUTABLE_MASK) >> (RV64_EXECUTABLE_OFFSET - GENERIC_EXECUTABLE_OFFSET))),
         )
     }
 
