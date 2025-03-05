@@ -51,11 +51,11 @@ impl const IGenericMappingFlags for GenericMappingFlags {
 
         GenericMappingFlags::from_bits_truncate(
             ((GenericMappingFlags::Kernel.bits()) // The kernel should be able to access the whole user space under RISC-V
-                | (((bits & RV64_USER_MASK) >> (RV64_USER_OFFSET - GENERIC_USER_OFFSET)))
-                | (((bits & RV64_READABLE_MASK) >> (RV64_READABLE_OFFSET - GENERIC_READABLE_OFFSET)))
-                | (((bits & RV64_WRITABLE_MASK) >> (RV64_WRITABLE_OFFSET - GENERIC_WRITABLE_OFFSET)))
-                | (((bits & RV64_EXECUTABLE_MASK) >> (RV64_EXECUTABLE_OFFSET - GENERIC_EXECUTABLE_OFFSET))))
-            & ((bits & 0b1) * GenericMappingFlags::all().bits()),
+                | ((bits & RV64_USER_MASK) >> (RV64_USER_OFFSET - GENERIC_USER_OFFSET))
+                | ((bits & RV64_READABLE_MASK) >> (RV64_READABLE_OFFSET - GENERIC_READABLE_OFFSET))
+                | ((bits & RV64_WRITABLE_MASK) >> (RV64_WRITABLE_OFFSET - GENERIC_WRITABLE_OFFSET))
+                | ((bits & RV64_EXECUTABLE_MASK) >> (RV64_EXECUTABLE_OFFSET - GENERIC_EXECUTABLE_OFFSET)))
+                & ((bits & 0b1) * GenericMappingFlags::all().bits()),
         )
     }
 

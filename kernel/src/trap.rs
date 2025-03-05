@@ -1,4 +1,3 @@
-use abstractions::IUsizeAlias;
 use address::VirtualAddress;
 use alloc::sync::Arc;
 use log::{trace, warn};
