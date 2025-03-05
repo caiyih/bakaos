@@ -3,13 +3,14 @@ use core::arch::global_asm;
 use loongArch64::{
     self,
     register::{
-        ecfg::{self, LineBasedInterrupt},
+        ecfg::{self},
+        eentry,
         euen, pgdh, pgdl, pwch, pwcl, stlbps, tcfg, tlbidx, tlbrehi, tlbrentry,
     },
 };
 use platform_specific::virt_to_phys;
 
-use crate::clear_bss;
+use crate::{clear_bss, loongarch64::context::init_thread_info};
 
 #[naked]
 #[no_mangle]
@@ -143,15 +144,20 @@ extern "C" fn main_processor_init() {
     // Enable floating point
     euen::set_fpe(true);
 
-    // Set one-shot mode
-    tcfg::set_periodic(true);
-
-    // Set interrupt mask
-    let inter = LineBasedInterrupt::TIMER
-        | LineBasedInterrupt::SWI0
-        | LineBasedInterrupt::SWI1
-        | LineBasedInterrupt::HWI0;
-    ecfg::set_lie(inter);
-
     unsafe { init_thread_info() };
+
+    extern "C" {
+        fn trap_vector_base();
+    }
+
+    set_trap_vector_base(trap_vector_base as usize);
+
+    tcfg::set_init_val(0);
+    tcfg::set_periodic(false);
+    tcfg::set_en(true);
+}
+
+fn set_trap_vector_base(eentry: usize) {
+    ecfg::set_vs(0);
+    eentry::set_eentry(eentry);
 }
