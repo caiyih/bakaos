@@ -23,6 +23,9 @@ mod loongarch64;
 #[cfg(target_arch = "loongarch64")]
 pub use loongarch64::*;
 
+#[cfg(target_arch = "loongarch64")]
+pub type SyscallContext = loongarch64::LA64SyscallContext;
+
 pub use interrupts::*;
 pub use syscalls::*;
 
