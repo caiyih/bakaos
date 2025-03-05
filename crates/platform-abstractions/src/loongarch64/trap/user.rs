@@ -118,8 +118,9 @@ unsafe extern "C" fn __return_to_user(p_ctx: *mut TaskTrapContext) {
             csrwr   $tp,  {KSAVE_TP}        // Save kernel tp
             
             csrwr   $a0,  {KSAVE_CTX}       // Save the pointer to user trap context
+            csrrd   $a0,  {KSAVE_CTX}       // a0 was set to KSAVE_CTX's previous in last instruction
 
-            // dbar 0
+            dbar 0
 
             ld.d    $t1, $a0, 8*33  // era
             csrwr   $t1, 0x6
