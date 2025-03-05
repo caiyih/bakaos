@@ -259,7 +259,7 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, 
         } else if Arch::LEVELS == 4 {
             let pt_l4 = self.raw_table_of(self.root());
             let pt_l4e = &mut pt_l4[Self::p4_index(vaddr)];
-            self.get_next_level(pt_l4e)?
+            self.get_create_next_level(pt_l4e)?
         } else {
             panic!("Unsupported page table");
         };
