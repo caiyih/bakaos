@@ -16,6 +16,5 @@ allocation = { path = "../allocation", features = ["no_std"] }
 platform-specific = { path = "../platform-specific" }
 
 [features]
-default = ["no_std"]
-std = []
-no_std = []
+default = []
+riscv64 = []
