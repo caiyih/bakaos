@@ -15,7 +15,7 @@ pub use serial::*;
 pub const PLATFORM_STRING: &CStr = c"Loongarch64";
 
 pub const PHYS_ADDR_MASK: usize = 0x0000_7FFF_FFFF_FFFF; // keep to lower half
-pub const VIRT_ADDR_OFFSET: usize = 0xFFFF_0000_0000_0000; // to higher half
+pub const VIRT_ADDR_OFFSET: usize = 0x9000_0000_0000_0000; // to higher half
 
 pub use registers::*;
 
