@@ -18,3 +18,4 @@ platform-specific = { path = "../platform-specific" }
 [features]
 default = []
 riscv64 = []
+loongarch64 = []
