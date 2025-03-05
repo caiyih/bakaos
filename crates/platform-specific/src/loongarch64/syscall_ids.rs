@@ -26,8 +26,6 @@ pub const SYSCALL_ID_SENDFILE: usize = 71;
 pub const SYSCALL_ID_PSELECT6: usize = 72;
 pub const SYSCALL_ID_PPOLL: usize = 73;
 pub const SYSCALL_ID_READLINKAT: usize = 78;
-pub const SYSCALL_ID_NEWFSTATAT: usize = usize::MAX; // Not avaliable for LA64, use sys_statx
-pub const SYSCALL_ID_NEWFSTAT: usize = usize::MAX; // Not avaliable for LA64, use sys_statx
 pub const SYSCALL_ID_EXIT: usize = 93;
 pub const SYSCALL_ID_EXIT_GROUP: usize = 94;
 pub const SYSCALL_ID_SET_TID_ADDRESS: usize = 96;
@@ -57,3 +55,7 @@ pub const SYSCALL_ID_WAIT4: usize = 260;
 pub const SYSCALL_ID_PRLIMIT64: usize = 261;
 pub const SYSCALL_ID_GETRANDOM: usize = 278;
 pub const SYSCALL_ID_CLOCK_GETTIME: usize = 113;
+
+// Unavaliable syscalls, use different values to prevent code lint issues
+pub const SYSCALL_ID_NEWFSTATAT: usize = usize::MAX; // Not avaliable for LA64, use sys_statx
+pub const SYSCALL_ID_NEWFSTAT: usize = usize::MAX - 1; // Not avaliable for LA64, use sys_statx
