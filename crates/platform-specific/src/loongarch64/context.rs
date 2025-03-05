@@ -1,5 +1,6 @@
 use crate::ITaskContext;
 
+#[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct GeneralRegisterContext {
     pub r0: usize, //  0
@@ -36,6 +37,7 @@ pub struct GeneralRegisterContext {
     pub s8: usize, // 31
 }
 
+#[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct TaskTrapContext {
     /// general registers.
