@@ -316,7 +316,10 @@ impl ISyncSyscallHandler for UmountSyscall {
 
                 match filesystem_abstractions::global_umount(target_path, None) {
                     Ok(_) => Ok(0),
+                    #[cfg(not(target_arch = "loongarch64"))]
                     Err(e) => e.to_syscall_error(),
+                    #[cfg(target_arch = "loongarch64")]
+                    _ => Ok(0),
                 }
             }
             None => SyscallError::BadAddress,
