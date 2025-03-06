@@ -31,3 +31,7 @@ platform-specific = { path = "../crates/platform-specific" }
 page_table = { path = "../crates/page_table" }
 
 drivers = { path = "../crates/drivers", features = ["virt"] }
+
+[patch.crates-io]
+# patches LoongArch64 support for https://github.com/japaric/cty
+cty = { git = "https://github.com/neuq-rcore/lwext4_rust.git" }
