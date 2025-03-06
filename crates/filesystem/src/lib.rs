@@ -9,12 +9,12 @@ mod ext4_impl;
 mod fatfs_impl;
 // mod lwext4rs_impl;
 
-#[cfg(target_arch = "riscv64")]
+#[cfg(any(target_arch = "riscv64", target_arch = "loongarch64"))]
 mod lwext4_rust_impl;
 
 use alloc::sync::Arc;
 
-#[cfg(target_arch = "riscv64")]
+#[cfg(any(target_arch = "riscv64", target_arch = "loongarch64"))]
 pub use lwext4_rust_impl::Lwext4FileSystem;
 
 pub use ext4_impl::Ext4FileSystem;
@@ -57,7 +57,7 @@ fn create_filesystem(device: Arc<DirectoryTreeNode>) -> Result<Arc<dyn IFileSyst
         return Ok(Arc::new(fat32));
     }
 
-    #[cfg(target_arch = "riscv64")]
+    #[cfg(any(target_arch = "riscv64", target_arch = "loongarch64"))]
     {
         if let Ok(lwext4) = Lwext4FileSystem::new(device.clone()) {
             log::warn!("Creating lwext4");

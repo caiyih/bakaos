@@ -17,8 +17,8 @@ path = { path = "../path", default-features = false  }
 log = "0.4.22"
 hermit-sync = "0.1.6"
 
-[target.'cfg(target_arch = "riscv64")'.dependencies]
-lwext4_rust = { git = "https://github.com/neuq-rcore/lwext4_rust.git", rev = "ba1b701c02d0e62dcfe3133d551139882fcee495", features = ["shutfuckup"] }
+[target.'cfg(any(target_arch = "riscv64", target_arch = "loongarch64"))'.dependencies]
+lwext4_rust = { git = "https://github.com/neuq-rcore/lwext4_rust.git", rev = "9faef422a38ca7ea68b71d7107f5631838eed781", features = ["shutfuckup"] }
 
 [features]
 default = ["no_std"]
