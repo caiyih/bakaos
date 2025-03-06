@@ -96,7 +96,7 @@ unsafe extern "C" fn __on_user_trap() {
 }
 
 #[naked]
-unsafe extern "C" fn __return_to_user(p_ctx: *mut TaskTrapContext) {
+unsafe extern "C" fn __return_to_user(p_ctx: &mut TaskTrapContext) {
     naked_asm!(
         "
             // Save kernel coroutine context
@@ -174,10 +174,15 @@ unsafe extern "C" fn __return_to_user(p_ctx: *mut TaskTrapContext) {
 #[no_mangle]
 pub extern "C" fn return_to_user(tcb: &Arc<TaskControlBlock>) {
     let ctx = tcb.trap_context.get();
+    let m_ctx = unsafe { ctx.as_mut().unwrap() };
+
+    m_ctx.fregs.activate_restore();
 
     unsafe {
-        __return_to_user(ctx);
+        __return_to_user(m_ctx);
     }
+
+    m_ctx.fregs.snapshot();
 }
 
 pub fn translate_current_trap() -> UserInterrupt {
