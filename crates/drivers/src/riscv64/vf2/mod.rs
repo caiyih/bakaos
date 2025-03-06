@@ -13,6 +13,16 @@ use crate::{BlockDeviceInode, IMachine};
 #[derive(Clone, Copy)]
 pub struct VF2Machine;
 
+impl VF2Machine {
+    const fn bus0(&self) -> usize {
+        0x16020000
+    }
+
+    const fn bus_width(&self) -> usize {
+        0x1_0000
+    }
+}
+
 impl IMachine for VF2Machine {
     fn name(&self) -> &'static str {
         "StarFive VisionFive 2"
@@ -33,14 +43,6 @@ impl IMachine for VF2Machine {
     fn memory_end(&self) -> usize {
         // 4 GB
         0x1_80000000
-    }
-
-    fn bus0(&self) -> usize {
-        0x16020000
-    }
-
-    fn bus_width(&self) -> usize {
-        0x1_0000
     }
 
     fn create_block_device_at(&self, device_id: usize) -> Arc<BlockDeviceInode> {

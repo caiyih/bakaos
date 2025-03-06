@@ -22,13 +22,6 @@ pub trait IMachine {
         }
     }
 
-    fn bus0(&self) -> usize;
-    fn bus_width(&self) -> usize;
-
-    fn mmc_driver(&self, device_id: usize) -> usize {
-        self.bus0() + device_id * self.bus_width()
-    }
-
     #[inline(always)]
     fn machine_uptime(&self) -> u64 {
         self.get_board_tick() as u64 / self.clock_freq()

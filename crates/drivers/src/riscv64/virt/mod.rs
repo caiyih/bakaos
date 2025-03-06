@@ -19,6 +19,16 @@ use crate::{BlockDeviceInode, IMachine};
 #[derive(Clone, Copy)]
 pub struct VirtMachine;
 
+impl VirtMachine {
+    const fn bus0(&self) -> usize {
+        0x1000_1000
+    }
+
+    const fn bus_width(&self) -> usize {
+        0x1000
+    }
+}
+
 impl IMachine for VirtMachine {
     fn name(&self) -> &'static str {
         "QEMU Virt Machine(RISC-V)"
@@ -41,16 +51,8 @@ impl IMachine for VirtMachine {
         0x8800_0000
     }
 
-    fn bus0(&self) -> usize {
-        0x1000_1000
-    }
-
-    fn bus_width(&self) -> usize {
-        0x1000
-    }
-
     fn create_block_device_at(&self, device_id: usize) -> alloc::sync::Arc<BlockDeviceInode> {
-        let mmio_pa = self.mmc_driver(device_id);
+        let mmio_pa = self.bus0() + device_id * self.bus_width();
         let mmio_va = mmio_pa | constants::VIRT_ADDR_OFFSET;
 
         let ptr = unsafe { NonNull::new_unchecked(mmio_va as *mut VirtIOHeader) };
