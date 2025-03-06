@@ -1,10 +1,11 @@
 use alloc::{sync::Arc, vec::Vec};
 use core::{fmt::Debug, slice};
+use page_table::GenericMappingFlags;
 
 use abstractions::IUsizeAlias;
 use address::{
-    IPageNum, IToPageNum, PhysicalAddress, PhysicalPageNum, VirtualAddress, VirtualPageNum,
-    VirtualPageNumRange,
+    IConvertablePhysicalAddress, IPageNum, IToPageNum, PhysicalPageNum, VirtualAddress,
+    VirtualPageNum, VirtualPageNumRange,
 };
 use allocation::TrackedFrame;
 use bitflags::bitflags;
@@ -12,8 +13,6 @@ use filesystem_abstractions::{
     DirectoryEntryType, DirectoryTreeNode, FileCacheAccessor, FileDescriptor, FileMetadata,
     ICacheableFile, IFile,
 };
-
-use crate::PageTableEntryFlags;
 
 bitflags! {
     #[derive(Debug, Clone, Copy)]
@@ -121,7 +120,7 @@ impl TaskMemoryMap {
         prot: MemoryMapProt,
         offset: usize,
         length: usize,
-        mut register_page: impl FnMut(VirtualPageNum, PhysicalPageNum, PageTableEntryFlags),
+        mut register_page: impl FnMut(VirtualPageNum, PhysicalPageNum, GenericMappingFlags),
     ) -> Option<VirtualAddress> {
         let mapped_file_idx = self.get_create_mapped_file(fd, flags, length)?;
 
@@ -140,21 +139,19 @@ impl TaskMemoryMap {
             let ppn = mapped_file.frames[start_frame_idx + i].ppn();
             let vpn = start_page + i;
 
-            let mut permissions = PageTableEntryFlags::Valid
-                | PageTableEntryFlags::User
-                | PageTableEntryFlags::Dirty
-                | PageTableEntryFlags::Accessed;
+            let mut permissions = GenericMappingFlags::User;
 
+            // TODO: Can be optimized with bit ops
             if prot.contains(MemoryMapProt::READ) {
-                permissions |= PageTableEntryFlags::Readable;
+                permissions |= GenericMappingFlags::Readable;
             }
 
             if prot.contains(MemoryMapProt::WRITE) {
-                permissions |= PageTableEntryFlags::Writable;
+                permissions |= GenericMappingFlags::Writable;
             }
 
             if prot.contains(MemoryMapProt::EXECUTE) {
-                permissions |= PageTableEntryFlags::Executable;
+                permissions |= GenericMappingFlags::Executable;
             }
 
             register_page(vpn, ppn, permissions);
@@ -292,11 +289,8 @@ impl TaskMemoryMap {
                             let offset = idx * constants::PAGE_SIZE;
                             let length = core::cmp::min(constants::PAGE_SIZE, file.length - offset);
 
-                            let ptr = unsafe {
-                                ppn.start_addr::<PhysicalAddress>()
-                                    .to_high_virtual()
-                                    .as_mut_ptr::<u8>()
-                            };
+                            let ptr =
+                                unsafe { ppn.start_addr().to_high_virtual().as_mut_ptr::<u8>() };
                             let slice = unsafe { core::slice::from_raw_parts_mut(ptr, length) };
 
                             // ignore the result
@@ -410,11 +404,7 @@ impl MemoryMappedFile {
             let offset = idx * constants::PAGE_SIZE;
             let length = core::cmp::min(constants::PAGE_SIZE, size - offset);
 
-            let ptr = unsafe {
-                ppn.start_addr::<PhysicalAddress>()
-                    .to_high_virtual()
-                    .as_mut_ptr::<u8>()
-            };
+            let ptr = unsafe { ppn.start_addr().to_high_virtual().as_mut_ptr::<u8>() };
             let slice = unsafe { core::slice::from_raw_parts_mut(ptr, length) };
 
             inode.readat(offset, slice).ok()?;
@@ -507,11 +497,7 @@ impl IFile for MemoryMappedFile {
             let in_page_len = core::cmp::min(in_page_len, buf.len() - (current_offset - offset));
 
             let ppn = self.frames[current_frame_idx].ppn();
-            let ptr = unsafe {
-                ppn.start_addr::<PhysicalAddress>()
-                    .to_high_virtual()
-                    .as_mut_ptr::<u8>()
-            };
+            let ptr = unsafe { ppn.start_addr().to_high_virtual().as_mut_ptr::<u8>() };
 
             let bytes_read = current_offset - offset;
 
@@ -553,11 +539,7 @@ impl IFile for MemoryMappedFile {
             let in_page_len = core::cmp::min(in_page_len, buf.len() - (current_offset - offset));
 
             let ppn = self.frames[current_frame_idx].ppn();
-            let ptr = unsafe {
-                ppn.start_addr::<PhysicalAddress>()
-                    .to_high_virtual()
-                    .as_ptr::<u8>()
-            };
+            let ptr = unsafe { ppn.start_addr().to_high_virtual().as_ptr::<u8>() };
 
             let src_slice = unsafe { slice::from_raw_parts(ptr, in_page_len) };
             let dst_start = current_offset - offset;

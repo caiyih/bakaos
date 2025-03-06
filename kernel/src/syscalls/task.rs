@@ -4,23 +4,24 @@ use abstractions::operations::IUsizeAlias;
 use address::{IPageNum, IToPageNum, VirtualAddress};
 use alloc::vec::Vec;
 use constants::{ErrNo, SyscallError};
+use drivers::{current_timespec, current_timeval, ITimer};
 use filesystem_abstractions::DirectoryEntryType;
 use log::debug;
-use paging::{
-    page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, PageTable,
-    PageTableEntryFlags,
-};
+use page_table::GenericMappingFlags;
+use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, PageTable};
+use platform_abstractions::ISyscallContext;
+use platform_specific::ITaskContext;
 use tasks::{TaskCloneFlags, TaskStatus};
 use timing::{TimeSpec, TimeVal};
 
-use crate::{scheduling::spawn_task, timing::ITimer};
+use crate::scheduling::spawn_task;
 
 use super::{ISyncSyscallHandler, SyscallContext, SyscallResult};
 
 pub struct ExitSyscall;
 
 impl ISyncSyscallHandler for ExitSyscall {
-    fn handle(&self, ctx: &mut SyscallContext<'_>) -> SyscallResult {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
         let code = ctx.arg0::<isize>();
 
         ctx.exit_code
@@ -63,7 +64,7 @@ impl ISyncSyscallHandler for TimesSyscall {
                 let timer_elapsed = ctx.timer.lock().elapsed().total_seconds();
                 let kernel_elapsed = ctx.kernel_timer.lock().elapsed().total_seconds();
 
-                guard.tms_utime = ((timer_elapsed - kernel_elapsed) * CLOCKS_PER_SEC) as i64;
+                guard.tms_utime = (timer_elapsed * CLOCKS_PER_SEC) as i64;
                 guard.tms_stime = (kernel_elapsed * CLOCKS_PER_SEC) as i64;
 
                 let children_timer_elapsed = ctx.children.lock().iter().fold(0f64, |acc, child| {
@@ -116,7 +117,7 @@ impl ISyncSyscallHandler for BrkSyscall {
 
         // new brk is in the same page, no need to allocate new pages
         // Only update brk position
-        let brk_page_end = brk_area.end().start_addr::<VirtualAddress>().as_usize();
+        let brk_page_end = brk_area.end().start_addr().as_usize();
         if brk < brk_page_end {
             pcb.brk_pos = brk;
             return Ok(brk as isize);
@@ -155,7 +156,7 @@ impl ISyncSyscallHandler for GetTimeOfDaySyscall {
             .with_write()
         {
             Some(mut guard) => {
-                *guard = crate::timing::current_timeval();
+                *guard = current_timeval();
                 Ok(0)
             }
             None => SyscallError::BadAddress,
@@ -239,7 +240,7 @@ impl ISyncSyscallHandler for CloneSyscall {
         let flags = ctx.arg0::<TaskCloneFlags>();
         let sp = ctx.arg1::<VirtualAddress>();
         let ptid = ctx.arg2::<*mut usize>();
-        let tls = ctx.arg3::<usize>();
+        let _tls = ctx.arg3::<usize>();
         let pctid = ctx.arg4::<*mut usize>();
 
         // TODO: Implement thread fork
@@ -257,10 +258,10 @@ impl ISyncSyscallHandler for CloneSyscall {
 
         let new_trap_ctx = new_task.mut_trap_ctx();
 
-        new_trap_ctx.regs.a0 = 0; // Child task's return value is 0
+        new_trap_ctx.set_syscall_return_value(0); // Child task's return value is 0
 
         if sp.as_usize() != 0 {
-            new_trap_ctx.regs.sp = sp;
+            new_trap_ctx.set_stack_top(sp.as_usize());
         }
 
         if flags.contains(TaskCloneFlags::PARENT_SETTID) {
@@ -291,9 +292,10 @@ impl ISyncSyscallHandler for CloneSyscall {
             );
         }
 
-        if flags.contains(TaskCloneFlags::SETTLS) {
-            ctx.mut_trap_ctx().regs.tp = tls;
-        }
+        // FIXME: figure out a way to do this under multiple arch
+        // if flags.contains(TaskCloneFlags::SETTLS) {
+        //     ctx.mut_trap_ctx().regs.tp = tls;
+        // }
 
         // TODO: Set clear tid address to pctid
 
@@ -317,16 +319,16 @@ impl ISyncSyscallHandler for ExecveSyscall {
         ) -> Option<Vec<&str>> {
             match pt
                 .guard_unsized_cstr_array(ptr, 1024)
-                .must_have(PageTableEntryFlags::User)
-                .with(PageTableEntryFlags::Readable)
+                .must_have(GenericMappingFlags::User)
+                .with(GenericMappingFlags::Readable)
             {
                 Some(_) => {
                     let mut array = Vec::new();
                     while !unsafe { ptr.read_volatile().is_null() } {
                         match pt
                             .guard_cstr(unsafe { *ptr }, 1024)
-                            .must_have(PageTableEntryFlags::User)
-                            .with(PageTableEntryFlags::Readable)
+                            .must_have(GenericMappingFlags::User)
+                            .with(GenericMappingFlags::Readable)
                         {
                             Some(str_guard) => unsafe {
                                 let bytes = core::slice::from_raw_parts(*ptr, str_guard.len());
@@ -353,7 +355,7 @@ impl ISyncSyscallHandler for ExecveSyscall {
         match ctx
             .borrow_page_table()
             .guard_cstr(pathname, 1024)
-            .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
+            .must_have(GenericMappingFlags::User | GenericMappingFlags::Readable)
         {
             Some(path_guard) => {
                 let path = str::from_utf8(&path_guard).map_err(|_| ErrNo::InvalidArgument)?;
@@ -389,7 +391,7 @@ impl ISyncSyscallHandler for ExecveSyscall {
 
                         unsafe {
                             *ctx.start_time.get().as_mut().unwrap().assume_init_mut() =
-                                crate::timing::current_timespec();
+                                current_timespec();
                             ctx.kernel_timer.lock().start();
                             ctx.timer.lock().start();
                         }
@@ -417,7 +419,7 @@ impl ISyncSyscallHandler for ChdirSyscall {
         match ctx
             .borrow_page_table()
             .guard_cstr(p_path, 1024)
-            .must_have(PageTableEntryFlags::User | PageTableEntryFlags::Readable)
+            .must_have(GenericMappingFlags::User | GenericMappingFlags::Readable)
         {
             Some(guard) => {
                 let path = str::from_utf8(&guard).map_err(|_| ErrNo::InvalidArgument)?;
@@ -472,7 +474,7 @@ impl ISyncSyscallHandler for ClockGetTimeSyscall {
             Some(mut guard) => {
                 match ctx.arg0::<usize>() {
                     CLOCK_REALTIME | CLOCK_MONOTONIC => {
-                        *guard = crate::timing::current_timespec();
+                        *guard = current_timespec();
                         Ok(0)
                     }
                     CLOCK_PROCESS_CPUTIME_ID => {

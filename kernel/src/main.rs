@@ -7,114 +7,39 @@
 #![feature(alloc_error_handler)]
 #![allow(internal_features)]
 #![feature(core_intrinsics)]
+#![feature(cfg_accessible)]
 
-mod ci_helper;
-mod firmwares;
+mod dmesg;
 mod kernel;
 mod logging;
 mod memory;
-mod panic_handling;
-mod platform;
 mod processor;
 mod scheduling;
-mod serial;
 mod shared_memory;
 mod statistics;
 mod syscalls;
-mod system;
-mod timing;
 mod trap;
 
-use ::timing::TimeSpec;
-use alloc::string::String;
-use core::{arch::naked_asm, sync::atomic::AtomicBool};
-use filesystem_abstractions::{global_mount_inode, global_open};
-use firmwares::console::{IConsole, KernelMessageInode};
+use address::{IConvertableVirtualAddress, VirtualAddress};
+use alloc::{string::String, sync::Arc};
+use core::sync::atomic::AtomicBool;
+use dmesg::KernelMessageInode;
+use drivers::current_timespec;
+use filesystem_abstractions::{global_mount_inode, global_open, IInode};
 use paging::PageTable;
-use sbi_spec::base::impl_id;
+use platform_specific::legacy_println;
 use scheduling::ProcDeviceInode;
 use tasks::ProcessControlBlock;
 
 extern crate alloc;
 
-#[naked]
-#[no_mangle]
-#[link_section = ".text.entry"]
-unsafe extern "C" fn _start() -> ! {
-    naked_asm!(
-        // Read the hart id
-        "mv tp, a0",
-        // Read the device tree address
-        "mv gp, a1",
-        // Setup virtual memory
-        // See comments below for details
-        "la t0, {page_table}",
-        "srli t0, t0, 12", // get the physical page number of PageTabe
-        "li t1, 8 << 60",
-        "or t0, t0, t1", // ppn | 8 << 60
-        "csrw satp, t0",
-        "sfence.vma",
-        // jump to virtualized entry
-        "li t1, {virt_addr_offset}",
-        "la t0, {entry}",
-        "or t0, t0, t1",
-        // Do not save the return address to ra
-        "jr t0",
-        page_table = sym PAGE_TABLE,
-        virt_addr_offset = const constants::VIRT_ADDR_OFFSET,
-        entry = sym _start_virtualized,
-    )
+// Rust compiler leaves out `_start` if not explicitly used in the exact project to be compiled
+// So we use a stub to ensure it compiled.
+// This function does not have to be called, and is even not compiled
+// it's only used to cheat the compiler
+unsafe extern "C" fn __ensure_start_compiled() -> ! {
+    platform_abstractions::_start();
 }
-
-#[naked]
-#[no_mangle]
-#[link_section = ".text.entry"]
-unsafe extern "C" fn _start_virtualized() -> ! {
-    naked_asm!(
-        // Naver come back!
-        "xor ra, ra, ra",
-        // Clear fp so that unwind knows where to stop
-        "xor fp, fp, fp",
-        // Load the stack pointer after we entered the high half
-        // The symbols are loaded with a fixed offset to PC
-        // If we load the stack pointer before we entered the high half
-        // The stack pointer will be in the low half, which is not what we want
-        // But I still `or` the stack pointer with the offset to make the code more readable
-        "la sp, __tmp_stack_top",
-        "li t0, {virt_addr_offset}",
-        "or sp, t0, sp",
-        "j __kernel_start_main",
-        virt_addr_offset = const constants::VIRT_ADDR_OFFSET,
-    )
-}
-
-// This basically includes two parts
-//   1. Identity mapping of [0x40000000, 0x80000000) and [0x80000000, 0xc0000000)]
-//   2. High half kernel mapping of
-//      [ VIRTUAL_ADDRESS_OFFSET | 0x00000000, VIRTUAL_ADDRESS_OFFSET | 0x40000000)
-//           to [0x00000000, 0x40000000)
-//
-//      [ VIRTUAL_ADDRESS_OFFSET | 0x40000000, VIRTUAL_ADDRESS_OFFSET | 0x80000000)
-//           to [0x40000000, 0x80000000)
-//
-//      [ VIRTUAL_ADDRESS_OFFSET | 0x80000000, VIRTUAL_ADDRESS_OFFSET | 0xc0000000)
-//           to [0x80000000, 0xc0000000)
-//
-// The first part is essential as the pc is still at the low half
-// since satp is write until jump to virtualized entry
-// But the two pages is not needed after the kernel entered the _start_virtualized
-#[link_section = ".data.prepage"]
-static mut PAGE_TABLE: [usize; 512] = {
-    let mut arr: [usize; 512] = [0; 512];
-    arr[1] = (0x40000 << 10) | 0xcf;
-    arr[2] = (0x80000 << 10) | 0xcf;
-    // Should be '(0x00000 << 10) | 0xcf' for clarifity
-    // But Cargo clippy complains about this line, so i just write 0xcf here
-    arr[0x100] = 0xcf;
-    arr[0x101] = (0x40000 << 10) | 0xcf;
-    arr[0x102] = (0x80000 << 10) | 0xcf;
-    arr
-};
 
 #[no_mangle]
 fn main() {
@@ -265,16 +190,20 @@ unsafe extern "C" fn __kernel_init() {
         return;
     }
 
-    clear_bss();
     debug_info();
     logging::init();
+    drivers::initialize();
     kernel::init();
-    timing::initialize();
 
     memory::init();
 
-    let machine = kernel::get().machine();
-    allocation::init(machine.memory_end());
+    extern "C" {
+        fn ekernel();
+    }
+
+    let machine = drivers::machine();
+    let bottom = VirtualAddress::as_physical(ekernel as usize);
+    allocation::init(bottom, machine.memory_end());
 
     // Must be called after allocation::init because it depends on frame allocator
     paging::init(PageTable::borrow_current());
@@ -287,7 +216,8 @@ unsafe extern "C" fn __kernel_init() {
     ProcDeviceInode::setup();
 
     let sda = machine.create_block_device_at(0);
-    filesystem_abstractions::global_mount_inode(&sda, "/dev/sda", None).unwrap();
+    filesystem_abstractions::global_mount_inode(&(sda as Arc<dyn IInode>), "/dev/sda", None)
+        .unwrap();
 
     filesystem::global_mount_device("/dev/sda", "/mnt", None).unwrap();
 
@@ -299,9 +229,10 @@ unsafe extern "C" fn __kernel_init() {
     global_mount_inode(&kmsg, "/dev/kmsg", None).unwrap();
     global_mount_inode(&kmsg, "/proc/kmsg", None).unwrap();
 
-    let rtc_time = display_current_time(8);
+    let rtc_time = current_timespec();
 
-    let seed = (((rtc_time.tv_nsec as u64) << 32) | machine.clock_freq()) ^ 0xdeadbeef;
+    let seed =
+        (((rtc_time.tv_nsec as u64) << 32) | machine.query_performance_frequency()) ^ 0xdeadbeef;
 
     log::info!("Setting up global rng with seed: {}", seed);
 
@@ -309,155 +240,22 @@ unsafe extern "C" fn __kernel_init() {
 }
 
 #[no_mangle]
-#[link_section = ".text.entry"]
 #[allow(named_asm_labels)]
 unsafe extern "C" fn __kernel_start_main() -> ! {
     __kernel_init();
 
-    // TODO: Setup interrupt/trap subsystem
-    trap::init();
+    platform_abstractions::init_trap();
 
     main();
 
-    system::shutdown_successfully();
+    platform_abstractions::machine_shutdown(false)
 }
 
 fn debug_info() {
+    #[cfg_accessible(platform_specific::init_serial)]
+    platform_specific::init_serial();
+
     legacy_println!("Welcome to BAKA OS!");
 
-    legacy_println!("SBI specification version: {0}", sbi_rt::get_spec_version());
-
-    let sbi_impl = sbi_rt::get_sbi_impl_id();
-    let sbi_impl = match sbi_impl {
-        impl_id::BBL => "Berkley Bootloader",
-        impl_id::OPEN_SBI => "OpenSBI",
-        impl_id::XVISOR => "Xvisor",
-        impl_id::KVM => "Kvm",
-        impl_id::RUST_SBI => "RustSBI",
-        impl_id::DIOSIX => "Diosix",
-        impl_id::COFFER => "Coffer",
-        _ => "Unknown",
-    };
-
-    legacy_println!("SBI implementation: {0}", sbi_impl);
-
-    legacy_println!("Console type: {0}", serial::legacy_console().name());
-}
-
-unsafe fn clear_bss() {
-    extern "C" {
-        fn sbss();
-        fn ebss();
-    }
-
-    // After benchmarking, we got results below:
-    // clear_bss_for_loop:
-    //    ~160 ticks            iter 0
-    //    ~40 ticks             iter 1 to 20
-    // clear_bss_fast:
-    //    ~203 ticks            iter 0
-    //    ~2 ticks              iter 1 to 20
-    // clear_bss_slice_fill:
-    //    ~470 ticks            iter 0
-    //    ~9 ticks              iter 1 to 20
-    // We can see that clear_bss_for_loop is the fastest at the first iteration
-    // Although clear_bss_fast is MUCH FASTER at the following iterations than it
-    // Since We only have to clear bss once, we choose clear_bss_for_loop
-    // This may be related to the CPU cache and branch prediction
-    // because only the first iteration is affected the most
-    // Also, we use u64 to write memory, which is faster than u8
-    // And the compiler will actually unroll the loop by 2 times
-    // So the actual loop writes 128 bits at a time
-    clear_bss_for_loop(sbss as usize, ebss as usize);
-}
-
-unsafe fn clear_bss_for_loop(begin: usize, end: usize) {
-    core::ptr::write_bytes(begin as *mut u8, 0, end - begin);
-}
-
-// This method is no longer used
-// See comments in clear_bss for details
-// unsafe fn clear_bss_fast(mut begin: usize, end: usize) {
-//     // bss sections must be 4K aligned
-//     debug_assert!(begin & 4095 == 0);
-//     debug_assert!(end & 4095 == 0);
-//     debug_assert!((end - begin) & 4095 == 0);
-
-//     // Since riscv64gc supports neither SIMD or 128 bit integer operations
-//     // We can only uses unsigned 64 bit integers to write memory
-//     // u64 writes 64 bits at a time，still faster than u8 writes
-//     // let mut ptr = begin as *mut u64;
-
-//     // 8 times loop unrolling
-//     // since the bss section is 4K aligned, we can safely write 512 bits at a time
-//     while begin < end {
-//         asm!(
-//             "sd x0, 0({0})",
-//             "sd x0, 8({0})",
-//             "sd x0, 16({0})",
-//             "sd x0, 24({0})",
-//             "sd x0, 32({0})",
-//             "sd x0, 40({0})",
-//             "sd x0, 48({0})",
-//             "sd x0, 56({0})",
-//             in(reg) begin
-//         );
-
-//         begin += 16;
-//     }
-// }
-
-fn display_current_time(timezone_offset: i64) -> TimeSpec {
-    #[inline(always)]
-    fn is_leap_year(year: i64) -> bool {
-        (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
-    }
-
-    #[inline(always)]
-    fn days_in_month(year: i64, month: u8) -> u8 {
-        const DAYS: [u8; 12] = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-        if month == 2 && is_leap_year(year) {
-            29
-        } else {
-            DAYS[(month - 1) as usize]
-        }
-    }
-
-    let time_spec = crate::timing::current_timespec();
-
-    let mut total_seconds = time_spec.tv_sec + timezone_offset * 3600;
-
-    let seconds = (total_seconds % 60) as u8;
-    total_seconds /= 60;
-    let minutes = (total_seconds % 60) as u8;
-    total_seconds /= 60;
-    let hours = (total_seconds % 24) as u8;
-    total_seconds /= 24;
-
-    let mut year = 1970;
-    while total_seconds >= if is_leap_year(year) { 366 } else { 365 } {
-        total_seconds -= if is_leap_year(year) { 366 } else { 365 };
-        year += 1;
-    }
-
-    let mut month = 1;
-    while total_seconds >= days_in_month(year, month) as i64 {
-        total_seconds -= days_in_month(year, month) as i64;
-        month += 1;
-    }
-
-    let day = (total_seconds + 1) as u8;
-
-    log::info!(
-        "Welcome, current time is: {:04}-{:02}-{:02} {:02}:{:02}:{:02}(UTC+{:02})",
-        year,
-        month,
-        day,
-        hours,
-        minutes,
-        seconds,
-        timezone_offset
-    );
-
-    time_spec
+    platform_abstractions::print_bootloader_info();
 }

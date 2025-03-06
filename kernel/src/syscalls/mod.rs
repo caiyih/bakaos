@@ -1,6 +1,4 @@
-use core::ops::Deref;
-
-use alloc::{format, sync::Arc};
+use alloc::format;
 use constants::SyscallError;
 use file::{
     CloseSyscall, Dup3Syscall, DupSyscall, FileTruncateSyscall, GetDents64Syscall, LinkAtSyscall,
@@ -15,6 +13,7 @@ use file_async::{
 use futex_async::sys_futex_async;
 use io_multiplexing::{sys_ppoll_async, sys_pselect6_async};
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
+use platform_abstractions::{ISyscallContext, SyscallContext};
 use shm::{SharedMemoryAttachSyscall, SharedMemoryGetSyscall};
 use system::{GetRandomSyscall, ShutdownSyscall, SystemInfoSyscall, SystemLogSyscall};
 use task::{
@@ -23,16 +22,14 @@ use task::{
     GetTimeOfDaySyscall, ResourceLimitSyscall, TimesSyscall,
 };
 use task_async::{sys_nanosleep_async, sys_sched_yield_async, sys_wait4_async};
-use tasks::TaskControlBlock;
 
-use syscall_id::*;
+use platform_specific::syscall_ids::*;
 
 mod file;
 mod file_async;
 mod futex_async;
 mod io_multiplexing;
 mod shm;
-mod syscall_id;
 mod system;
 mod task;
 mod task_async;
@@ -55,13 +52,8 @@ impl ISyscallResult for SyscallResult {
 pub struct SyscallDispatcher;
 
 impl SyscallDispatcher {
-    pub fn dispatch(
-        tcb: &Arc<TaskControlBlock>,
-        syscall_id: usize,
-    ) -> Option<(SyscallContext, &'static dyn ISyncSyscallHandler)> {
-        let handler = Self::translate_id(syscall_id)?;
-
-        Some((SyscallContext::new(tcb), handler))
+    pub fn dispatch(syscall_id: usize) -> Option<&'static dyn ISyncSyscallHandler> {
+        Self::translate_id(syscall_id)
     }
 
     fn translate_id(id: usize) -> Option<&'static dyn ISyncSyscallHandler> {
@@ -117,91 +109,28 @@ impl SyscallDispatcher {
     }
 
     pub async fn dispatch_async(
-        tcb: &Arc<TaskControlBlock>,
+        ctx: &mut SyscallContext,
         syscall_id: usize,
     ) -> Option<SyscallResult> {
-        let mut ctx = SyscallContext::new(tcb);
-
         // Since interface with async function brokes object safety
         // The return value of a async function is actually a anonymous Type implementing Future
         // So we have to use static dispatch here
         match syscall_id {
-            SYSCALL_ID_WRITE => Some(sys_write_async(&mut ctx).await),
-            SYSCALL_ID_READ => Some(sys_read_async(&mut ctx).await),
-            SYSCALL_ID_NANOSLEEP => Some(sys_nanosleep_async(&mut ctx).await),
-            SYSCALL_ID_SCHED_YIELD => Some(sys_sched_yield_async(&mut ctx).await),
-            STSCALL_ID_WAIT4 => Some(sys_wait4_async(&mut ctx).await),
-            SYSCALL_ID_SENDFILE => Some(sys_sendfile_async(&mut ctx).await),
-            SYSCALL_ID_WRITEV => Some(sys_writev_async(&mut ctx).await),
-            SYSCALL_ID_READV => Some(sys_readv_async(&mut ctx).await),
-            SYSCALL_ID_FUTEX => Some(sys_futex_async(&mut ctx).await),
-            SYSCALL_ID_PSELECT6 => Some(sys_pselect6_async(&mut ctx).await),
-            SYSCALL_ID_PPOLL => Some(sys_ppoll_async(&mut ctx).await),
-            SYSCALL_ID_PREAD => Some(sys_pread_async(&mut ctx).await),
-            SYSCALL_ID_PWRITE => Some(sys_pwrite_async(&mut ctx).await),
+            SYSCALL_ID_WRITE => Some(sys_write_async(ctx).await),
+            SYSCALL_ID_READ => Some(sys_read_async(ctx).await),
+            SYSCALL_ID_NANOSLEEP => Some(sys_nanosleep_async(ctx).await),
+            SYSCALL_ID_SCHED_YIELD => Some(sys_sched_yield_async(ctx).await),
+            SYSCALL_ID_WAIT4 => Some(sys_wait4_async(ctx).await),
+            SYSCALL_ID_SENDFILE => Some(sys_sendfile_async(ctx).await),
+            SYSCALL_ID_WRITEV => Some(sys_writev_async(ctx).await),
+            SYSCALL_ID_READV => Some(sys_readv_async(ctx).await),
+            SYSCALL_ID_FUTEX => Some(sys_futex_async(ctx).await),
+            SYSCALL_ID_PSELECT6 => Some(sys_pselect6_async(ctx).await),
+            SYSCALL_ID_PPOLL => Some(sys_ppoll_async(ctx).await),
+            SYSCALL_ID_PREAD => Some(sys_pread_async(ctx).await),
+            SYSCALL_ID_PWRITE => Some(sys_pwrite_async(ctx).await),
             _ => None,
         }
-    }
-}
-
-pub struct SyscallContext<'a> {
-    tcb: &'a Arc<TaskControlBlock>,
-    args: &'a [usize; 6],
-}
-
-impl<'a> SyscallContext<'a> {
-    pub fn new(tcb: &'a Arc<TaskControlBlock>) -> Self {
-        let args = unsafe { &*(&tcb.mut_trap_ctx().regs.a0 as *const usize as *const [usize; 6]) };
-        SyscallContext { tcb, args }
-    }
-}
-
-#[allow(unused)]
-impl SyscallContext<'_> {
-    #[inline]
-    fn arg_i<T: Sized + Copy>(&self, i: usize) -> T {
-        debug_assert!(core::mem::size_of::<T>() <= core::mem::size_of::<usize>());
-        let arg = self.args[i];
-        // Since RISCV is little-endian, we can safely cast usize to T
-        unsafe { core::ptr::read(&arg as *const usize as *const T) }
-    }
-
-    #[inline]
-    pub fn arg0<T: Sized + Copy>(&self) -> T {
-        self.arg_i::<T>(0)
-    }
-
-    #[inline]
-    pub fn arg1<T: Sized + Copy>(&self) -> T {
-        self.arg_i::<T>(1)
-    }
-
-    #[inline]
-    pub fn arg2<T: Sized + Copy>(&self) -> T {
-        self.arg_i::<T>(2)
-    }
-
-    #[inline]
-    pub fn arg3<T: Sized + Copy>(&self) -> T {
-        self.arg_i::<T>(3)
-    }
-
-    #[inline]
-    pub fn arg4<T: Sized + Copy>(&self) -> T {
-        self.arg_i::<T>(4)
-    }
-
-    #[inline]
-    pub fn arg5<T: Sized + Copy>(&self) -> T {
-        self.arg_i::<T>(5)
-    }
-}
-
-impl Deref for SyscallContext<'_> {
-    type Target = Arc<TaskControlBlock>;
-
-    fn deref(&self) -> &Self::Target {
-        self.tcb
     }
 }
 
@@ -234,17 +163,17 @@ macro_rules! sync_syscall {
 macro_rules! async_syscall {
     ($name:ident, $param:ident, $body:block) => {
         pub async fn $name(
-            $param: &mut $crate::syscalls::SyscallContext<'_>,
+            $param: &mut ::platform_abstractions::SyscallContext,
         ) -> $crate::syscalls::SyscallResult {
             // It's hard to find the syscall id constants with macro
             // So we just read the syscall id from the register
-            let sys_id = $param.tcb.mut_trap_ctx().regs.a7;
+            let sys_id = $param.syscall_id();
             log::trace!(
-                "[User trap] [Exception::Syscall] Async handler name: {}({}), task: {}({})",
+                "[Exception::Syscall] [Task {}({})] Async handler name: {}({})",
+                $param.task_id.id(),
+                $param.pcb.lock().id,
                 stringify!($name),
                 sys_id,
-                $param.tcb.task_id.id(),
-                $param.tcb.pcb.lock().id
             );
             $body
         }
@@ -301,7 +230,9 @@ impl ISyncSyscallHandler for UnameSyscall {
                 guard.write_to(1, "BakaOS");
                 guard.write_to(2, "9.9.9");
                 guard.write_to(3, &format!("#9 {}", constants::BUILD_TIME));
-                guard.write_to(4, "RISC-IX");
+                guard.write_to(4, unsafe {
+                    core::str::from_utf8_unchecked(platform_specific::PLATFORM_STRING.to_bytes())
+                });
                 guard.write_to(5, "The most intelligent and strongest Cirno");
 
                 Ok(0)

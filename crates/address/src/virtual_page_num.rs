@@ -3,10 +3,10 @@ use abstractions::IUsizeAlias;
 use crate::*;
 
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct VirtualPageNum(pub usize);
 
-impl_IPageNum!(VirtualPageNum);
+impl_IPageNum!(VirtualPageNum, VirtualAddress);
 
 const VIRT_PAGE_NUM_WIDTH: usize = 9;
 const VIRT_PAGE_NUM_MASK: usize = (1 << VIRT_PAGE_NUM_WIDTH) - 1;

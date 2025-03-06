@@ -4,227 +4,30 @@ use alloc::{string::String, sync::Arc, sync::Weak, vec::Vec};
 use core::mem;
 use core::sync::atomic::AtomicI32;
 use core::{cell::UnsafeCell, mem::MaybeUninit, task::Waker};
+use drivers::UserTaskTimer;
 use filesystem_abstractions::FileDescriptorTable;
-use timing::{TimeSpan, TimeSpec};
+use platform_specific::{ITaskContext, TaskTrapContext};
+use timing::TimeSpec;
 
-use address::VirtualAddress;
+use address::{IPageNum, VirtualAddress};
 use hermit_sync::SpinMutex;
 use paging::{
     MemoryMapFlags, MemoryMapProt, MemorySpace, MemorySpaceBuilder, PageTable, TaskMemoryMap,
 };
-use riscv::register::sstatus::{self, Sstatus, FS, SPP};
 
 use crate::{
     tid::{self, TrackedTaskId},
     TaskStatus,
 };
 
-#[repr(C)]
-#[derive(Clone, Copy, Debug)]
-pub struct GeneralRegisterContext {
-    // Not saving x0 for simplicity
-    pub ra: VirtualAddress,
-    pub sp: VirtualAddress,
-    pub gp: usize,
-    pub tp: usize,
-    pub t0: usize,
-    pub t1: usize,
-    pub t2: usize,
-    pub fp: usize, // s0
-    pub s1: usize,
-    pub a0: usize,
-    pub a1: usize,
-    pub a2: usize,
-    pub a3: usize,
-    pub a4: usize,
-    pub a5: usize,
-    pub a6: usize,
-    pub a7: usize,
-    pub s2: usize,
-    pub s3: usize,
-    pub s4: usize,
-    pub s5: usize,
-    pub s6: usize,
-    pub s7: usize,
-    pub s8: usize,
-    pub s9: usize,
-    pub s10: usize,
-    pub s11: usize,
-    pub t3: usize,
-    pub t4: usize,
-    pub t5: usize,
-    pub t6: usize,
-}
-
-#[repr(C)]
-#[derive(Clone, Copy, Debug)]
-pub struct FloatRegisterContext {
-    pub f: [f64; 32], // 0 - 31
-    pub fcsr: u32,
-    pub dirty: bool,
-    pub activated: bool,
-}
-
-impl FloatRegisterContext {
-    pub fn snapshot(&mut self) {
-        #[cfg(not(target_arch = "riscv64"))]
-        panic!("Only riscv64 is supported");
-
-        #[cfg(target_arch = "riscv64")]
-        if self.dirty {
-            self.dirty = false;
-
-            unsafe {
-                core::arch::asm!(
-                    "fsd    f0,     0*8(a0)",
-                    "fsd    f1,     1*8(a0)",
-                    "fsd    f2,     2*8(a0)",
-                    "fsd    f3,     3*8(a0)",
-                    "fsd    f4,     4*8(a0)",
-                    "fsd    f5,     5*8(a0)",
-                    "fsd    f6,     6*8(a0)",
-                    "fsd    f7,     7*8(a0)",
-                    "fsd    f8,     8*8(a0)",
-                    "fsd    f9,     9*8(a0)",
-                    "fsd    f10,   10*8(a0)",
-                    "fsd    f11,   11*8(a0)",
-                    "fsd    f12,   12*8(a0)",
-                    "fsd    f13,   13*8(a0)",
-                    "fsd    f14,   14*8(a0)",
-                    "fsd    f15,   15*8(a0)",
-                    "fsd    f16,   16*8(a0)",
-                    "fsd    f17,   17*8(a0)",
-                    "fsd    f18,   18*8(a0)",
-                    "fsd    f19,   19*8(a0)",
-                    "fsd    f20,   20*8(a0)",
-                    "fsd    f21,   21*8(a0)",
-                    "fsd    f22,   22*8(a0)",
-                    "fsd    f23,   23*8(a0)",
-                    "fsd    f24,   24*8(a0)",
-                    "fsd    f25,   25*8(a0)",
-                    "fsd    f26,   26*8(a0)",
-                    "fsd    f27,   27*8(a0)",
-                    "fsd    f28,   28*8(a0)",
-                    "fsd    f29,   29*8(a0)",
-                    "fsd    f30,   30*8(a0)",
-                    "fsd    f31,   31*8(a0)",
-                    "csrr   t0,    fcsr",
-                    "sw     t0,    31*8(a0)",
-                    in("a0") self,
-                    options(nostack, nomem)
-                );
-            }
-        }
-    }
-
-    pub fn restore(&mut self) {
-        #[cfg(not(target_arch = "riscv64"))]
-        panic!("Only riscv64 is supported");
-
-        #[cfg(target_arch = "riscv64")]
-        if !self.activated {
-            self.activated = true;
-
-            unsafe {
-                core::arch::asm!(
-                    "fld    f0,     0*8(a0)",
-                    "fld    f1,     1*8(a0)",
-                    "fld    f2,     2*8(a0)",
-                    "fld    f3,     3*8(a0)",
-                    "fld    f4,     4*8(a0)",
-                    "fld    f5,     5*8(a0)",
-                    "fld    f6,     6*8(a0)",
-                    "fld    f7,     7*8(a0)",
-                    "fld    f8,     8*8(a0)",
-                    "fld    f9,     9*8(a0)",
-                    "fld    f10,   10*8(a0)",
-                    "fld    f11,   11*8(a0)",
-                    "fld    f12,   12*8(a0)",
-                    "fld    f13,   13*8(a0)",
-                    "fld    f14,   14*8(a0)",
-                    "fld    f15,   15*8(a0)",
-                    "fld    f16,   16*8(a0)",
-                    "fld    f17,   17*8(a0)",
-                    "fld    f18,   18*8(a0)",
-                    "fld    f19,   19*8(a0)",
-                    "fld    f20,   20*8(a0)",
-                    "fld    f21,   21*8(a0)",
-                    "fld    f22,   22*8(a0)",
-                    "fld    f23,   23*8(a0)",
-                    "fld    f24,   24*8(a0)",
-                    "fld    f25,   25*8(a0)",
-                    "fld    f26,   26*8(a0)",
-                    "fld    f27,   27*8(a0)",
-                    "fld    f28,   28*8(a0)",
-                    "fld    f29,   29*8(a0)",
-                    "fld    f30,   30*8(a0)",
-                    "fld    f31,   31*8(a0)",
-                    "lw     t0,    32*8(a0)",
-                    "csrw   fcsr,  t0",
-                    in("a0") self,
-                    options(nostack, nomem)
-                );
-            }
-        }
-    }
-
-    pub fn on_trap(&mut self, sstatus: Sstatus) {
-        self.dirty |= sstatus.fs() == FS::Dirty;
-    }
-
-    pub fn activate_restore(&mut self) {
-        self.activated = true;
-        self.restore();
-    }
-
-    pub fn deactivate(&mut self) {
-        self.snapshot();
-        self.activated = false;
-    }
-}
-
-// Saved context for coroutine
-// Following calling convention that only caller-saved registers are saved
-#[repr(C)]
-#[derive(Clone, Copy, Debug)]
-pub struct CoroutineSavedContext {
-    pub saved: [usize; 12], // 36 - 47
-}
-
-#[repr(C)]
-#[derive(Clone, Copy, Debug)]
-pub struct TaskTrapContext {
-    pub regs: GeneralRegisterContext, // 0 - 30
-    pub sstatus: usize,               // 31
-    pub sepc: VirtualAddress,         // 32
-    pub ksp: VirtualAddress,          // kernel stack pointer, 33
-    pub kra: VirtualAddress,          // kernel return address, 34
-    pub ktp: usize,                   // kernel tp, 35
-    pub kregs: CoroutineSavedContext, // 36 - 47
-    pub fregs: FloatRegisterContext,
-}
-
-impl TaskTrapContext {
-    pub fn new(memory_space_builder: &MemorySpaceBuilder) -> Self {
-        const SIZE: usize = core::mem::size_of::<TaskTrapContext>();
-        let mut ctx = unsafe { core::mem::transmute::<[u8; SIZE], TaskTrapContext>([0; SIZE]) };
-        ctx.sepc = memory_space_builder.entry_pc;
-        ctx.regs.sp = memory_space_builder.stack_top;
-
-        let sstatus = sstatus::read();
-        unsafe {
-            sstatus::set_spp(SPP::User);
-            sstatus::set_sum();
-        }
-
-        ctx.sstatus = unsafe { core::mem::transmute::<Sstatus, usize>(sstatus) };
-
-        ctx.regs.a0 = memory_space_builder.argc;
-        ctx.regs.a1 = memory_space_builder.argv_base.as_usize();
-        ctx.regs.a2 = memory_space_builder.envp_base.as_usize();
-
-        ctx
-    }
+fn create_task_context(builder: &MemorySpaceBuilder) -> TaskTrapContext {
+    TaskTrapContext::new(
+        builder.entry_pc.as_usize(),
+        builder.stack_top.as_usize(),
+        builder.argc,
+        builder.argv_base.as_usize(),
+        builder.envp_base.as_usize(),
+    )
 }
 
 pub struct ProcessControlBlock {
@@ -247,7 +50,7 @@ pub struct ProcessControlBlock {
 impl ProcessControlBlock {
     #[allow(clippy::new_ret_no_self)]
     pub fn new(memory_space_builder: MemorySpaceBuilder) -> Arc<TaskControlBlock> {
-        let trap_context = TaskTrapContext::new(&memory_space_builder);
+        let trap_context = create_task_context(&memory_space_builder);
         let task_id = tid::allocate_tid();
         let tid = task_id.id();
 
@@ -365,7 +168,7 @@ impl TaskControlBlock {
 
         memory_space_builder.init_stack(args, envp);
 
-        *self.mut_trap_ctx() = TaskTrapContext::new(&memory_space_builder);
+        *self.mut_trap_ctx() = create_task_context(&memory_space_builder);
 
         *self.timer.lock() = UserTaskTimer::default();
         *self.kernel_timer.lock() = UserTaskTimer::default();
@@ -471,7 +274,14 @@ impl TaskControlBlock {
             offset,
             length,
             |vpn, ppn, flags| {
-                page_table.map_single(vpn, ppn, flags);
+                page_table
+                    .map_single(
+                        vpn.start_addr(),
+                        ppn.start_addr(),
+                        page_table::PageSize::_4K,
+                        flags,
+                    )
+                    .unwrap();
             },
         );
 
@@ -489,7 +299,7 @@ impl TaskControlBlock {
         let page_table = pcb_.memory_space.page_table_mut();
 
         let ret = pcb.mmaps.munmap(addr, length, |vpn| {
-            page_table.unmap_single(vpn);
+            page_table.unmap_single(vpn.start_addr()).unwrap();
         });
 
         mem::forget(pcb);
@@ -515,21 +325,6 @@ pub struct UserTaskStatistics {
     pub software_interrupts: usize,
     pub exceptions: usize,
     pub syscalls: usize,
-}
-
-#[derive(Debug, Clone)]
-pub struct UserTaskTimer {
-    pub total: TimeSpan,
-    pub start: Option<TimeSpec>,
-}
-
-impl Default for UserTaskTimer {
-    fn default() -> Self {
-        UserTaskTimer {
-            total: TimeSpan::zero(),
-            start: None,
-        }
-    }
 }
 
 #[derive(Default)]

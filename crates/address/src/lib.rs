@@ -1,3 +1,6 @@
+#![feature(cfg_accessible)]
+#![feature(const_trait_impl)]
+#![feature(debug_closure_helpers)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "std")]
@@ -32,7 +35,61 @@ pub use virtual_page_num::*;
 pub use virtual_page_num_range::*;
 
 pub const PAGE_SIZE_BITS: usize = 0xc;
-pub const PA_WIDTH_SV39: usize = 56;
-pub const VA_WIDTH_SV39: usize = 39;
-pub const PPN_WIDTH_SV39: usize = PA_WIDTH_SV39 - PAGE_SIZE_BITS;
-pub const VPN_WIDTH_SV39: usize = VA_WIDTH_SV39 - PAGE_SIZE_BITS;
+
+#[const_trait]
+pub trait IConvertablePhysicalAddress {
+    fn to_high_virtual(&self) -> VirtualAddress;
+
+    fn as_virtual(addr: usize) -> usize;
+
+    fn is_valid_pa(addr: usize) -> bool;
+}
+
+#[const_trait]
+pub trait IConvertableVirtualAddress {
+    fn to_low_physical(&self) -> PhysicalAddress;
+
+    fn as_physical(addr: usize) -> usize;
+
+    fn is_valid_va(addr: usize) -> bool;
+}
+
+#[cfg_accessible(::platform_specific::phys_to_virt)]
+#[cfg_accessible(::platform_specific::virt_to_phys)]
+impl const IConvertableVirtualAddress for VirtualAddress {
+    #[inline(always)]
+    fn to_low_physical(&self) -> PhysicalAddress {
+        use abstractions::IUsizeAlias;
+        PhysicalAddress::from_usize(Self::as_physical(self.as_usize()))
+    }
+
+    #[inline(always)]
+    fn as_physical(addr: usize) -> usize {
+        ::platform_specific::virt_to_phys(addr)
+    }
+
+    #[inline(always)]
+    fn is_valid_va(addr: usize) -> bool {
+        addr == ::platform_specific::phys_to_virt(addr)
+    }
+}
+
+#[cfg_accessible(::platform_specific::virt_to_phys)]
+#[cfg_accessible(::platform_specific::phys_to_virt)]
+impl const IConvertablePhysicalAddress for PhysicalAddress {
+    #[inline(always)]
+    fn to_high_virtual(&self) -> VirtualAddress {
+        use abstractions::IUsizeAlias;
+        VirtualAddress::from_usize(Self::as_virtual(self.as_usize()))
+    }
+
+    #[inline(always)]
+    fn as_virtual(addr: usize) -> usize {
+        ::platform_specific::phys_to_virt(addr)
+    }
+
+    #[inline(always)]
+    fn is_valid_pa(addr: usize) -> bool {
+        addr == ::platform_specific::virt_to_phys(addr)
+    }
+}

@@ -7,15 +7,6 @@ pub type VirtualAddressRange = AddressRange<VirtualAddress>;
 impl_range_display!(VirtualAddressRange);
 
 impl VirtualAddressRange {
-    pub fn to_low_physical(&self) -> PhysicalAddressRange {
-        PhysicalAddressRange::from_start_end(
-            self.start().to_low_physical(),
-            self.end().to_low_physical(),
-        )
-    }
-}
-
-impl VirtualAddressRange {
     pub fn from_slice<T>(slice: &[T]) -> Self {
         let start = VirtualAddress::from_usize(slice.as_ptr() as usize);
         let end = VirtualAddress::from_usize(start.as_usize() + core::mem::size_of_val(slice));
@@ -26,7 +17,6 @@ impl VirtualAddressRange {
 #[cfg(test)]
 mod virtual_address_range_tests {
     use abstractions::IUsizeAlias;
-    use constants::VIRT_ADDR_OFFSET;
 
     use super::*;
 
@@ -38,26 +28,6 @@ mod virtual_address_range_tests {
         let range = VirtualAddressRange::from_start_end(start, end);
         assert_eq!(range.start().as_usize(), 0x1000);
         assert_eq!(range.end().as_usize(), 0x2000);
-    }
-
-    #[test]
-    #[should_panic(expected = "assertion failed: start <= end")]
-    fn test_creation_panic_if_start_greater_than_end() {
-        let start = VirtualAddress::from_usize(0x2000);
-        let end = VirtualAddress::from_usize(0x1000);
-
-        let _ = VirtualAddressRange::from_start_end(start, end);
-    }
-
-    // Identity mapping 测试
-    #[test]
-    fn test_identity_mapped() {
-        let start = VirtualAddress::from_usize(0x1000 | constants::VIRT_ADDR_OFFSET);
-        let end = VirtualAddress::from_usize(0x2000 | VIRT_ADDR_OFFSET);
-        let range = VirtualAddressRange::from_start_end(start, end);
-        let phys_range = range.to_low_physical();
-        assert_eq!(phys_range.start().as_usize(), 0x1000);
-        assert_eq!(phys_range.end().as_usize(), 0x2000);
     }
 
     // 范围包含测试

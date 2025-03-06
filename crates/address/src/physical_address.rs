@@ -3,22 +3,34 @@ use abstractions::IUsizeAlias;
 use crate::*;
 
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct PhysicalAddress(pub usize);
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PhysicalAddress(*const ());
 
 impl_IAddress!(PhysicalAddress);
-
-impl PhysicalAddress {
-    pub fn to_high_virtual(self) -> VirtualAddress {
-        VirtualAddress::from_usize(self.as_usize() | constants::VIRT_ADDR_OFFSET)
-    }
-}
 
 impl IToPageNum<PhysicalPageNum> for PhysicalAddress {}
 
 #[cfg(test)]
 mod physical_address_tests {
+    use alloc::format;
+
     use super::*;
+
+    const VIRT_ADDR_OFFSET: usize = 0xFFFF_FFc0_0000_0000;
+
+    impl const IConvertablePhysicalAddress for PhysicalAddress {
+        fn to_high_virtual(&self) -> VirtualAddress {
+            VirtualAddress::from_usize(self.as_usize() | VIRT_ADDR_OFFSET)
+        }
+
+        fn as_virtual(addr: usize) -> usize {
+            addr | VIRT_ADDR_OFFSET
+        }
+
+        fn is_valid_pa(_addr: usize) -> bool {
+            true
+        }
+    }
 
     // 基本构造和操作测试
     #[test]
@@ -90,13 +102,13 @@ mod physical_address_tests {
         assert_eq!(addr.as_usize(), usize::MAX);
     }
 
-    // tovirtual address测试
+    // to virtual address测试
     #[test]
     fn test_to_virtual() {
         let phys_addr = PhysicalAddress::from_usize(0x1000);
         let virt_addr = phys_addr.to_high_virtual();
         assert_eq!(
-            phys_addr.as_usize() | constants::VIRT_ADDR_OFFSET,
+            phys_addr.as_usize() | VIRT_ADDR_OFFSET,
             virt_addr.as_usize()
         );
     }
@@ -147,7 +159,7 @@ mod physical_address_tests {
     #[test]
     fn test_debug_and_display() {
         let addr = PhysicalAddress::from_usize(0x1234);
-        assert_eq!(format!("{:?}", addr), "PhysicalAddress(4660)");
+        assert_eq!(format!("{:?}", addr), "PhysicalAddress(0x1234)");
         assert_eq!(format!("{}", addr), "PhysicalAddress(0x1234)");
     }
 }

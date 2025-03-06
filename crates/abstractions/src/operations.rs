@@ -3,6 +3,7 @@ use core::ops::{
     Shr, ShrAssign, Sub, SubAssign,
 };
 
+#[const_trait]
 pub trait IUsizeAlias: Copy + Clone + PartialEq + PartialOrd + Eq + Ord {
     fn as_usize(&self) -> usize;
 
@@ -357,6 +358,12 @@ macro_rules! impl_bitwise_ops {
 macro_rules! impl_usize_display {
     ($type:ty) => {
         impl core::fmt::Display for $type {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                write!(f, "{}({:#x})", stringify!($type), self.as_usize())
+            }
+        }
+
+        impl core::fmt::Debug for $type {
             fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 write!(f, "{}({:#x})", stringify!($type), self.as_usize())
             }

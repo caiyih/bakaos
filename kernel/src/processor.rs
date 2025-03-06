@@ -1,9 +1,9 @@
-use core::{arch::asm, mem::MaybeUninit};
+use core::mem::MaybeUninit;
 
 use alloc::sync::Arc;
+use constants::PROCESSOR_COUNT;
+use drivers::ITimer;
 use tasks::TaskControlBlock;
-
-use crate::timing::ITimer;
 
 #[allow(unused)]
 pub struct ProcessorUnit {
@@ -64,15 +64,13 @@ impl ProcessorUnit {
     }
 
     pub fn is_current(&self) -> bool {
-        self.hart_id == hart_id()
+        self.hart_id == platform_specific::current_processor_index()
     }
 
     pub fn current() -> &'static mut Self {
         current_processor()
     }
 }
-
-pub const PROCESSOR_COUNT: usize = 2;
 
 static mut PROCESSOR_POOL: MaybeUninit<[ProcessorUnit; PROCESSOR_COUNT]> = MaybeUninit::uninit();
 
@@ -84,20 +82,9 @@ pub fn init_processor_pool() {
     }
 }
 
-#[inline(always)]
-pub fn hart_id() -> usize {
-    let id;
-
-    unsafe {
-        asm!("mv {}, tp", out(reg) id, options(nostack, nomem));
-    }
-
-    id
-}
-
 #[inline]
 pub fn current_processor() -> &'static mut ProcessorUnit {
-    let id = hart_id();
+    let id = platform_specific::current_processor_index();
     unsafe {
         #[allow(static_mut_refs)]
         &mut PROCESSOR_POOL.assume_init_mut()[id]

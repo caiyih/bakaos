@@ -3,16 +3,12 @@ use abstractions::IUsizeAlias;
 use crate::*;
 
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct VirtualAddress(pub usize);
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct VirtualAddress(*const ());
 
 impl_IAddress!(VirtualAddress);
 
 impl VirtualAddress {
-    pub fn to_low_physical(self) -> PhysicalAddress {
-        PhysicalAddress::from_usize(self.as_usize() & constants::PHYS_ADDR_MASK)
-    }
-
     pub fn from_ref<T>(r: &T) -> VirtualAddress {
         VirtualAddress::from_ptr(r as *const T)
     }
@@ -50,6 +46,8 @@ impl IToPageNum<VirtualPageNum> for VirtualAddress {}
 
 #[cfg(test)]
 mod virtual_address_tests {
+    use alloc::format;
+
     use super::*;
 
     // 基本构造和操作测试
@@ -168,7 +166,7 @@ mod virtual_address_tests {
     #[test]
     fn test_debug_and_display() {
         let addr = VirtualAddress::from_usize(0x1234);
-        assert_eq!(format!("{:?}", addr), "VirtualAddress(4660)");
+        assert_eq!(format!("{:?}", addr), "VirtualAddress(0x1234)");
         assert_eq!(format!("{}", addr), "VirtualAddress(0x1234)");
     }
 }

@@ -1,4 +1,3 @@
-use address::{IPageNum, PhysicalAddress};
 use alloc::{
     boxed::Box,
     collections::{BTreeMap, BTreeSet},
@@ -6,7 +5,6 @@ use alloc::{
     sync::{Arc, Weak},
     vec::Vec,
 };
-use allocation::TrackedFrame;
 use constants::SyscallError;
 use core::{cell::UnsafeCell, mem::MaybeUninit, ops::DerefMut};
 use hermit_sync::{RwSpinLock, SpinMutex};
@@ -18,6 +16,8 @@ use crate::{
     FileStatisticsMode, FileSystemError, FileSystemResult, IFileSystem, IInode, InodeMetadata,
     NullInode, OpenFlags, TeleTypewriterInode, ZeroInode,
 };
+
+use allocation::TrackedFrame;
 
 struct RamFileInodeInner {
     frames: Vec<TrackedFrame>,
@@ -52,7 +52,10 @@ impl IInode for RamFileInode {
         }
     }
 
+    #[cfg(feature = "allocation")]
     fn writeat(&self, offset: usize, buffer: &[u8]) -> FileSystemResult<usize> {
+        use address::{IConvertablePhysicalAddress, IPageNum};
+
         let mut inner = self.inner.write();
 
         let end_size = offset + buffer.len();
@@ -74,7 +77,7 @@ impl IInode for RamFileInode {
             let data_ptr = unsafe {
                 frame
                     .ppn()
-                    .start_addr::<PhysicalAddress>()
+                    .start_addr()
                     .to_high_virtual()
                     .as_mut_ptr::<u8>()
             };
@@ -90,7 +93,10 @@ impl IInode for RamFileInode {
         Ok(current - offset)
     }
 
+    #[cfg(feature = "allocation")]
     fn readat(&self, offset: usize, buffer: &mut [u8]) -> FileSystemResult<usize> {
+        use address::{IConvertablePhysicalAddress, IPageNum};
+
         let inner = self.inner.read();
 
         if offset >= inner.size {
@@ -105,13 +111,7 @@ impl IInode for RamFileInode {
             let in_page_start = current % 4096;
             let in_page_len = usize::min(4096, end_size - current);
 
-            let data_ptr = unsafe {
-                frame
-                    .ppn()
-                    .start_addr::<PhysicalAddress>()
-                    .to_high_virtual()
-                    .as_ptr::<u8>()
-            };
+            let data_ptr = unsafe { frame.ppn().start_addr().to_high_virtual().as_ptr::<u8>() };
             let data_slice =
                 unsafe { core::slice::from_raw_parts(data_ptr.add(in_page_start), in_page_len) };
 

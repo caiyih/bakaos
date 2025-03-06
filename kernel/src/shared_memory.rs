@@ -1,4 +1,4 @@
-use address::VirtualPageNum;
+use address::{IPageNum, VirtualPageNum};
 use alloc::{
     collections::btree_map::{self, BTreeMap},
     sync::Arc,
@@ -6,7 +6,7 @@ use alloc::{
 };
 use allocation::TrackedFrame;
 use hermit_sync::SpinMutex;
-use paging::PageTableEntryFlags;
+use page_table::{GenericMappingFlags, PageSize};
 use tasks::TaskControlBlock;
 
 static SHARED_MEMORY: SpinMutex<BTreeMap<usize, Vec<TrackedFrame>>> =
@@ -49,8 +49,7 @@ pub fn apply_mapping_for(tcb: &Arc<TaskControlBlock>, key: usize) -> Option<Virt
         None => None,
         Some(frames) => {
             // VRWEUAD
-            const PAGE_FLAG: PageTableEntryFlags =
-                PageTableEntryFlags::from_bits_retain(0b11011111);
+            const PAGE_FLAG: GenericMappingFlags = GenericMappingFlags::all();
 
             let mut pcb = tcb.pcb.lock();
 
@@ -66,7 +65,13 @@ pub fn apply_mapping_for(tcb: &Arc<TaskControlBlock>, key: usize) -> Option<Virt
 
             let start_page = vpn_range.start();
             for (i, frame) in frames.iter().enumerate() {
-                pt.map_single(start_page + i, frame.ppn(), PAGE_FLAG);
+                pt.map_single(
+                    (start_page + i).start_addr(),
+                    frame.ppn().start_addr(),
+                    PageSize::_4K,
+                    PAGE_FLAG,
+                )
+                .unwrap();
             }
 
             Some(start_page)
