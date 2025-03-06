@@ -1,5 +1,8 @@
 use abstractions::IUsizeAlias;
-use address::{IPageNum, PhysicalAddress, PhysicalPageNum};
+use address::{
+    IConvertablePhysicalAddress, IConvertableVirtualAddress, IPageNum, PhysicalAddress,
+    PhysicalPageNum, VirtualAddress,
+};
 use core::{mem::forget, ptr::NonNull};
 
 pub struct VirtHal;
@@ -16,7 +19,7 @@ unsafe impl virtio_drivers::Hal for VirtHal {
 
         let paddr = frame_range.start().start_addr().as_usize();
         let vaddr =
-            unsafe { NonNull::new_unchecked((paddr | constants::VIRT_ADDR_OFFSET) as *mut u8) };
+            unsafe { NonNull::new_unchecked(platform_specific::phys_to_virt(paddr) as *mut u8) };
 
         (paddr, vaddr)
     }
@@ -27,9 +30,9 @@ unsafe impl virtio_drivers::Hal for VirtHal {
         pages: usize,
     ) -> i32 {
         // ensure paddr is a physical address
-        debug_assert!(paddr & constants::VIRT_ADDR_OFFSET == 0);
+        debug_assert!(PhysicalAddress::is_valid_pa(paddr));
         // ensure paddr is properly mapped to vaddr
-        debug_assert!(paddr | constants::VIRT_ADDR_OFFSET == vaddr.as_ptr() as usize);
+        debug_assert!(PhysicalAddress::as_virtual(paddr) == vaddr.as_ptr() as usize);
 
         let ppn = PhysicalPageNum::from_addr_floor(PhysicalAddress::from_usize(paddr));
         for i in 0..pages {
@@ -43,21 +46,25 @@ unsafe impl virtio_drivers::Hal for VirtHal {
         _size: usize,
     ) -> core::ptr::NonNull<u8> {
         // Refer to kernel virtual memory layout for more details
-        NonNull::new_unchecked((paddr | constants::VIRT_ADDR_OFFSET) as *mut u8)
+        NonNull::new_unchecked(
+            PhysicalAddress::from_usize(paddr)
+                .to_high_virtual()
+                .as_mut_ptr(),
+        )
     }
 
     unsafe fn share(
         buffer: core::ptr::NonNull<[u8]>,
         _direction: virtio_drivers::BufferDirection,
     ) -> virtio_drivers::PhysAddr {
-        let address = buffer.as_ptr() as *mut u8 as usize;
+        let vaddr = buffer.as_ptr() as *mut u8 as usize;
 
         // Ensure that the address is a virtual address
         // debug_assert_eq!(address & constants::VIRT_ADDR_OFFSET, constants::VIRT_ADDR_OFFSET, "{:#018x}", address);
 
         // We can even return the virtual as the whole kernel space is mapped to the higher half
         // And we don't have to worry about the physical
-        (address & constants::PHYS_ADDR_MASK) as virtio_drivers::PhysAddr
+        VirtualAddress::as_physical(vaddr)
     }
 
     unsafe fn unshare(
