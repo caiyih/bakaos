@@ -231,7 +231,8 @@ unsafe extern "C" fn __kernel_init() {
 
     let rtc_time = current_timespec();
 
-    let seed = (((rtc_time.tv_nsec as u64) << 32) | machine.clock_freq()) ^ 0xdeadbeef;
+    let seed =
+        (((rtc_time.tv_nsec as u64) << 32) | machine.query_performance_frequency()) ^ 0xdeadbeef;
 
     log::info!("Setting up global rng with seed: {}", seed);
 

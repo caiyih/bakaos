@@ -27,7 +27,7 @@ pub fn init() {
 
             let machine = drivers::machine();
             debug!("  Machine    : {}", machine.name());
-            debug!("  Frequency  : {} Hz", machine.clock_freq());
+            debug!("  Frequency  : {} Hz", machine.query_performance_frequency());
             debug!("  Memory End : {:#010x}", machine.memory_end());
 
             for (idx, (start, len)) in machine.mmio().iter().enumerate() {
