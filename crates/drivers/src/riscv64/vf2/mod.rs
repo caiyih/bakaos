@@ -13,12 +13,22 @@ use crate::{BlockDeviceInode, IMachine};
 #[derive(Clone, Copy)]
 pub struct VF2Machine;
 
+impl VF2Machine {
+    const fn bus0(&self) -> usize {
+        0x16020000
+    }
+
+    const fn bus_width(&self) -> usize {
+        0x1_0000
+    }
+}
+
 impl IMachine for VF2Machine {
     fn name(&self) -> &'static str {
         "StarFive VisionFive 2"
     }
 
-    fn clock_freq(&self) -> u64 {
+    fn query_performance_frequency(&self) -> u64 {
         4_000_000
     }
 
@@ -35,14 +45,6 @@ impl IMachine for VF2Machine {
         0x1_80000000
     }
 
-    fn bus0(&self) -> usize {
-        0x16020000
-    }
-
-    fn bus_width(&self) -> usize {
-        0x1_0000
-    }
-
     fn create_block_device_at(&self, device_id: usize) -> Arc<BlockDeviceInode> {
         let mmio_pa = PhysicalAddress::from_usize(self.bus0() + device_id * self.bus_width());
         let mmio = VisionFive2SdMMIO::new(mmio_pa.to_high_virtual());
@@ -50,7 +52,7 @@ impl IMachine for VF2Machine {
         BlockDeviceInode::new(Box::new(VisionFive2Disk::new(mmio)))
     }
 
-    fn get_board_tick(&self) -> usize {
+    fn query_performance_counter(&self) -> usize {
         platform_specific::time()
     }
 
@@ -65,13 +67,13 @@ impl IMachine for VF2Machine {
         let mmio = mmio.to_high_virtual();
 
         let low = unsafe { mmio.as_ptr::<u32>().read_volatile() };
-        let tick = self.get_board_tick();
+        let tick = self.query_performance_counter();
 
         let high = unsafe { mmio.as_ptr::<u32>().add(1).read_volatile() };
 
         let rtc_ns = ((high as u64) << 32) | low as u64;
 
-        let reg_time = TimeSpec::from_ticks(tick as i64, self.clock_freq());
+        let reg_time = TimeSpec::from_ticks(tick as i64, self.query_performance_frequency());
         let rtc_time = TimeSpec::from_ticks(rtc_ns as i64, NSEC_PER_SEC as u64);
 
         rtc_time - reg_time

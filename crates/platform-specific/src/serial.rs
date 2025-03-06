@@ -4,13 +4,13 @@ struct Console;
 
 impl Write for Console {
     fn write_str(&mut self, _s: &str) -> core::fmt::Result {
-        #[cfg(target_arch = "riscv64")]
+        #[cfg(any(target_arch = "riscv64", target_arch = "loongarch64"))]
         {
             crate::console_writestr(_s.as_bytes());
             Ok(())
         }
 
-        #[cfg(not(any(target_arch = "riscv64")))]
+        #[cfg(not(any(target_arch = "riscv64", target_arch = "loongarch64")))]
         Err(::core::fmt::Error)
     }
 }

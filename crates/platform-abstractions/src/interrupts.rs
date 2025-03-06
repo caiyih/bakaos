@@ -15,6 +15,7 @@ pub enum UserInterrupt {
     InstructionMisaligned(usize),
     IllegalInstruction(usize),
     AccessFault(usize),
+    Irq(usize),
 }
 
 impl Debug for UserInterrupt {
@@ -25,8 +26,8 @@ impl Debug for UserInterrupt {
             Self::Syscall => write!(f, "Syscall"),
             Self::Timer => write!(f, "Timer"),
             Self::SupervisorExternal => write!(f, "SupervisorExternal"),
-            memory_interrupt => {
-                let (type_str, stval) = match memory_interrupt {
+            tuple_like => {
+                let (type_str, stval) = match tuple_like {
                     UserInterrupt::StorePageFault(stval) => ("StorePageFault", stval),
                     UserInterrupt::StoreMisaligned(stval) => ("StoreMisaligned", stval),
                     UserInterrupt::LoadPageFault(stval) => ("LoadPageFault", stval),
@@ -35,6 +36,7 @@ impl Debug for UserInterrupt {
                     UserInterrupt::InstructionMisaligned(stval) => ("InstructionMisaligned", stval),
                     UserInterrupt::IllegalInstruction(stval) => ("IllegalInstruction", stval),
                     UserInterrupt::AccessFault(stval) => ("AccessFault", stval),
+                    UserInterrupt::Irq(irq) => ("AccessFault", irq),
                     _ => unreachable!(),
                 };
 

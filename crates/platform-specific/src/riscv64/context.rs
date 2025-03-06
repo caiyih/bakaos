@@ -148,8 +148,8 @@ impl FloatRegisterContext {
     }
 
     pub fn activate_restore(&mut self) {
-        self.activated = true;
         self.restore();
+        self.activated = true;
     }
 
     pub fn deactivate(&mut self) {

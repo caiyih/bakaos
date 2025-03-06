@@ -39,7 +39,7 @@ unsafe fn rust_begin_unwind(info: &::core::panic::PanicInfo) -> ! {
             skip_frames += 1;
         }
 
-        StackTrace::begin_unwind(skip_frames).print_trace();
+        StackTrace::<100>::begin_unwind(skip_frames).print_trace();
     } else {
         legacy_println!(
             "[BAKA-OS] Kernel panicked while handling another panic: {}",
@@ -68,7 +68,7 @@ pub trait IDisplayableStackTrace {
     fn print_trace(&self);
 }
 
-impl IDisplayableStackTrace for StackTrace {
+impl<const N: usize> IDisplayableStackTrace for StackTrace<N> {
     fn print_trace(&self) {
         let frames = self.stack_frames();
 

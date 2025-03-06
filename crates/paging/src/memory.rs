@@ -5,8 +5,8 @@ use alloc::{collections::BTreeMap, string::String, vec::Vec};
 
 use ::page_table::GenericMappingFlags;
 use address::{
-    IAlignableAddress, IConvertablePhysicalAddress, IConvertableVirtualAddress, IPageNum,
-    IToPageNum, PhysicalPageNum, VirtualAddress, VirtualAddressRange, VirtualPageNum,
+    IAddressBase, IAlignableAddress, IConvertablePhysicalAddress, IConvertableVirtualAddress,
+    IPageNum, IToPageNum, PhysicalPageNum, VirtualAddress, VirtualAddressRange, VirtualPageNum,
     VirtualPageNumRange,
 };
 use allocation::{alloc_frame, TrackedFrame};
@@ -475,7 +475,7 @@ impl MemorySpaceBuilder {
 
         let mut auxv = Vec::new();
 
-        let mut p_head = VirtualAddress::from_usize(0);
+        let mut p_head = VirtualAddress::null();
 
         for ph in elf_info
             .program_iter()
@@ -487,7 +487,7 @@ impl MemorySpaceBuilder {
             let start = VirtualAddress::from_usize(ph.virtual_addr() as usize);
             let end = start + ph.mem_size() as usize;
 
-            if p_head == VirtualAddress::from_usize(0) {
+            if p_head.is_null() {
                 p_head = start;
             }
 

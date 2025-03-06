@@ -16,3 +16,6 @@ log = "0.4"
 riscv = "0.12"
 sbi-rt = "0.0.3"
 sbi-spec = "0.0.8"
+
+[target.'cfg(target_arch = "loongarch64")'.dependencies]
+loongArch64 = "0.2.4"

@@ -47,7 +47,9 @@ QEMU-ARGS-riscv64 := $(QEMU-ARGS-common) \
 
 QEMU-ARGS-loongarch64 := $(QEMU-ARGS-common) \
 			 -m 1G \
+			 -kernel $(KERNEL_ELF) \
 			 -no-reboot \
+			 -rtc base=utc \
 
 all: help
 

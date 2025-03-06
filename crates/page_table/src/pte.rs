@@ -9,6 +9,8 @@ bitflags::bitflags! {
         const Executable = 1 << 2;
         const User = 1 << 3;
         const Kernel = 1 << 4;
+        const Device = 1 << 5;
+        const Uncached = 1 << 6;
     }
 }
 

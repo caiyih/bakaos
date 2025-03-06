@@ -230,7 +230,9 @@ impl ISyncSyscallHandler for UnameSyscall {
                 guard.write_to(1, "BakaOS");
                 guard.write_to(2, "9.9.9");
                 guard.write_to(3, &format!("#9 {}", constants::BUILD_TIME));
-                guard.write_to(4, "RISC-IX");
+                guard.write_to(4, unsafe {
+                    core::str::from_utf8_unchecked(platform_specific::PLATFORM_STRING.to_bytes())
+                });
                 guard.write_to(5, "The most intelligent and strongest Cirno");
 
                 Ok(0)

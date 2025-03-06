@@ -1,13 +1,10 @@
 #![no_std]
 #![feature(panic_can_unwind)]
 
-extern crate alloc;
-
-use alloc::vec::Vec;
-
 #[derive(Debug, Clone)]
-pub struct StackTrace {
-    frames: Vec<StackFrame>,
+pub struct StackTrace<const N: usize> {
+    frames: [StackFrame; N],
+    len: usize,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -16,19 +13,26 @@ pub struct StackFrame {
     fp: usize,
 }
 
-impl StackTrace {
+impl<const N: usize> StackTrace<N> {
     #[inline(always)]
     #[allow(unused)]
-    pub fn begin_unwind(skip_frames: usize) -> StackTrace {
-        #[cfg(not(any(target_arch = "riscv64")))]
+    pub fn begin_unwind(skip_frames: usize) -> StackTrace<N> {
+        #[cfg(not(any(target_arch = "riscv64", target_arch = "loongarch64")))]
         panic!("Unsupported architecture");
 
+        #[cfg(target_arch = "loongarch64")]
+        {
+            Self::loongarch64_begin_unwind(skip_frames)
+        }
+
         #[cfg(target_arch = "riscv64")]
-        Self::riscv64_begin_unwind(skip_frames)
+        {
+            Self::riscv64_begin_unwind(skip_frames)
+        }
     }
 
     pub fn stack_frames(&self) -> &[StackFrame] {
-        self.frames.as_slice()
+        &self.frames.as_slice()[..self.len]
     }
 }
 
@@ -44,10 +48,10 @@ impl StackFrame {
     }
 }
 
-impl StackTrace {
-    #[cfg(target_arch = "riscv64")]
+#[cfg(target_arch = "riscv64")]
+impl<const N: usize> StackTrace<N> {
     #[inline(always)]
-    fn riscv64_begin_unwind(mut skip_frames: usize) -> StackTrace {
+    fn riscv64_begin_unwind(mut skip_frames: usize) -> StackTrace<N> {
         extern "C" {
             fn stext();
             fn etext();
@@ -55,12 +59,20 @@ impl StackTrace {
 
         let mut ra = platform_specific::ra();
         let mut fp = platform_specific::fp();
-        let mut frames = Vec::new();
 
-        while ra >= stext as usize && ra <= etext as usize && fp >= stext as usize && fp != 0 {
+        let mut traces = unsafe { core::mem::zeroed::<StackTrace<N>>() };
+        let mut len = 0;
+
+        while len <= N
+            && ra >= stext as usize
+            && ra <= etext as usize
+            && fp >= stext as usize
+            && fp != 0
+        {
             if skip_frames == 0 {
                 let pc = unsafe { platform_specific::find_previous_instruction(ra) };
-                frames.push(StackFrame { pc, fp })
+                traces.frames[len] = StackFrame { pc, fp };
+                len += 1
             } else {
                 skip_frames -= 1;
             }
@@ -69,6 +81,47 @@ impl StackTrace {
             fp = unsafe { *(fp as *const usize).offset(-2) };
         }
 
-        StackTrace { frames }
+        traces.len = len;
+
+        traces
+    }
+}
+
+#[cfg(target_arch = "loongarch64")]
+impl<const N: usize> StackTrace<N> {
+    #[inline(always)]
+    fn loongarch64_begin_unwind(mut skip_frames: usize) -> StackTrace<N> {
+        extern "C" {
+            fn stext();
+            fn etext();
+        }
+
+        let mut ra = platform_specific::ra();
+        let mut fp = platform_specific::fp();
+
+        let mut traces = unsafe { core::mem::zeroed::<StackTrace<N>>() };
+        let mut len = 0;
+
+        while len <= N
+            && ra >= stext as usize
+            && ra <= etext as usize
+            && fp >= stext as usize
+            && fp != 0
+        {
+            if skip_frames == 0 {
+                let pc = ra - 4; // all instructions on loongarch64 are 32-bit
+                traces.frames[len] = StackFrame { pc: Ok(pc), fp };
+                len += 1
+            } else {
+                skip_frames -= 1;
+            }
+
+            ra = unsafe { *(fp as *const usize).offset(-1) };
+            fp = unsafe { *(fp as *const usize).offset(-2) };
+        }
+
+        traces.len = len;
+
+        traces
     }
 }

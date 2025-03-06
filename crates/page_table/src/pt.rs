@@ -129,6 +129,12 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> Drop for PageTable
 impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, PTE> {
     const NUM_ENTRIES: usize = 512;
 
+    #[allow(unused)]
+    #[inline(always)]
+    const fn p4_index(vaddr: usize) -> usize {
+        (vaddr >> (12 + 27)) & (Self::NUM_ENTRIES - 1)
+    }
+
     #[inline(always)]
     const fn p3_index(vaddr: usize) -> usize {
         (vaddr >> (12 + 18)) & (Self::NUM_ENTRIES - 1)
@@ -155,8 +161,15 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, 
     ) -> PagingResult<(&mut PTE, PageSize)> {
         let vaddr = vaddr.as_usize();
 
-        debug_assert_eq!(Arch::LEVELS, 3);
-        let pt_l3 = self.raw_table_of(self.root());
+        let pt_l3 = if Arch::LEVELS == 3 {
+            self.raw_table_of(self.root())
+        } else if Arch::LEVELS == 4 {
+            let pt_l4 = self.raw_table_of(self.root());
+            let pt_l4e = &mut pt_l4[Self::p4_index(vaddr)];
+            self.get_next_level(pt_l4e)?
+        } else {
+            panic!("Unsupported page table");
+        };
         let pt_l3e = &mut pt_l3[Self::p3_index(vaddr)];
 
         if pt_l3e.is_huge() {
@@ -241,8 +254,16 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, 
 
         let vaddr = vaddr.as_usize();
 
-        debug_assert_eq!(Arch::LEVELS, 3);
-        let pt_l3 = self.raw_table_of(self.root());
+        let pt_l3 = if Arch::LEVELS == 3 {
+            self.raw_table_of(self.root())
+        } else if Arch::LEVELS == 4 {
+            let pt_l4 = self.raw_table_of(self.root());
+            let pt_l4e = &mut pt_l4[Self::p4_index(vaddr)];
+            self.get_create_next_level(pt_l4e)?
+        } else {
+            panic!("Unsupported page table");
+        };
+
         let pt_l3e = &mut pt_l3[Self::p3_index(vaddr)];
 
         if size == PageSize::_1G {
@@ -265,7 +286,7 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, 
 impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, PTE> {
     fn raw_table_of<'a>(&self, paddr: PhysicalAddress) -> &'a mut [PTE] {
         debug_assert!(paddr.is_page_aligned());
-        debug_assert_ne!(paddr, PhysicalAddress::from_usize(0));
+        debug_assert!(!paddr.is_null());
 
         let ptr = unsafe { paddr.to_high_virtual().as_mut_ptr() };
         unsafe { core::slice::from_raw_parts_mut(ptr, Self::NUM_ENTRIES) }
@@ -284,12 +305,12 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, 
         }
         #[cfg(target_arch = "loongarch64")]
         {
-            if entry.paddr() == PhysicalAddress::from_usize(0) {
+            if entry.paddr().is_null() {
                 Err(PagingError::NotMapped)
             } else if entry.is_huge() {
                 Err(PagingError::MappedToHugePage)
             } else {
-                Ok(Self::raw_table_of(entry.paddr()))
+                Ok(self.raw_table_of(entry.paddr()))
             }
         }
     }
