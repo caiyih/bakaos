@@ -15,6 +15,7 @@ use paging::{
     MemoryMapProt,
 };
 use platform_abstractions::ISyscallContext;
+use timing::TimeSpec;
 
 use super::{ISyncSyscallHandler, SyscallContext, SyscallResult};
 
@@ -1069,5 +1070,158 @@ impl ISyncSyscallHandler for SocketSyscall {
 
     fn name(&self) -> &str {
         "sys_socket"
+    }
+}
+
+pub struct StatxSyscall;
+
+impl ISyncSyscallHandler for StatxSyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        struct StatxTimestamp {
+            _tv_sec: i64,
+            _tv_nsec: u32,
+            __reserved: i32,
+        }
+
+        impl From<TimeSpec> for StatxTimestamp {
+            fn from(value: TimeSpec) -> Self {
+                Self {
+                    _tv_sec: value.tv_sec,
+                    _tv_nsec: value.tv_nsec as u32,
+                    __reserved: 0,
+                }
+            }
+        }
+
+        #[repr(C)]
+        struct Statx {
+            /* 0x00 */
+            stx_mask: u32,       /* What results were written [uncond] */
+            stx_blksize: u32,    /* Preferred general I/O size [uncond] */
+            stx_attributes: u64, /* Flags conveying information about the file [uncond] */
+            /* 0x10 */
+            stx_nlink: u32, /* Number of hard links */
+            stx_uid: u32,   /* User ID of owner */
+            stx_gid: u32,   /* Group ID of owner */
+            stx_mode: u16,  /* File mode */
+            __spare0: u16,
+            /* 0x20 */
+            stx_ino: u64,             /* Inode number */
+            stx_size: u64,            /* File size */
+            stx_blocks: u64,          /* Number of 512-byte blocks allocated */
+            stx_attributes_mask: u64, /* Mask to show what's supported in stx_attributes */
+            /* 0x40 */
+            stx_atime: StatxTimestamp, /* Last access time */
+            stx_btime: StatxTimestamp, /* File creation time */
+            stx_ctime: StatxTimestamp, /* Last attribute change time */
+            stx_mtime: StatxTimestamp, /* Last data modification time */
+            /* 0x80 */
+            _stx_rdev_major: u32, /* Device ID of special file [if bdev/cdev] */
+            _stx_rdev_minor: u32,
+            _stx_dev_major: u32, /* ID of device containing file [uncond] */
+            _stx_dev_minor: u32,
+            /* 0x90 */
+            _stx_mnt_id: u64,
+            _stx_dio_mem_align: u32, /* Memory buffer alignment for direct I/O */
+            _stx_dio_offset_align: u32, /* File offset alignment for direct I/O */
+            /* 0xa0 */
+            __spare3: [u64; 12], /* Spare space for future expansion */
+                                 /* 0x100 */
+        }
+
+        let dirfd = ctx.arg0::<isize>();
+        let path = ctx.arg1::<*const u8>();
+
+        if dirfd < 0 && dirfd != FileDescriptor::AT_FDCWD {
+            return SyscallError::BadFileDescriptor;
+        }
+
+        let pt = ctx.borrow_page_table();
+
+        let p_stat = ctx.arg4::<*mut Statx>();
+
+        match (
+            pt.guard_cstr(path, 1024)
+                .must_have(GenericMappingFlags::User | GenericMappingFlags::Readable),
+            pt.guard_ptr(p_stat)
+                .mustbe_user()
+                .mustbe_readable()
+                .with_write(),
+        ) {
+            (Some(path_guard), Some(mut buf_guard)) => {
+                fn stat(
+                    buf: &mut Statx,
+                    path: &str,
+                    relative_to: Option<&Arc<DirectoryTreeNode>>,
+                    resolve_link: bool,
+                ) -> SyscallResult {
+                    let mut stat = unsafe { core::mem::zeroed() };
+
+                    let fnode = match resolve_link {
+                        true => filesystem_abstractions::global_open(path, relative_to),
+                        false => filesystem_abstractions::global_open_raw(path, relative_to),
+                    }
+                    .map_err(|_| ErrNo::NoSuchFileOrDirectory)?;
+
+                    fnode
+                        .stat(&mut stat)
+                        .map_err(|_| ErrNo::OperationNotPermitted)?;
+
+                    buf.stx_attributes_mask = 0;
+                    buf.stx_mask = 0x7ff;
+                    buf.stx_blksize = stat.block_size;
+
+                    buf.stx_uid = 0;
+                    buf.stx_gid = 0;
+
+                    buf.stx_nlink = Ord::max(stat.link_count, 1);
+                    buf.stx_mode = unsafe { core::mem::transmute::<_, u32>(stat.mode) } as u16;
+
+                    buf.stx_ino = stat.inode_id;
+                    buf.stx_size = stat.size;
+                    buf.stx_blocks = stat.block_count;
+
+                    buf.stx_atime = stat.atime.into();
+                    buf.stx_btime = stat.ctime.into();
+                    buf.stx_ctime = stat.mtime.into();
+                    buf.stx_mtime = stat.mtime.into();
+
+                    buf.stx_attributes = 0;
+
+                    let fs = fnode.get_containing_filesystem();
+
+                    if Arc::ptr_eq(&fs, &fnode) {
+                        const STATX_ATTR_MOUNT_ROOT: u64 = 0x2000;
+                        buf.stx_attributes |= STATX_ATTR_MOUNT_ROOT;
+                    }
+
+                    Ok(0)
+                }
+
+                const AT_SYMLINK_NOFOLLOW: i32 = 0x100;
+                let flag = ctx.arg2::<i32>();
+
+                let resolve_link = (flag & AT_SYMLINK_NOFOLLOW) == 0;
+
+                let path = unsafe { core::str::from_utf8_unchecked(&path_guard) };
+
+                let pcb = ctx.pcb.lock();
+                if dirfd == FileDescriptor::AT_FDCWD {
+                    let fullpath = path::combine(&pcb.cwd, path);
+                    stat(&mut buf_guard, &fullpath, None, resolve_link)
+                } else {
+                    let inode = pcb
+                        .fd_table
+                        .get(dirfd as usize)
+                        .and_then(|fd| fd.access().inode());
+                    stat(&mut buf_guard, path, inode.as_ref(), resolve_link)
+                }
+            }
+            _ => SyscallError::BadAddress,
+        }
+    }
+
+    fn name(&self) -> &str {
+        "sys_statx"
     }
 }
