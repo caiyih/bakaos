@@ -3,7 +3,7 @@ use constants::SyscallError;
 use file::{
     CloseSyscall, Dup3Syscall, DupSyscall, FileTruncateSyscall, GetDents64Syscall, LinkAtSyscall,
     LongSeekSyscall, MkdirAtSyscall, MmapSyscall, MountSyscall, MunmapSyscall, NewFstatSyscall,
-    NewFstatatSyscall, OpenAtSyscall, Pipe2Syscall, ReadLinkAtSyscall, SocketSyscall,
+    NewFstatatSyscall, OpenAtSyscall, Pipe2Syscall, ReadLinkAtSyscall, SocketSyscall, StatxSyscall,
     SymbolLinkAtSyscall, UmountSyscall, UnlinkAtSyscall,
 };
 use file_async::{
@@ -104,6 +104,7 @@ impl SyscallDispatcher {
             SYSCALL_ID_SHMGET => Some(&SharedMemoryGetSyscall),
             SYSCALL_ID_SHMAT => Some(&SharedMemoryAttachSyscall),
             SYSCALL_ID_SOCKET => Some(&SocketSyscall),
+            SYSCALL_ID_STATX => Some(&StatxSyscall),
             _ => None,
         }
     }
