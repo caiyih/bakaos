@@ -1,7 +1,14 @@
+mod block;
+pub mod hal;
+mod pci;
+
 use abstractions::IUsizeAlias;
 use address::{IConvertablePhysicalAddress, PhysicalAddress};
-use alloc::sync::Arc;
+use alloc::{boxed::Box, sync::Arc};
+use block::VirtioDisk;
+use hal::VirtHal;
 use timing::TimeSpec;
+use virtio_drivers::device::blk::VirtIOBlk;
 
 use crate::{BlockDeviceInode, IMachine};
 
@@ -89,7 +96,21 @@ impl IMachine for VirtMachine {
     }
 
     fn create_block_device_at(&self, _device_id: usize) -> Arc<BlockDeviceInode> {
-        todo!()
+        const LA64_VIRT_ECAM_BASE: usize = 0x2000_0000;
+        const LA64_VIRT_PCI_BASE: usize = 0x4000_0000;
+        const LA64_VIRT_PCI_SIZE: usize = 0x0002_0000;
+
+        let transport = pci::enumerate_pci_search(
+            (LA64_VIRT_ECAM_BASE | 0x8000_0000_0000_0000) as *mut u8,
+            LA64_VIRT_PCI_BASE,
+            LA64_VIRT_PCI_SIZE,
+        )
+        .unwrap();
+
+        let virt_blk = VirtIOBlk::<VirtHal, _>::new(transport).unwrap();
+        let virt_disk = VirtioDisk::new(virt_blk);
+
+        BlockDeviceInode::new(Box::new(virt_disk))
     }
 }
 
