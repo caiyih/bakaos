@@ -116,3 +116,13 @@ macro_rules! prop_privileged_reg {
 
 prop_privileged_reg!(pgdh, 0x1a);
 prop_privileged_reg!(pgdl, 0x19);
+
+#[inline(always)]
+#[cfg(target_pointer_width = "64")]
+pub fn stable_counter() -> usize {
+    unsafe {
+        let time: usize;
+        ::core::arch::asm!("rdtime.d {}, $zero", out(reg) time);
+        time
+    }
+}

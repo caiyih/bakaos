@@ -12,6 +12,8 @@ impl IMachine for VirtMachine {
     }
 
     fn query_performance_frequency(&self) -> u64 {
+        // We can read with the instruction below
+        // cpucfg rd, 0x4   // CC_FREQ
         100_000_000
     }
 
@@ -30,8 +32,7 @@ impl IMachine for VirtMachine {
     }
 
     fn query_performance_counter(&self) -> usize {
-        // TODO: Implement this
-        0
+        platform_specific::stable_counter()
     }
 
     fn get_rtc_offset(&self) -> timing::TimeSpec {
