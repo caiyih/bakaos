@@ -123,7 +123,7 @@ static mut PT_L1: [u64; 512] = {
     // 0x0000_0000..0x4000_0000, VRWX_GAD, 1G block
     pt_l1[0] = HUGE_FLAGS;
     // 0x4000_0000..0x8000_0000, VRWX_GAD, 1G block
-    pt_l1[1] = 0x8000_0000 | HUGE_FLAGS;
+    pt_l1[1] = 0x4000_0000 | HUGE_FLAGS;
     // 0x8000_0000..0xc000_0000, VRWX_GAD, 1G block
     pt_l1[2] = 0x8000_0000 | HUGE_FLAGS;
     pt_l1
