@@ -34,14 +34,6 @@ impl IMachine for VirtMachine {
         0
     }
 
-    fn bus0(&self) -> usize {
-        0
-    }
-
-    fn bus_width(&self) -> usize {
-        0
-    }
-
     fn get_rtc_offset(&self) -> timing::TimeSpec {
         TimeSpec::zero()
     }
