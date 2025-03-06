@@ -4,7 +4,7 @@ use abstractions::IUsizeAlias;
 use address::PhysicalAddress;
 
 use crate::{
-    GenericMappingFlags, IArchPageTableEntry, IArchPageTableEntryBase, IGenericMappingFlags,
+    pte::IGenericMappingFlags, GenericMappingFlags, IArchPageTableEntry, IArchPageTableEntryBase,
 };
 
 bitflags::bitflags! {
