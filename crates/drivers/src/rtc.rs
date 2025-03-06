@@ -13,16 +13,16 @@ pub fn initialize(rtc_offset: TimeSpec) {
 
 pub fn current_timespec() -> TimeSpec {
     let machine = machine();
-    let ticks = machine.get_board_tick() as i64;
-    let freq = machine.clock_freq();
+    let ticks = machine.query_performance_counter() as i64;
+    let freq = machine.query_performance_frequency();
     TimeSpec::from_ticks(ticks, freq) + unsafe { TIME_OFFSEST }
 }
 
 #[allow(static_mut_refs)]
 pub fn current_timeval() -> TimeVal {
     let machine = machine();
-    let ticks = machine.get_board_tick() as i64;
-    let freq = machine.clock_freq();
+    let ticks = machine.query_performance_counter() as i64;
+    let freq = machine.query_performance_frequency();
     TimeVal::from_ticks(ticks, freq) + unsafe { TIME_OFFSEST.to_timeval() }
 }
 

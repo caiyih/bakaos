@@ -6,25 +6,25 @@ use crate::block::BlockDeviceInode;
 pub trait IMachine {
     // Board metadata
     fn name(&self) -> &'static str;
-    fn clock_freq(&self) -> u64;
+    fn query_performance_frequency(&self) -> u64;
     fn mmio(&self) -> &[(usize, usize)];
     fn memory_end(&self) -> usize;
 
-    fn get_board_tick(&self) -> usize;
+    fn query_performance_counter(&self) -> usize;
 
     #[allow(unused)]
     fn block_sleep(&self, ms: usize) {
-        let start = self.get_board_tick();
-        let end = start + ms * self.clock_freq() as usize / 1000;
+        let start = self.query_performance_counter();
+        let end = start + ms * self.query_performance_frequency() as usize / 1000;
 
-        while self.get_board_tick() < end {
+        while self.query_performance_counter() < end {
             core::hint::spin_loop();
         }
     }
 
     #[inline(always)]
     fn machine_uptime(&self) -> u64 {
-        self.get_board_tick() as u64 / self.clock_freq()
+        self.query_performance_counter() as u64 / self.query_performance_frequency()
     }
 
     fn get_rtc_offset(&self) -> TimeSpec;

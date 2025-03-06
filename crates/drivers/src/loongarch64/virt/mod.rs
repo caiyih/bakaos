@@ -11,7 +11,7 @@ impl IMachine for VirtMachine {
         "QEMU Virt Machine(LoongArch64)"
     }
 
-    fn clock_freq(&self) -> u64 {
+    fn query_performance_frequency(&self) -> u64 {
         100_000_000
     }
 
@@ -29,7 +29,7 @@ impl IMachine for VirtMachine {
         0x8800_0000
     }
 
-    fn get_board_tick(&self) -> usize {
+    fn query_performance_counter(&self) -> usize {
         // TODO: Implement this
         0
     }

@@ -34,7 +34,7 @@ impl IMachine for VirtMachine {
         "QEMU Virt Machine(RISC-V)"
     }
 
-    fn clock_freq(&self) -> u64 {
+    fn query_performance_frequency(&self) -> u64 {
         12_500_000
     }
 
@@ -68,7 +68,7 @@ impl IMachine for VirtMachine {
     }
 
     #[inline(always)]
-    fn get_board_tick(&self) -> usize {
+    fn query_performance_counter(&self) -> usize {
         platform_specific::time()
     }
 
@@ -77,13 +77,13 @@ impl IMachine for VirtMachine {
         let mmio = mmio.to_high_virtual();
 
         let low = unsafe { mmio.as_ptr::<u32>().read_volatile() };
-        let tick = self.get_board_tick();
+        let tick = self.query_performance_counter();
 
         let high = unsafe { mmio.as_ptr::<u32>().add(1).read_volatile() };
 
         let rtc_ns = ((high as u64) << 32) | low as u64;
 
-        let reg_time = TimeSpec::from_ticks(tick as i64, self.clock_freq());
+        let reg_time = TimeSpec::from_ticks(tick as i64, self.query_performance_frequency());
         let rtc_time = TimeSpec::from_ticks(rtc_ns as i64, NSEC_PER_SEC as u64);
 
         rtc_time - reg_time
