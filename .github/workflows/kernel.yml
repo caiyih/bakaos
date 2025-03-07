@@ -101,6 +101,8 @@ jobs:
           wget https://github.com/neuq-rcore/testsuit-binary/releases/download/la64/loongarch64-linux-gnu.tar.gz
           tar -xzf loongarch64-linux-gnu.tar.gz -C $TOOLCHAIN_DIR --strip-components=1
           echo "$TOOLCHAIN_DIR/bin" >> $GITHUB_PATH
+          # $GITHUB_PATH only works for following steps
+          export PATH="$TOOLCHAIN_DIR/bin:$PATH"
           loongarch64-linux-gnu-objdump --version
 
       - name: Download sdcard images
