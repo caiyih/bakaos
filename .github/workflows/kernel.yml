@@ -55,8 +55,7 @@ jobs:
       matrix:
         architecture:
           - { triplet: riscv64gc-unknown-none-elf, fullname: riscv64, shortname: rv }
-#          - { triplet: loongarch64-unknown-none, fullname: loongarch64, shortname: la }
-
+          - { triplet: loongarch64-unknown-none, fullname: loongarch64, shortname: la }
 
     defaults:
       run:
@@ -86,12 +85,22 @@ jobs:
 
       - uses: ./.github/workflows/actions/setup-qemu
 
-      - name: Install dependencies
+      - name: Install dependencies (riscv64)
+        if: matrix.architecture.fullname == 'riscv64'
         run: |
           sudo apt update
           sudo apt install -y binutils-riscv64-linux-gnu
           sudo cp /usr/bin/riscv64-linux-gnu-objdump /usr/bin/riscv64-elf-objdump
           riscv64-elf-objdump --version
+  
+      - name: Install dependencies (loongarch64)
+        if: matrix.architecture.fullname == 'loongarch64'
+        run: |
+          wget https://github.com/neuq-rcore/testsuit-binary/releases/download/la64/loongarch64-linux-gnu.tar.gz
+          sudo mkdir -p /opt/loongarch64-toolchain
+          sudo tar -xzf loongarch64-linux-gnu.tar.gz -C /opt/loongarch64-toolchain
+          echo "/opt/loongarch64-toolchain/bin" >> $GITHUB_PATH
+          loongarch64-elf-objdump --version
 
       - name: Download sdcard images
         run: |
