@@ -68,7 +68,7 @@ jobs:
           key: sdcard-img-cache
 
       - name: Extract sdcard.img
-        run: zstd -d sdcard.img.zst -o sdcard.img
+        run: zstd -d sdcard.img.zst -o sdcard-rv.img
 
       - name: Run tests
         timeout-minutes: 5 # A temporary value
