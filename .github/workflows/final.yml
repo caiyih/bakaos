@@ -47,30 +47,11 @@ jobs:
       
       - uses: ./.github/workflows/actions/setup-qemu
 
-      # Try access the cache to keep it alive. 
-      - name: Attempt to restore sdcard.img.zst from cache
-        id: cache
-        uses: actions/cache@v4
-        with:
-          path: sdcard.img.zst
-          key: sdcard-img-cache
-          restore-keys: |
-            sdcard-img-
-
-      # Cache sdcard.img if it was not found in the cache. This should be rare, but ensures other CI jobs run quickly.
-      - name: Download .img file if not cached
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: curl -L -o sdcard.img.zst "${{ secrets.SDCARD_FINAL_URL }}"
-
-      - name: Cache sdcard.img if not cached
-        if: steps.cache.outputs.cache-hit != 'true'
-        uses: actions/cache@v4
-        with:
-          path: sdcard.img.zst
-          key: sdcard-img-cache
-
-      - name: Extract sdcard.img
-        run: zstd -d sdcard.img.zst -o sdcard-rv.img
+      - name: Download sdcard images
+        run: |
+          # We have to download the file at the parent directory(the root of this repository)
+          wget https://github.com/neuq-rcore/testsuits-for-oskernel/releases/download/2025-pre/sdcard-${{ matrix.architecture.shortname }}.img.zst
+          make _prepare_sdcard ARCH=${{ matrix.architecture.fullname }}
 
       - name: Run tests
         timeout-minutes: 5 # A temporary value

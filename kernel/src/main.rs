@@ -54,7 +54,7 @@ fn main() {
 }
 
 fn setup_common_tools() {
-    let busybox = global_open("/mnt/busybox", None).unwrap();
+    let busybox = global_open("/mnt/musl/busybox", None).unwrap();
     let bin = global_open("/bin", None).unwrap();
 
     for tool in [
@@ -73,6 +73,9 @@ fn run_final_tests() {
 
     setup_common_tools();
 
+    // mount and umount tests requires a node at '/dev/vda2'.
+    global_open("/dev", None).unwrap().mkdir("vda2");
+
     let script = global_open("/", None)
         .unwrap()
         .touch("test_script.sh")
@@ -80,15 +83,15 @@ fn run_final_tests() {
     script.writeat(0, include_bytes!("test_script.sh")).unwrap();
 
     run_busybox(
-        "/mnt/busybox",
+        "/mnt/musl/busybox",
         &["sh", "/test_script.sh"],
         &[
             "HOME=/root",
-            "PATH=/mnt:/bin",
+            "PATH=/mnt/musl:/bin",
             "USER=cirno",
             "LOGNAME=cirno",
             "TERM=xterm-256color",
-            "PWD=/mnt",
+            "PWD=/mnt/musl",
             "SHELL=/bin/sh",
             "SHLVL=1",
             "LANG=C",
@@ -105,9 +108,8 @@ fn run_final_tests() {
 
         memspace.init_stack(args, envp);
         let task = ProcessControlBlock::new(memspace);
-        unsafe {
-            task.pcb.lock().cwd = String::from("/mnt");
-        };
+
+        task.pcb.lock().cwd = String::from("/mnt/musl");
 
         spawn_task(task);
         threading::run_tasks();
