@@ -115,7 +115,7 @@ jobs:
       - name: Run
         timeout-minutes: 5
         continue-on-error: true
-        run: make run LOG=TRACE ARCH=${{ matrix.architecture.fullname }} MODE=${{ matrix.profile }}
+        run: make run LOG=${{ matrix.log_level }} ARCH=${{ matrix.architecture.fullname }} MODE=${{ matrix.profile }}
 
       - uses: actions/upload-artifact@v4
         with:
