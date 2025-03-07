@@ -100,7 +100,9 @@ _test_final_internal: _build_internal _test_internal
 
 parse:
 	@echo "Parsing test output..."
-	@python3 -W ignore test_preliminary/grading_scripts/test_runner.py output.log > results.json 2>/dev/null
+	@python3 test_preliminary/filter_log.py output.log basic.log
+	@python3 -W ignore test_preliminary/grading_scripts/test_runner.py basic.log > results.json 2>/dev/null
+	@rm basic.log
 	@dotnet run --project KernelAnnotationBot -- -f=output.log -b=results.json
 
 clean:
