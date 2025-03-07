@@ -37,7 +37,7 @@ unsafe impl virtio_drivers::Hal for VirtHal {
         paddr: virtio_drivers::PhysAddr,
         _size: usize,
     ) -> core::ptr::NonNull<u8> {
-        NonNull::new(platform_specific::phys_to_virt(paddr.into()) as *mut u8).unwrap()
+        NonNull::new(platform_specific::phys_to_virt(paddr) as *mut u8).unwrap()
     }
 
     unsafe fn share(
