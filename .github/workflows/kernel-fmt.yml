@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        architecture: [riscv64gc-unknown-none-elf]
+        architecture: [riscv64gc-unknown-none-elf, loongarch64-unknown-none]
 
     defaults:
       run:
