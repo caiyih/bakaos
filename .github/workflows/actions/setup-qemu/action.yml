@@ -7,7 +7,7 @@ runs:
     id: cache
     uses: actions/cache@v4
     with:
-      path: qemu-prebuilt-9.2.1.tar.gz
+      path: qemu
       key: qemu-cache
       restore-keys: qemu-
 
@@ -15,21 +15,25 @@ runs:
     if: steps.cache.outputs.cache-hit != 'true'
     shell: bash
     run: |
-      wget https://github.com/neuq-rcore/testsuit-binary/releases/download/qemu/qemu-prebuilt-9.2.1.tar.gz
+      mkdir qemu
+      wget -P qemu https://github.com/neuq-rcore/testsuit-binary/releases/download/qemu/qemu-prebuilt-9.2.1.tar.gz
+      wget -P qemu https://github.com/neuq-rcore/testsuit-binary/releases/download/qemu/qemu-loongarch64.tgz
 
   - name: Cache sdcard.img if not cached
     if: steps.cache.outputs.cache-hit != 'true'
     uses: actions/cache@v4
     with:
-      path: qemu-prebuilt-9.2.1.tar.gz
+      path: qemu
       key: qemu-cache
 
   - name: Install and Add qemu to PATH
     shell: bash
     run: |
-      mkdir qemu
-      tar -xf qemu-prebuilt-9.2.1.tar.gz -C qemu
-      echo "$PWD/qemu/bin" >> $GITHUB_PATH
+      cd qemu
+      tar -xf qemu-prebuilt-9.2.1.tar.gz -C qemu-riscv64
+      tar -xf qemu-loongarch64.tgz
+      echo "$PWD/qemu/qemu-riscv64/bin" >> $GITHUB_PATH
+      echo "$PWD/qemu/qemu-loongarch64/bin" >> $GITHUB_PATH
 
   - name: Verify installation
     shell: bash
