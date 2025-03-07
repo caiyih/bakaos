@@ -6,8 +6,8 @@ use alloc::{slice, string::String, sync::Arc};
 use constants::{ErrNo, SyscallError};
 use filesystem_abstractions::{
     global_open, global_open_raw, DirectoryTreeNode, FileDescriptor, FileDescriptorBuilder,
-    FileMode, FileStatistics, FrozenFileDescriptorBuilder, ICacheableFile, IFile, OpenFlags,
-    PipeBuilder,
+    FileMode, FileStatistics, FileStatisticsMode, FrozenFileDescriptorBuilder, ICacheableFile,
+    IFile, OpenFlags, PipeBuilder,
 };
 use page_table::GenericMappingFlags;
 use paging::{
@@ -1178,7 +1178,9 @@ impl ISyncSyscallHandler for StatxSyscall {
                     buf.stx_gid = 0;
 
                     buf.stx_nlink = Ord::max(stat.link_count, 1);
-                    buf.stx_mode = unsafe { core::mem::transmute::<_, u32>(stat.mode) } as u16;
+                    buf.stx_mode =
+                        unsafe { core::mem::transmute::<FileStatisticsMode, u32>(stat.mode) }
+                            as u16;
 
                     buf.stx_ino = stat.inode_id;
                     buf.stx_size = stat.size;
