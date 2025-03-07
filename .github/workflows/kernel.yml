@@ -121,12 +121,12 @@ jobs:
         with:
           name: output-${{ matrix.architecture.fullname }}-${{ matrix.profile }}-${{ matrix.log_level }}.log
           path: kernel/qemu_output.log
-          compression-level: 0
+          compression-level: 9
           overwrite: true
 
       - uses: actions/upload-artifact@v4
         with:
           name: kernel-${{ matrix.architecture.fullname }}-${{ matrix.profile }}-${{ matrix.log_level }}
           path: kernel/target/${{ matrix.architecture.triplet }}/${{ matrix.profile }}/bakaos
-          compression-level: 0
+          compression-level: 9
           overwrite: true
