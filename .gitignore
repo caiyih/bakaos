@@ -39,3 +39,9 @@ SetupRV64Workspace.sh
 *.sln
 bin
 obj
+
+# testsuits for 2025 preliminary contest
+sdcard-la.img.zst
+sdcard-rv.img.zst
+sdcard-la.img
+sdcard-rv.img
