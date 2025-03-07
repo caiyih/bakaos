@@ -40,7 +40,7 @@ QEMU-ARGS-riscv64 := $(QEMU-ARGS-common) \
 			 -bios $(BOOTLOADER) \
 			 -kernel $(KERNEL_ELF) \
 			 -m 128M \
-			 -drive file=../sdcard.img,if=none,format=raw,id=x0 \
+			 -drive file=../sdcard-rv.img,if=none,format=raw,id=x0 \
 			 -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0 \
 			 -device virtio-net-device,netdev=net \
 			 -netdev user,id=net \
@@ -50,6 +50,8 @@ QEMU-ARGS-loongarch64 := $(QEMU-ARGS-common) \
 			 -kernel $(KERNEL_ELF) \
 			 -no-reboot \
 			 -rtc base=utc \
+			 -drive file=../sdcard-la.img,if=none,format=raw,id=x0 \
+			 -device virtio-blk-pci,drive=x0 \
 
 all: help
 
