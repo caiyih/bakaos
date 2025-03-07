@@ -55,6 +55,7 @@ runs:
   - name: Add toolchian to PATH
     shell: bash
     run: |
+      echo "$PWD/riscv64-linux-musl-cross/bin" >> $GITHUB_PATH
       echo "$PWD/loongarch64-linux-musl-cross/bin" >> $GITHUB_PATH
 
   - name: Verify installation
