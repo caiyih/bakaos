@@ -95,7 +95,8 @@ jobs:
 
       - name: Download sdcard images
         run: |
-          wget https://github.com/neuq-rcore/testsuits-for-oskernel/releases/download/2025-pre/sdcard-${{ matrix.architecture.shortname }}.img.zst
+          # We have to download the file at the parent directory(the root of this repository)
+          wget https://github.com/neuq-rcore/testsuits-for-oskernel/releases/download/2025-pre/sdcard-${{ matrix.architecture.shortname }}.img.zst -P ..
 
       - name: Run
         timeout-minutes: 5
