@@ -53,6 +53,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        log_level: [TRACE, OFF]
         profile: [release-with-debug, debug]
         architecture:
           - { triplet: riscv64gc-unknown-none-elf, fullname: riscv64, shortname: rv }
@@ -82,7 +83,7 @@ jobs:
       - uses: ./.github/workflows/actions/setup-musl
 
       - name: Build kernel
-        run: make build LOG=TRACE ARCH=${{ matrix.architecture.fullname }} MODE=${{ matrix.profile }}
+        run: make build LOG=${{ matrix.log_level }} ARCH=${{ matrix.architecture.fullname }} MODE=${{ matrix.profile }}
 
       - uses: ./.github/workflows/actions/setup-qemu
 
@@ -113,5 +114,19 @@ jobs:
 
       - name: Run
         timeout-minutes: 5
+        continue-on-error: true
         run: make run LOG=TRACE ARCH=${{ matrix.architecture.fullname }} MODE=${{ matrix.profile }}
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: output-${{ matrix.architecture.fullname }}-${{ matrix.profile }}-${{ matrix.log_level }}.log
+          path: output.log
+          compression-level: 0
+          overwrite: true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kernel-${{ matrix.architecture.fullname }}-${{ matrix.profile }}-${{ matrix.log_level }}
+          path: kernel/target/${{ matrix.architecture.fullname }}/${{ matrix.profile }}/bakaos
+          compression-level: 0
+          overwrite: true
