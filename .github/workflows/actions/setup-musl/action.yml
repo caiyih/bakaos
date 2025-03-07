@@ -30,13 +30,13 @@ runs:
 
 # Loongarch 64
   - name: Attempt to restore toolchain from cache
-      id: cache-la
-      uses: actions/cache@v4
-      with:
-        path: loongarch64-linux-musl-cross
-        key: loongarch64-musl-cache
-        restore-keys: |
-          loongarch64-musl-
+    id: cache-la
+    uses: actions/cache@v4
+    with:
+      path: loongarch64-linux-musl-cross
+      key: loongarch64-musl-cache
+      restore-keys: |
+        loongarch64-musl-
   
   - name: Download musl toolchain
     if: steps.cache-la.outputs.cache-hit != 'true'
