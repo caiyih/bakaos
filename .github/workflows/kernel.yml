@@ -93,6 +93,10 @@ jobs:
           sudo cp /usr/bin/riscv64-linux-gnu-objdump /usr/bin/riscv64-elf-objdump
           riscv64-elf-objdump --version
 
+      - name: Download sdcard images
+        run: |
+          wget https://github.com/neuq-rcore/testsuits-for-oskernel/releases/download/2025-pre/sdcard-${{ matrix.architecture.shortname }}.img.zst
+
       - name: Run
         timeout-minutes: 5
         run: make run LOG=TRACE ARCH=${{ matrix.architecture.fullname }}
