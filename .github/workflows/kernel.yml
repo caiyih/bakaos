@@ -127,6 +127,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: kernel-${{ matrix.architecture.fullname }}-${{ matrix.profile }}-${{ matrix.log_level }}
-          path: target/${{ matrix.architecture.fullname }}/${{ matrix.profile }}/bakaos
+          path: target/${{ matrix.architecture.triplet }}/${{ matrix.profile }}/bakaos
           compression-level: 0
           overwrite: true
