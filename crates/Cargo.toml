@@ -23,3 +23,7 @@ members = [
 exclude = [
     "template",
 ]
+
+[patch.crates-io]
+# patches LoongArch64 support for https://github.com/japaric/cty
+cty = { git = "https://github.com/neuq-rcore/lwext4_rust.git" }
