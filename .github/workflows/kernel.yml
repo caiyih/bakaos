@@ -14,6 +14,12 @@ jobs:
   build-only:
     name: Build Only
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        architecture:
+          - { fullname: riscv64gc-unknown-none-elf, shortname: riscv64 }
+          - { fullname: loongarch64-unknown-none, shortname: loongarch64 }
 
     defaults:
       run:
@@ -29,7 +35,7 @@ jobs:
           rustup toolchain install $TOOLCHAIN_VERSION --profile minimal
           rustup default $TOOLCHAIN_VERSION
           rustup override set $TOOLCHAIN_VERSION
-          rustup target add riscv64gc-unknown-none-elf
+          rustup target add ${{ matrix.architecture.fullname }}
           rustup component add llvm-tools
 
       - uses: taiki-e/cache-cargo-install-action@v2
@@ -39,7 +45,7 @@ jobs:
       - uses: ./.github/workflows/actions/setup-musl
 
       - name: Build kernel
-        run: make build LOG=TRACE
+        run: make build LOG=TRACE ARCH=${{ matrix.architecture.shortname }}
 
   run:
     name: Run
