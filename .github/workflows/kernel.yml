@@ -53,6 +53,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        profile: [release-with-debug, debug]
         architecture:
           - { triplet: riscv64gc-unknown-none-elf, fullname: riscv64, shortname: rv }
           - { triplet: loongarch64-unknown-none, fullname: loongarch64, shortname: la }
@@ -81,7 +82,7 @@ jobs:
       - uses: ./.github/workflows/actions/setup-musl
 
       - name: Build kernel
-        run: make build LOG=TRACE ARCH=${{ matrix.architecture.fullname }}
+        run: make build LOG=TRACE ARCH=${{ matrix.architecture.fullname }} MODE=${{ matrix.profile }}
 
       - uses: ./.github/workflows/actions/setup-qemu
 
@@ -112,5 +113,5 @@ jobs:
 
       - name: Run
         timeout-minutes: 5
-        run: make run LOG=TRACE ARCH=${{ matrix.architecture.fullname }}
+        run: make run LOG=TRACE ARCH=${{ matrix.architecture.fullname }} MODE=${{ matrix.profile }}
 
