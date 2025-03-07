@@ -131,52 +131,51 @@ fn run_preliminary_tests() {
         };
 
         memspace.init_stack(args.unwrap_or(&[]), envp.unwrap_or(&[]));
+
         let task = ProcessControlBlock::new(memspace);
-        unsafe {
-            let directory = path::get_directory_name(path).unwrap();
-            task.pcb.lock().cwd = String::from(directory);
-        };
+
+        let directory = path::get_directory_name(path).unwrap();
+        task.pcb.lock().cwd = String::from(directory);
+
         spawn_task(task);
         threading::run_tasks();
     }
 
-    // mount and umount tests requires '/dev/vda2'.
-    // so we just use a copy of the sdcard's block device
-    let sdcard = global_open("/dev/sda", None).unwrap();
-    filesystem_abstractions::global_mount(&sdcard, "/dev/vda2", None).unwrap();
+    // mount and umount tests requires a node at '/dev/vda2'.
+    global_open("/dev", None).unwrap().mkdir("vda2");
 
-    preliminary_test("/mnt/uname", None, None);
-    preliminary_test("/mnt/write", None, None);
-    preliminary_test("/mnt/times", None, None);
-    preliminary_test("/mnt/brk", None, None);
-    preliminary_test("/mnt/gettimeofday", None, None);
-    preliminary_test("/mnt/getpid", None, None);
-    preliminary_test("/mnt/getppid", None, None);
-    preliminary_test("/mnt/getcwd", None, None);
-    preliminary_test("/mnt/sleep", None, None);
-    preliminary_test("/mnt/fork", None, None);
-    preliminary_test("/mnt/clone", None, None);
-    preliminary_test("/mnt/yield", None, None);
-    preliminary_test("/mnt/exit", None, None);
-    preliminary_test("/mnt/wait", None, None);
-    preliminary_test("/mnt/waitpid", None, None);
-    preliminary_test("/mnt/execve", None, None);
-    preliminary_test("/mnt/pipe", None, None);
-    preliminary_test("/mnt/dup", None, None);
-    preliminary_test("/mnt/dup2", None, None);
-    preliminary_test("/mnt/openat", None, None);
-    preliminary_test("/mnt/open", None, None);
-    preliminary_test("/mnt/close", None, None);
-    preliminary_test("/mnt/read", None, None);
-    preliminary_test("/mnt/mount", None, None);
-    preliminary_test("/mnt/umount", None, None);
-    preliminary_test("/mnt/mkdir_", None, None);
-    preliminary_test("/mnt/chdir", None, None);
-    preliminary_test("/mnt/fstat", None, None);
-    preliminary_test("/mnt/getdents", None, None);
-    preliminary_test("/mnt/unlink", None, None);
-    preliminary_test("/mnt/mmap", None, None);
-    preliminary_test("/mnt/munmap", None, None);
+    preliminary_test("/mnt/musl/basic/uname", None, None);
+    preliminary_test("/mnt/musl/basic/write", None, None);
+    preliminary_test("/mnt/musl/basic/times", None, None);
+    preliminary_test("/mnt/musl/basic/brk", None, None);
+    preliminary_test("/mnt/musl/basic/gettimeofday", None, None);
+    preliminary_test("/mnt/musl/basic/getpid", None, None);
+    preliminary_test("/mnt/musl/basic/getppid", None, None);
+    preliminary_test("/mnt/musl/basic/getcwd", None, None);
+    preliminary_test("/mnt/musl/basic/sleep", None, None);
+    preliminary_test("/mnt/musl/basic/fork", None, None);
+    preliminary_test("/mnt/musl/basic/clone", None, None);
+    preliminary_test("/mnt/musl/basic/yield", None, None);
+    preliminary_test("/mnt/musl/basic/exit", None, None);
+    preliminary_test("/mnt/musl/basic/wait", None, None);
+    preliminary_test("/mnt/musl/basic/waitpid", None, None);
+    preliminary_test("/mnt/musl/basic/execve", None, None);
+    preliminary_test("/mnt/musl/basic/pipe", None, None);
+    preliminary_test("/mnt/musl/basic/dup", None, None);
+    preliminary_test("/mnt/musl/basic/dup2", None, None);
+    preliminary_test("/mnt/musl/basic/openat", None, None);
+    preliminary_test("/mnt/musl/basic/open", None, None);
+    preliminary_test("/mnt/musl/basic/close", None, None);
+    preliminary_test("/mnt/musl/basic/read", None, None);
+    preliminary_test("/mnt/musl/basic/mount", None, None);
+    preliminary_test("/mnt/musl/basic/umount", None, None);
+    preliminary_test("/mnt/musl/basic/mkdir_", None, None);
+    preliminary_test("/mnt/musl/basic/chdir", None, None);
+    preliminary_test("/mnt/musl/basic/fstat", None, None);
+    preliminary_test("/mnt/musl/basic/getdents", None, None);
+    preliminary_test("/mnt/musl/basic/unlink", None, None);
+    preliminary_test("/mnt/musl/basic/mmap", None, None);
+    preliminary_test("/mnt/musl/basic/munmap", None, None);
 }
 
 static BOOTED: AtomicBool = AtomicBool::new(false);
