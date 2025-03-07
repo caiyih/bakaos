@@ -91,7 +91,7 @@ _test_internal:
 	@echo -e "\e[32m// =========================================\e[0m"
 
 build-final:
-	@KERNEL_TEST="F" make build
+	@KERNEL_TEST="F" make _build_internal
 
 test-final: build
 	@KERNEL_TEST="F" make _test_final_internal
