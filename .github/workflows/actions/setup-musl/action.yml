@@ -6,7 +6,7 @@ runs:
 
 # RISC-V 64
   - name: Attempt to restore toolchain from cache
-    id: cache
+    id: cache-rv
     uses: actions/cache@v4
     with:
       path: riscv64-linux-musl-cross
@@ -15,14 +15,14 @@ runs:
         riscv64-musl-
 
   - name: Download musl toolchain
-    if: steps.cache.outputs.cache-hit != 'true'
+    if: steps.cache-rv.outputs.cache-hit != 'true'
     shell: bash
     run: |
       wget https://musl.cc/riscv64-linux-musl-cross.tgz
       tar -xf riscv64-linux-musl-cross.tgz
 
   - name: Cache sdcard.img if not cached
-    if: steps.cache.outputs.cache-hit != 'true'
+    if: steps.cache-rv.outputs.cache-hit != 'true'
     uses: actions/cache@v4
     with:
       path: riscv64-linux-musl-cross
@@ -30,7 +30,7 @@ runs:
 
 # Loongarch 64
   - name: Attempt to restore toolchain from cache
-      id: cache
+      id: cache-la
       uses: actions/cache@v4
       with:
         path: loongarch64-linux-musl-cross
@@ -39,14 +39,14 @@ runs:
           loongarch64-musl-
   
   - name: Download musl toolchain
-    if: steps.cache.outputs.cache-hit != 'true'
+    if: steps.cache-la.outputs.cache-hit != 'true'
     shell: bash
     run: |
       wget https://github.com/LoongsonLab/oscomp-toolchains-for-oskernel/releases/download/loongarch64-linux-musl-cross-gcc-13.2.0/loongarch64-linux-musl-cross.tgz
       tar -xf loongarch64-linux-musl-cross.tgz
   
   - name: Cache sdcard.img if not cached
-    if: steps.cache.outputs.cache-hit != 'true'
+    if: steps.cache-la.outputs.cache-hit != 'true'
     uses: actions/cache@v4
     with:
       path: loongarch64-linux-musl-cross
