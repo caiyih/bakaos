@@ -100,7 +100,7 @@ jobs:
           sudo mkdir -p /opt/loongarch64-toolchain
           sudo tar -xzf loongarch64-linux-gnu.tar.gz -C /opt/loongarch64-toolchain
           echo "/opt/loongarch64-toolchain/bin" >> $GITHUB_PATH
-          loongarch64-elf-objdump --version
+          loongarch64-linux-gnu-objdump --version
 
       - name: Download sdcard images
         run: |
