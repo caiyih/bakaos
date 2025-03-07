@@ -1,4 +1,4 @@
-name: Install Qemu
+name: Install Qemu RISC-V
 
 runs:
   using: composite
@@ -7,34 +7,29 @@ runs:
     id: cache
     uses: actions/cache@v4
     with:
-      path: qemu
-      key: qemu-cache
-      restore-keys: qemu-
+      path: qemu-prebuilt-9.2.1.tar.gz
+      key: riscv64-qemu-cache
+      restore-keys: riscv64-qemu-
 
   - name: Download musl toolchain
     if: steps.cache.outputs.cache-hit != 'true'
     shell: bash
     run: |
-      mkdir qemu
-      wget -P qemu https://github.com/neuq-rcore/testsuit-binary/releases/download/qemu/qemu-prebuilt-7.0.0.tar.gz
-      wget -P qemu https://github.com/neuq-rcore/testsuit-binary/releases/download/qemu/qemu-loongarch64.tgz
+      wget https://github.com/neuq-rcore/testsuit-binary/releases/download/qemu/qemu-prebuilt-9.2.1.tar.gz
 
   - name: Cache sdcard.img if not cached
     if: steps.cache.outputs.cache-hit != 'true'
     uses: actions/cache@v4
     with:
-      path: qemu
-      key: qemu-cache
+      path: qemu-prebuilt-9.2.1.tar.gz
+      key: riscv64-qemu-cache
 
   - name: Install and Add qemu to PATH
     shell: bash
     run: |
-      cd qemu
-      mkdir qemu-riscv64
-      tar -xf qemu-prebuilt-7.0.0.tar.gz -C qemu-riscv64
-      tar -xf qemu-loongarch64.tgz
-      echo "$PWD/qemu-riscv64/bin" >> $GITHUB_PATH
-      echo "$PWD/qemu-loongarch64/bin" >> $GITHUB_PATH
+      mkdir qemu
+      tar -xf qemu-prebuilt-9.2.1.tar.gz -C qemu
+      echo "$PWD/qemu/bin" >> $GITHUB_PATH
 
   - name: Verify installation
     shell: bash
