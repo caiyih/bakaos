@@ -96,10 +96,11 @@ jobs:
       - name: Install dependencies (loongarch64)
         if: matrix.architecture.fullname == 'loongarch64'
         run: |
+          TOOLCHAIN_DIR=${{ runner.temp }}/loongarch64-toolchain
+          mkdir -p $TOOLCHAIN_DIR
           wget https://github.com/neuq-rcore/testsuit-binary/releases/download/la64/loongarch64-linux-gnu.tar.gz
-          sudo mkdir -p /opt/loongarch64-toolchain
-          sudo tar -xzf loongarch64-linux-gnu.tar.gz -C /opt/loongarch64-toolchain
-          echo "/opt/loongarch64-toolchain/bin" >> $GITHUB_PATH
+          tar -xzf loongarch64-linux-gnu.tar.gz -C $TOOLCHAIN_DIR --strip-components=1
+          echo "$TOOLCHAIN_DIR/bin" >> $GITHUB_PATH
           loongarch64-linux-gnu-objdump --version
 
       - name: Download sdcard images
