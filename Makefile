@@ -96,7 +96,7 @@ build-final:
 test-final: build
 	@KERNEL_TEST="F" make _test_final_internal
 
-_test_final_internal: build _test_internal
+_test_final_internal: _build_internal _test_internal
 
 parse:
 	@echo "Parsing test output..."
