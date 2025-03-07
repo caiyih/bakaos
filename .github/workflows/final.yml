@@ -41,7 +41,9 @@ jobs:
       - uses: ./.github/workflows/actions/setup-musl
 
       - name: Build Kernel
-        run: make build-final ARCH=${{ matrix.architecture.fullname }}
+        run: |
+          make build-final ARCH=${{ matrix.architecture.fullname }}
+          make _prepare_image ARCH=${{ matrix.architecture.fullname }}
       
       - uses: ./.github/workflows/actions/setup-qemu
 
