@@ -30,6 +30,7 @@ runs:
     shell: bash
     run: |
       cd qemu
+      mkdir qemu-riscv64
       tar -xf qemu-prebuilt-9.2.1.tar.gz -C qemu-riscv64
       tar -xf qemu-loongarch64.tgz
       echo "$PWD/qemu/qemu-riscv64/bin" >> $GITHUB_PATH
