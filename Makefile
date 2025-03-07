@@ -93,7 +93,7 @@ _test_internal:
 build-final:
 	@KERNEL_TEST="F" make _build_internal
 
-test-final: build
+test-final: build-final _prepare_image
 	@KERNEL_TEST="F" make _test_final_internal
 
 _test_final_internal: _build_internal _test_internal
