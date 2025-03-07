@@ -16,7 +16,7 @@ runs:
     shell: bash
     run: |
       mkdir qemu
-      wget -P qemu https://github.com/neuq-rcore/testsuit-binary/releases/download/qemu/qemu-prebuilt-9.2.1.tar.gz
+      wget -P qemu https://github.com/neuq-rcore/testsuit-binary/releases/download/qemu/qemu-prebuilt-7.0.0.tar.gz
       wget -P qemu https://github.com/neuq-rcore/testsuit-binary/releases/download/qemu/qemu-loongarch64.tgz
 
   - name: Cache sdcard.img if not cached
@@ -31,7 +31,7 @@ runs:
     run: |
       cd qemu
       mkdir qemu-riscv64
-      tar -xf qemu-prebuilt-9.2.1.tar.gz -C qemu-riscv64
+      tar -xf qemu-prebuilt-7.0.0.tar.gz -C qemu-riscv64
       tar -xf qemu-loongarch64.tgz
       echo "$PWD/qemu-riscv64/bin" >> $GITHUB_PATH
       echo "$PWD/qemu-loongarch64/bin" >> $GITHUB_PATH
