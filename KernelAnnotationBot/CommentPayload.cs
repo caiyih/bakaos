@@ -58,14 +58,14 @@ public class CommentPayload
         builder.AppendLine("<details>");
         builder.AppendLine("<summary>Click for details</summary>");
         {
-            builder.AppendLine($"Logging: {LogLevel}");
+            builder.AppendLine($"- Logging: {LogLevel}");
             builder.AppendLine();
 
             {
                 int padding = TestPasses.Select(p => p.Name.Length).Max();
                 foreach (var pass in TestPasses)
                 {
-                    builder.AppendLine($"{pass.Name.PadRight(padding)}: {pass.TotalScore:F2}");
+                    builder.AppendLine($"- {pass.Name.PadRight(padding)}: {pass.TotalScore:F2}");
                     builder.AppendLine();
                 }
             }
