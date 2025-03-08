@@ -79,6 +79,6 @@ jobs:
         run: make parse
 
       - name: Create annotation comment
-        run: dotnet run --project KernelAnnotationBot -- -f=output.log -b=results.json --target=${{ matrix.architecture.fullname }} --profile=release --log-level=OFF --title="# Final Test result annotation"
+        run: dotnet run --project KernelAnnotationBot -- -f=output.log -b=results.json --target=${{ matrix.architecture.fullname }} --profile=release --log-level=OFF --title="# **Final** Test result annotation"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
