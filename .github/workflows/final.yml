@@ -64,7 +64,7 @@ jobs:
         with:
           # A file, directory or wildcard pattern that describes what to upload
           # Required.
-          name: output-${{ matrix.architecture }}.log
+          name: output-${{ matrix.architecture.fullname }}.log
           path: output.log
           if-no-files-found: error
           compression-level: 0
