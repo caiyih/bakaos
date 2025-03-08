@@ -12,8 +12,7 @@ use timing::TimeSpec;
 use address::{IPageNum, VirtualAddress};
 use hermit_sync::SpinMutex;
 use paging::{
-    MemoryMapFlags, MemoryMapProt, MemorySpace, MemorySpaceBuilder, PageTable,
-    TaskMemoryMap,
+    MemoryMapFlags, MemoryMapProt, MemorySpace, MemorySpaceBuilder, PageTable, TaskMemoryMap,
 };
 
 use crate::{
@@ -221,10 +220,12 @@ impl TaskControlBlock {
                     if let Ok((this_entry, size)) = this_pt.get_entry(vaddr) {
                         // Map to new page table
 
-                        if let Ok(new_entry) =  new_pt.get_create_entry(vaddr, size) {
+                        if let Ok(new_entry) = new_pt.get_create_entry(vaddr, size) {
                             *new_entry = this_entry.clone();
                         } else {
-                            log::warn!("Can not creat pte when trying to clone memory mapping page");
+                            log::warn!(
+                                "Can not creat pte when trying to clone memory mapping page"
+                            );
                         }
                     } else {
                         log::warn!("Memory mapping record does not existing in page table");

@@ -71,7 +71,7 @@ impl Default for TaskMemoryMap {
 impl Clone for TaskMemoryMap {
     fn clone(&self) -> Self {
         Self {
-            mmap_top: self.mmap_top.clone(),
+            mmap_top: self.mmap_top,
             records: self.records.clone(),
             mapped_files: self.mapped_files.clone(),
         }
