@@ -99,14 +99,13 @@ fn run_final_tests() {
     );
 
     fn run_busybox(path: &str, args: &[&str], envp: &[&str]) {
-        let busybox = filesystem_abstractions::global_open(path, None).unwrap();
-        let busybox = busybox.readall().unwrap();
+        let memspace = {
+            let busybox = filesystem_abstractions::global_open(path, None).unwrap();
+            let busybox = busybox.readall().unwrap();
 
-        let mut memspace = MemorySpaceBuilder::from_elf(&busybox, path).unwrap();
+            MemorySpaceBuilder::from_raw(&busybox, path, args, envp).unwrap()
+        };
 
-        drop(busybox);
-
-        memspace.init_stack(args, envp);
         let task = ProcessControlBlock::new(memspace);
 
         task.pcb.lock().cwd = String::from("/mnt/musl");
@@ -123,16 +122,15 @@ fn run_preliminary_tests() {
         use scheduling::spawn_task;
         use tasks::TaskControlBlock;
 
-        let mut memspace = {
+        let memspace = {
             let elf = filesystem_abstractions::global_open(path, None)
                 .expect("Failed to open path")
                 .readall()
                 .expect("Failed to read file");
 
-            MemorySpaceBuilder::from_elf(&elf, path).unwrap()
+            MemorySpaceBuilder::from_raw(&elf, path, args.unwrap_or(&[]), envp.unwrap_or(&[]))
+                .unwrap()
         };
-
-        memspace.init_stack(args.unwrap_or(&[]), envp.unwrap_or(&[]));
 
         let task = ProcessControlBlock::new(memspace);
 

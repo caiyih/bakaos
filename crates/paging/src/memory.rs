@@ -10,6 +10,7 @@ use address::{
     VirtualPageNumRange,
 };
 use allocation::{alloc_frame, TrackedFrame};
+use filesystem_abstractions::global_open;
 use log::debug;
 use xmas_elf::ElfFile;
 
@@ -458,7 +459,99 @@ unsafe impl Sync for MemorySpaceBuilder {}
 unsafe impl Send for MemorySpaceBuilder {}
 
 impl MemorySpaceBuilder {
-    pub fn from_elf(elf_data: &[u8], executable_path: &str) -> Result<Self, &'static str> {
+    pub fn from_raw(
+        data: &[u8],
+        path: &str,
+        args: &[&str],
+        envp: &[&str],
+    ) -> Result<Self, &'static str> {
+        if let Ok((mut shebang, shebang_args)) = Self::from_shebang(data, path) {
+            let shebang_args = unsafe { core::str::from_utf8_unchecked(shebang_args) };
+            let shebang_args = shebang_args
+                .split(' ')
+                .skip_while(|s| s.is_empty())
+                .collect::<Vec<_>>();
+
+            let mut args_boxed = Vec::with_capacity(shebang_args.len() + args.len());
+            args_boxed.extend_from_slice(&shebang_args);
+            args_boxed.extend_from_slice(args);
+
+            shebang.init_stack(&args_boxed, envp);
+            Ok(shebang)
+        } else 
+        if let Ok(mut elf) = Self::from_elf(data, path) {
+            log::error!("Non shebang. path: {}, args: {:?}", path, args);
+            elf.init_stack(args, envp);
+            Ok(elf)
+        } else {
+            return Err("Not a valid executable");
+        }
+    }
+
+    fn from_shebang<'a>(data: &'a [u8], path: &str) -> Result<(Self, &'a [u8]), &'static str> {
+        const SHEBANG_MAX_LEN: usize = 127;
+        const DEFAULT_SHEBANG: &[(&'static str, &'static [u8])] = &[(".sh", b"/bin/busybox sh")];
+
+        fn try_shebang<'a>(
+            interpreter: &'a [u8],
+        ) -> Result<(MemorySpaceBuilder, &'a [u8]), &'static str> {
+            let interpreter_path_end = interpreter
+                .iter()
+                .position(|&b| b == b' ')
+                .unwrap_or(interpreter.len());
+            let interpreter_path =
+                unsafe { core::str::from_utf8_unchecked(&interpreter[..interpreter_path_end]) };
+
+            if let Ok(interpreter_file) = global_open(interpreter_path, None) {
+                if let Ok(contents) = interpreter_file.readall() {
+                    return match MemorySpaceBuilder::from_elf(&contents, interpreter_path) {
+                        Ok(builder) => Ok((
+                            builder,
+                            &interpreter[interpreter_path_end.min(interpreter.len() - 1)..],
+                        )),
+                        Err(err) => Err(err),
+                    };
+                }
+
+                return Err("Unable to find/load interpreter");
+            }
+
+            Err("invalid interpreter path")
+        }
+
+        // Check if the file starts with a shebang or if the path matches any default shebang pattern
+        let is_shebang = data.len() >= 3 && &data[..3] == b"#!/";
+        let matches_default_shebang = DEFAULT_SHEBANG.iter().any(|f| path.ends_with(f.0));
+
+        if !is_shebang && !matches_default_shebang {
+            // Try to use the default shebang
+            return Err("Unable to open default interpreter");
+        }
+
+        if is_shebang {
+            // If the file starts with a shebang, process it
+            if let Some(end) = data.iter().take(SHEBANG_MAX_LEN).position(|&b| b == b'\n') {
+                let shebang = &data[2..end];
+
+                if let Ok(ret) = try_shebang(shebang) {
+                    return Ok(ret);
+                }
+            }
+        }
+
+        // If no valid shebang was found, try to use the default shebang
+        for &(suffix, interpreter) in DEFAULT_SHEBANG {
+            if path.ends_with(suffix) {
+                if let Ok(ret) = try_shebang(interpreter) {
+                    return Ok(ret);
+                }
+            }
+        }
+
+        Err("Unable to find the end of shebang within SHEBANG_MAX_LEN bytes or open default interpreter")
+    }
+
+    fn from_elf(elf_data: &[u8], executable_path: &str) -> Result<Self, &'static str> {
         let current_page_table = PageTable::borrow_current();
         let mut memory_space = MemorySpace::empty();
         memory_space.register_kernel_area();

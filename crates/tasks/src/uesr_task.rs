@@ -164,9 +164,7 @@ impl TaskControlBlock {
         args: &[&str],
         envp: &[&str],
     ) -> Result<(), &'static str> {
-        let mut memory_space_builder = MemorySpaceBuilder::from_elf(elf, path)?;
-
-        memory_space_builder.init_stack(args, envp);
+        let memory_space_builder = MemorySpaceBuilder::from_raw(elf, path, args, envp)?;
 
         *self.mut_trap_ctx() = create_task_context(&memory_space_builder);
 
