@@ -52,6 +52,8 @@ public static class CommentHandler
 
         var (owner, repo, sha) = GetActionsContext();
 
+        Console.WriteLine($"Trying to create comment at: {owner}/{repo}/{sha}");
+
         var requestBody = new GitHub.Repos.Item.Item.Commits.Item.Comments.CommentsPostRequestBody
         {
             Body = content,
