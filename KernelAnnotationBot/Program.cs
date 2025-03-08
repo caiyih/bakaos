@@ -16,6 +16,10 @@ static class Program
     {
         string? filePath = null;
         string? basicResultPath = null;
+        string? title = null;
+        string? target = null;
+        string? profile = null;
+        string? logLevel = null;
 
         foreach (var arg in args)
         {
@@ -37,6 +41,26 @@ static class Program
                     basicResultPath = val;
                     break;
 
+                case "-t":
+                case "--title":
+                    title = val?.Trim('\"');
+                    break;
+
+                case "-a":
+                case "--target":
+                    target = val?.Trim('\"');
+                    break;
+
+                case "-p":
+                case "--profile":
+                    profile = val?.Trim('\"');
+                    break;
+
+                case "-l":
+                case "--log-level":
+                    logLevel = val?.Trim('\"');
+                    break;
+
                 default:
                     Console.WriteLine($"Unrecognized key: \"{key}\"");
                     break;
@@ -56,6 +80,31 @@ static class Program
         }
 
         DisplayAnnotationResult();
+
+        (string?, string)[] nonNullFields = [(target, nameof(target)), (profile, nameof(profile)), (logLevel, nameof(logLevel))];
+        if (nonNullFields.All(f => f.Item1 is not null))
+        {
+            var payload = new CommentPayload
+            {
+                Title = title,
+                TestPasses = annotationPasses.ToImmutableList(),
+                Target = target!,
+                Profile = profile!,
+                LogLevel = logLevel!,
+            };
+
+            // TODO: pass the payload to GitHub api
+        }
+        else
+        {
+            foreach (var field in nonNullFields)
+            {
+                if (field.Item1 is null)
+                {
+                    Console.WriteLine($"Skipping upload comment for {field.Item2} is null");
+                }
+            }
+        }
     }
 
     static void Analyze(string content, string? basicResult = null)
