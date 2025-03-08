@@ -5,6 +5,8 @@ namespace KernelAnnotationBot;
 
 static class Program
 {
+    static bool IsCI() => Environment.GetEnvironmentVariable("CI") is not null;
+
     static readonly List<AnnotationPassBase> annotationPasses =
     [
         new LibCTestPass(),
@@ -20,6 +22,7 @@ static class Program
         string? target = null;
         string? profile = null;
         string? logLevel = null;
+        bool isCI = IsCI();
 
         foreach (var arg in args)
         {
@@ -101,11 +104,14 @@ static class Program
         {
             DisplayAnnotationResult();
 
-            foreach (var field in nonNullFields)
+            if (isCI)
             {
-                if (field.Item1 is null)
+                foreach (var field in nonNullFields)
                 {
-                    Console.WriteLine($"Skipping upload comment for {field.Item2} is null");
+                    if (field.Item1 is null)
+                    {
+                        Console.WriteLine($"Skipping upload comment for {field.Item2} is null");
+                    }
                 }
             }
         }
