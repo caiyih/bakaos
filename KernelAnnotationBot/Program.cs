@@ -79,8 +79,6 @@ static class Program
             Console.WriteLine("File path not specified");
         }
 
-        DisplayAnnotationResult();
-
         (string?, string)[] nonNullFields = [(target, nameof(target)), (profile, nameof(profile)), (logLevel, nameof(logLevel))];
         if (nonNullFields.All(f => f.Item1 is not null))
         {
@@ -93,10 +91,16 @@ static class Program
                 LogLevel = logLevel!,
             };
 
-            // TODO: pass the payload to GitHub api
+            string payloadString = payload.ToString();
+
+            Console.WriteLine(payloadString);
+
+            CommentHandler.Create(payloadString);
         }
         else
         {
+            DisplayAnnotationResult();
+
             foreach (var field in nonNullFields)
             {
                 if (field.Item1 is null)
