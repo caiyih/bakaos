@@ -7,4 +7,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="GitHub.Octokit.SDK" Version="0.0.31" />
+  </ItemGroup>
+
 </Project>
