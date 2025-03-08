@@ -90,11 +90,8 @@ async_syscall!(sys_wait4_async, ctx, {
                     *guard = (target_task.exit_code.load(Ordering::Relaxed) << 8) & 0xff00;
                 }
 
-                if pid == -1 {
-                    return Ok(0);
-                } else {
-                    return Ok(target_task.task_id.id() as isize);
-                }
+                // TODO: returns non 0 value fails on LoongArch64
+                return Ok(target_task.task_id.id() as isize);
             }
             None if nohang => return SyscallError::Success,
             None => {
