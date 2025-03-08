@@ -221,7 +221,7 @@ impl TaskControlBlock {
                         // Map to new page table
 
                         if let Ok(new_entry) = new_pt.get_create_entry(vaddr, size) {
-                            *new_entry = this_entry.clone();
+                            *new_entry = *this_entry;
                         } else {
                             log::warn!(
                                 "Can not creat pte when trying to clone memory mapping page"
