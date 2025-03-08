@@ -57,6 +57,7 @@ public class CommentPayload
 
         builder.AppendLine("<details>");
         builder.AppendLine("<summary>Click for details</summary>");
+        builder.AppendLine();
         {
             builder.AppendLine($"- Logging: {LogLevel}");
             builder.AppendLine();
