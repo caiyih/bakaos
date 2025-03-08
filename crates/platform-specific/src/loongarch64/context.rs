@@ -1,4 +1,5 @@
 use crate::ITaskContext;
+use core::fmt::{self, Debug, Formatter};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -91,7 +92,7 @@ impl FloatRegisterContext {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct TaskTrapContext {
     /// general registers.
     pub regs: GeneralRegisterContext, // 0 - 31
@@ -104,6 +105,18 @@ pub struct TaskTrapContext {
     /// Current Mode Information
     pub crmd: usize, // 35
     pub fregs: FloatRegisterContext,
+}
+
+impl Debug for TaskTrapContext {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("TaskTrapContext")
+            .field("regs", &self.regs)
+            .field("prmd", &self.prmd)
+            .field("era", &self.era)
+            .field("badv", &self.badv)
+            .field("crmd", &self.crmd)
+            .finish()
+    }
 }
 
 impl ITaskContext for TaskTrapContext {
