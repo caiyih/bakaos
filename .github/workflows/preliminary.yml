@@ -6,6 +6,9 @@ on:
       - "**"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 env:
   CARGO_TERM_COLOR: 'always'
   IS_CI_ENVIRONMENT: true
@@ -17,7 +20,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        architecture: [riscv64gc-unknown-none-elf]
+        architecture:
+          - { triplet: riscv64gc-unknown-none-elf, fullname: riscv64, shortname: rv }
+          - { triplet: loongarch64-unknown-none, fullname: loongarch64, shortname: la }
 
     steps:
       - uses: actions/checkout@v4
@@ -29,7 +34,7 @@ jobs:
           rustup toolchain install $TOOLCHAIN_VERSION --profile minimal
           rustup default $TOOLCHAIN_VERSION
           rustup override set $TOOLCHAIN_VERSION
-          rustup target add ${{ matrix.architecture }}
+          rustup target add ${{ matrix.architecture.triplet }}
           rustup component add llvm-tools
 
       - uses: taiki-e/cache-cargo-install-action@v2
@@ -39,17 +44,25 @@ jobs:
       - uses: ./.github/workflows/actions/setup-musl
 
       - name: Build Kernel
-        run: make TARGET=${{ matrix.architecture }}
+        run: make build ARCH=${{ matrix.architecture.fullname }}
 
       - uses: ./.github/workflows/actions/setup-qemu
 
+      - name: Download sdcard images
+        run: |
+          wget https://github.com/neuq-rcore/testsuits-for-oskernel/releases/download/2025-pre/sdcard-${{ matrix.architecture.shortname }}.img.zst
+
       - name: Prepare sdcard image
-        run: make _prepare_sdcard TARGET=${{ matrix.architecture }}
+        run: make _prepare_sdcard ARCH=${{ matrix.architecture.fullname }}
 
       - name: Run tests
         timeout-minutes: 5
-        run: make _test_internal
+        run: make _test_internal ARCH=${{ matrix.architecture.fullname }}
 
       - name: Visualizing grading result
         run: make parse
 
+      - name: Create annotation comment
+        run: dotnet run --project KernelAnnotationBot -- -f=output.log -b=results.json --target=${{ matrix.architecture.fullname }} --profile=release --log-level=OFF --title="# **Basic** Test result annotation"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

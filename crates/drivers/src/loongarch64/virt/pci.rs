@@ -69,7 +69,7 @@ pub fn enumerate_pci_search(
                 continue;
             }
 
-            if let Some(_) = virtio_device_type(&dev_info) {
+            if virtio_device_type(&dev_info).is_some() {
                 configure_pci_device(&mut root, bdf, &mut pci_allocator);
 
                 if let Ok(mut transport) =

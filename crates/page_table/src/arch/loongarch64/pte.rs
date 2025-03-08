@@ -67,7 +67,7 @@ impl const IGenericMappingFlags for GenericMappingFlags {
             (LA64PageTableEntryFlags::V.bits()
                 | LA64PageTableEntryFlags::P.bits()
                 | LA64PageTableEntryFlags::D.bits()
-                | ((!bits & GenericMappingFlags::Readable.bits()) as u64) << 61
+                | (((!bits & GenericMappingFlags::Readable.bits()) as u64) << 61)
                 | (((bits & GenericMappingFlags::Writable.bits()) as u64) << (8 - 1))
                 | (((!bits & GenericMappingFlags::Executable.bits()) as u64) << (62 - 2))
                 | ((((bits & GenericMappingFlags::User.bits()) >> 3) as u64) * 0b1100) // PLVL and PLVH

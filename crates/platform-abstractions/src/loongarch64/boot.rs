@@ -14,6 +14,7 @@ use crate::{clear_bss, loongarch64::context::init_thread_info};
 #[naked]
 #[no_mangle]
 #[link_section = ".text.entry"] // Don't rename, cross crates inter-operation
+#[allow(clippy::missing_safety_doc)]
 pub unsafe extern "C" fn _start() -> ! {
     ::core::arch::naked_asm!(
         "

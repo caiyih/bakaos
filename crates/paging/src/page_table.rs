@@ -120,10 +120,12 @@ impl PageTable {
     /// If the page table is not valid or not mapped the higher half address,
     /// it will cause a page fault
     pub unsafe fn activate(&self) {
-        log::trace!("Activating page table: {:?}", self.root());
+        if !self.is_activated() {
+            log::trace!("Activating page table: {:?}", self.root());
 
-        // TODO: remove this, and uses deref
-        self.inner.activate(false);
+            // TODO: remove this, and uses deref
+            self.inner.activate(false);
+        }
     }
 
     pub fn is_activated(&self) -> bool {

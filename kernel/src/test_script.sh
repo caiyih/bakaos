@@ -1,22 +1,10 @@
 #!/bin/busybox
-busybox echo "run time-test"
-./time-test
-busybox echo "run libctest_testcode.sh"
-./libctest_testcode.sh
-busybox echo "run libc-bench"
-./libc-bench
-busybox echo "run lua_testcode.sh"
+(
+	cd basic
+	echo "#### OS COMP TEST GROUP START basic-musl ####"
+	./run-all.sh
+	echo "#### OS COMP TEST GROUP END basic-musl ####"
+)
 ./lua_testcode.sh
-
-cat busybox_cmd.txt | while read line
-do
-	eval "./busybox $line"
-	RTN=$?
-    echo ""
-	if [[ $RTN -ne 0 && $line != "false" ]] ;then
-		echo "testcase busybox $line fail"
-		# echo "return: $RTN, cmd: $line" >> $RST
-	else
-		echo "testcase busybox $line success"
-	fi
-done
+./libctest_testcode.sh
+./busybox_testcode.sh
