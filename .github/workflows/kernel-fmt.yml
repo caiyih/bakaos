@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - "**"
-  pull_request:
-    paths:
-      - 'kernel/**'
   workflow_dispatch:
 
 env:
