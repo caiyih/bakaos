@@ -74,20 +74,28 @@ public class CommentPayload
                 foreach (var pass in TestPasses)
                 {
                     builder.AppendLine($"## Detailed result for {pass.Name}:");
-                    builder.AppendLine($"| Score | Testcase |");
-                    builder.AppendLine($"|------:|----------|");
 
-                    foreach (var testcase in pass.TestResults)
+                    if (pass.TestResults.Count == 0)
                     {
-                        double score = testcase.Value.Score;
-                        string scoreString = score.ToString("F2");
+                        builder.AppendLine("*Skipped for no content*");
+                    }
+                    else
+                    {
+                        builder.AppendLine($"| Score | Testcase |");
+                        builder.AppendLine($"|------:|----------|");
 
-                        if (testcase.Value.FullScore is double fullScore && score >= fullScore)
+                        foreach (var testcase in pass.TestResults)
                         {
-                            scoreString = $"{scoreString}(full)";
-                        }
+                            double score = testcase.Value.Score;
+                            string scoreString = score.ToString("F2");
 
-                        builder.AppendLine($"|{scoreString}|{testcase.Key}|");
+                            if (testcase.Value.FullScore is double fullScore && score >= fullScore)
+                            {
+                                scoreString = $"{scoreString}(full)";
+                            }
+
+                            builder.AppendLine($"|{scoreString}|{testcase.Key}|");
+                        }
                     }
 
                     builder.AppendLine();
