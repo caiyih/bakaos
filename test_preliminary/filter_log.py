@@ -2,15 +2,21 @@ import re
 import sys
 
 def filter_log(input_path, output_path):
-    pattern = re.compile(r"(#### OS COMP TEST GROUP START basic-.*? ####)(.*?)(#### OS COMP TEST GROUP END basic-.*? ####)", re.S)
-    with open(input_path, 'r', encoding='utf-8') as infile, open(output_path, 'w', encoding='utf-8') as outfile:
+    pattern = re.compile(r"#### OS COMP TEST GROUP START basic-.*? ####(.*?)#### OS COMP TEST GROUP END basic-.*? ####", re.S)
+
+    with open(input_path, 'r', encoding='utf-8') as infile:
         content = infile.read()
-        matches = pattern.findall(content)
-        for start, body, end in matches:
-            outfile.write(start + "\n")
-            outfile.write(body.strip() + "\n")
-            outfile.write(end + "\n\n")
-        print(f"Filtered log saved to {output_path}")
+    
+    matches = pattern.findall(content)
+
+    with open(output_path, 'w', encoding='utf-8') as outfile:
+        if matches:
+            for body in matches:
+                outfile.write(body.strip() + "\n\n")
+            print(f"Filtered log (new format) saved to {output_path}")
+        else:
+            outfile.write(content)
+            print(f"Filtered log (old format, full content) saved to {output_path}")
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
