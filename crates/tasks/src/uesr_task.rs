@@ -12,7 +12,8 @@ use timing::TimeSpec;
 use address::{IPageNum, VirtualAddress};
 use hermit_sync::SpinMutex;
 use paging::{
-    MemoryMapFlags, MemoryMapProt, MemorySpace, MemorySpaceBuilder, PageTable, TaskMemoryMap,
+    MemoryMapFlags, MemoryMapProt, MemorySpace, MemorySpaceBuilder, PageTable,
+    TaskMemoryMap,
 };
 
 use crate::{
@@ -206,7 +207,32 @@ impl TaskControlBlock {
     pub fn fork_process(self: &Arc<TaskControlBlock>) -> Arc<TaskControlBlock> {
         let this_trap_ctx = *self.mut_trap_ctx();
         let this_pcb = self.pcb.lock();
-        let memory_space = MemorySpace::clone_existing(&this_pcb.memory_space);
+        let mut memory_space = MemorySpace::clone_existing(&this_pcb.memory_space);
+
+        // Handle memory mapping clone
+        {
+            let this_pt = this_pcb.memory_space.page_table();
+            let new_pt = memory_space.page_table_mut();
+
+            for record in this_pcb.mmaps.records() {
+                for vpn in record.page_area.iter() {
+                    let vaddr = vpn.start_addr();
+
+                    if let Ok((this_entry, size)) = this_pt.get_entry(vaddr) {
+                        // Map to new page table
+
+                        if let Ok(new_entry) =  new_pt.get_create_entry(vaddr, size) {
+                            *new_entry = this_entry.clone();
+                        } else {
+                            log::warn!("Can not creat pte when trying to clone memory mapping page");
+                        }
+                    } else {
+                        log::warn!("Memory mapping record does not existing in page table");
+                    }
+                }
+            }
+        }
+
         let task_id = tid::allocate_tid();
         let tid = task_id.id();
 
@@ -231,7 +257,7 @@ impl TaskControlBlock {
                 memory_space,
                 cwd: this_pcb.cwd.clone(),
                 fd_table: this_pcb.fd_table.clone_for(tid),
-                mmaps: TaskMemoryMap::default(),
+                mmaps: this_pcb.mmaps.clone(),
                 futex_queue: FutexQueue::default(),
                 tasks: BTreeMap::new(),
                 executable: this_pcb.executable.clone(),

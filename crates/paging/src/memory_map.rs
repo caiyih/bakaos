@@ -39,12 +39,12 @@ impl MemoryMapFlags {
     }
 }
 
-#[derive(Debug)]
-struct MemoryMapRecord {
-    prot: MemoryMapProt,
-    offset: usize,
-    length: usize,
-    page_area: VirtualPageNumRange,
+#[derive(Debug, Clone)]
+pub struct MemoryMapRecord {
+    pub prot: MemoryMapProt,
+    pub offset: usize,
+    pub length: usize,
+    pub page_area: VirtualPageNumRange,
 }
 
 pub struct TaskMemoryMap {
@@ -68,7 +68,21 @@ impl Default for TaskMemoryMap {
     }
 }
 
+impl Clone for TaskMemoryMap {
+    fn clone(&self) -> Self {
+        Self {
+            mmap_top: self.mmap_top.clone(),
+            records: self.records.clone(),
+            mapped_files: self.mapped_files.clone(),
+        }
+    }
+}
+
 impl TaskMemoryMap {
+    pub fn records(&self) -> &[MemoryMapRecord] {
+        &self.records
+    }
+
     pub fn allocate_records(
         &mut self,
         length: usize,
