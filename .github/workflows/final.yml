@@ -67,7 +67,15 @@ jobs:
           compression-level: 0
           overwrite: true
 
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-      - run: make parse
+      # Unnecessary, .NET is contained in GitHub Actions
+      # - uses: actions/setup-dotnet@v4
+      #   with:
+      #     dotnet-version: '8.0.x'
+
+      - name: Visualizing Test results
+        run: make parse
+
+      - name: Create annotation comment
+        run: dotnet run --project KernelAnnotationBot -- -f=output.log -b=results.json --target=${{ matrix.architecture.fullname }} --profile=release --log-level=OFF --title="# Final Test result annotation"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
