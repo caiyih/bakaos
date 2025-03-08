@@ -507,7 +507,7 @@ impl MemorySpaceBuilder {
                     return match MemorySpaceBuilder::from_elf(&contents, interpreter_path) {
                         Ok(builder) => Ok((
                             builder,
-                            &interpreter[interpreter_path_end.min(interpreter.len() - 1)..],
+                            &interpreter[interpreter_path_end..],
                         )),
                         Err(err) => Err(err),
                     };
@@ -528,21 +528,21 @@ impl MemorySpaceBuilder {
             return Err("Unable to open default interpreter");
         }
 
+        // Prefer default shebang
+        for &(suffix, interpreter) in DEFAULT_SHEBANG {
+            if path.ends_with(suffix) {
+                if let Ok(ret) = try_shebang(interpreter) {
+                    return Ok(ret);
+                }
+            }
+        }
+
         if is_shebang {
             // If the file starts with a shebang, process it
             if let Some(end) = data.iter().take(SHEBANG_MAX_LEN).position(|&b| b == b'\n') {
                 let shebang = &data[2..end];
 
                 if let Ok(ret) = try_shebang(shebang) {
-                    return Ok(ret);
-                }
-            }
-        }
-
-        // If no valid shebang was found, try to use the default shebang
-        for &(suffix, interpreter) in DEFAULT_SHEBANG {
-            if path.ends_with(suffix) {
-                if let Ok(ret) = try_shebang(interpreter) {
                     return Ok(ret);
                 }
             }
