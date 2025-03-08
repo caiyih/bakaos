@@ -280,16 +280,14 @@ impl ISyncSyscallHandler for CloneSyscall {
         if flags.contains(TaskCloneFlags::CHILD_SETTID) {
             let child_pt = new_task.borrow_page_table();
 
-            if pctid.is_null() {
-                return SyscallError::BadAddress;
+            if !pctid.is_null() {
+                // Copy through higher half address
+                ctx.borrow_page_table().activated_copy_val_to_other(
+                    VirtualAddress::from_ptr(pctid),
+                    child_pt,
+                    &new_tid,
+                );
             }
-
-            // Copy through higher half address
-            ctx.borrow_page_table().activated_copy_val_to_other(
-                VirtualAddress::from_ptr(pctid),
-                child_pt,
-                &new_tid,
-            );
         }
 
         // FIXME: figure out a way to do this under multiple arch
