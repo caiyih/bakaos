@@ -644,14 +644,12 @@ pub struct MmapSyscall;
 
 impl ISyncSyscallHandler for MmapSyscall {
     fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
-        let addr = ctx.arg0::<*mut u8>();
+        let _addr = ctx.arg0::<*mut u8>();
         let length = ctx.arg1::<usize>();
         let prot = ctx.arg2::<MemoryMapProt>();
         let flags = ctx.arg3::<MemoryMapFlags>();
         let fd = ctx.arg4::<usize>();
         let offset = ctx.arg5::<usize>();
-
-        debug_assert!(addr.is_null());
 
         ctx.mmap(fd, flags, prot, offset, length)
             .ok_or(ErrNo::OperationNotPermitted) // TODO: check this
