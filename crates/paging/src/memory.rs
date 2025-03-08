@@ -478,9 +478,7 @@ impl MemorySpaceBuilder {
 
             shebang.init_stack(&args_boxed, envp);
             Ok(shebang)
-        } else 
-        if let Ok(mut elf) = Self::from_elf(data, path) {
-            log::error!("Non shebang. path: {}, args: {:?}", path, args);
+        } else if let Ok(mut elf) = Self::from_elf(data, path) {
             elf.init_stack(args, envp);
             Ok(elf)
         } else {
@@ -490,11 +488,9 @@ impl MemorySpaceBuilder {
 
     fn from_shebang<'a>(data: &'a [u8], path: &str) -> Result<(Self, &'a [u8]), &'static str> {
         const SHEBANG_MAX_LEN: usize = 127;
-        const DEFAULT_SHEBANG: &[(&'static str, &'static [u8])] = &[(".sh", b"/bin/busybox sh")];
+        const DEFAULT_SHEBANG: &[(&str, &[u8])] = &[(".sh", b"/bin/busybox sh")];
 
-        fn try_shebang<'a>(
-            interpreter: &'a [u8],
-        ) -> Result<(MemorySpaceBuilder, &'a [u8]), &'static str> {
+        fn try_shebang(interpreter: &[u8]) -> Result<(MemorySpaceBuilder, &[u8]), &'static str> {
             let interpreter_path_end = interpreter
                 .iter()
                 .position(|&b| b == b' ')
@@ -505,10 +501,7 @@ impl MemorySpaceBuilder {
             if let Ok(interpreter_file) = global_open(interpreter_path, None) {
                 if let Ok(contents) = interpreter_file.readall() {
                     return match MemorySpaceBuilder::from_elf(&contents, interpreter_path) {
-                        Ok(builder) => Ok((
-                            builder,
-                            &interpreter[interpreter_path_end..],
-                        )),
+                        Ok(builder) => Ok((builder, &interpreter[interpreter_path_end..])),
                         Err(err) => Err(err),
                     };
                 }
