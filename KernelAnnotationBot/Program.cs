@@ -83,7 +83,7 @@ static class Program
         }
 
         (string?, string)[] nonNullFields = [(target, nameof(target)), (profile, nameof(profile))];
-        if (nonNullFields.All(f => f.Item1 is not null))
+        if (isCI && nonNullFields.All(f => f.Item1 is not null))
         {
             var payload = new CommentPayload
             {
@@ -91,7 +91,7 @@ static class Program
                 TestPasses = annotationPasses.ToImmutableList(),
                 Target = target!,
                 Profile = profile!,
-                LogLevel = logLevel!,
+                LogLevel = logLevel,
             };
 
             string payloadString = payload.ToString();
