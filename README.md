@@ -85,6 +85,21 @@ This repository uses continuous integration to keep the code quality high and pr
 
 The GitHub repository is the real repository where the development happens. The GitLab repository is only used for the contest. -->
 
+## Development
+
+To develop this project, the following tools are required:
+
+- Cargo and Rust: This projects uses a specified versoin of Rust, which is specified in the `rust-toolchain.toml` file. When cargo is installed, it will automatically download the specified version of Rust.
+
+And that's it, so you can complie the kernel only by running `cargo build` in the root directory.
+
+If the lwext4 is enabled, you need to install the following tools:
+
+- loongarch64-linux-musl-cc: for building lwext4 for LoongArch64
+- riscv64-linux-musl-cc: for building lwext4 for RISC-V64
+
+You can simply disable the lwext4 feature if you don't need it. We are considering migrate to completely Rust implemented ext4 filesystem to avoid the dependency on the C library.
+
 ## Repo introduction
 
 **IMPORTANT: For detailed documentations, please refer to the `docs` directory.**

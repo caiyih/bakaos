@@ -68,6 +68,21 @@ _仍在编写中_
 
 本仓库使用持续集成（Continuous Integration）以保证代码质量，防止功能回退。每次推送（push）都会经过 CI 系统的测试与检查，确保代码始终保持高质量和稳定性。
 
+## 开发
+
+开发本项目需要以下工具：
+
+- **Cargo 和 Rust**：本项目使用指定版本的 Rust，具体版本在 `rust-toolchain.toml` 文件中定义。安装 Cargo 后，会自动下载并配置对应版本的 Rust。
+
+然后就没有了，因此你实际上可以直接使用 cargo 来构建本内核。
+
+如果启用了 `lwext4` 功能，还需额外安装以下工具链：
+
+- `loongarch64-linux-musl-cc`：用于为 LoongArch64 架构构建 `lwext4`。
+- `riscv64-linux-musl-cc`：用于为 RISC-V64 架构构建 `lwext4`。
+
+如果不需要 `lwext4`，可以直接禁用该功能。目前我们正在考虑迁移至完全由 Rust 实现的 ext4 文件系统，以避免对 C 库的依赖。
+
 ## Repo introduction
 
 **重要提示：详细文档请参考 `docs` 目录。**
