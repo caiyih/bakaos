@@ -25,6 +25,9 @@
     <img alt="GitHub contributors" src="https://img.shields.io/github/contributors-anon/caiyih/bakaos">
 </a>
 
+![Arch_LA64](https://img.shields.io/badge/Architecture-RISC--V64-green)
+![Arch_RV64](https://img.shields.io/badge/Architecture-LoongArch64-red)
+
 <!-- end of line -->
 
 [![Crates Code Quality](https://github.com/caiyih/bakaos/actions/workflows/crates-fmt.yml/badge.svg)](https://github.com/caiyih/bakaos/actions/workflows/crates-fmt.yml)
