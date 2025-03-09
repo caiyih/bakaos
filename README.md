@@ -1,5 +1,38 @@
 # Baka OS
 
+<a href="https://github.com/caiyih/bakaos">
+    <img alt = "Language Rust" src="https://img.shields.io/badge/language-Rust-orange">
+</a>
+<a href="https://github.com/caiyih/bakaos">
+    <img alt = "Kernel type" src="https://img.shields.io/badge/kernel-UNIX--like-blue">
+</a>
+<a href="https://github.com/caiyih/bakaos">
+    <img alt = "Lines of code" src="https://tokei.rs/b1/github/caiyih/bakaos">
+</a>
+<a href="https://github.com/caiyih/bakaos/blob/master/LICENSE">
+    <img alt = "GitHub license" src="https://img.shields.io/github/license/caiyih/bakaos">
+</a>
+<a href="https://github.com/caiyih/bakaos">
+    <img alt = "GitHub repository size" src="https://img.shields.io/github/repo-size/caiyih/bakaos">
+</a>
+<a href="https://github.com/caiyih/bakaos/activity">
+    <img alt = "GitHub commit frequency" src="https://img.shields.io/github/commit-activity/m/caiyih/bakaos">
+</a>
+<a href="https://github.com/caiyih/bakaos/activity">
+    <img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/caiyih/bakaos">
+</a>
+<a href="https://github.com/caiyih/bakaos/graphs/contributors">
+    <img alt="GitHub contributors" src="https://img.shields.io/github/contributors-anon/caiyih/bakaos">
+</a>
+
+<!-- end of line -->
+
+[![Crates Code Quality](https://github.com/caiyih/bakaos/actions/workflows/crates-fmt.yml/badge.svg)](https://github.com/caiyih/bakaos/actions/workflows/crates-fmt.yml)
+[![Crates Tests](https://github.com/caiyih/bakaos/actions/workflows/crates-tests.yml/badge.svg)](https://github.com/caiyih/bakaos/actions/workflows/crates-tests.yml)
+[![Kernel Code Quality](https://github.com/caiyih/bakaos/actions/workflows/kernel-fmt.yml/badge.svg)](https://github.com/caiyih/bakaos/actions/workflows/kernel-fmt.yml)
+[![Kernel CI](https://github.com/caiyih/bakaos/actions/workflows/kernel.yml/badge.svg)](https://github.com/caiyih/bakaos/actions/workflows/kernel.yml)
+[![Preliminary test](https://github.com/caiyih/bakaos/actions/workflows/preliminary.yml/badge.svg)](https://github.com/caiyih/bakaos/actions/workflows/preliminary.yml)
+
 Baka OS is a UNIX-like asynchronous operating system kernel written in Rust. Targeting RISC-V architecture, it is developed for the 2024 Operating System Kernel Contest(northeastern region).
 
 With the help of stackless coroutine and CPU pool, it has the potential to run thousands of tasks concurrently with multi-core support.
