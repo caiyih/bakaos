@@ -215,7 +215,7 @@ All crates are registered in a cargo workspace, so you just have to open your ed
 
 We've developed a hardware abstraction layer for the kernel to abstract the hardware details. It supports both `riscv64` and `loongarch64` and can be easily extended to support more platforms. It's consist of the following crates:
 
-- `platform-abstractions`: The most underlying crate that provides the basic hardware abstraction. This crates provides boot and interrupt handling job. This crates handles the interrupt in a coroutine way, which means when interrupt happens, it saves the current context, and the returns to the code where you enter the user space. This allows the kernel schedule tasks in asnychronous way.
+- `platform-abstractions`: The most underlying crate that provides the basic hardware abstraction. This crates provides boot and interrupt handling job. The boot part enables virtual memory, sets up the higher half kernel space, and doing some platform dependent initialization and then jumps directly to the kernel code. The trap part handles the interrupt in a coroutine way, which means when interrupt happens, it saves the current context, and the returns to the code where you enter the user space. This allows the kernel schedule tasks in asnychronous way.
 
 - `platform-specific`: The platform specific crate that provides platform specific syscall ids, trap context, serial IO, access the platform specific registers(including general purpose registers and some CSRs), processor core id, and ability to translate virtual address to physical address.
 
