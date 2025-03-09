@@ -22,6 +22,7 @@ static class Program
         string? target = null;
         string? profile = null;
         string? logLevel = null;
+        string? crashThreshold = null;
         bool isCI = IsCI();
 
         foreach (var arg in args)
@@ -62,6 +63,10 @@ static class Program
                 case "-l":
                 case "--log-level":
                     logLevel = val?.Trim('\"');
+                    break;
+
+                case "--crash-threshold":
+                    crashThreshold = val;
                     break;
 
                 default:
@@ -113,6 +118,25 @@ static class Program
                         Console.WriteLine($"Skipping upload comment for {field.Item2} is null");
                     }
                 }
+            }
+        }
+
+        if (crashThreshold is not null)
+        {
+            try
+            {
+                double threshold = double.Parse(crashThreshold);
+
+                double totalScore = annotationPasses.Sum(p => p.TotalScore);
+
+                if (totalScore < threshold)
+                {
+                    Environment.Exit(1);
+                }
+            }
+            catch (Exception e) when (e is FormatException || e is OverflowException)
+            {
+                Console.WriteLine($"Parsing double failed. Input: {crashThreshold}.\n{e}");
             }
         }
     }
