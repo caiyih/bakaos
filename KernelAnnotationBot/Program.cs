@@ -82,7 +82,7 @@ static class Program
             Console.WriteLine("File path not specified");
         }
 
-        (string?, string)[] nonNullFields = [(target, nameof(target)), (profile, nameof(profile)), (logLevel, nameof(logLevel))];
+        (string?, string)[] nonNullFields = [(target, nameof(target)), (profile, nameof(profile))];
         if (nonNullFields.All(f => f.Item1 is not null))
         {
             var payload = new CommentPayload

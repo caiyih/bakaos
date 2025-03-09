@@ -32,7 +32,7 @@ public class CommentPayload
         }
     }
 
-    public string LogLevel { get; set; } = null!;
+    public string? LogLevel { get; set; }
 
     public ImmutableList<AnnotationPassBase> TestPasses { get; set; } = null!;
 
@@ -59,8 +59,11 @@ public class CommentPayload
         builder.AppendLine("<summary>Click for details</summary>");
         builder.AppendLine();
         {
-            builder.AppendLine($"- Logging: {LogLevel}");
-            builder.AppendLine();
+            if (LogLevel is not null)
+            {
+                builder.AppendLine($"- Logging: {LogLevel}");
+                builder.AppendLine();
+            }
 
             {
                 int padding = TestPasses.Select(p => p.Name.Length).Max();
