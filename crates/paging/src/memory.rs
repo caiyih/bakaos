@@ -9,7 +9,7 @@ use address::{
     IPageNum, IToPageNum, PhysicalPageNum, VirtualAddress, VirtualAddressRange, VirtualPageNum,
     VirtualPageNumRange,
 };
-use allocation::{alloc_frame, TrackedFrame};
+use allocation::{alloc_contiguous, alloc_frame, TrackedFrame, TrackedFrameRange};
 use filesystem_abstractions::global_open;
 use log::debug;
 use xmas_elf::ElfFile;
@@ -549,7 +549,22 @@ impl MemorySpaceBuilder {
         let mut memory_space = MemorySpace::empty();
         memory_space.register_kernel_area();
 
-        let elf_info = ElfFile::new(elf_data)?;
+        // see https://github.com/caiyih/bakaos/issues/26
+        let boxed_elf: TrackedFrameRange;
+
+        let elf_info = {
+            let required_frames = elf_data.len().div_ceil(constants::PAGE_SIZE);
+
+            boxed_elf = alloc_contiguous(required_frames).unwrap();
+
+            let va = boxed_elf.to_range().start().start_addr().to_high_virtual();
+
+            // faster copy than slice::copy_from
+            unsafe { core::ptr::copy(elf_data.as_ptr(), va.as_mut_ptr(), elf_data.len()) };
+
+            let boxed_elf = unsafe { core::slice::from_raw_parts(va.as_ptr(), elf_data.len()) };
+            ElfFile::new(boxed_elf)?
+        };
 
         // No need to check the ELF magic number because it is already checked in `ElfFile::new`
         // let elf_magic = elf_header.pt1.magic;
