@@ -44,9 +44,14 @@ Baka OS 是一个用 Rust 编写的类 UNIX 异步操作系统内核。它面向
 
 借助 Stackless Coroutine 和 CPU Pool，Baka OS 拥有在多核环境下并发运行上千个任务的潜力。
 
-该内核划分为多个 crate，并在宿主机上对各个 crate 进行了测试和检查，保证了代码的高质量、易维护和易调试。
-
 本内核并非基于任何现有项目，而是完全从零开发。凭借多年的 OOP 经验，该内核充分利用了抽象与封装的优势，形成了结构清晰、可复用性强的代码库。
+
+该内核划分为多个 crate，并在宿主机上对各个 crate 进行了测试和检查，保证了代码的高质量、易维护和易调试。我们的设计思想是“逻辑上微内核，物理上宏内核”。结合了**微内核架构设计理念**、**测试驱动开发（TDD）思想**和**宏内核性能优势**的现代操作系统内核设计方案，我们希望达到以下特性：
+
+- **系统性强**：有完整的开发、测试、验证闭环
+- **实践导向**：解决了真实开发流程中的效率问题
+- **长期扩展性好**：可以无缝接入 formal verification、cross-architecture 测试
+- **符合工业级代码质量控制**：Mock + 宿主机测试让内核代码可以做到模块独立、高可测、易回归
 
 未来，我们考虑添加在宿主主机中对裸机的 Mock 实现，以实现对更多的 crates 的宿主主机测试的能力。
 
@@ -278,7 +283,7 @@ Kernel Annotation Bot 用于辅助内核测试注释。该工具在 GitHub Actio
 
 ### 已引用的第三方代码
 
-- **`path`**：部分实现来自 [.NET Standard Library](https://github.com/dotnet/runtime)，遵循 .NET Foundation 的 MIT 许可证。  
+- **`path`**：部分实现来自 [.NET Standard Library](https://github.com/dotnet/runtime)，遵循 .NET Foundation 的 MIT 许可证。
 - **`TimeSpan`（在 `time` crate 中）**：部分实现同样源自 [.NET Standard Library]，遵循 MIT 许可证。
 
 ### 重要声明
@@ -297,8 +302,8 @@ Kernel Annotation Bot 用于辅助内核测试注释。该工具在 GitHub Actio
 
 以下内容不受竞赛使用限制，可在相应协议下自由使用：
 
-- **TftpServer**：不受限制，详见代码头部注释。遵循 Microsoft Public License。  
-- **初赛结果可视化脚本 (`test_preliminary/visualize_result.py`)**：不受限制，遵循 MIT License。  
+- **TftpServer**：不受限制，详见代码头部注释。遵循 Microsoft Public License。
+- **初赛结果可视化脚本 (`test_preliminary/visualize_result.py`)**：不受限制，遵循 MIT License。
 - **内核异常栈回溯脚本 (`kernel/unwinder.py`)**：不受限制，遵循 MIT License。
 
 ## Funky!

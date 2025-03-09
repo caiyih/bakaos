@@ -42,9 +42,14 @@ Baka OS is a UNIX-like asynchronous operating system kernel written in Rust. Tar
 
 With the help of stackless coroutine and CPU pool, it has the potential to run thousands of tasks concurrently with multi-core support.
 
-The kernel is separated into multiple crates, and the crates is tested and inspected on the host machine, ensuring high quality code that is easy to maintain and debug.
-
 This kernel does not based on any existing project, and is developed from scratch. With years of OOP experience, this kernel utilized the power of abstraction and encapsulation, resulting a clean and reusable codebase.
+
+The kernel is separated into multiple crates, and the crates is tested and inspected on the host machine, ensuring high quality code that is easy to maintain and debug.　Maintainability and ease of debugging are key aspects of our design. Our design philosophy is "logically microkernel, physically monolithic kernel." This modern operating system kernel design integrates **microkernel architecture concepts**, **Test-Driven Development (TDD) principles**, and **monolithic kernel performance advantages**. We aim to achieve the following characteristics:
+
+- **Systematic**: A complete development, testing, and validation loop
+- **Practical orientation**: Solves efficiency issues in real-world development processes
+- **Good long-term extensibility**: Seamless integration of formal verification and cross-architecture testing
+- **Compliance with industrial-grade code quality control**: Mock + host machine testing allows kernel code to be modular, highly testable, and easy to regress
 
 In the future, we are considering adding a **mock implementation of the bare-metal environment** on the host machine. This will enable host-based testing for more crates.
 
