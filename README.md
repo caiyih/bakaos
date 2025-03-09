@@ -46,6 +46,12 @@ The kernel is separated into multiple crates, and the crates is tested and inspe
 
 This kernel does not based on any existing project, and is developed from scratch. With years of OOP experience, this kernel utilized the power of abstraction and encapsulation, resulting a clean and reusable codebase.
 
+In the future, we are considering adding a **mock implementation of the bare-metal environment** on the host machine. This will enable host-based testing for more crates.
+
+While traditional microkernels improve maintainability by moving code from kernel space to user space, our approach takes a new direction: **we split the code from the kernel into separate components**, but they **still run in kernel space**. However, we ensure their **correctness and high quality** through **comprehensive testing on the host machine**, achieving maintainability similar to microkernels while retaining the **performance advantages of a monolithic kernel**.
+
+For example, one current obstacle to host-based testing is **page frame allocation**. But we can simulate page frame allocation on the host machine by using its heap memory allocator, enabling testing for the dependent components. In this way, **only the HAL layer and a small part of the core kernel remain unsuitable for direct testing on the host machine**.
+
 <!-- <p>
     <del>
         The prototype version of whole project is developed within 3 weeks, with over 400 commits and 12k lines of code. (until the 2024 Operating System Kernel Contest(northeastern region) preliminary test submission).
