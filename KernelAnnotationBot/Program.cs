@@ -87,6 +87,20 @@ static class Program
             Console.WriteLine("File path not specified");
         }
 
+        double? failThreshold = null;
+
+        if (crashThreshold is not null)
+        {
+            try
+            {
+                failThreshold = double.Parse(crashThreshold);
+            }
+            catch (Exception e) when (e is FormatException || e is OverflowException)
+            {
+                Console.WriteLine($"Parsing double failed. Input: {crashThreshold}.\n{e}");
+            }
+        }
+
         (string?, string)[] nonNullFields = [(target, nameof(target)), (profile, nameof(profile))];
         if (isCI && nonNullFields.All(f => f.Item1 is not null))
         {
@@ -97,6 +111,7 @@ static class Program
                 Target = target!,
                 Profile = profile!,
                 LogLevel = logLevel,
+                FailThreshold = failThreshold,
             };
 
             string payloadString = payload.ToString();
@@ -121,22 +136,13 @@ static class Program
             }
         }
 
-        if (crashThreshold is not null)
+        if (failThreshold is not null)
         {
-            try
-            {
-                double threshold = double.Parse(crashThreshold);
+            double totalScore = annotationPasses.Sum(p => p.TotalScore);
 
-                double totalScore = annotationPasses.Sum(p => p.TotalScore);
-
-                if (totalScore < threshold)
-                {
-                    Environment.Exit(1);
-                }
-            }
-            catch (Exception e) when (e is FormatException || e is OverflowException)
+            if (totalScore < failThreshold)
             {
-                Console.WriteLine($"Parsing double failed. Input: {crashThreshold}.\n{e}");
+                Environment.Exit(1);
             }
         }
     }
