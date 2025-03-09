@@ -1,5 +1,7 @@
 # Baka OS
 
+| English | [简体中文](./README.zh-cn.md) |
+
 <a href="https://github.com/caiyih/bakaos">
     <img alt = "Language Rust" src="https://img.shields.io/badge/language-Rust-orange">
 </a>
