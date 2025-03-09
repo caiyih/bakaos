@@ -2,7 +2,43 @@
 
 | [English](./README.md) | 简体中文 |
 
-_注意：本翻译版本目前由 ChatGPT 4o 翻译，对于不完整的情况，请参考 [README.md](./README.md)。_
+_注意：翻译版本的所有内容目前由 ChatGPT 4o 翻译，对于不完整的情况，请参考 [README.md](./README.md)。未来会同步简体中文和 English 的内容。_
+
+<a href="https://github.com/caiyih/bakaos">
+    <img alt = "Language Rust" src="https://img.shields.io/badge/language-Rust-orange">
+</a>
+<a href="https://github.com/caiyih/bakaos">
+    <img alt = "Kernel type" src="https://img.shields.io/badge/kernel-UNIX--like-blue">
+</a>
+<a href="https://github.com/caiyih/bakaos">
+    <img alt = "Lines of code" src="https://tokei.rs/b1/github/caiyih/bakaos">
+</a>
+<a href="https://github.com/caiyih/bakaos/blob/master/LICENSE">
+    <img alt = "GitHub license" src="https://img.shields.io/github/license/caiyih/bakaos">
+</a>
+<a href="https://github.com/caiyih/bakaos">
+    <img alt = "GitHub repository size" src="https://img.shields.io/github/repo-size/caiyih/bakaos">
+</a>
+<a href="https://github.com/caiyih/bakaos/activity">
+    <img alt = "GitHub commit frequency" src="https://img.shields.io/github/commit-activity/m/caiyih/bakaos">
+</a>
+<a href="https://github.com/caiyih/bakaos/activity">
+    <img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/caiyih/bakaos">
+</a>
+<a href="https://github.com/caiyih/bakaos/graphs/contributors">
+    <img alt="GitHub contributors" src="https://img.shields.io/github/contributors-anon/caiyih/bakaos">
+</a>
+
+![Arch_RV64](https://img.shields.io/badge/Architecture-RISC--V64-green)
+![Arch_LA64](https://img.shields.io/badge/Architecture-LoongArch64-red)
+
+<!-- end of line -->
+
+[![Crates Code Quality](https://github.com/caiyih/bakaos/actions/workflows/crates-fmt.yml/badge.svg)](https://github.com/caiyih/bakaos/actions/workflows/crates-fmt.yml)
+[![Crates Tests](https://github.com/caiyih/bakaos/actions/workflows/crates-tests.yml/badge.svg)](https://github.com/caiyih/bakaos/actions/workflows/crates-tests.yml)
+[![Kernel Code Quality](https://github.com/caiyih/bakaos/actions/workflows/kernel-fmt.yml/badge.svg)](https://github.com/caiyih/bakaos/actions/workflows/kernel-fmt.yml)
+[![Kernel CI](https://github.com/caiyih/bakaos/actions/workflows/kernel.yml/badge.svg)](https://github.com/caiyih/bakaos/actions/workflows/kernel.yml)
+[![Preliminary test](https://github.com/caiyih/bakaos/actions/workflows/preliminary.yml/badge.svg)](https://github.com/caiyih/bakaos/actions/workflows/preliminary.yml)
 
 Baka OS 是一个用 Rust 编写的类 UNIX 异步操作系统内核。它面向 RISC-V 和 LoongArch64 架构，开发目标是 2024 年操作系统内核大赛（东北赛区）和 2025 年操作系统内核大赛（国赛）。
 
