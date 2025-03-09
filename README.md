@@ -89,9 +89,9 @@ The GitHub repository is the real repository where the development happens. The 
 
 **IMPORTANT: For detailed documentations, please refer to the `docs` directory.**
 
-This repository contains mainly three parts, `kernel`, `crates` and `test_preliminary`.
+This repository contains mainly three parts, `kernel`, `crates` and other subprojects.
 
-**For preliminary test related information, please refer to the `README.md` from the `tests_preliminary` directory.**
+<!-- **For preliminary test related information, please refer to the `README.md` from the `tests_preliminary` directory.** -->
 
 <!--
 If you are viewing vendored branch from gitlab, there is also a `third_party` directory, which contains some third party code that the kernel depends on.
