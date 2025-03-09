@@ -240,7 +240,9 @@ There is a script named `InspectCode.sh` to help you inspect the code quality. E
 
 ### Testsuits
 
-The testsuites are not contained in this repository to maintain the minimal size of the repository. But to run and debug the kernel may requires the testsuites. You can download the testsuites from [here](https://github.com/neuq-rcore/testsuits-for-oskernel/releases/tag/2025-pre). Both the ones for `riscv64` and `loongarch64` are included, you should download them and place them in the root of this repository and do NOT decompress them, the build system will automatically pick up the correct one.
+The testsuites are not contained in this repository to maintain the minimal size of the repository. In comparison, it takes only about 3.3MB if you clone the whole repository and only 1.3MB if only the latest commit, while each testsuits takes about 128MB and may be about 2GB in the future with more tests added.
+
+But to run and debug the kernel may requires the testsuites. You can download the testsuites from [here](https://github.com/neuq-rcore/testsuits-for-oskernel/releases/tag/2025-pre). Both the ones for `riscv64` and `loongarch64` are included, you should download them and place them in the root of this repository and do NOT decompress them, the build system will automatically pick up the correct one.
 
 ### Subprojects
 
