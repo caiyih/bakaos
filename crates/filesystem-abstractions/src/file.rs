@@ -404,6 +404,19 @@ impl FileDescriptorTable {
 
         new
     }
+
+    pub fn clear_exec(&mut self) {
+        for entry in self.table.iter_mut() {
+            if let Some(fd) = entry {
+                let file = fd.access_ref();
+
+                if file.flags().contains(OpenFlags::O_CLOEXEC) {
+                    drop(file);
+                    *entry = None;
+                }
+            }
+        }
+    }
 }
 
 impl FileDescriptorTable {

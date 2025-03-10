@@ -197,6 +197,7 @@ impl TaskControlBlock {
         self.init();
 
         // TODO: Handle file descriptor table with FD_CLOEXEC flag
+        pcb.fd_table.clear_exec();
 
         Ok(())
     }
