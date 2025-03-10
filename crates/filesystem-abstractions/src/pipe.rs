@@ -93,16 +93,16 @@ pub struct PipeBuilder {
 
 impl PipeBuilder {
     pub fn open() -> PipeBuilder {
-        let pipe = Arc::new(Pipe {
+        let pipe_file: Arc<dyn IFile> = Arc::new(Pipe {
             buf_queue: SpinMutex::new(VecDeque::new()),
             write_end_weak: UnsafeCell::new(Weak::new()),
             read_end_weak: UnsafeCell::new(Weak::new()),
         });
 
-        let pipe_file: Arc<dyn IFile> = pipe.clone();
-
         let read_accessor = pipe_file.cache_as_arc_accessor();
-        let write_accessor = read_accessor.clone_non_inherited_arc();
+        let write_accessor = pipe_file.cache_as_arc_accessor();
+
+        let pipe = pipe_file.downcast_ref::<Pipe>().unwrap();
 
         *unsafe { pipe.read_end_weak.get().as_mut().unwrap() } = Arc::downgrade(&read_accessor);
         let read_end_builder = FileDescriptorBuilder::new(read_accessor)
@@ -178,6 +178,22 @@ mod tests {
             &read_handle.file_handle,
             &write_handle.file_handle
         ));
+    }
+
+    #[test]
+    fn test_strong_count_different_for_read_and_write() {
+        let pipe_builder = PipeBuilder::open();
+
+        let read_handle = pipe_builder.read_end_builder.fd_inner();
+        let write_handle = pipe_builder.write_end_builder.fd_inner();
+        let write_handle2 = write_handle.clone();
+
+        assert_eq!(Arc::strong_count(&read_handle.file_handle), 1);
+        assert_eq!(Arc::strong_count(&write_handle.file_handle), 2);
+
+        drop(write_handle2);
+
+        assert_eq!(Arc::strong_count(&write_handle.file_handle), 1);
     }
 
     #[test]
