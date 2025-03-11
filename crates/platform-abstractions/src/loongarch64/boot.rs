@@ -80,13 +80,9 @@ pub unsafe extern "C" fn _start() -> ! {
 
             invtlb      0x00, $r0, $r0
 
-            # Enable PG 
-            li.w		$t0, 0xb0		# PLV=0, IE=0, PG=1
+            # Enable PG for current mode
+            li.w		$t0, 1 << 4
             csrwr		$t0, 0x0        # LOONGARCH_CSR_CRMD
-            li.w		$t0, 0x00		# PLV=0, PIE=0, PWE=0
-            csrwr		$t0, 0x1        # LOONGARCH_CSR_PRMD
-            li.w		$t0, 0x00		# FPE=0, SXE=0, ASXE=0, BTE=0
-            csrwr		$t0, 0x2        # LOONGARCH_CSR_EUEN
 
             # aka. u0 in Linux
             csrrd       $r21, 0x20           # cpuid
