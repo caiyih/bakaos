@@ -29,8 +29,12 @@ pub unsafe extern "C" fn _start() -> ! {
             # Setup stack for main thread
             la.global   $sp, __tmp_stack_top
 
-            # Initialize virtual memory
-            bl          {init_boot_page_table}
+            li.d        $t2, 0x0000ffffffffffff # PHYS_ADDR_MASK
+
+            la.global   $t0, PT_L0
+            la.global   $t1, PT_L1
+            and         $t1, $t1, $t2
+            st.d        $t1, $t0, 0     # PT_L0[0] = phys(PT_L1)
 
             # 5. Configure MMU
 
@@ -73,7 +77,6 @@ pub unsafe extern "C" fn _start() -> ! {
             # We can't use bl to jump to higher address, so we use jirl to jump to higher address.
             jirl        $zero, $t0, 0
             ",
-        init_boot_page_table = sym init_boot_page_table,
         init_mmu = sym init_mmu,
         main_processor_init = sym main_processor_init,
     )
@@ -104,18 +107,16 @@ unsafe extern "C" fn init_mmu() {
     tlbidx::set_ps(PS_4K);
     stlbps::set_ps(PS_4K);
     tlbrehi::set_ps(PS_4K);
-
-    let paddr = virt_to_phys(&raw const PT_L0 as usize);
-    pgdh::set_base(paddr);
-    pgdl::set_base(0);
 }
 
 // Huge Page Mapping Flags: V | D | HUGE | P | W
 const HUGE_FLAGS: u64 = (1 << 0) | (1 << 1) | (1 << 6) | (1 << 7) | (1 << 8);
 
+#[no_mangle]
 #[link_section = ".data.prepage"]
 static mut PT_L0: [u64; 512] = [0; 512];
 
+#[no_mangle]
 #[link_section = ".data.prepage"]
 static mut PT_L1: [u64; 512] = {
     let mut pt_l1 = [0; 512];
