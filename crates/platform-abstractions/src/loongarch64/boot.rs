@@ -44,6 +44,14 @@ pub unsafe extern "C" fn _start() -> ! {
             li.d        $t0, ((12+9*3) | (9<<6))
             csrwr       $t0, 0x1d       # LOONGARCH_CSR_PWCH
 
+            # 2. Setup temporary tlb refill exception handler
+            li.d        $t2, 0x0000ffffffffffff # PHYS_ADDR_MASK
+
+            # According to loongarch reference manual, this must be a physical address and 4k aligned
+            la.global   $t0, handle_tlb_refill
+            and         $t0, $t0, $t2
+            csrwr       $t0, 0x88       # LOONGARCH_CSR_TLBRENTRY
+
             bl          {init_mmu}          # setup boot page table and enabel MMU
             invtlb      0x00, $r0, $r0
 
@@ -90,19 +98,12 @@ handle_tlb_refill:
 "
 );
 
-extern "C" {
-    fn handle_tlb_refill();
-}
-
 unsafe extern "C" fn init_mmu() {
     // Page Size 4KB
     const PS_4K: usize = 0x0c;
     tlbidx::set_ps(PS_4K);
     stlbps::set_ps(PS_4K);
     tlbrehi::set_ps(PS_4K);
-
-    let paddr = virt_to_phys(handle_tlb_refill as usize);
-    tlbrentry::set_tlbrentry(paddr);
 
     let paddr = virt_to_phys(&raw const PT_L0 as usize);
     pgdh::set_base(paddr);
