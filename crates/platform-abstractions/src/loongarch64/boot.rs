@@ -4,10 +4,9 @@ use loongArch64::{
     self,
     register::{
         ecfg::{self},
-        eentry, euen, stlbps, tcfg, tlbidx, tlbrehi,
+        eentry, euen, tcfg,
     },
 };
-use platform_specific::virt_to_phys;
 
 use crate::{clear_bss, loongarch64::context::init_thread_info};
 
@@ -18,6 +17,25 @@ use crate::{clear_bss, loongarch64::context::init_thread_info};
 pub unsafe extern "C" fn _start() -> ! {
     ::core::arch::naked_asm!(
         "
+            .macro SET_CSR_BITS CSR_ID, bits_start, bits_end, value
+                csrrd      $t0, \\CSR_ID
+
+                li.d       $t2, (1 << (\\bits_end - \\bits_start + 1)) - 1
+                slli.d     $t2, $t2, \\bits_start
+
+                and        $t0, $t0, $t2
+
+                li.d       $t1, \\value
+                slli.d     $t1, $t1, \\bits_start
+
+                # for safety consideration
+                and        $t0, $t0, $t2
+
+                or         $t0, $t0, $t1
+
+                csrwr      $t0, \\CSR_ID
+            .endm
+        
             # Configure DMW0. VSEG = 8, PLV0, Strongly ordered uncachd
             li.d        $t0, (0x8000000000000000 | 1)
             csrwr       $t0, 0x180
@@ -56,7 +74,10 @@ pub unsafe extern "C" fn _start() -> ! {
             and         $t0, $t0, $t2
             csrwr       $t0, 0x88       # LOONGARCH_CSR_TLBRENTRY
 
-            bl          {init_mmu}          # setup boot page table and enabel MMU
+            SET_CSR_BITS 0x10, 24, 29, 12 # TLBIDX
+            SET_CSR_BITS 0x1e,  0,  5, 12 # STLBPS
+            SET_CSR_BITS 0x8e,  0,  5, 12 # TLBREHI
+
             invtlb      0x00, $r0, $r0
 
             # Enable PG 
@@ -77,7 +98,6 @@ pub unsafe extern "C" fn _start() -> ! {
             # We can't use bl to jump to higher address, so we use jirl to jump to higher address.
             jirl        $zero, $t0, 0
             ",
-        init_mmu = sym init_mmu,
         main_processor_init = sym main_processor_init,
     )
 }
@@ -100,14 +120,6 @@ handle_tlb_refill:
          ertn
 "
 );
-
-unsafe extern "C" fn init_mmu() {
-    // Page Size 4KB
-    const PS_4K: usize = 0x0c;
-    tlbidx::set_ps(PS_4K);
-    stlbps::set_ps(PS_4K);
-    tlbrehi::set_ps(PS_4K);
-}
 
 // Huge Page Mapping Flags: V | D | HUGE | P | W
 const HUGE_FLAGS: u64 = (1 << 0) | (1 << 1) | (1 << 6) | (1 << 7) | (1 << 8);
