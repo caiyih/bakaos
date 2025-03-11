@@ -129,16 +129,6 @@ static mut PT_L1: [u64; 512] = {
     pt_l1
 };
 
-unsafe extern "C" fn init_boot_page_table() {
-    let l1_va = &raw const PT_L1 as usize;
-    let l1_pa = virt_to_phys(l1_va) as u64;
-
-    // 0x0000_0000_0000 ~ 0x0080_0000_0000 identity mapping
-    // but we are access using higher half address space, so accessing with an offsest of  0xffff_0000_0000_0000
-    // See LoongArch64 reference manual 5.4.5 and 7.5.6 for more info
-    PT_L0[0] = l1_pa;
-}
-
 extern "C" fn main_processor_init() {
     // loongson,ls7a-rtc
     // https://github.com/qemu/qemu/blob/661c2e1ab29cd9c4d268ae3f44712e8d421c0e56/include/hw/pci-host/ls7a.h#L45
