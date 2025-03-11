@@ -31,6 +31,19 @@ pub unsafe extern "C" fn _start() -> ! {
 
             # Initialize virtual memory
             bl          {init_boot_page_table}
+
+            # 5. Configure MMU
+
+            # PTE width: 0 for 8 bytes
+            # 512 entries for each levels of dir/pt
+            # | PTE width | PT base | PT width | Dir1_base    | Dir1_width | Dir2_base      | Dir2_width |
+            # | 0 << 30   | 12      | 9 << 5   | (12+9) << 10 | 9 << 15    | (12+9+9) << 20 | 9 << 25    |
+            li.d        $t0, ((0 << 30) | 12 | (9 << 5) | ((12+9)<<10) | (9<<15) | ((12+9*2)<<20) | (9<<25))
+            csrwr       $t0, 0x1c       # LOONGARCH_CSR_PWCL
+            # | Dir3_base | dir3_width |
+            li.d        $t0, ((12+9*3) | (9<<6))
+            csrwr       $t0, 0x1d       # LOONGARCH_CSR_PWCH
+
             bl          {init_mmu}          # setup boot page table and enabel MMU
             invtlb      0x00, $r0, $r0
 
@@ -81,32 +94,15 @@ extern "C" {
     fn handle_tlb_refill();
 }
 
-/// Init the TLB configuration and set tlb refill handler.
-unsafe fn init_tlb() {
+unsafe extern "C" fn init_mmu() {
     // Page Size 4KB
     const PS_4K: usize = 0x0c;
     tlbidx::set_ps(PS_4K);
     stlbps::set_ps(PS_4K);
     tlbrehi::set_ps(PS_4K);
 
-    // Set Page table entry width
-    pwcl::set_pte_width(8);
-    // Set Page table width and offset
-    pwcl::set_ptbase(12);
-    pwcl::set_ptwidth(9);
-    pwcl::set_dir1_base(21);
-    pwcl::set_dir1_width(9);
-    pwcl::set_dir2_base(30);
-    pwcl::set_dir2_width(9);
-    pwch::set_dir3_base(39);
-    pwch::set_dir3_width(9);
-
     let paddr = virt_to_phys(handle_tlb_refill as usize);
     tlbrentry::set_tlbrentry(paddr);
-}
-
-unsafe extern "C" fn init_mmu() {
-    init_tlb();
 
     let paddr = virt_to_phys(&raw const PT_L0 as usize);
     pgdh::set_base(paddr);
