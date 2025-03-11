@@ -22,6 +22,7 @@ static class Program
         string? target = null;
         string? profile = null;
         string? logLevel = null;
+        string? crashThreshold = null;
         bool isCI = IsCI();
 
         foreach (var arg in args)
@@ -64,6 +65,10 @@ static class Program
                     logLevel = val?.Trim('\"');
                     break;
 
+                case "--crash-threshold":
+                    crashThreshold = val;
+                    break;
+
                 default:
                     Console.WriteLine($"Unrecognized key: \"{key}\"");
                     break;
@@ -82,8 +87,22 @@ static class Program
             Console.WriteLine("File path not specified");
         }
 
-        (string?, string)[] nonNullFields = [(target, nameof(target)), (profile, nameof(profile)), (logLevel, nameof(logLevel))];
-        if (nonNullFields.All(f => f.Item1 is not null))
+        double? failThreshold = null;
+
+        if (crashThreshold is not null)
+        {
+            try
+            {
+                failThreshold = double.Parse(crashThreshold);
+            }
+            catch (Exception e) when (e is FormatException || e is OverflowException)
+            {
+                Console.WriteLine($"Parsing double failed. Input: {crashThreshold}.\n{e}");
+            }
+        }
+
+        (string?, string)[] nonNullFields = [(target, nameof(target)), (profile, nameof(profile))];
+        if (isCI && nonNullFields.All(f => f.Item1 is not null))
         {
             var payload = new CommentPayload
             {
@@ -91,7 +110,8 @@ static class Program
                 TestPasses = annotationPasses.ToImmutableList(),
                 Target = target!,
                 Profile = profile!,
-                LogLevel = logLevel!,
+                LogLevel = logLevel,
+                FailThreshold = failThreshold,
             };
 
             string payloadString = payload.ToString();
@@ -113,6 +133,16 @@ static class Program
                         Console.WriteLine($"Skipping upload comment for {field.Item2} is null");
                     }
                 }
+            }
+        }
+
+        if (failThreshold is not null)
+        {
+            double totalScore = annotationPasses.Sum(p => p.TotalScore);
+
+            if (totalScore < failThreshold)
+            {
+                Environment.Exit(1);
             }
         }
     }

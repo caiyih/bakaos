@@ -32,9 +32,11 @@ public class CommentPayload
         }
     }
 
-    public string LogLevel { get; set; } = null!;
+    public string? LogLevel { get; set; }
 
     public ImmutableList<AnnotationPassBase> TestPasses { get; set; } = null!;
+
+    public double? FailThreshold { get; set; }
 
     public override string ToString()
     {
@@ -48,19 +50,45 @@ public class CommentPayload
         builder.AppendLine(Title ?? "# Test result annotation");
         builder.AppendLine();
 
+        double totalScore = TestPasses.Select(p => p.TotalScore).Sum();
+
         builder.AppendLine($"- Target: {Target}");
         builder.AppendLine();
         builder.AppendLine($"- Profile: {Profile}");
         builder.AppendLine();
-        builder.AppendLine($"- Total Score: {TestPasses.Select(p => p.TotalScore).Sum():F2}");
+        builder.AppendLine($"- Total Score: {totalScore:F2}");
         builder.AppendLine();
+
+        if (FailThreshold is not null)
+        {
+            string message;
+
+            if (totalScore > FailThreshold)
+            {
+                message = $"✅ Test coverage improved! Great job! 👍 (Increased by {totalScore - FailThreshold} points)";
+            }
+            else if (totalScore == FailThreshold)
+            {
+                message = $"✔️ Test coverage meets the requirement. Keep up the good work! 😊";
+            }
+            else
+            {
+                message = $"❗ Test coverage did not meet the target. (Short by {FailThreshold - totalScore} points)\nDon't give up, try to find out where the bug is! 🚀";
+            }
+
+            builder.AppendLine(message);
+            builder.AppendLine();
+        }
 
         builder.AppendLine("<details>");
         builder.AppendLine("<summary>Click for details</summary>");
         builder.AppendLine();
         {
-            builder.AppendLine($"- Logging: {LogLevel}");
-            builder.AppendLine();
+            if (LogLevel is not null)
+            {
+                builder.AppendLine($"- Logging: {LogLevel}");
+                builder.AppendLine();
+            }
 
             {
                 int padding = TestPasses.Select(p => p.Name.Length).Max();
