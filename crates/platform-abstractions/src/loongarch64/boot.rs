@@ -18,12 +18,13 @@ use crate::{clear_bss, loongarch64::context::init_thread_info};
 pub unsafe extern "C" fn _start() -> ! {
     ::core::arch::naked_asm!(
         "
-            ori         $t0, $zero, 0x1     # CSR_DMW1_PLV0
-            lu52i.d     $t0, $t0, -2048     # UC, PLV0, 0x8000 xxxx xxxx xxxx
-            csrwr       $t0, 0x180          # LOONGARCH_CSR_DMWIN0
-            ori         $t0, $zero, 0x11    # CSR_DMW1_MAT | CSR_DMW1_PLV0
-            lu52i.d     $t0, $t0, -1792     # CA, PLV0, 0x9000 xxxx xxxx xxxx
-            csrwr       $t0, 0x181          # LOONGARCH_CSR_DMWIN1
+            # Configure DMW0. VSEG = 8, PLV0, Strongly ordered uncachd
+            li.d        $t0, (0x8000000000000000 | 1)
+            csrwr       $t0, 0x180
+
+            # Configure DMW1. VSEG = 9, PLV0, Coherent cached
+            li.d        $t0, (0x9000000000000000 | 1 | 1 << 4)
+            csrwr       $t0, 0x181
 
             # Setup stack for main thread
             la.global   $sp, __tmp_stack_top
