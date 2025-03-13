@@ -32,12 +32,8 @@ QEMU := qemu-system-$(ARCH)
 QEMU-ARGS-common := -machine virt \
 			 -nographic \
 
-# alternative : 'opensbi' and 'rustsbi' 
-SBI_IMPL := opensbi
-BOOTLOADER := binary/$(SBI_IMPL).bin
-
 QEMU-ARGS-riscv64 := $(QEMU-ARGS-common) \
-			 -bios $(BOOTLOADER) \
+			 -bios default \
 			 -kernel $(KERNEL_ELF) \
 			 -m 128M \
 			 -drive file=../sdcard-rv.img,if=none,format=raw,id=x0 \
