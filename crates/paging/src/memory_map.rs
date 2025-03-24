@@ -553,7 +553,7 @@ impl IFile for MemoryMappedFile {
             let in_page_len = core::cmp::min(in_page_len, buf.len() - (current_offset - offset));
 
             let ppn = self.frames[current_frame_idx].ppn();
-            let ptr = unsafe { ppn.start_addr().to_high_virtual().as_ptr::<u8>() };
+            let ptr = ppn.start_addr().to_high_virtual().as_ptr::<u8>();
 
             let src_slice = unsafe { slice::from_raw_parts(ptr, in_page_len) };
             let dst_start = current_offset - offset;
