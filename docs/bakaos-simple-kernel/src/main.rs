@@ -113,7 +113,7 @@ async fn handle_syscall(ctx: &mut SyscallContext) {
 
             match ctx
                 .borrow_page_table()
-                .guard_slice(unsafe { p_buf.as_ptr::<u8>() }, len)
+                .guard_slice(p_buf.as_ptr::<u8>(), len)
                 .mustbe_user()
                 .with_read()
             {
