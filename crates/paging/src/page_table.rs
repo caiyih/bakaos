@@ -466,7 +466,8 @@ impl PageTable {
         let address_range = VirtualAddressRange::from_start_len(VirtualAddress::from_ptr(ptr), len);
         let vpn_range = VirtualPageNumRange::from_start_end(
             address_range.start().to_floor_page_num(),
-            address_range.end().to_ceil_page_num(),
+            // Ensures the last element is included
+            (address_range.end() + core::mem::size_of::<TValue>()).to_ceil_page_num(),
         );
 
         let mut guard = self.guard_vpn_range(vpn_range)?;
