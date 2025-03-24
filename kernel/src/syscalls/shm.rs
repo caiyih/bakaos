@@ -1,4 +1,5 @@
 use crate::shared_memory;
+use abstractions::IUsizeAlias;
 use address::{IPageNum, VirtualAddress};
 use constants::SyscallError;
 use platform_abstractions::ISyscallContext;
@@ -50,7 +51,7 @@ impl ISyncSyscallHandler for SharedMemoryAttachSyscall {
 
         match shared_memory::apply_mapping_for(ctx, shmid) {
             None => SyscallError::InvalidArgument,
-            Some(page) => Ok(unsafe { page.start_addr().as_ptr::<()>() } as isize),
+            Some(page) => Ok(page.start_addr().as_usize() as isize),
         }
     }
 

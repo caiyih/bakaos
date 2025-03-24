@@ -27,7 +27,7 @@ async fn futex_wait(
 
     loop {
         {
-            let ptr = unsafe { uaddr.as_ptr::<u32>() };
+            let ptr = uaddr.as_ptr::<u32>();
 
             // prevent modification to page table, is this enough?
             let pcb = tcb.pcb.lock();
@@ -74,7 +74,7 @@ async_syscall!(sys_futex_async, ctx, {
 
             // validate uaddr
             ctx.borrow_page_table()
-                .guard_ptr(unsafe { uaddr.as_ptr::<u32>() })
+                .guard_ptr(uaddr.as_ptr::<u32>())
                 .mustbe_user()
                 .with_read()
                 .ok_or(ErrNo::BadAddress)?;
