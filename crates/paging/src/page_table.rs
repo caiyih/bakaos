@@ -468,6 +468,7 @@ impl PageTable {
         guard.ptr = slice.as_ptr() as usize;
         guard.len = slice.len();
 
+        #[allow(clippy::missing_transmute_annotations)]
         Some(unsafe { core::mem::transmute::<_, PageGuardBuilder<'a, &[TValue]>>(guard) })
     }
 
@@ -541,6 +542,8 @@ impl PageTable {
 
         guard.ptr = value as *const T as usize;
         guard.len = 1; // Not needed actually
+
+        #[allow(clippy::missing_transmute_annotations)]
         Some(unsafe { core::mem::transmute::<_, PageGuardBuilder<'a, &T>>(guard) })
     }
 
@@ -553,6 +556,8 @@ impl PageTable {
 
         guard.ptr = value as usize;
         guard.len = 1; // Not needed actually
+
+        #[allow(clippy::missing_transmute_annotations)]
         Some(unsafe { core::mem::transmute::<_, PageGuardBuilder<'a, &T>>(guard) })
     }
 
