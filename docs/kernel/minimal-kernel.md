@@ -212,4 +212,4 @@ Platform: LoongArch64
 Hello, world
 ```
 
-你可以在[这里](TODO)找到这个示例的完整代码。
+你可以在[这里](https://github.com/caiyih/bakaos/tree/master/docs/bakaos-simple-kernel)找到这个示例的完整代码。
