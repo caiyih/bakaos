@@ -127,9 +127,14 @@ async fn handle_syscall(ctx: &mut SyscallContext) {
             }
         }
         SYS_EXIT => {
+            let exit_code = ctx.arg0::<i32>();
+
+            ctx.exit_code
+                .store(exit_code, core::sync::atomic::Ordering::SeqCst);
+
             *ctx.task_status.lock() = TaskStatus::Exited;
 
-            0
+            exit_code as isize
         }
         _ => unimplemented!(),
     };
