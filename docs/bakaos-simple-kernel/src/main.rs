@@ -14,7 +14,10 @@ use alloc::sync::Arc;
 use core::usize;
 
 use address::VirtualAddress;
-use paging::{IWithPageGuardBuilder, MemorySpaceBuilder, PageTable};
+use paging::{
+    page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, MemorySpaceBuilder,
+    PageTable,
+};
 use platform_abstractions::{
     translate_current_trap, ISyscallContext, ISyscallContextBase, SyscallContext, UserInterrupt,
 };
@@ -110,7 +113,7 @@ async fn handle_syscall(ctx: &mut SyscallContext) {
 
             match ctx
                 .borrow_page_table()
-                .guard_slice(unsafe { core::slice::from_raw_parts(p_buf.as_ptr::<u8>(), len) })
+                .guard_slice(unsafe { p_buf.as_ptr::<u8>() }, len)
                 .mustbe_user()
                 .with_read()
             {
