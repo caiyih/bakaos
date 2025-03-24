@@ -459,7 +459,7 @@ impl PageTable {
         ptr: *const TValue,
         len: usize,
     ) -> Option<PageGuardBuilder<'a, &'static [TValue]>> {
-        if ptr.is_null() {
+        if ptr.is_null() || !ptr.is_aligned() {
             return None;
         }
 
@@ -553,14 +553,18 @@ impl PageTable {
         Some(unsafe { core::mem::transmute::<_, PageGuardBuilder<'a, &T>>(guard) })
     }
 
-    pub fn guard_ptr<'a, T>(&'a self, value: *const T) -> Option<PageGuardBuilder<'a, &'static T>> {
-        let address = VirtualAddress::from_usize(value as usize);
+    pub fn guard_ptr<'a, T>(&'a self, ptr: *const T) -> Option<PageGuardBuilder<'a, &'static T>> {
+        if ptr.is_null() || !ptr.is_aligned() {
+            return None;
+        }
+
+        let address = VirtualAddress::from_usize(ptr as usize);
         let mut guard = self.guard_vpn_range(VirtualPageNumRange::from_start_end(
             address.to_floor_page_num(),
             (address + core::mem::size_of::<T>()).to_ceil_page_num(),
         ))?;
 
-        guard.ptr = value as usize;
+        guard.ptr = ptr as usize;
         guard.len = 1; // Not needed actually
 
         #[allow(clippy::missing_transmute_annotations)]
