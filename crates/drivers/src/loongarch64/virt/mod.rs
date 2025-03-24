@@ -57,7 +57,7 @@ impl IMachine for VirtMachine {
 
         let rtc_base = PhysicalAddress::from_usize(RTC_BASE);
         let rtc_base = rtc_base.to_high_virtual() & 0x8000_FFFF_FFFF_FFFF;
-        let rtc_base = unsafe { rtc_base.as_ptr::<u32>() };
+        let rtc_base = rtc_base.as_ptr::<u32>();
 
         let rtc_cnt = unsafe { rtc_base.add(RTC_CNT).read_volatile() };
         let pmcnt = self.query_performance_counter();
