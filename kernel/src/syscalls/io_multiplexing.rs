@@ -184,11 +184,9 @@ async_syscall!(sys_ppoll_async, ctx, {
         return SyscallError::BadAddress;
     }
 
-    let fds = unsafe { core::slice::from_raw_parts_mut(pfds, nfds) };
-
     let pt = ctx.borrow_page_table();
     match pt
-        .guard_slice(fds)
+        .guard_slice(pfds, nfds)
         .mustbe_user()
         .mustbe_readable()
         .with_write()

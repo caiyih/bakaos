@@ -211,11 +211,9 @@ impl ISyncSyscallHandler for GetCwdSyscall {
             return SyscallError::NumericalResultOutOfRange;
         }
 
-        let dst_slice = unsafe { core::slice::from_raw_parts_mut(buf, len) };
-
         match ctx
             .borrow_page_table()
-            .guard_slice(dst_slice)
+            .guard_slice(buf, len)
             .mustbe_user()
             .with_write()
         {

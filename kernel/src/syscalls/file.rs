@@ -507,12 +507,10 @@ impl ISyncSyscallHandler for GetDents64Syscall {
         let p_buf = ctx.arg1::<*mut u8>();
         let len = ctx.arg2::<usize>();
 
-        let buf = unsafe { core::slice::from_raw_parts(p_buf, len) };
-
         let pt = ctx.borrow_page_table();
 
         match pt
-            .guard_slice(buf)
+            .guard_slice(p_buf, len)
             .mustbe_user()
             .mustbe_readable()
             .with_write()
@@ -779,12 +777,11 @@ impl ISyncSyscallHandler for ReadLinkAtSyscall {
 
         let pt = ctx.borrow_page_table();
 
-        let buf = unsafe { core::slice::from_raw_parts_mut(p_buf, len) };
         match (
             pt.guard_cstr(p_path, 1024)
                 .must_have(GenericMappingFlags::User)
                 .with_read(),
-            pt.guard_slice(buf)
+            pt.guard_slice(p_buf, len)
                 .mustbe_user()
                 .mustbe_readable()
                 .with_write(),

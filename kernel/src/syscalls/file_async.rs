@@ -32,11 +32,9 @@ async_syscall!(sys_write_async, ctx, {
         yield_now().await;
     }
 
-    let buf = unsafe { core::slice::from_raw_parts(p_buf as *mut u8, len) };
-
     match ctx
         .borrow_page_table()
-        .guard_slice(buf)
+        .guard_slice(p_buf as *mut u8, len)
         .mustbe_user()
         .with_read()
     {
@@ -68,11 +66,9 @@ async_syscall!(sys_read_async, ctx, {
     let p_buf = ctx.arg1::<*mut u8>();
     let len = ctx.arg2::<usize>();
 
-    let buf = unsafe { core::slice::from_raw_parts_mut(p_buf, len) };
-
     match ctx
         .borrow_page_table()
-        .guard_slice(buf)
+        .guard_slice(p_buf, len)
         .mustbe_user()
         .mustbe_readable()
         .with_write()
@@ -109,11 +105,10 @@ async_syscall!(sys_readv_async, ctx, {
 
     let iovec_base = ctx.arg1::<*const IoItem>();
     let len = ctx.arg2::<usize>();
-    let io_vector = unsafe { core::slice::from_raw_parts(iovec_base, len) };
 
     match ctx
         .borrow_page_table()
-        .guard_slice(io_vector)
+        .guard_slice(iovec_base, len)
         .mustbe_user()
         .with_read()
     {
@@ -125,15 +120,13 @@ async_syscall!(sys_readv_async, ctx, {
                     continue;
                 }
 
-                let data = unsafe { core::slice::from_raw_parts(io.p_data, io.len) };
-
                 while !file.write_avaliable() {
                     yield_now().await;
                 }
 
                 match ctx
                     .borrow_page_table()
-                    .guard_slice(data)
+                    .guard_slice(io.p_data, io.len)
                     .mustbe_user()
                     .with_read()
                 {
@@ -166,11 +159,10 @@ async_syscall!(sys_writev_async, ctx, {
 
     let iovec_base = ctx.arg1::<*const IoItem>();
     let len = ctx.arg2::<usize>();
-    let io_vector = unsafe { core::slice::from_raw_parts(iovec_base, len) };
 
     match ctx
         .borrow_page_table()
-        .guard_slice(io_vector)
+        .guard_slice(iovec_base, len)
         .mustbe_user()
         .with_read()
     {
@@ -182,15 +174,13 @@ async_syscall!(sys_writev_async, ctx, {
                     continue;
                 }
 
-                let data = unsafe { core::slice::from_raw_parts(io.p_data, io.len) };
-
                 while !file.write_avaliable() {
                     yield_now().await;
                 }
 
                 match ctx
                     .borrow_page_table()
-                    .guard_slice(data)
+                    .guard_slice(io.p_data, io.len)
                     .mustbe_user()
                     .with_read()
                 {
@@ -322,11 +312,9 @@ async_syscall!(sys_pread_async, ctx, {
 
     let offset = ctx.arg3::<u64>();
 
-    let buf = unsafe { core::slice::from_raw_parts_mut(p_buf, len) };
-
     match ctx
         .borrow_page_table()
-        .guard_slice(buf)
+        .guard_slice(p_buf, len)
         .mustbe_user()
         .mustbe_readable()
         .with_write()
@@ -361,11 +349,9 @@ async_syscall!(sys_pwrite_async, ctx, {
 
     let offset = ctx.arg3::<u64>();
 
-    let buf = unsafe { core::slice::from_raw_parts(p_buf as *mut u8, len) };
-
     match ctx
         .borrow_page_table()
-        .guard_slice(buf)
+        .guard_slice(p_buf as *mut u8, len)
         .mustbe_user()
         .with_read()
     {

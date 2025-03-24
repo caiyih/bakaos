@@ -14,11 +14,9 @@ impl ISyncSyscallHandler for GetRandomSyscall {
         let p_buf = ctx.arg0::<*mut u8>();
         let len = ctx.arg1::<usize>();
 
-        let slice = unsafe { core::slice::from_raw_parts_mut(p_buf, len) };
-
         let mut guard = ctx
             .borrow_page_table()
-            .guard_slice(slice)
+            .guard_slice(p_buf, len)
             .mustbe_user()
             .mustbe_readable()
             .with_write()
@@ -117,11 +115,9 @@ impl ISyncSyscallHandler for SystemLogSyscall {
             return Ok(0);
         }
 
-        let slice = unsafe { core::slice::from_raw_parts_mut(p_buf, len) };
-
         let mut guard = ctx
             .borrow_page_table()
-            .guard_slice(slice)
+            .guard_slice(p_buf, len)
             .mustbe_user()
             .mustbe_readable()
             .with_write()

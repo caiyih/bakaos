@@ -218,8 +218,8 @@ impl PageTable {
         let slice = unsafe { slice::from_raw_parts_mut(offset.as_mut_ptr::<u8>(), data.len()) };
 
         match (
-            self.guard_slice(data).with_read(),
-            self.guard_slice(slice).with_write(),
+            self.guard_slice(data.as_ptr(), data.len()).with_read(),
+            self.guard_slice(slice.as_ptr(), slice.len()).with_write(),
         ) {
             (Some(from_guard), Some(mut to_guard)) => {
                 to_guard.as_mut().copy_from_slice(&from_guard);
@@ -456,17 +456,22 @@ impl PageTable {
     /// See `guard_vpn_range` for more information
     pub fn guard_slice<'a, TValue>(
         &'a self,
-        slice: &[TValue],
+        ptr: *const TValue,
+        len: usize,
     ) -> Option<PageGuardBuilder<'a, &'static [TValue]>> {
-        let address_range = VirtualAddressRange::from_slice(slice);
+        if ptr.is_null() {
+            return None;
+        }
+
+        let address_range = VirtualAddressRange::from_start_len(VirtualAddress::from_ptr(ptr), len);
         let vpn_range = VirtualPageNumRange::from_start_end(
             address_range.start().to_floor_page_num(),
             address_range.end().to_ceil_page_num(),
         );
 
         let mut guard = self.guard_vpn_range(vpn_range)?;
-        guard.ptr = slice.as_ptr() as usize;
-        guard.len = slice.len();
+        guard.ptr = ptr as usize;
+        guard.len = len;
 
         #[allow(clippy::missing_transmute_annotations)]
         Some(unsafe { core::mem::transmute::<_, PageGuardBuilder<'a, &[TValue]>>(guard) })
