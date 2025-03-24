@@ -339,7 +339,9 @@ impl TaskControlBlock {
 impl Drop for TaskControlBlock {
     fn drop(&mut self) {
         unsafe {
-            self.waker.get().as_mut().unwrap().assume_init_drop();
+            if let Some(waker) = self.waker.get().as_mut() {
+                waker.assume_init_drop();
+            }
         }
     }
 }
