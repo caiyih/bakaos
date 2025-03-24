@@ -31,7 +31,7 @@ impl VirtualAddress {
 
     /// # Safety
     /// The caller must ensure that the pointer is valid.
-    pub unsafe fn as_ptr<T>(&self) -> *const T {
+    pub fn as_ptr<T>(&self) -> *const T {
         self.as_usize() as *const T
     }
 
