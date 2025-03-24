@@ -70,9 +70,9 @@ macro_rules! block_on {
         ()
     };
     ($future:expr) => {
-        crate::block_run(&mut core::future::join!($future))
+        $crate::block_run(&mut core::future::join!($future))
     };
     ($future:expr, $($futures:expr),+) => {
-        crate::block_run(&mut core::future::join!($future, $($futures),+))
+        $crate::block_run(&mut core::future::join!($future, $($futures),+))
     };
 }
