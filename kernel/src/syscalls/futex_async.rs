@@ -4,7 +4,7 @@ use address::VirtualAddress;
 use alloc::sync::Arc;
 use constants::{ErrNo, SyscallError};
 use drivers::current_timespec;
-use paging::IWithPageGuardBuilder;
+use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
 use platform_abstractions::ISyscallContext;
 use tasks::TaskControlBlock;
 use threading::yield_now;

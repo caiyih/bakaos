@@ -457,18 +457,18 @@ impl PageTable {
     pub fn guard_slice<'a, TValue>(
         &'a self,
         slice: &[TValue],
-    ) -> PageGuardBuilder<'a, &'static [TValue]> {
+    ) -> Option<PageGuardBuilder<'a, &'static [TValue]>> {
         let address_range = VirtualAddressRange::from_slice(slice);
         let vpn_range = VirtualPageNumRange::from_start_end(
             address_range.start().to_floor_page_num(),
             address_range.end().to_ceil_page_num(),
         );
 
-        let mut guard = self.guard_vpn_range(vpn_range);
+        let mut guard = self.guard_vpn_range(vpn_range)?;
         guard.ptr = slice.as_ptr() as usize;
         guard.len = slice.len();
 
-        unsafe { core::mem::transmute::<_, PageGuardBuilder<'a, &[TValue]>>(guard) }
+        Some(unsafe { core::mem::transmute::<_, PageGuardBuilder<'a, &[TValue]>>(guard) })
     }
 
     /// Checks if the given range of virtual pages has the specified flags and adds any missing flags with fluent creation design pattern
@@ -512,44 +512,48 @@ impl PageTable {
     /// let p = guard.as_mut(); // Now we can write the value
     /// *p = 42;
     /// ```
-    pub fn guard_vpn_range(&self, vpn_range: VirtualPageNumRange) -> PageGuardBuilder<()> {
-        PageGuardBuilder {
+    pub fn guard_vpn_range(&self, vpn_range: VirtualPageNumRange) -> Option<PageGuardBuilder<()>> {
+        if vpn_range.start().start_addr().is_null() {
+            return None;
+        }
+
+        Some(PageGuardBuilder {
             page_table: self,
             vpn_range,
             ptr: vpn_range.start().start_addr().as_usize(),
             len: 0,
             _marker: PhantomData,
-        }
+        })
     }
 
     /// Guard permission of a single virtual page number. See `guard_vpn_range` for more information
-    pub fn guard_vpn(&self, vpn: VirtualPageNum) -> PageGuardBuilder<()> {
+    pub fn guard_vpn(&self, vpn: VirtualPageNum) -> Option<PageGuardBuilder<()>> {
         self.guard_vpn_range(VirtualPageNumRange::from_start_end(vpn, vpn + 1))
     }
 
     /// Guard permission of a reference. See `guard_vpn_range` for more information
-    pub fn guard_ref<'a, T>(&'a self, value: &T) -> PageGuardBuilder<'a, &'static T> {
+    pub fn guard_ref<'a, T>(&'a self, value: &T) -> Option<PageGuardBuilder<'a, &'static T>> {
         let address = VirtualAddress::from_usize(value as *const T as usize);
         let mut guard = self.guard_vpn_range(VirtualPageNumRange::from_start_end(
             address.to_floor_page_num(),
             (address + core::mem::size_of::<T>()).to_ceil_page_num(),
-        ));
+        ))?;
 
         guard.ptr = value as *const T as usize;
         guard.len = 1; // Not needed actually
-        unsafe { core::mem::transmute::<_, PageGuardBuilder<'a, &T>>(guard) }
+        Some(unsafe { core::mem::transmute::<_, PageGuardBuilder<'a, &T>>(guard) })
     }
 
-    pub fn guard_ptr<'a, T>(&'a self, value: *const T) -> PageGuardBuilder<'a, &'static T> {
+    pub fn guard_ptr<'a, T>(&'a self, value: *const T) -> Option<PageGuardBuilder<'a, &'static T>> {
         let address = VirtualAddress::from_usize(value as usize);
         let mut guard = self.guard_vpn_range(VirtualPageNumRange::from_start_end(
             address.to_floor_page_num(),
             (address + core::mem::size_of::<T>()).to_ceil_page_num(),
-        ));
+        ))?;
 
         guard.ptr = value as usize;
         guard.len = 1; // Not needed actually
-        unsafe { core::mem::transmute::<_, PageGuardBuilder<'a, &T>>(guard) }
+        Some(unsafe { core::mem::transmute::<_, PageGuardBuilder<'a, &T>>(guard) })
     }
 
     pub fn guard_cstr(
@@ -608,7 +612,7 @@ impl<'a, T> UnsizedSlicePageGuardBuilder<'a, &'static [T]> {
         let slice = unsafe { core::slice::from_raw_parts(self.ptr as *const T, self.max_len) };
 
         loop {
-            match self.page_table.guard_vpn(current_vpn).must_have(flags) {
+            match self.page_table.guard_vpn(current_vpn)?.must_have(flags) {
                 // Still have the permission, check with the predicate
                 Some(_) => match &self.terminator_predicate {
                     Some(predicate) => {
