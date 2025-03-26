@@ -269,15 +269,14 @@ impl ISyncSyscallHandler for CloneSyscall {
         }
 
         if flags.contains(TaskCloneFlags::PARENT_SETTID) {
-            match ctx
+            if let Some(mut guard) = ctx
                 .borrow_page_table()
                 .guard_ptr(ptid)
                 .mustbe_user()
                 .mustbe_readable()
                 .with_write()
             {
-                Some(mut guard) => *guard = new_tid,
-                None => (),
+                *guard = new_tid;
             }
         }
 
