@@ -1,7 +1,6 @@
 use core::{
     future::Future,
     mem::MaybeUninit,
-    pin::Pin,
     ptr,
     sync::atomic::Ordering,
     task::{Poll, Waker},
@@ -102,10 +101,11 @@ impl<TFut: Future + Send + 'static> Future for TaskFuture<TFut> {
         self: core::pin::Pin<&mut Self>,
         ctx: &mut core::task::Context<'_>,
     ) -> Poll<Self::Output> {
-        let pinned = unsafe { self.get_unchecked_mut() };
         let cpu = ProcessorUnit::current();
-        cpu.stage_task(pinned.tcb.clone());
-        let ret = unsafe { Pin::new_unchecked(&mut pinned.fut).poll(ctx) };
+        cpu.stage_task(self.tcb.clone());
+
+        let task_fut = unsafe { self.map_unchecked_mut(|this| &mut this.fut) };
+        let ret = task_fut.poll(ctx);
         cpu.pop_staged_task();
         ret
     }
