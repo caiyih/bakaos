@@ -111,7 +111,7 @@ impl IInode for RamFileInode {
             let in_page_start = current % 4096;
             let in_page_len = usize::min(4096, end_size - current);
 
-            let data_ptr = unsafe { frame.ppn().start_addr().to_high_virtual().as_ptr::<u8>() };
+            let data_ptr = frame.ppn().start_addr().to_high_virtual().as_ptr::<u8>();
             let data_slice =
                 unsafe { core::slice::from_raw_parts(data_ptr.add(in_page_start), in_page_len) };
 
