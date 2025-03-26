@@ -190,7 +190,7 @@ unsafe extern "C" fn __return_from_user_trap(p_ctx: *mut TaskTrapContext) {
     );
 }
 
-pub fn return_to_user(tcb: &Arc<TaskControlBlock>) -> UserInterrupt{
+pub fn return_to_user(tcb: &Arc<TaskControlBlock>) -> UserInterrupt {
     set_user_trap_handler();
 
     let ctx = tcb.trap_context.get();
