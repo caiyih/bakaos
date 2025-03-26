@@ -237,9 +237,24 @@ impl ISyncSyscallHandler for CloneSyscall {
     fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
         let flags = ctx.arg0::<TaskCloneFlags>();
         let sp = ctx.arg1::<VirtualAddress>();
-        let ptid = ctx.arg2::<*mut usize>();
-        let tls = ctx.arg3::<usize>();
-        let pctid = ctx.arg4::<*mut usize>();
+
+        let ptid: *mut usize;
+        let tls: usize;
+        let pctid: *mut usize;
+
+        #[cfg(target_arch = "riscv64")]
+        {
+            ptid = ctx.arg2::<*mut usize>();
+            tls = ctx.arg3::<usize>();
+            pctid = ctx.arg4::<*mut usize>();
+        }
+
+        #[cfg(target_arch = "loongarch64")]
+        {
+            ptid = ctx.arg2::<*mut usize>();
+            pctid = ctx.arg3::<*mut usize>();
+            tls = ctx.arg4::<usize>();
+        }
 
         // TODO: Implement thread fork
         let is_thread = flags.contains(TaskCloneFlags::THREAD);
