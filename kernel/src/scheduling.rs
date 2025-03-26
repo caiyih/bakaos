@@ -14,7 +14,7 @@ use alloc::{
     vec,
     vec::Vec,
 };
-use drivers::current_timespec;
+use drivers::{current_timespec, ITimer};
 use filesystem_abstractions::{
     global_mount_inode, DirectoryEntry, DirectoryEntryType, FileStatistics, FileStatisticsMode,
     FileSystemError, FileSystemResult, IInode, InodeMetadata,
@@ -77,6 +77,10 @@ async fn task_loop(tcb: Arc<TaskControlBlock>) {
 
     remove_from_map(&tcb);
 
+    let cpu = ProcessorUnit::current();
+    assert!(Arc::ptr_eq(&cpu.staged_task().unwrap(), &tcb));
+    cpu.pop_staged_task();
+
     // Some cleanup, like dangling child tasks, etc.
 }
 
@@ -98,15 +102,21 @@ impl<TFut: Future + Send + 'static> Future for TaskFuture<TFut> {
     type Output = TFut::Output;
 
     fn poll(
-        self: core::pin::Pin<&mut Self>,
+        mut self: core::pin::Pin<&mut Self>,
         ctx: &mut core::task::Context<'_>,
     ) -> Poll<Self::Output> {
         let cpu = ProcessorUnit::current();
         cpu.stage_task(self.tcb.clone());
 
-        let task_fut = unsafe { self.map_unchecked_mut(|this| &mut this.fut) };
+        self.tcb.timer.lock().start();
+        self.tcb.kernel_timer.lock().start();
+
+        let task_fut = unsafe { self.as_mut().map_unchecked_mut(|s| &mut s.fut) };
         let ret = task_fut.poll(ctx);
-        cpu.pop_staged_task();
+
+        self.tcb.timer.lock().set();
+        self.tcb.kernel_timer.lock().set();
+
         ret
     }
 }

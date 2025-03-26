@@ -2,7 +2,6 @@ use core::mem::MaybeUninit;
 
 use alloc::sync::Arc;
 use constants::PROCESSOR_COUNT;
-use drivers::ITimer;
 use tasks::TaskControlBlock;
 
 #[allow(unused)]
@@ -32,8 +31,6 @@ impl ProcessorUnit {
     #[no_mangle]
     pub fn stage_task(&mut self, task: Arc<TaskControlBlock>) {
         unsafe { task.borrow_page_table().activate() };
-        task.timer.lock().start();
-        task.kernel_timer.lock().start();
         self.staged_task = Some(task);
     }
 
@@ -42,14 +39,7 @@ impl ProcessorUnit {
     }
 
     pub fn pop_staged_task(&mut self) -> Option<Arc<TaskControlBlock>> {
-        let tcb = self.staged_task.take();
-
-        if let Some(ref tcb) = tcb {
-            tcb.timer.lock().set();
-            tcb.kernel_timer.lock().set();
-        }
-
-        tcb
+        self.staged_task.take()
     }
 
     pub fn is_idle(&self) -> bool {
