@@ -1,7 +1,7 @@
 use core::str;
 
 use abstractions::operations::IUsizeAlias;
-use address::{IPageNum, IToPageNum, VirtualAddress};
+use address::{IAddressBase, IPageNum, IToPageNum, VirtualAddress};
 use alloc::vec::Vec;
 use constants::{ErrNo, SyscallError};
 use drivers::{current_timespec, current_timeval, ITimer};
@@ -279,7 +279,7 @@ impl ISyncSyscallHandler for CloneSyscall {
 
         new_trap_ctx.set_syscall_return_value(0); // Child task's return value is 0
 
-        if sp.as_usize() != 0 {
+        if !sp.is_null() {
             new_trap_ctx.set_stack_top(sp.as_usize());
         }
 
