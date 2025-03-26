@@ -295,7 +295,7 @@ impl ISyncSyscallHandler for CloneSyscall {
 
         // FIXME: figure out a way to do this under multiple arch
         if flags.contains(TaskCloneFlags::SETTLS) {
-            ctx.mut_trap_ctx().regs.tp = tls;
+            new_trap_ctx.regs.tp = tls;
         }
 
         // TODO: Set clear tid address to pctid
