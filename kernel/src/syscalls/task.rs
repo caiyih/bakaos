@@ -242,17 +242,24 @@ impl ISyncSyscallHandler for CloneSyscall {
         let pctid = ctx.arg4::<*mut usize>();
 
         // TODO: Implement thread fork
-        let new_task = ctx.fork_process();
+        let is_thread = flags.contains(TaskCloneFlags::THREAD);
+
+        let new_task = if is_thread {
+            unimplemented!("Thread forking: {}", ctx.task_id.id());
+        } else {
+            ctx.fork_process()
+        };
         let new_tid = new_task.task_id.id();
 
-        ctx.children.lock().push(new_task.clone());
-
+        // TODO: allocate task id here and pass it to the new task
         debug!(
             "Forking task: {} from: {}, thread: {}",
             new_tid,
             ctx.task_id.id(),
-            flags.contains(TaskCloneFlags::THREAD)
+            is_thread
         );
+
+        ctx.children.lock().push(new_task.clone());
 
         let new_trap_ctx = new_task.mut_trap_ctx();
 
