@@ -6,10 +6,8 @@ use tasks::{TaskControlBlock, TaskStatus};
 
 use crate::syscalls::{ISyscallResult, SyscallDispatcher};
 
-pub async fn user_trap_handler_async(tcb: &Arc<TaskControlBlock>) {
-    let interrupt = platform_abstractions::translate_current_trap();
-
-    match interrupt {
+pub async fn user_trap_handler_async(tcb: &Arc<TaskControlBlock>, return_reason: UserInterrupt) {
+    match return_reason {
         UserInterrupt::Unknown(payload) => panic!("Unknown user trap occurred: {:?}", payload),
         UserInterrupt::Syscall => {
             let mut ctx = SyscallContext::new(tcb.clone());

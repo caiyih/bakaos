@@ -172,7 +172,7 @@ unsafe extern "C" fn __return_to_user(p_ctx: &mut TaskTrapContext) {
 }
 
 #[no_mangle]
-pub extern "C" fn return_to_user(tcb: &Arc<TaskControlBlock>) {
+pub fn return_to_user(tcb: &Arc<TaskControlBlock>) -> UserInterrupt {
     let ctx = tcb.trap_context.get();
     let m_ctx = unsafe { ctx.as_mut().unwrap() };
 
@@ -183,6 +183,8 @@ pub extern "C" fn return_to_user(tcb: &Arc<TaskControlBlock>) {
     }
 
     m_ctx.fregs.snapshot();
+
+    translate_current_trap()
 }
 
 pub fn translate_current_trap() -> UserInterrupt {
