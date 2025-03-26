@@ -238,28 +238,27 @@ impl ISyncSyscallHandler for CloneSyscall {
         let flags = ctx.arg0::<TaskCloneFlags>();
         let sp = ctx.arg1::<VirtualAddress>();
         let ptid = ctx.arg2::<*mut usize>();
-        let _tls = ctx.arg3::<usize>();
+        let tls = ctx.arg3::<usize>();
         let pctid = ctx.arg4::<*mut usize>();
 
         // TODO: Implement thread fork
         let is_thread = flags.contains(TaskCloneFlags::THREAD);
 
         let new_task = if is_thread {
-            unimplemented!("Thread forking: {}", ctx.task_id.id());
+            ctx.fork_thread()
         } else {
             ctx.fork_process()
         };
         let new_tid = new_task.task_id.id();
 
-        // TODO: allocate task id here and pass it to the new task
         debug!(
-            "Forking task: {} from: {}, thread: {}",
+            "Forking task: {} from: {}, flags: {:?}, tls: {:#x}, pctid: {:?}",
             new_tid,
             ctx.task_id.id(),
-            is_thread
+            flags,
+            tls,
+            pctid
         );
-
-        ctx.children.lock().push(new_task.clone());
 
         let new_trap_ctx = new_task.mut_trap_ctx();
 
@@ -278,7 +277,7 @@ impl ISyncSyscallHandler for CloneSyscall {
                 .with_write()
             {
                 Some(mut guard) => *guard = new_tid,
-                None => return SyscallError::BadAddress,
+                None => (),
             }
         }
 
@@ -296,9 +295,9 @@ impl ISyncSyscallHandler for CloneSyscall {
         }
 
         // FIXME: figure out a way to do this under multiple arch
-        // if flags.contains(TaskCloneFlags::SETTLS) {
-        //     ctx.mut_trap_ctx().regs.tp = tls;
-        // }
+        if flags.contains(TaskCloneFlags::SETTLS) {
+            ctx.mut_trap_ctx().regs.tp = tls;
+        }
 
         // TODO: Set clear tid address to pctid
 
