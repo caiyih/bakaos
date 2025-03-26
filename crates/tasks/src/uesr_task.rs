@@ -199,6 +199,8 @@ impl TaskControlBlock {
         // TODO: Handle file descriptor table with FD_CLOEXEC flag
         pcb.fd_table.clear_exec();
 
+        pcb.executable = Arc::new(String::from(path));
+
         Ok(())
     }
 
