@@ -66,8 +66,9 @@ async_syscall!(sys_futex_async, ctx, {
     const FUTEX_OP_CMP_REQUEUE: i32 = 4;
 
     let futex_op = ctx.arg1::<i32>();
+    let futex_operation = futex_op & 0x7f; // get rid of flags
 
-    match futex_op {
+    match futex_operation {
         FUTEX_OP_WAIT => {
             let val = ctx.arg2::<u32>();
             let uaddr = ctx.arg0::<VirtualAddress>();
@@ -101,7 +102,7 @@ async_syscall!(sys_futex_async, ctx, {
             ) as isize);
         }
         FUTEX_OP_REQUEUE | FUTEX_OP_CMP_REQUEUE => {
-            if futex_op == FUTEX_OP_CMP_REQUEUE {
+            if futex_operation == FUTEX_OP_CMP_REQUEUE {
                 let val = ctx.arg2::<u32>();
                 let uaddr = ctx.arg0::<VirtualAddress>();
 
