@@ -190,7 +190,7 @@ unsafe extern "C" fn __return_from_user_trap(p_ctx: *mut TaskTrapContext) {
     );
 }
 
-pub fn return_to_user(tcb: &Arc<TaskControlBlock>) {
+pub fn return_to_user(tcb: &Arc<TaskControlBlock>) -> UserInterrupt {
     set_user_trap_handler();
 
     let ctx = tcb.trap_context.get();
@@ -213,6 +213,7 @@ pub fn return_to_user(tcb: &Arc<TaskControlBlock>) {
     m_ctx.fregs.deactivate(); // TODO: Should let the scheduler deactivate it
 
     // return to task_loop, and then to user_trap_handler immediately
+    translate_current_trap()
 }
 
 pub fn translate_current_trap() -> UserInterrupt {

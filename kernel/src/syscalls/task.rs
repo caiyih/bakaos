@@ -1,7 +1,7 @@
 use core::str;
 
 use abstractions::operations::IUsizeAlias;
-use address::{IPageNum, IToPageNum, VirtualAddress};
+use address::{IAddressBase, IPageNum, IToPageNum, VirtualAddress};
 use alloc::vec::Vec;
 use constants::{ErrNo, SyscallError};
 use drivers::{current_timespec, current_timeval, ITimer};
@@ -237,41 +237,61 @@ impl ISyncSyscallHandler for CloneSyscall {
     fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
         let flags = ctx.arg0::<TaskCloneFlags>();
         let sp = ctx.arg1::<VirtualAddress>();
-        let ptid = ctx.arg2::<*mut usize>();
-        let _tls = ctx.arg3::<usize>();
-        let pctid = ctx.arg4::<*mut usize>();
+
+        let ptid: *mut usize;
+        let tls: usize;
+        let pctid: *mut usize;
+
+        #[cfg(target_arch = "riscv64")]
+        {
+            ptid = ctx.arg2::<*mut usize>();
+            tls = ctx.arg3::<usize>();
+            pctid = ctx.arg4::<*mut usize>();
+        }
+
+        #[cfg(target_arch = "loongarch64")]
+        {
+            ptid = ctx.arg2::<*mut usize>();
+            pctid = ctx.arg3::<*mut usize>();
+            tls = ctx.arg4::<usize>();
+        }
 
         // TODO: Implement thread fork
-        let new_task = ctx.fork_process();
+        let is_thread = flags.contains(TaskCloneFlags::THREAD);
+
+        let new_task = if is_thread {
+            ctx.fork_thread()
+        } else {
+            ctx.fork_process()
+        };
         let new_tid = new_task.task_id.id();
 
-        ctx.children.lock().push(new_task.clone());
-
         debug!(
-            "Forking task: {} from: {}, thread: {}",
+            "Forking task: {} from: {}, flags: {:?}, tls: {:#x}, pctid: {:?}",
             new_tid,
             ctx.task_id.id(),
-            flags.contains(TaskCloneFlags::THREAD)
+            flags,
+            tls,
+            pctid
         );
 
         let new_trap_ctx = new_task.mut_trap_ctx();
 
         new_trap_ctx.set_syscall_return_value(0); // Child task's return value is 0
 
-        if sp.as_usize() != 0 {
+        if !sp.is_null() {
             new_trap_ctx.set_stack_top(sp.as_usize());
         }
 
         if flags.contains(TaskCloneFlags::PARENT_SETTID) {
-            match ctx
+            if let Some(mut guard) = ctx
                 .borrow_page_table()
                 .guard_ptr(ptid)
                 .mustbe_user()
                 .mustbe_readable()
                 .with_write()
             {
-                Some(mut guard) => *guard = new_tid,
-                None => return SyscallError::BadAddress,
+                *guard = new_tid;
             }
         }
 
@@ -289,9 +309,9 @@ impl ISyncSyscallHandler for CloneSyscall {
         }
 
         // FIXME: figure out a way to do this under multiple arch
-        // if flags.contains(TaskCloneFlags::SETTLS) {
-        //     ctx.mut_trap_ctx().regs.tp = tls;
-        // }
+        if flags.contains(TaskCloneFlags::SETTLS) {
+            new_trap_ctx.regs.tp = tls;
+        }
 
         // TODO: Set clear tid address to pctid
 

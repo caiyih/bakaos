@@ -199,6 +199,8 @@ impl TaskControlBlock {
         // TODO: Handle file descriptor table with FD_CLOEXEC flag
         pcb.fd_table.clear_exec();
 
+        pcb.executable = Arc::new(String::from(path));
+
         Ok(())
     }
 
@@ -265,6 +267,8 @@ impl TaskControlBlock {
             })),
         });
 
+        self.children.lock().push(forked.clone());
+
         let mut forked_pcb = forked.pcb.lock();
 
         forked_pcb.tasks.insert(tid, Arc::downgrade(&forked));
@@ -272,6 +276,33 @@ impl TaskControlBlock {
         // FIXME: Spawn other threads and inserts
 
         drop(forked_pcb);
+
+        forked
+    }
+
+    pub fn fork_thread(self: &Arc<TaskControlBlock>) -> Arc<TaskControlBlock> {
+        let this_trap_ctx = *self.mut_trap_ctx();
+        let task_id = tid::allocate_tid();
+
+        let forked = Arc::new(TaskControlBlock {
+            task_id,
+            task_status: SpinMutex::new(TaskStatus::Ready),
+            children: SpinMutex::new(Vec::new()),
+            trap_context: UnsafeCell::new(this_trap_ctx),
+            waker: UnsafeCell::new(MaybeUninit::new(Waker::noop().clone())),
+            start_time: UnsafeCell::new(unsafe { *self.start_time.get().as_ref().unwrap() }),
+            timer: SpinMutex::new(UserTaskTimer::default()),
+            kernel_timer: SpinMutex::new(UserTaskTimer::default()),
+            exit_code: AtomicI32::new(0),
+            pcb: self.pcb.clone(),
+        });
+
+        let mut pcb = self.pcb.lock();
+
+        pcb.tasks
+            .insert(forked.task_id.id(), Arc::downgrade(&forked));
+
+        drop(pcb);
 
         forked
     }

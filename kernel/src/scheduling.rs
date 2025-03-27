@@ -59,14 +59,14 @@ async fn task_loop(tcb: Arc<TaskControlBlock>) {
     add_to_map(&tcb);
 
     while !tcb.is_exited() {
-        return_to_user(&tcb);
+        let return_reason = return_to_user(&tcb);
 
         // Returned from user program. Entering trap handler.
         // We've actually saved the trap context before returned from `return_to_user`.
 
         debug_assert!(tcb.is_running(), "task should be running");
 
-        user_trap_handler_async(&tcb).await;
+        user_trap_handler_async(&tcb, return_reason).await;
     }
 
     debug!(
