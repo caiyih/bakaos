@@ -96,7 +96,7 @@ unsafe extern "C" fn __on_user_trap() {
 
 #[naked]
 #[no_mangle]
-unsafe extern "C" fn __return_from_user_trap(p_ctx: *mut TaskTrapContext) {
+pub unsafe extern "C" fn __return_to_user(p_ctx: *mut TaskTrapContext) {
     // Layout of TaskTrapContext, see src/tasks/user_task.rs for details:
     // +---------+
     // |   x1    |  <- a0
@@ -201,7 +201,7 @@ pub fn return_to_user(tcb: &Arc<TaskControlBlock>) -> UserInterrupt {
     // tcb.kernel_timer.lock().set();
 
     unsafe {
-        __return_from_user_trap(ctx);
+        __return_to_user(ctx);
     }
 
     // tcb.kernel_timer.lock().start();

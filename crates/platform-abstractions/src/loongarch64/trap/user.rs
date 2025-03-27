@@ -96,7 +96,8 @@ unsafe extern "C" fn __on_user_trap() {
 }
 
 #[naked]
-unsafe extern "C" fn __return_to_user(p_ctx: &mut TaskTrapContext) {
+#[no_mangle]
+pub unsafe extern "C" fn __return_to_user(p_ctx: &mut TaskTrapContext) {
     naked_asm!(
         "
             // Save kernel coroutine context
