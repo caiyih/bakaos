@@ -18,9 +18,7 @@ use paging::{
     page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, MemorySpaceBuilder,
     PageTable,
 };
-use platform_abstractions::{
-    translate_current_trap, ISyscallContext, ISyscallContextBase, SyscallContext, UserInterrupt,
-};
+use platform_abstractions::{ISyscallContext, ISyscallContextBase, SyscallContext, UserInterrupt};
 use platform_specific::{legacy_print, legacy_println, virt_to_phys, ITaskContext};
 use tasks::{ProcessControlBlock, TaskControlBlock, TaskStatus};
 use threading::block_on;
@@ -79,9 +77,9 @@ async fn run_task_async(task: Arc<TaskControlBlock>) -> i32 {
         unsafe { task.borrow_page_table().activate() }; // Activating the page table should be a consideration.
 
         // This method call returns when a trap occurs
-        platform_abstractions::return_to_user(&task);
+        let interrupt_type = platform_abstractions::return_to_user(&task);
 
-        match translate_current_trap() {
+        match interrupt_type {
             UserInterrupt::Syscall => {
                 let mut syscall_ctx = SyscallContext::new(task.clone());
 
