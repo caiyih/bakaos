@@ -41,6 +41,26 @@ unsafe extern "C" fn __ensure_start_compiled() -> ! {
     platform_abstractions::_start();
 }
 
+#[cfg(target_arch = "loongarch64")]
+macro_rules! libc_val {
+    () => {
+        "glibc"
+    };
+}
+
+#[cfg(not(target_arch = "loongarch64"))]
+macro_rules! libc_val {
+    () => {
+        "musl"
+    };
+}
+
+macro_rules! libc_spec {
+    ($left:literal, $right:literal) => {
+        concat!($left, libc_val!(), $right)
+    };
+}
+
 #[no_mangle]
 fn main() {
     match option_env!("KERNEL_TEST") {
@@ -54,7 +74,7 @@ fn main() {
 }
 
 fn setup_common_tools() {
-    let busybox = global_open("/mnt/musl/busybox", None).unwrap();
+    let busybox = global_open(libc_spec!("/mnt/", "/busybox"), None).unwrap();
     let bin = global_open("/bin", None).unwrap();
 
     for tool in [
@@ -83,15 +103,15 @@ fn run_final_tests() {
     script.writeat(0, include_bytes!("test_script.sh")).unwrap();
 
     run_busybox(
-        "/mnt/musl/busybox",
+        libc_spec!("/mnt/", "/busybox"),
         &["sh", "/test_script.sh"],
         &[
             "HOME=/root",
-            "PATH=/mnt/musl:/bin",
+            concat!("PATH=/bin:", libc_spec!("/mnt/", "")),
             "USER=cirno",
             "LOGNAME=cirno",
             "TERM=xterm-256color",
-            "PWD=/mnt/musl",
+            concat!("PWD=", libc_spec!("/mnt/", "")),
             "SHELL=/bin/sh",
             "SHLVL=1",
             "LANG=C",
@@ -108,7 +128,7 @@ fn run_final_tests() {
 
         let task = ProcessControlBlock::new(memspace);
 
-        task.pcb.lock().cwd = String::from("/mnt/musl");
+        task.pcb.lock().cwd = String::from(libc_spec!("/mnt/", ""));
 
         spawn_task(task);
         threading::run_tasks();
@@ -144,38 +164,38 @@ fn run_preliminary_tests() {
     // mount and umount tests requires a node at '/dev/vda2'.
     global_open("/dev", None).unwrap().mkdir("vda2");
 
-    preliminary_test("/mnt/musl/basic/uname", None, None);
-    preliminary_test("/mnt/musl/basic/write", None, None);
-    preliminary_test("/mnt/musl/basic/times", None, None);
-    preliminary_test("/mnt/musl/basic/brk", None, None);
-    preliminary_test("/mnt/musl/basic/gettimeofday", None, None);
-    preliminary_test("/mnt/musl/basic/getpid", None, None);
-    preliminary_test("/mnt/musl/basic/getppid", None, None);
-    preliminary_test("/mnt/musl/basic/getcwd", None, None);
-    preliminary_test("/mnt/musl/basic/sleep", None, None);
-    preliminary_test("/mnt/musl/basic/fork", None, None);
-    preliminary_test("/mnt/musl/basic/clone", None, None);
-    preliminary_test("/mnt/musl/basic/yield", None, None);
-    preliminary_test("/mnt/musl/basic/exit", None, None);
-    preliminary_test("/mnt/musl/basic/wait", None, None);
-    preliminary_test("/mnt/musl/basic/waitpid", None, None);
-    preliminary_test("/mnt/musl/basic/execve", None, None);
-    preliminary_test("/mnt/musl/basic/pipe", None, None);
-    preliminary_test("/mnt/musl/basic/dup", None, None);
-    preliminary_test("/mnt/musl/basic/dup2", None, None);
-    preliminary_test("/mnt/musl/basic/openat", None, None);
-    preliminary_test("/mnt/musl/basic/open", None, None);
-    preliminary_test("/mnt/musl/basic/close", None, None);
-    preliminary_test("/mnt/musl/basic/read", None, None);
-    preliminary_test("/mnt/musl/basic/mount", None, None);
-    preliminary_test("/mnt/musl/basic/umount", None, None);
-    preliminary_test("/mnt/musl/basic/mkdir_", None, None);
-    preliminary_test("/mnt/musl/basic/chdir", None, None);
-    preliminary_test("/mnt/musl/basic/fstat", None, None);
-    preliminary_test("/mnt/musl/basic/getdents", None, None);
-    preliminary_test("/mnt/musl/basic/unlink", None, None);
-    preliminary_test("/mnt/musl/basic/mmap", None, None);
-    preliminary_test("/mnt/musl/basic/munmap", None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/uname"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/write"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/times"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/brk"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/gettimeofday"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/getpid"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/getppid"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/getcwd"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/sleep"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/fork"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/clone"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/yield"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/exit"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/wait"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/waitpid"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/execve"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/pipe"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/dup"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/dup2"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/openat"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/open"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/close"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/read"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/mount"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/umount"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/mkdir_"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/chdir"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/fstat"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/getdents"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/unlink"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/mmap"), None, None);
+    preliminary_test(libc_spec!("/mnt/", "/basic/munmap"), None, None);
 }
 
 static BOOTED: AtomicBool = AtomicBool::new(false);
