@@ -79,6 +79,7 @@ jobs:
         run: make parse
 
       - name: Create annotation comment
+        if: ${{ matrix.architecture.fullname }} == 'riscv64'
         run: dotnet run --project KernelAnnotationBot -- -f=output.log -b=results.json --target=${{ matrix.architecture.fullname }} --profile=release --log-level=OFF --title="# **Final** Test result annotation" --crash-threshold=370
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
