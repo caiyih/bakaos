@@ -6,7 +6,6 @@ extern crate alloc;
 
 mod interrupts;
 mod panic;
-mod syscalls;
 
 #[cfg(target_arch = "riscv64")]
 mod riscv64;
@@ -14,20 +13,13 @@ mod riscv64;
 #[cfg(target_arch = "riscv64")]
 pub use riscv64::*;
 
-#[cfg(target_arch = "riscv64")]
-pub type SyscallContext = riscv64::RISCV64SyscallContext;
-
 #[cfg(target_arch = "loongarch64")]
 mod loongarch64;
 
 #[cfg(target_arch = "loongarch64")]
 pub use loongarch64::*;
 
-#[cfg(target_arch = "loongarch64")]
-pub type SyscallContext = loongarch64::LA64SyscallContext;
-
 pub use interrupts::*;
-pub use syscalls::*;
 
 #[cfg(any(target_arch = "riscv64", target_arch = "loongarch64"))]
 pub(crate) unsafe fn clear_bss() {

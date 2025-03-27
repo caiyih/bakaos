@@ -1,11 +1,12 @@
 use constants::ErrNo;
 use drivers::current_timespec;
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
-use platform_abstractions::ISyscallContext;
+use platform_specific::ISyscallContext;
+use tasks::SyscallContext;
 
 use crate::{dmesg::read_dmesg, memory, scheduling};
 
-use super::{ISyncSyscallHandler, SyscallContext, SyscallResult};
+use super::{ISyncSyscallHandler, SyscallResult};
 
 pub struct GetRandomSyscall;
 

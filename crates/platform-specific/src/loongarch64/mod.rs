@@ -1,6 +1,7 @@
 mod context;
 mod registers;
 mod serial;
+mod syscalls;
 
 // IMPORTANT: Must provide for every platform
 pub mod syscall_ids;

@@ -1,7 +1,7 @@
 use alloc::sync::Arc;
 use log::{trace, warn};
-use platform_abstractions::{ISyscallContext, ISyscallContextBase, SyscallContext, UserInterrupt};
-use platform_specific::ITaskContext;
+use platform_abstractions::UserInterrupt;
+use platform_specific::{ISyscallContext, ISyscallContextMut};
 use tasks::{TaskControlBlock, TaskStatus};
 
 use crate::syscalls::{ISyscallResult, SyscallDispatcher};
@@ -10,7 +10,7 @@ pub async fn user_trap_handler_async(tcb: &Arc<TaskControlBlock>, return_reason:
     match return_reason {
         UserInterrupt::Unknown(payload) => panic!("Unknown user trap occurred: {:?}", payload),
         UserInterrupt::Syscall => {
-            let mut ctx = SyscallContext::new(tcb.clone());
+            let mut ctx = tcb.to_syscall_context();
 
             ctx.move_to_next_instruction();
 
@@ -40,7 +40,7 @@ pub async fn user_trap_handler_async(tcb: &Arc<TaskControlBlock>, return_reason:
                 },
             };
 
-            ctx.mut_trap_ctx().set_syscall_return_value(ret as usize);
+            ctx.set_return_value(ret as usize);
 
             tcb.borrow_page_table().restore_temporary_modified_pages();
         }

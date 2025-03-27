@@ -13,7 +13,6 @@ use file_async::{
 use futex_async::sys_futex_async;
 use io_multiplexing::{sys_ppoll_async, sys_pselect6_async};
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
-use platform_abstractions::{ISyscallContext, SyscallContext};
 use shm::{SharedMemoryAttachSyscall, SharedMemoryGetSyscall};
 use system::{GetRandomSyscall, ShutdownSyscall, SystemInfoSyscall, SystemLogSyscall};
 use task::{
@@ -23,7 +22,8 @@ use task::{
 };
 use task_async::{sys_nanosleep_async, sys_sched_yield_async, sys_wait4_async};
 
-use platform_specific::syscall_ids::*;
+use platform_specific::{syscall_ids::*, ISyscallContext};
+use tasks::SyscallContext;
 
 mod file;
 mod file_async;
@@ -110,7 +110,7 @@ impl SyscallDispatcher {
     }
 
     pub async fn dispatch_async(
-        ctx: &mut SyscallContext,
+        ctx: &mut SyscallContext<'_>,
         syscall_id: usize,
     ) -> Option<SyscallResult> {
         // Since interface with async function brokes object safety
@@ -164,8 +164,9 @@ macro_rules! sync_syscall {
 macro_rules! async_syscall {
     ($name:ident, $param:ident, $body:block) => {
         pub async fn $name(
-            $param: &mut ::platform_abstractions::SyscallContext,
+            $param: &mut ::tasks::SyscallContext<'_>,
         ) -> $crate::syscalls::SyscallResult {
+            use platform_specific::ISyscallContext;
             // It's hard to find the syscall id constants with macro
             // So we just read the syscall id from the register
             let sys_id = $param.syscall_id();

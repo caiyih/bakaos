@@ -4,7 +4,6 @@ use alloc::sync::Arc;
 use constants::{ErrNo, SyscallError};
 use filesystem_abstractions::{DirectoryEntryType, FileMetadata};
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
-use platform_abstractions::ISyscallContext;
 use threading::yield_now;
 
 use crate::async_syscall;
