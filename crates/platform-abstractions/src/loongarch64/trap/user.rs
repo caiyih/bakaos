@@ -1,12 +1,11 @@
 use core::arch::naked_asm;
 
-use alloc::{boxed::Box, sync::Arc};
+use alloc::boxed::Box;
 use loongArch64::register::{
     badv,
     estat::{self, Exception, Interrupt, Trap},
 };
 use platform_specific::TaskTrapContext;
-use tasks::TaskControlBlock;
 
 use crate::UserInterrupt;
 
@@ -173,17 +172,14 @@ pub unsafe extern "C" fn __return_to_user(p_ctx: &mut TaskTrapContext) {
 }
 
 #[no_mangle]
-pub fn return_to_user(tcb: &Arc<TaskControlBlock>) -> UserInterrupt {
-    let ctx = tcb.trap_context.get();
-    let m_ctx = unsafe { ctx.as_mut().unwrap() };
-
-    m_ctx.fregs.activate_restore();
+pub fn return_to_user(ctx: &mut TaskTrapContext) -> UserInterrupt {
+    ctx.fregs.activate_restore();
 
     unsafe {
-        __return_to_user(m_ctx);
+        __return_to_user(ctx);
     }
 
-    m_ctx.fregs.snapshot();
+    ctx.fregs.snapshot();
 
     translate_current_trap()
 }
