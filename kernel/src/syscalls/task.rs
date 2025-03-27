@@ -262,7 +262,7 @@ impl ISyncSyscallHandler for CloneSyscall {
         let new_task = if is_thread {
             ctx.fork_thread()
         } else {
-            ctx.fork_process()
+            ctx.fork_process(flags.contains(TaskCloneFlags::VM))
         };
 
         ctx.children.lock().push(new_task.clone());

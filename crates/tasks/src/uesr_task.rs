@@ -204,13 +204,13 @@ impl TaskControlBlock {
         Ok(())
     }
 
-    pub fn fork_process(self: &Arc<TaskControlBlock>) -> Arc<TaskControlBlock> {
+    pub fn fork_process(self: &Arc<TaskControlBlock>, share_vm: bool) -> Arc<TaskControlBlock> {
         let this_trap_ctx = *self.mut_trap_ctx();
         let this_pcb = self.pcb.lock();
         let mut memory_space = MemorySpace::clone_existing(&this_pcb.memory_space);
 
         // Handle memory mapping clone
-        {
+        if share_vm {
             let this_pt = this_pcb.memory_space.page_table();
             let new_pt = memory_space.page_table_mut();
 
