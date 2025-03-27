@@ -63,6 +63,9 @@ Hello, world
 我们的内核代码如下，我们添加了一些注释来解释它：
 
 ```rust
+// SPDX-License-Identifier: MPL-2.0
+// This demo project is adapted from https://asterinas.github.io/book/ostd/a-100-line-kernel.html
+
 #![no_std]
 #![no_main]
 #![feature(future_join)]
@@ -72,16 +75,19 @@ extern crate alloc;
 
 mod heap_allocator; // provide a heap allocator, you can use slab allocator or buddy system allocator
 
-use alloc::sync::Arc;
 use core::usize;
 
+use abstractions::IUsizeAlias;
 use address::VirtualAddress;
-use paging::{IWithPageGuardBuilder, MemorySpaceBuilder, PageTable};
-use platform_abstractions::{
-    translate_current_trap, ISyscallContext, ISyscallContextBase, SyscallContext, UserInterrupt,
+use paging::{
+    page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, MemorySpace,
+    MemorySpaceBuilder, PageTable,
 };
-use platform_specific::{legacy_print, legacy_println, virt_to_phys, ITaskContext};
-use tasks::{ProcessControlBlock, TaskControlBlock, TaskStatus};
+use platform_abstractions::UserInterrupt;
+use platform_specific::{
+    legacy_print, legacy_println, virt_to_phys, ISyscallContext, ISyscallContextMut, ITaskContext,
+    TaskTrapContext,
+};
 use threading::block_on;
 
 // The entry point from the underlying HAL
@@ -112,10 +118,11 @@ fn main() -> Result<(), &'static str> {
     // Compile the hello world program with the command in the document
     let program_binary = include_bytes!("../hello");
     let mem_space = create_user_space(program_binary);
-    let task = create_user_task(mem_space);
+    let trap_ctx = create_task_context(&mem_space);
+    let mem_space = mem_space.memory_space;
 
-    let exit_code = block_on!(run_task_async(task)); // Run the async task
-                                                     // You can also write `run_task_async(task).await;` if you are in an async context
+    let exit_code = block_on!(run_task_async(mem_space, trap_ctx)); // Run the async task
+                                                                    // You can also write `run_task_async(task).await;` if you are in an async context
 
     match exit_code {
         0 => Ok(()),
@@ -127,40 +134,64 @@ fn create_user_space(program: &[u8]) -> MemorySpaceBuilder {
     MemorySpaceBuilder::from_raw(program, "", &[], &[]).unwrap()
 }
 
-fn create_user_task(mem_space: MemorySpaceBuilder) -> Arc<TaskControlBlock> {
-    ProcessControlBlock::new(mem_space)
+fn create_task_context(mem_space: &MemorySpaceBuilder) -> TaskTrapContext {
+    TaskTrapContext::new(
+        mem_space.entry_pc.as_usize(),
+        mem_space.stack_top.as_usize(),
+        mem_space.argc,
+        mem_space.argv_base.as_usize(),
+        mem_space.envp_base.as_usize(),
+    )
+}
+
+type SyscallContext<'a> = platform_specific::SyscallContext<'a, SyscallPayload<'a>>;
+
+// You can add more fields that you need for handling syscalls.
+// You may heard something called task control block (TCB).
+// And the [`SyscallPayload`] is actually the minimal version of TCB.
+struct SyscallPayload<'a> {
+    pub(crate) pt: &'a PageTable,
 }
 
 // This async function controls the execution of the user task
 // And returns its exit code
-async fn run_task_async(task: Arc<TaskControlBlock>) -> i32 {
-    while *task.task_status.lock() < TaskStatus::Exited {
-        unsafe { task.borrow_page_table().activate() }; // Activating the page table should be a consideration.
+async fn run_task_async(mem_space: MemorySpace, mut trap_ctx: TaskTrapContext) -> i32 {
+    let mut exit_code: Option<u8> = None;
+
+    while exit_code.is_none() {
+        unsafe { mem_space.page_table().activate() }; // Activating the page table should be a consideration.
 
         // This method call returns when a trap occurs
-        platform_abstractions::return_to_user(&task);
+        let interrupt_type = platform_abstractions::return_to_user(&mut trap_ctx);
 
-        match translate_current_trap() {
+        match interrupt_type {
             UserInterrupt::Syscall => {
-                let mut syscall_ctx = SyscallContext::new(task.clone());
+                let mut syscall_ctx = SyscallContext::new(
+                    &mut trap_ctx,
+                    SyscallPayload {
+                        pt: mem_space.page_table(),
+                    },
+                );
 
                 // See it? You can handle syscalls in an async context
-                handle_syscall(&mut syscall_ctx).await;
+                exit_code = handle_syscall_async(&mut syscall_ctx).await;
             }
             _ => unimplemented!("Unsupported interrupt type"),
         }
     }
 
-    task.exit_code.load(core::sync::atomic::Ordering::Relaxed)
+    exit_code.unwrap() as i32
 }
 
-async fn handle_syscall(ctx: &mut SyscallContext) {
+// Returns non to continue execution,
+// or Some(exit code) to terminate the task with a given exit code
+async fn handle_syscall_async(ctx: &mut SyscallContext<'_>) -> Option<u8> {
     const SYS_WRITE: usize = 64;
     const SYS_EXIT: usize = 93;
 
     ctx.move_to_next_instruction(); // skip the instruction that triggers the syscall
 
-    let syscall_return = match ctx.syscall_id() {
+    let return_value = match ctx.syscall_id() {
         SYS_WRITE => {
             let (fd, p_buf, len) = (
                 ctx.arg0::<isize>(),
@@ -171,7 +202,7 @@ async fn handle_syscall(ctx: &mut SyscallContext) {
             assert_eq!(fd, 1, "Only stdout is supported");
 
             match ctx
-                .borrow_page_table()
+                .pt
                 .guard_slice(p_buf.as_ptr::<u8>(), len)
                 .mustbe_user()
                 .with_read()
@@ -186,15 +217,16 @@ async fn handle_syscall(ctx: &mut SyscallContext) {
             }
         }
         SYS_EXIT => {
-            *ctx.task_status.lock() = TaskStatus::Exited;
+            let exit_code = ctx.arg0::<u8>();
 
-            0
+            return Some(exit_code);
         }
         _ => unimplemented!(),
     };
 
-    ctx.mut_trap_ctx()
-        .set_syscall_return_value(syscall_return as usize);
+    ctx.set_return_value(return_value as usize);
+
+    None
 }
 ```
 
