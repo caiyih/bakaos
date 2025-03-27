@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 platform-specific = { path = "../platform-specific" }
 unwinding = { path = "../unwinding" }
-tasks = { path = "../tasks", features = ["no_std"] }
 constants =  { path = "../constants", default-features = false }
 log = "0.4"
 
