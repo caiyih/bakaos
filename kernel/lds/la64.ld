@@ -42,7 +42,7 @@ SECTIONS
     edata = .;
     .bss : {
         *(.bss.heap)
-        . += 0x00800000;
+        . += 0x01000000;
         *(.bss.stack)
         PROVIDE(__tmp_stack_bottom = .);
         . = ALIGN(4K);
