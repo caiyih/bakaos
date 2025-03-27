@@ -84,7 +84,7 @@ async fn run_task_async(task: Arc<TaskControlBlock>) -> i32 {
                 let mut syscall_ctx = SyscallContext::new(task.clone());
 
                 // See it? You can handle syscalls in an async context
-                handle_syscall(&mut syscall_ctx).await;
+                handle_syscall_async(&mut syscall_ctx).await;
             }
             _ => unimplemented!("Unsupported interrupt type"),
         }
@@ -93,7 +93,7 @@ async fn run_task_async(task: Arc<TaskControlBlock>) -> i32 {
     task.exit_code.load(core::sync::atomic::Ordering::Relaxed)
 }
 
-async fn handle_syscall(ctx: &mut SyscallContext) {
+async fn handle_syscall_async(ctx: &mut SyscallContext) {
     const SYS_WRITE: usize = 64;
     const SYS_EXIT: usize = 93;
 
