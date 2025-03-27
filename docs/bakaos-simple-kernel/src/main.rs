@@ -121,13 +121,12 @@ async fn run_task_async(mem_space: MemorySpace, mut trap_ctx: TaskTrapContext) -
 // Returns non to continue execution,
 // or Some(exit code) to terminate the task with a given exit code
 async fn handle_syscall_async(ctx: &mut SyscallContext<'_>) -> Option<u8> {
-    const SYS_WRITE: usize = 64;
-    const SYS_EXIT: usize = 93;
+    use platform_specific::syscall_ids::{SYSCALL_ID_EXIT, SYSCALL_ID_WRITE};
 
     ctx.move_to_next_instruction(); // skip the instruction that triggers the syscall
 
     let return_value = match ctx.syscall_id() {
-        SYS_WRITE => {
+        SYSCALL_ID_WRITE => {
             let (fd, p_buf, len) = (
                 ctx.arg0::<isize>(),
                 ctx.arg1::<VirtualAddress>(),
@@ -151,7 +150,7 @@ async fn handle_syscall_async(ctx: &mut SyscallContext<'_>) -> Option<u8> {
                 None => -14, // bad address
             }
         }
-        SYS_EXIT => {
+        SYSCALL_ID_EXIT => {
             let exit_code = ctx.arg0::<u8>();
 
             return Some(exit_code);
