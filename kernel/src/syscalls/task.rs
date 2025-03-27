@@ -264,6 +264,9 @@ impl ISyncSyscallHandler for CloneSyscall {
         } else {
             ctx.fork_process()
         };
+
+        ctx.children.lock().push(new_task.clone());
+
         let new_tid = new_task.task_id.id();
 
         debug!(

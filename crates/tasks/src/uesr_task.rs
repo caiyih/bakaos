@@ -267,8 +267,6 @@ impl TaskControlBlock {
             })),
         });
 
-        self.children.lock().push(forked.clone());
-
         let mut forked_pcb = forked.pcb.lock();
 
         forked_pcb.tasks.insert(tid, Arc::downgrade(&forked));
