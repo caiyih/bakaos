@@ -245,3 +245,9 @@ Hello, world
 ```
 
 你可以在[这里](https://github.com/caiyih/bakaos/tree/master/docs/bakaos-simple-kernel)找到这个示例的完整代码。
+
+进阶：
+
+- 在 RISC-V64 上编写一个 Hello world 程序。
+- 尝试在 RISC-V64 上运行这个内核，并且不要要修改任何代码。
+- 使用 RISC-V64 版本的内核运行 Hello world 程序，并得到正确的输出。
