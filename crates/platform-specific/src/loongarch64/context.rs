@@ -219,6 +219,7 @@ impl FloatRegisterContext {
 
             unsafe {
                 core::arch::asm!(
+                    "ld.b           $t0,    $a0, 32*8+0",
                     "movgr2cf       $fcc0,  $t0",
                     "ld.b           $t0,    $a0, 32*8+1",
                     "movgr2cf       $fcc1,  $t0",
@@ -266,10 +267,8 @@ impl FloatRegisterContext {
                     "fld.d          $f29,   $a0, 29*8",
                     "fld.d          $f30,   $a0, 30*8",
                     "fld.d          $f31,   $a0, 31*8",
-                    "ld.b           $t0,    $a0, 32*8+0",
                     "ld.d           $t0,    $a0, 33*8",
-                    "movfcsr2gr     $t0,    $fcsr0",
-                    "",
+                    "movgr2fcsr     $fcsr0, $t0",
                     in("$a0") self,
                 );
             }
