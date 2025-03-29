@@ -1,0 +1,17 @@
+[package]
+name = "global_heap"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+log = "0.4"
+abstractions = { path = "../abstractions" }
+address = { path = "../address" }
+buddy_system_allocator = { git = "https://github.com/neuq-rcore/buddy_system_allocator" }
+
+[features]
+default = ["no_std"]
+std = []
+no_std = []
