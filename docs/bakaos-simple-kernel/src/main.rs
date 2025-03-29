@@ -44,7 +44,11 @@ extern "C" fn __kernel_start_main() -> ! {
         VirtualAddress::from_ptr(addr_of!(KERNEL_HEAP_START)),
         0x0080_0000, // refer to the linker script
     ));
-    allocation::init(virt_to_phys(ekernel as usize), usize::MAX);
+
+    let allocator_bottom = virt_to_phys(ekernel as usize);
+    let allocator_top = allocator_bottom + 0x100000; // 1 MB
+
+    allocation::init(allocator_bottom, allocator_top);
     paging::init(PageTable::borrow_current());
 
     match main() {
