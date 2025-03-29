@@ -8,12 +8,10 @@
 
 extern crate alloc;
 
-mod heap_allocator; // provide a heap allocator, you can use slab allocator or buddy system allocator
-
-use core::usize;
+use core::{ptr::addr_of, usize};
 
 use abstractions::IUsizeAlias;
-use address::VirtualAddress;
+use address::{VirtualAddress, VirtualAddressRange};
 use paging::{
     page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, MemorySpace,
     MemorySpaceBuilder, PageTable,
@@ -39,7 +37,13 @@ extern "C" fn __kernel_start_main() -> ! {
         fn ekernel(); // the end of the kernel, see linker script
     }
 
-    heap_allocator::init();
+    #[link_section = ".bss.heap"]
+    static KERNEL_HEAP_START: [u8; 0] = [0; 0];
+
+    global_heap::init(VirtualAddressRange::from_start_len(
+        VirtualAddress::from_ptr(addr_of!(KERNEL_HEAP_START)),
+        0x0080_0000, // refer to the linker script
+    ));
     allocation::init(virt_to_phys(ekernel as usize), usize::MAX);
     paging::init(PageTable::borrow_current());
 

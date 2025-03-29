@@ -11,4 +11,5 @@ allocation = { git = "https://github.com/caiyih/bakaos.git" }
 threading = { git = "https://github.com/caiyih/bakaos.git" }
 address = { git = "https://github.com/caiyih/bakaos.git" }
 abstractions = { git = "https://github.com/caiyih/bakaos.git" }
+global_heap = { git = "https://github.com/caiyih/bakaos.git" }
 buddy_system_allocator = { git = "https://github.com/neuq-rcore/buddy_system_allocator" }
