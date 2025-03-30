@@ -5,6 +5,7 @@ extern crate std;
 
 extern crate alloc;
 
+mod another_ext4_impl;
 mod ext4_impl;
 mod fatfs_impl;
 // mod lwext4rs_impl;
@@ -17,6 +18,7 @@ use alloc::sync::Arc;
 #[cfg(any(target_arch = "riscv64", target_arch = "loongarch64"))]
 pub use lwext4_rust_impl::Lwext4FileSystem;
 
+pub use another_ext4_impl::AnotherExt4FileSystem;
 pub use ext4_impl::Ext4FileSystem;
 pub use fatfs_impl::Fat32FileSystem;
 use filesystem_abstractions::{
