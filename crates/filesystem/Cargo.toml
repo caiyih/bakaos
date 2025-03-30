@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 fatfs = { git = "https://github.com/neuq-rcore/rust-fatfs.git", default-features = false, features = ["lfn", "alloc", "unicode"] }
-ext4_rs = { git = "https://github.com/neuq-rcore/ext4_rs", rev = "35a7d9bd385633dd033a32799c4c950d0f9f340a", default-features = false }
+ext4_rs = { git = "https://github.com/neuq-rcore/ext4_rs", rev = "02ca6881a15e770fb0ce09cc23410bda74d81cdd", default-features = false }
 # lwext4-rs = { git = "https://github.com/os-module/lwext4.git", default-features = false }
 # embedded-io = "0.6.1"
 timing = { path = "../timing", default-features = false }
