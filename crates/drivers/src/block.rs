@@ -8,6 +8,10 @@ use hermit_sync::SpinMutex;
 pub const SECTOR_SIZE: usize = 512;
 
 pub trait IRawDiskDevice: Sync + Send {
+    fn is_read_only(&self) -> bool;
+
+    fn capacity(&self) -> u64;
+
     fn read_blocks(&mut self, buf: &mut [u8]);
 
     fn write_blocks(&mut self, buf: &[u8]);
