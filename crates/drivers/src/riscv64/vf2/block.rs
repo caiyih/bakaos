@@ -110,4 +110,12 @@ impl IRawDiskDevice for VisionFive2Disk {
         self.sector = position / Self::SECTOR_SIZE;
         self.offset = position % Self::SECTOR_SIZE;
     }
+
+    fn is_read_only(&self) -> bool {
+        false
+    }
+
+    fn capacity(&self) -> u64 {
+        todo!("IRawDiskDevice::capacity not implemented for VisionFive2Disk")
+    }
 }
