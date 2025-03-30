@@ -324,7 +324,7 @@ impl IInode for AnotherExt4Inode {
     fn resolve_link(&self) -> Option<String> {
         self.should_be_link().ok()?;
 
-        let mut buf = [0u8; 1024];
+        let mut buf = [0u8; 512];
         let read = self
             .fs
             .read(self.inode, 0, &mut buf)
