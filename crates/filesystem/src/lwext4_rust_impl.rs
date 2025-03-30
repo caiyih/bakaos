@@ -462,7 +462,7 @@ impl KernelDevOp for Lwext4Disk {
         let new_pos = match whence as u32 {
             lwext4_rust::bindings::SEEK_SET => off,
             lwext4_rust::bindings::SEEK_CUR => dev.1 as i64 + off,
-            lwext4_rust::bindings::SEEK_END => 2 * 1024 * 1024 * 1024,
+            lwext4_rust::bindings::SEEK_END => dev.0.metadata().size as i64 + off,
             _ => unimplemented!(),
         };
 
