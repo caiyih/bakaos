@@ -141,10 +141,17 @@ impl BlockDeviceInode {
 
 impl IInode for BlockDeviceInode {
     fn metadata(&self) -> InodeMetadata {
+        let capacity = self.inner.lock().device.capacity();
+
+        assert!(
+            capacity <= usize::MAX as u64,
+            "Resolve this! Change the field to u64"
+        );
+
         InodeMetadata {
             filename: "Block device",
             entry_type: DirectoryEntryType::BlockDevice,
-            size: 0,
+            size: capacity as usize,
         }
     }
 
