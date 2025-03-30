@@ -56,4 +56,12 @@ where
         self.sector = position / SECTOR_SIZE;
         self.offset = position % SECTOR_SIZE;
     }
+
+    fn capacity(&self) -> u64 {
+        self.virtio_blk.capacity() * (virtio_drivers::device::blk::SECTOR_SIZE as u64)
+    }
+
+    fn is_read_only(&self) -> bool {
+        self.virtio_blk.readonly()
+    }
 }
