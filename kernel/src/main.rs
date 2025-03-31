@@ -131,9 +131,12 @@ fn run_final_tests() {
         };
 
         let task = ProcessControlBlock::new(memspace);
-
-        task.pcb.lock().cwd = String::from("/mnt");
-
+        {
+            let mut pcb = task.pcb.lock();
+            pcb.cwd = String::from("/mnt");
+            pcb.is_initproc
+                .store(true, core::sync::atomic::Ordering::Relaxed);
+        }
         spawn_task(task);
         threading::run_tasks();
     }
