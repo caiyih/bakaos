@@ -39,9 +39,9 @@ busybox_test() {
         eval "./busybox $line"
         RTN=$?
         if [[ $RTN -ne 0 && $line != "false" ]]; then
-            echo ""
             echo "testcase busybox $line fail"
         else
+            echo ""
             echo "testcase busybox $line success"
         fi
     done < ./busybox_cmd.txt
