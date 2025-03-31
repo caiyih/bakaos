@@ -326,3 +326,4 @@ run_test "musl" cyclic_test
 run_test "glibc" cyclic_test
 run_test "musl" libc_test "libctest" true "$ARCH"
 run_test "glibc" libc_test "libctest" true "$ARCH"
+exit 0 # TODO: this is a workaround to fix script not exiting on LoongArch64
