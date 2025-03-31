@@ -573,6 +573,12 @@ impl ISyncSyscallHandler for ExitGroupSyscall {
         pcb.exit_code = exit_code as i32;
 
         debug!("Task group {} exited with code {}", pcb.id, exit_code);
+
+        if pcb.is_initproc.load(core::sync::atomic::Ordering::Relaxed) {
+            log::warn!("Shutting down the kernel due to initproc exit");
+            platform_abstractions::machine_shutdown(true);
+        }
+
         Ok(0)
     }
 
