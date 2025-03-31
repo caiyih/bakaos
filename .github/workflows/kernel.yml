@@ -53,7 +53,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        log_level: [TRACE, OFF]
+        # The matrix tests runs too many flows(2 ^ 3) and always take too much CI resources
+        # So we disabled 'OFF' level, because we have another workflow which uses 'OFF' level
+        log_level: [TRACE]
         profile: [release-with-debug, debug]
         architecture:
           - { triplet: riscv64gc-unknown-none-elf, fullname: riscv64, shortname: rv }
