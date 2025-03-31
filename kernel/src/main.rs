@@ -103,9 +103,9 @@ fn run_final_tests() {
     script.writeat(0, include_bytes!("test_script.sh")).unwrap();
 
     #[cfg(target_arch = "loongarch64")]
-    const PLATFORM_STR: &'static str = "la";
+    const PLATFORM_STR: &str = "la";
     #[cfg(target_arch = "riscv64")]
-    const PLATFORM_STR: &'static str = "rv";
+    const PLATFORM_STR: &str = "rv";
 
     run_busybox(
         libc_spec!("/mnt/", "/busybox"),
