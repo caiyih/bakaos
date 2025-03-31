@@ -324,5 +324,5 @@ run_test "musl" lua_test
 run_test "glibc" lua_test
 run_test "musl" cyclic_test
 run_test "glibc" cyclic_test
-run_test "musl" libc_test "libc" true "$ARCH"
+run_test "musl" libc_test "libctest" true "$ARCH"
 run_test "glibc" libc_test "libctest" true "$ARCH"
