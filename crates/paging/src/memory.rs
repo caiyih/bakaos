@@ -684,7 +684,7 @@ impl MemorySpaceBuilder {
         ));
         memory_space.stack_guard_base = VirtualAddressRange::from_start_len(
             max_end_vpn.start_addr(),
-            constants::USER_STACK_SIZE,
+            constants::PAGE_SIZE,
         );
 
         let stack_page_count = constants::USER_STACK_SIZE / constants::PAGE_SIZE;
