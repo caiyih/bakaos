@@ -60,6 +60,7 @@ async fn task_loop(tcb: Arc<TaskControlBlock>) {
 
     while !tcb.is_exited() {
         let return_reason = return_to_user(unsafe { tcb.mut_trap_ctx() });
+        tcb.kernel_timer.lock().start();
 
         // Returned from user program. Entering trap handler.
         // We've actually saved the trap context before returned from `return_to_user`.
@@ -67,6 +68,8 @@ async fn task_loop(tcb: Arc<TaskControlBlock>) {
         debug_assert!(tcb.is_running(), "task should be running");
 
         user_trap_handler_async(&tcb, return_reason).await;
+
+        tcb.kernel_timer.lock().set();
     }
 
     debug!(
@@ -109,13 +112,11 @@ impl<TFut: Future + Send + 'static> Future for TaskFuture<TFut> {
         cpu.stage_task(self.tcb.clone());
 
         self.tcb.timer.lock().start();
-        self.tcb.kernel_timer.lock().start();
 
         let task_fut = unsafe { self.as_mut().map_unchecked_mut(|s| &mut s.fut) };
         let ret = task_fut.poll(ctx);
 
         self.tcb.timer.lock().set();
-        self.tcb.kernel_timer.lock().set();
 
         ret
     }
