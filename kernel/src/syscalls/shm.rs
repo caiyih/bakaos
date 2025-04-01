@@ -2,9 +2,10 @@ use crate::shared_memory;
 use abstractions::IUsizeAlias;
 use address::{IPageNum, VirtualAddress};
 use constants::SyscallError;
-use platform_abstractions::ISyscallContext;
+use platform_specific::ISyscallContext;
+use tasks::SyscallContext;
 
-use super::{ISyncSyscallHandler, SyscallContext, SyscallResult};
+use super::{ISyncSyscallHandler, SyscallResult};
 
 pub struct SharedMemoryGetSyscall;
 

@@ -1,6 +1,6 @@
 use core::{arch::naked_asm, panic};
 
-use alloc::{boxed::Box, sync::Arc};
+use alloc::boxed::Box;
 use platform_specific::TaskTrapContext;
 use riscv::{
     interrupt::{
@@ -12,7 +12,6 @@ use riscv::{
         stvec::{self},
     },
 };
-use tasks::TaskControlBlock;
 
 use crate::interrupts::UserInterrupt;
 
@@ -96,7 +95,7 @@ unsafe extern "C" fn __on_user_trap() {
 
 #[naked]
 #[no_mangle]
-unsafe extern "C" fn __return_from_user_trap(p_ctx: *mut TaskTrapContext) {
+pub unsafe extern "C" fn __return_to_user(p_ctx: &mut TaskTrapContext) {
     // Layout of TaskTrapContext, see src/tasks/user_task.rs for details:
     // +---------+
     // |   x1    |  <- a0
@@ -190,27 +189,25 @@ unsafe extern "C" fn __return_from_user_trap(p_ctx: *mut TaskTrapContext) {
     );
 }
 
-pub fn return_to_user(tcb: &Arc<TaskControlBlock>) -> UserInterrupt {
+pub fn return_to_user(ctx: &mut TaskTrapContext) -> UserInterrupt {
     set_user_trap_handler();
 
-    let ctx = tcb.trap_context.get();
-    let m_ctx = unsafe { ctx.as_mut().unwrap() };
-    m_ctx.fregs.activate_restore(); // TODO: Should let the scheduler activate it
+    ctx.fregs.activate_restore(); // TODO: Should let the scheduler activate it
     unsafe { sstatus::set_fs(sstatus::FS::Clean) };
 
     // tcb.kernel_timer.lock().set();
 
     unsafe {
-        __return_from_user_trap(ctx);
+        __return_to_user(ctx);
     }
 
     // tcb.kernel_timer.lock().start();
 
     set_kernel_trap_handler();
     unsafe { sstatus::set_sum() };
-    let sstatus = unsafe { core::mem::transmute::<usize, Sstatus>(ctx.as_ref().unwrap().sstatus) };
-    m_ctx.fregs.on_trap(sstatus);
-    m_ctx.fregs.deactivate(); // TODO: Should let the scheduler deactivate it
+    let sstatus = unsafe { core::mem::transmute::<usize, Sstatus>(ctx.sstatus) };
+    ctx.fregs.on_trap(sstatus);
+    ctx.fregs.deactivate(); // TODO: Should let the scheduler deactivate it
 
     // return to task_loop, and then to user_trap_handler immediately
     translate_current_trap()

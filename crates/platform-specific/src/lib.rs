@@ -25,5 +25,7 @@ pub type TaskTrapContext = loongarch64::TaskTrapContext;
 
 mod context;
 mod serial;
+mod syscalls;
 pub use context::ITaskContext;
 pub use serial::*;
+pub use syscalls::*;

@@ -14,10 +14,11 @@ use paging::{
     page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, MemoryMapFlags,
     MemoryMapProt,
 };
-use platform_abstractions::ISyscallContext;
+use platform_specific::ISyscallContext;
+use tasks::SyscallContext;
 use timing::TimeSpec;
 
-use super::{ISyncSyscallHandler, SyscallContext, SyscallResult};
+use super::{ISyncSyscallHandler, SyscallResult};
 
 pub struct Pipe2Syscall;
 

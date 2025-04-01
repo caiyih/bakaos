@@ -59,7 +59,7 @@ async fn task_loop(tcb: Arc<TaskControlBlock>) {
     add_to_map(&tcb);
 
     while !tcb.is_exited() {
-        let return_reason = return_to_user(&tcb);
+        let return_reason = return_to_user(unsafe { tcb.mut_trap_ctx() });
 
         // Returned from user program. Entering trap handler.
         // We've actually saved the trap context before returned from `return_to_user`.

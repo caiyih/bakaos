@@ -13,6 +13,6 @@ abstractions = { path = "../abstractions", default-features = false }
 filesystem-abstractions = { path = "../filesystem-abstractions", default-features = false }
 page_table = { path = "../page_table" }
 bitflags = "2.6.0"
-xmas-elf = "0.9.1"
+xmas-elf = "0.10"
 log = "0.4.22"
 hermit-sync = "0.1.6"

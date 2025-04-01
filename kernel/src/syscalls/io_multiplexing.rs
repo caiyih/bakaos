@@ -1,7 +1,6 @@
 use constants::SyscallError;
 use drivers::current_timespec;
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
-use platform_abstractions::ISyscallContext;
 use threading::yield_now;
 use timing::TimeSpec;
 

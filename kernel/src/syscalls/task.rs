@@ -9,14 +9,13 @@ use filesystem_abstractions::DirectoryEntryType;
 use log::debug;
 use page_table::GenericMappingFlags;
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, PageTable};
-use platform_abstractions::ISyscallContext;
-use platform_specific::ITaskContext;
-use tasks::{TaskCloneFlags, TaskStatus};
+use platform_specific::{ISyscallContext, ISyscallContextMut, ITaskContext};
+use tasks::{SyscallContext, TaskCloneFlags, TaskStatus};
 use timing::{TimeSpec, TimeVal};
 
 use crate::scheduling::spawn_task;
 
-use super::{ISyncSyscallHandler, SyscallContext, SyscallResult};
+use super::{ISyncSyscallHandler, SyscallResult};
 
 pub struct ExitSyscall;
 
@@ -296,12 +295,16 @@ impl ISyncSyscallHandler for CloneSyscall {
             pctid
         );
 
-        let new_trap_ctx = new_task.mut_trap_ctx();
+        let mut forked_syscall_ctx = new_task.to_syscall_context();
 
-        new_trap_ctx.set_syscall_return_value(0); // Child task's return value is 0
+        forked_syscall_ctx.set_return_value(0); // Child task's return value is 0
 
         if !sp.is_null() {
-            new_trap_ctx.set_stack_top(sp.as_usize());
+            unsafe {
+                forked_syscall_ctx
+                    .mut_trap_ctx()
+                    .set_stack_top(sp.as_usize())
+            };
         }
 
         if flags.contains(TaskCloneFlags::PARENT_SETTID) {
@@ -331,7 +334,7 @@ impl ISyncSyscallHandler for CloneSyscall {
 
         // FIXME: figure out a way to do this under multiple arch
         if flags.contains(TaskCloneFlags::SETTLS) {
-            new_trap_ctx.regs.tp = tls;
+            unsafe { forked_syscall_ctx.mut_trap_ctx().regs.tp = tls };
         }
 
         // TODO: Set clear tid address to pctid

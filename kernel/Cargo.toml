@@ -22,9 +22,9 @@ paging = { path = "../crates/paging", default-features = false }
 tasks = { path = "../crates/tasks", default-features = false }
 threading = { path = "../crates/threading", default-features = false }
 rng = { path = "../crates/rng", default-features = false }
+global_heap = { path = "../crates/global_heap", default-features = false }
 hermit-sync = "0.1.6"
 log = "0.4.22"
-buddy_system_allocator = { git = "https://github.com/neuq-rcore/buddy_system_allocator" }
 async-task = { version = "4.7.1", default-features = false }
 platform-abstractions = { path = "../crates/platform-abstractions" }
 platform-specific = { path = "../crates/platform-specific" }

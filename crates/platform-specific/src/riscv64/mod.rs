@@ -1,6 +1,7 @@
 mod context;
 mod registers;
 mod serial;
+mod syscalls;
 
 use core::ffi::CStr;
 

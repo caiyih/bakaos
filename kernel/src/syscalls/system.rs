@@ -1,11 +1,12 @@
 use constants::ErrNo;
 use drivers::current_timespec;
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
-use platform_abstractions::ISyscallContext;
+use platform_specific::ISyscallContext;
+use tasks::SyscallContext;
 
-use crate::{dmesg::read_dmesg, memory, scheduling};
+use crate::{dmesg::read_dmesg, scheduling};
 
-use super::{ISyncSyscallHandler, SyscallContext, SyscallResult};
+use super::{ISyncSyscallHandler, SyscallResult};
 
 pub struct GetRandomSyscall;
 
@@ -67,7 +68,7 @@ impl ISyncSyscallHandler for SystemInfoSyscall {
         guard.uptime = current_timespec().total_seconds() as isize;
 
         let (avaliable, _, total) = allocation::allocation_statistics();
-        let (heap_requested, _, heap_total) = memory::heap_statistics();
+        let (heap_requested, _, heap_total) = global_heap::heap_statistics();
 
         guard.total_ram = total;
         guard.free_ram = avaliable;

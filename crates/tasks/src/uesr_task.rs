@@ -132,9 +132,17 @@ impl TaskControlBlock {
     }
 }
 
+pub type SyscallContext<'a> = platform_specific::SyscallContext<'a, Arc<TaskControlBlock>>;
+
 impl TaskControlBlock {
-    pub fn mut_trap_ctx(&self) -> &'static mut TaskTrapContext {
-        unsafe { &mut *self.trap_context.get() }
+    /// # Safety
+    /// This function is only intended to use for `return_to_user`
+    pub unsafe fn mut_trap_ctx(&self) -> &'static mut TaskTrapContext {
+        &mut *self.trap_context.get()
+    }
+
+    pub fn to_syscall_context<'a>(self: &'a Arc<Self>) -> SyscallContext<'a> {
+        SyscallContext::new(unsafe { self.mut_trap_ctx() }, self.clone())
     }
 }
 
@@ -166,7 +174,7 @@ impl TaskControlBlock {
     ) -> Result<(), &'static str> {
         let memory_space_builder = MemorySpaceBuilder::from_raw(elf, path, args, envp)?;
 
-        *self.mut_trap_ctx() = create_task_context(&memory_space_builder);
+        *unsafe { self.mut_trap_ctx() } = create_task_context(&memory_space_builder);
 
         *self.timer.lock() = UserTaskTimer::default();
         *self.kernel_timer.lock() = UserTaskTimer::default();
@@ -205,7 +213,7 @@ impl TaskControlBlock {
     }
 
     pub fn fork_process(self: &Arc<TaskControlBlock>, share_vm: bool) -> Arc<TaskControlBlock> {
-        let this_trap_ctx = *self.mut_trap_ctx();
+        let this_trap_ctx = *unsafe { self.mut_trap_ctx() };
         let this_pcb = self.pcb.lock();
         let mut memory_space = MemorySpace::clone_existing(&this_pcb.memory_space);
 
@@ -279,7 +287,7 @@ impl TaskControlBlock {
     }
 
     pub fn fork_thread(self: &Arc<TaskControlBlock>) -> Arc<TaskControlBlock> {
-        let this_trap_ctx = *self.mut_trap_ctx();
+        let this_trap_ctx = *unsafe { self.mut_trap_ctx() };
         let task_id = tid::allocate_tid();
 
         let forked = Arc::new(TaskControlBlock {
