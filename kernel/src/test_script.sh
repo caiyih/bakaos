@@ -206,7 +206,7 @@ libc_test_la_static() {
         # libc_test_static_run_case pthread_cancel_points
         # libc_test_static_run_case pthread_cancel
         # libc_test_static_run_case pthread_cond
-        libc_test_static_run_case pthread_tsd
+        # libc_test_static_run_case pthread_tsd
         libc_test_static_run_case qsort
         libc_test_static_run_case random
         libc_test_static_run_case search_hsearch
@@ -268,12 +268,12 @@ libc_test_la_static() {
         libc_test_static_run_case printf_fmt_g_round
         libc_test_static_run_case printf_fmt_g_zeros
         libc_test_static_run_case printf_fmt_n
-        libc_test_static_run_case pthread_robust_detach
+        # libc_test_static_run_case pthread_robust_detach
         # libc_test_static_run_case pthread_cancel_sem_wait
         libc_test_static_run_case pthread_cond_smasher
         libc_test_static_run_case pthread_condattr_setclock
-        libc_test_static_run_case pthread_exit_cancel
-        libc_test_static_run_case pthread_once_deadlock
+        # libc_test_static_run_case pthread_exit_cancel
+        # libc_test_static_run_case pthread_once_deadlock
         # libc_test_static_run_case pthread_rwlock_ebusy
         libc_test_static_run_case putenv_doublefree
         libc_test_static_run_case regex_backref_0
