@@ -556,6 +556,14 @@ impl ISyncSyscallHandler for ExitGroupSyscall {
                 .store(exit_code as i32, core::sync::atomic::Ordering::Relaxed);
 
             *task.task_status.lock() = TaskStatus::Exited;
+
+            // Group leader exits
+            // FIXME: send signal to all children
+            if ctx.task_id.id() == pcb.id {
+                for task_child in task.children.lock().iter() {
+                    *task_child.task_status.lock() = TaskStatus::Exited;
+                }
+            }
         }
 
         pcb.status = TaskStatus::Exited;
