@@ -550,7 +550,7 @@ impl ISyncSyscallHandler for ExitGroupSyscall {
             let mut pcb = task.pcb.lock();
 
             pcb.status = TaskStatus::Exited;
-            pcb.exit_code = exit_code as i32;
+            pcb.exit_code = exit_code;
 
             let pgid = pcb.id;
 
