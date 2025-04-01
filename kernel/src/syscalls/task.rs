@@ -29,6 +29,24 @@ impl ISyncSyscallHandler for ExitSyscall {
         *ctx.task_status.lock() = TaskStatus::Exited;
 
         debug!("Task {} exited with code {}", ctx.task_id.id(), code);
+
+        let mut pcb = ctx.pcb.lock();
+
+        if pcb
+            .tasks
+            .iter()
+            .filter_map(|(_, w)| w.upgrade())
+            .all(|t| t.is_exited())
+        {
+            pcb.status = TaskStatus::Exited;
+            pcb.exit_code = code as i32;
+
+            debug!(
+                "Process {} exited with code {}, exiting all its children",
+                pcb.id, code
+            );
+        }
+
         Ok(0)
     }
 
