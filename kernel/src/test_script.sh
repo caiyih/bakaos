@@ -313,6 +313,10 @@ lua_test() {
     ./lua_testcode.sh
 }
 
+libc_bench() {
+    ./libc-bench
+}
+
 ARCH="$1"
 echo "Arch: $ARCH"
 
@@ -326,4 +330,7 @@ run_test "musl" cyclic_test
 run_test "glibc" cyclic_test
 run_test "musl" libc_test "libctest" true "$ARCH"
 run_test "glibc" libc_test "libctest" true "$ARCH"
-exit 0 # TODO: this is a workaround to fix script not exiting on LoongArch64
+
+if [ "$ARCH" = "rv" ]; then
+    run_test "musl" libc_bench "libcbench" true "$ARCH"
+fi
