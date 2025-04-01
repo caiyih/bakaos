@@ -596,7 +596,7 @@ impl ISyncSyscallHandler for ExitGroupSyscall {
 
         let exit_code = ctx.arg0::<i32>();
 
-        recursive_exit(&ctx, exit_code);
+        recursive_exit(ctx, exit_code);
 
         let pcb = ctx.pcb.lock();
 
