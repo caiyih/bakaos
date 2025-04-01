@@ -28,6 +28,24 @@ impl ISyncSyscallHandler for ExitSyscall {
         *ctx.task_status.lock() = TaskStatus::Exited;
 
         debug!("Task {} exited with code {}", ctx.task_id.id(), code);
+
+        let mut pcb = ctx.pcb.lock();
+
+        if pcb
+            .tasks
+            .iter()
+            .filter_map(|(_, w)| w.upgrade())
+            .all(|t| t.is_exited())
+        {
+            pcb.status = TaskStatus::Exited;
+            pcb.exit_code = code as i32;
+
+            debug!(
+                "Process {} exited with code {}, exiting all its children",
+                pcb.id, code
+            );
+        }
+
         Ok(0)
     }
 
@@ -541,6 +559,14 @@ impl ISyncSyscallHandler for ExitGroupSyscall {
                 .store(exit_code as i32, core::sync::atomic::Ordering::Relaxed);
 
             *task.task_status.lock() = TaskStatus::Exited;
+
+            // Group leader exits
+            // FIXME: send signal to all children
+            if ctx.task_id.id() == pcb.id {
+                for task_child in task.children.lock().iter() {
+                    *task_child.task_status.lock() = TaskStatus::Exited;
+                }
+            }
         }
 
         pcb.status = TaskStatus::Exited;
