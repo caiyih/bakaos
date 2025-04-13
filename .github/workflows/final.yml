@@ -52,12 +52,11 @@ jobs:
 
       - name: Download sdcard images
         run: |
-          # We have to download the file at the parent directory(the root of this repository)
-          wget https://github.com/neuq-rcore/testsuits-for-oskernel/releases/download/2025-pre/sdcard-${{ matrix.architecture.shortname }}.img.zst
+          wget -O sdcard-${{ matrix.architecture.shortname }}.img.zst https://github.com/neuq-rcore/testsuits-for-oskernel/releases/download/2025-pre/sdcard-${{ matrix.architecture.shortname }}-full.img.zst
           make _prepare_sdcard ARCH=${{ matrix.architecture.fullname }}
 
       - name: Run tests
-        timeout-minutes: 5 # A temporary value
+        timeout-minutes: 8 # A temporary value
         run: make _test_internal ARCH=${{ matrix.architecture.fullname }}
 
       - uses: actions/upload-artifact@v4
