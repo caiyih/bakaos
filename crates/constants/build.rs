@@ -11,7 +11,7 @@ fn main() {
     let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
     println!("cargo:rustc-env=FORCE_REBUILD_TS={}", now.as_nanos());
 
-    let context = SourceGenerationContext::new("src/generated".into(), false);
+    let context = SourceGenerationContext::new("src/generated".into(), true);
 
     let driver = SourceGenerationDriver::new(vec![Box::new(BuildInfoGenerator)]);
 
