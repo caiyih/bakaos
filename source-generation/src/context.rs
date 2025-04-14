@@ -166,6 +166,27 @@ impl SourceGenerationContext {
             }
         }
 
+        // Implicitly export all generated files as modules
+        for module in self.generated_sources.iter() {
+            if let Some(module) = module.strip_suffix(".rs") {
+                let module = Path::new(module)
+                    .components()
+                    .next()
+                    .unwrap()
+                    .as_os_str()
+                    .to_str()
+                    .unwrap()
+                    .to_string();
+
+                if !declared_mods.contains(&module) {
+                    let declaration = format!("mod {};", module);
+
+                    declared_mods.insert(module);
+                    lines.push(declaration);
+                }
+            }
+        }
+
         // FIXME: handing CRLF
         let content = format!("{}\n\n{}\n", GENERATED_CODE_HEADER_FULL, lines.join("\n"));
 
