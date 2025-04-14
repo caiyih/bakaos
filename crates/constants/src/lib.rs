@@ -6,6 +6,8 @@ mod generated;
 #[allow(unused_imports)]
 pub use generated::*;
 
+const _FORCE_REBUILD: &str = env!("FORCE_REBUILD_TS");
+
 mod errno;
 pub use errno::{ErrNo, SyscallError};
 
