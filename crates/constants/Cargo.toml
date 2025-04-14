@@ -10,4 +10,4 @@ build = "build.rs"
 
 [build-dependencies]
 chrono = "0.4"
-source-generation = { path = "../source-generation" }
+source-generation = { path = "../../source-generation" }
