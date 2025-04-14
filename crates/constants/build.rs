@@ -28,7 +28,10 @@ impl ISourceGenerator for BuildInfoGenerator {
         let build_time = Local::now();
         let build_time = build_time.format("%a, %d %b %Y %H:%M:%S %z").to_string();
 
-        let source_text = format!("pub const BUILD_TIME: &str = \"{}\";", build_time.trim());
+        let source_text = format!(
+            "pub const BUILD_TIME: &::core::primitive::str = \"{}\";",
+            build_time.trim()
+        );
 
         context.add_source("build_info.rs", &source_text, false, true)?;
         context.register_export_symbol(
