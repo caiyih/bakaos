@@ -15,6 +15,9 @@ cat << EOF > .vscode/settings.json
         "--target",
         "${TARGET}"
     ],
+    "rust-analyzer.files.exclude": [
+        "source-generation"
+    ],
 }
 EOF
 
