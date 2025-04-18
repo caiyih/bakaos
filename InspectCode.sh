@@ -21,7 +21,7 @@ run_checks() {
   echo "# ====================================================================="
   cd "$SCRIPT_DIR/$dir" || exit
 
-  if [ "$all_features" = true ]; then
+  if [ "$all_features" = "true" ] || [ "$dir" == "kernel" ]; then
     cargo clippy --all-features --target "$target" -- -D warnings
   else
     cargo clippy --features=no_std --target "$target" -- -D warnings
