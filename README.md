@@ -68,9 +68,9 @@ For example, one current obstacle to host-based testing is **page frame allocati
 
 _Still working in progress_
 
-For detailed documentations, please refer to the [`docs`](docs/README.md) directory(Only avaliable in Simplified Chinese).
+_⚠️ WARNING: Many of the existing documents were written a long time ago and may not reflect the latest code base. We are unable to update them in time due to the lack of time and developers._
 
-Documentations may not reflect the latest changes since this project is still in high developmen. Please refer to the code whenever you feels confused.
+For detailed documentations, please refer to the [`docs`](docs/README.md) directory(Only avaliable in Simplified Chinese).
 
 ## Continuous Integration
 
