@@ -13,8 +13,6 @@ source-generation = { git = "https://github.com/caiyih/bakaos" }
 
 该框架设计用于在 `build.rs` 中使用，因此无需在运行时代码中引用它。
 
----
-
 ### 示例代码（生成一个常量）
 
 以下是一个使用该框架在编译期生成 Rust 源码的简单示例。它将创建一个 `generated.rs` 文件，并在其中定义一个常量 `GENERATED_TEXT`。
@@ -78,8 +76,6 @@ impl ISourceGenerator for BuildInfoGenerator {
 }
 ```
 
----
-
 #### src/lib.rs
 
 ```rust
@@ -93,7 +89,5 @@ pub use generated::*;
 ```
 
 运行 `cargo build` 后，你将会在 `src/generated/` 目录下看到生成的 `generated.rs` 文件，并能在运行时代码中访问 `GENERATED_TEXT` 常量。
-
----
 
 如果你有更多想要生成的结构体、函数或模块，可以实现更多的 `ISourceGenerator` 实例并注册到 `SourceGenerationDriver` 中。

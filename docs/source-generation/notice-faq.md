@@ -12,8 +12,6 @@ pub const GENERATED_TEXT: &::core::primitive::str = "Hello, world!";
 
 这样可以避免在导入环境中产生歧义，尤其是在没有 `use` 语句的情况下。
 
----
-
 ### 倾向使用 `core` 与 `alloc` 代替 `std`
 
 由于 `std` 依赖于运行时，建议在生成代码中使用 `core` / `alloc` 提供的功能，确保代码在 `no_std` 环境下也可编译。
@@ -30,8 +28,6 @@ use ::core::fmt::Write;  // 推荐
 use std::fmt::Write;     // 避免
 ```
 
----
-
 ### 避免覆盖手写代码
 
 当调用 `add_source()` 添加文件时，建议将 `overwrite_existing` 设置为 `false`，防止意外覆盖已有手写逻辑文件：
@@ -40,13 +36,9 @@ use std::fmt::Write;     // 避免
 context.add_source("my_file.rs", &text, false, true)?;
 ```
 
----
-
 ### 模块名与符号名需唯一
 
 由于符号注册用于 `mod.rs` 生成，请确保模块名不会重复，且导出的符号具有唯一性（或设置 `as_name` 避免冲突）。
-
----
 
 ### 生成文件应避免格式化错误
 
@@ -65,8 +57,6 @@ context.add_source("my_file.rs", &text, false, true)?;
 
 建议确认 `add_source` 调用逻辑、路径是否正确，并查看运行时日志是否提示跳过或失败。
 
----
-
 ### 为什么任务没有生效？
 
 检查：
@@ -75,8 +65,6 @@ context.add_source("my_file.rs", &text, false, true)?;
 - 是否正确实现了 `ISourceGenerator::execute()`？
 - 是否手动执行了 `driver.execute(...)`？
 - 任务是否由于错误中止？（建议设置 `fail_fast = false` 观察所有任务）
-
----
 
 ### 如何避免覆盖手写代码？
 
@@ -89,8 +77,6 @@ context.add_source("my_code.rs", content, false, true)?;
 这样如果目标文件已存在且不是框架生成的，将跳过写入，避免覆盖。
 
 也可以手动检查文件是否存在，并改用 append 或 merge 模式自行处理。
-
----
 
 ### 支持 async 吗？
 

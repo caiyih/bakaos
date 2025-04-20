@@ -2,8 +2,6 @@
 
 本节将简要介绍 Source Generation 框架的核心组件以及其协作方式，并说明当前支持的文件结构设计。
 
----
-
 ### 1.1 核心组件介绍
 
 本框架采用模块化架构设计，核心组件各司其职，方便扩展与维护。
@@ -29,8 +27,6 @@ let mut context = SourceGenerationContext::new("src/generated".into(), true);
 - `register_export_symbol(...)`：注册要导出的模块路径或符号
 - `get_symbol_registry()`：访问符号注册表
 
----
-
 #### `ISourceGenerator`
 
 代码生成器任务的抽象接口，所有代码生成逻辑应通过实现该 trait 完成。
@@ -52,8 +48,6 @@ trait ISourceGenerator {
 - 调用 `context.add_source()` 写入目标文件
 - 调用 `context.register_export_symbol()` 注册自动导出的符号（如 `mod::name`）
 
----
-
 #### `SourceGenerationDriver`
 
 用于统一驱动和执行多个 `ISourceGenerator` 实例的调度器。
@@ -71,8 +65,6 @@ driver.execute(context, false /* fail_fast */)?;
 
 该组件不会并行执行任务（当前版本不关注并行性），执行顺序即为注册顺序。
 
----
-
 #### `SymbolRegistry`
 
 符号注册表，用于记录需要导出的路径（模块名或对象名）。一般通过 `SourceGenerationContext` 间接使用。
@@ -84,8 +76,6 @@ driver.execute(context, false /* fail_fast */)?;
 - 完整路径（如 `my_mod::MyStruct`）
 - 导出类型（例如 `use`、`mod`）
 - 是否包含到自动生成的 mod.rs 中
-
----
 
 ### 1.2 文件结构示意
 

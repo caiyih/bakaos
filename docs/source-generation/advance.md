@@ -23,8 +23,6 @@ context.register_export_symbol(
 pub use self::generated::Foo;
 ```
 
----
-
 #### 指定根目录
 
 你可以在 `SourceGenerationContext` 构造时指定一个输出根目录：
@@ -34,8 +32,6 @@ let context = SourceGenerationContext::new("src/generated".into(), true);
 ```
 
 该目录将作为所有生成文件和 `mod.rs` 的存放位置。当前采用“扁平结构”，即不递归生成嵌套模块的 `mod.rs`。
-
----
 
 #### 自定义导出格式
 
