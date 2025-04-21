@@ -2,6 +2,8 @@
 #![feature(trait_alias)]
 #![feature(panic_can_unwind)]
 
+use core::ops::Deref;
+
 #[derive(Debug, Clone)]
 pub struct StackTrace<const N: usize> {
     frames: [StackFrame; N],
@@ -57,8 +59,18 @@ impl<const N: usize> StackTrace<N> {
         traces
     }
 
-    pub fn stack_frames(&self) -> &[StackFrame] {
-        &self.frames.as_slice()[..self.len]
+    pub fn len(&self) -> usize {
+        self.len
+    }
+}
+
+impl<const N: usize> Deref for StackTrace<N> {
+    type Target = [StackFrame];
+
+    fn deref(&self) -> &Self::Target {
+        assert!(self.len <= N);
+
+        &self.frames
     }
 }
 
