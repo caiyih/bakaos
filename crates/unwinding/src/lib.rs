@@ -40,7 +40,7 @@ impl StackTraceWalker {
 impl<const N: usize> StackTrace<N> {
     #[inline(always)]
     #[allow(unused)]
-    pub fn begin_unwind(skip_frames: usize) -> StackTrace<N> {
+    pub fn collect(skip_frames: usize) -> StackTrace<N> {
         let mut traces = unsafe { core::mem::zeroed::<StackTrace<N>>() };
 
         let mut len = 0;
