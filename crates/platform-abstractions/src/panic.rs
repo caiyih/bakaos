@@ -1,7 +1,7 @@
 use core::sync::atomic::AtomicBool;
 use platform_specific::legacy_println;
 
-use unwinding::StackTrace;
+use unwinding::StackTraceWalker;
 
 #[allow(unused)]
 pub(crate) static SKIP_PANIC_FRAME: AtomicBool = AtomicBool::new(false);
@@ -14,6 +14,16 @@ static PANIC_NESTING: AtomicBool = AtomicBool::new(false);
 #[no_mangle]
 #[panic_handler]
 unsafe fn rust_begin_unwind(info: &::core::panic::PanicInfo) -> ! {
+    extern "Rust" {
+        fn panic_handler(info: &::core::panic::PanicInfo) -> !;
+    }
+
+    panic_handler(info)
+}
+
+#[no_mangle]
+#[linkage = "weak"]
+unsafe extern "Rust" fn panic_handler(info: &::core::panic::PanicInfo) -> ! {
     if !PANIC_NESTING.load(core::sync::atomic::Ordering::Relaxed) {
         PANIC_NESTING.store(true, core::sync::atomic::Ordering::Relaxed);
 
@@ -39,7 +49,34 @@ unsafe fn rust_begin_unwind(info: &::core::panic::PanicInfo) -> ! {
             skip_frames += 1;
         }
 
-        StackTrace::<100>::begin_unwind(skip_frames).print_trace();
+        legacy_println!("[BAKA-OS]     Stack trace:");
+
+        let mut frames = 0;
+
+        StackTraceWalker::begin_unwind(skip_frames, |index, frame| {
+            // PC implies the next instruction of function call
+            match frame.pc() {
+                    Ok(pc) => legacy_println!(
+                        "[BAKA-OS]     {:4} at: {:#018x} Frame pointer: {:#018x}",
+                        index + 1,
+                        pc,
+                        frame.fp()
+                    ),
+                    Err(ra) => legacy_println!(
+                        "[BAKA-OS]     {:4} Frame pointer: {:#018x} Unrecognize instruction, ra: {:#018x}",
+                        index + 1,
+                        frame.fp(),
+                        ra
+                    )
+                };
+
+            frames += 1;
+
+            true
+        });
+
+        legacy_println!("[BAKA-OS]     Note: The unwinder script will resolve all stack frames when the kernel shutdown.");
+        legacy_println!("[BAKA-OS]           If it didn't, you can copy all the {} lines above(including the note) and paste it to the unwinder.", frames + 1);
     } else {
         legacy_println!(
             "[BAKA-OS] Kernel panicked while handling another panic: {}",
@@ -61,38 +98,4 @@ unsafe fn rust_begin_unwind(info: &::core::panic::PanicInfo) -> ! {
     }
 
     crate::machine_shutdown(true)
-}
-
-#[allow(unused)]
-pub trait IDisplayableStackTrace {
-    fn print_trace(&self);
-}
-
-impl<const N: usize> IDisplayableStackTrace for StackTrace<N> {
-    fn print_trace(&self) {
-        let frames = self.stack_frames();
-
-        legacy_println!("[BAKA-OS]     Stack trace:");
-
-        for (depth, frame) in frames.iter().enumerate() {
-            // PC implies the next instruction of function call
-            match frame.pc() {
-                Ok(pc) => legacy_println!(
-                    "[BAKA-OS]     {:4} at: {:#018x} Frame pointer: {:#018x}",
-                    depth + 1,
-                    pc,
-                    frame.fp()
-                ),
-                Err(ra) => legacy_println!(
-                    "[BAKA-OS]     {:4} Frame pointer: {:#018x} Unrecognize instruction, ra: {:#018x}",
-                    depth + 1,
-                    frame.fp(),
-                    ra
-                ),
-            }
-        }
-
-        legacy_println!("[BAKA-OS]     Note: The unwinder script will resolve all stack frames when the kernel shutdown.");
-        legacy_println!("[BAKA-OS]           If it didn't, you can copy all the {} lines above(including the note) and paste it to the unwinder.", frames.len() + 1);
-    }
 }
