@@ -62,6 +62,10 @@ impl<const N: usize> StackTrace<N> {
     pub fn len(&self) -> usize {
         self.len
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
 }
 
 impl<const N: usize> Deref for StackTrace<N> {
