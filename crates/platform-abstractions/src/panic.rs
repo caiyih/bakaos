@@ -14,6 +14,16 @@ static PANIC_NESTING: AtomicBool = AtomicBool::new(false);
 #[no_mangle]
 #[panic_handler]
 unsafe fn rust_begin_unwind(info: &::core::panic::PanicInfo) -> ! {
+    extern "Rust" {
+        fn panic_handler(info: &::core::panic::PanicInfo) -> !;
+    }
+
+    panic_handler(info)
+}
+
+#[no_mangle]
+#[linkage = "weak"]
+unsafe extern "Rust" fn panic_handler(info: &::core::panic::PanicInfo) -> ! {
     if !PANIC_NESTING.load(core::sync::atomic::Ordering::Relaxed) {
         PANIC_NESTING.store(true, core::sync::atomic::Ordering::Relaxed);
 

@@ -1,4 +1,5 @@
 #![no_std]
+#![feature(linkage)]
 #![feature(naked_functions)]
 #![feature(panic_can_unwind)]
 
