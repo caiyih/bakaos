@@ -10,10 +10,10 @@ use log::debug;
 use page_table::GenericMappingFlags;
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, PageTable};
 use platform_specific::{ISyscallContext, ISyscallContextMut, ITaskContext};
-use tasks::{SyscallContext, TaskCloneFlags, TaskStatus};
+use tasks::{SyscallContext, TaskCloneFlags, TaskControlBlock, TaskStatus};
 use timing::{TimeSpec, TimeVal};
 
-use crate::scheduling::spawn_task;
+use crate::scheduling::{self, spawn_task};
 
 use super::{ISyncSyscallHandler, SyscallResult};
 
@@ -546,33 +546,73 @@ pub struct ExitGroupSyscall;
 
 impl ISyncSyscallHandler for ExitGroupSyscall {
     fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
-        let mut pcb = ctx.pcb.lock();
-        let exit_code = ctx.arg0::<isize>();
+        fn recursive_exit(task: &TaskControlBlock, exit_code: i32) {
+            let mut pcb = task.pcb.lock();
 
-        for task in pcb
-            .tasks
-            .values()
-            .filter_map(|weak| weak.upgrade())
-            .filter(|t| !t.is_exited())
-        {
-            task.exit_code
-                .store(exit_code as i32, core::sync::atomic::Ordering::Relaxed);
+            pcb.status = TaskStatus::Exited;
+            pcb.exit_code = exit_code;
 
-            *task.task_status.lock() = TaskStatus::Exited;
+            let pgid = pcb.id;
 
-            // Group leader exits
-            // FIXME: send signal to all children
-            if ctx.task_id.id() == pcb.id {
-                for task_child in task.children.lock().iter() {
-                    *task_child.task_status.lock() = TaskStatus::Exited;
+            let children = pcb
+                .tasks
+                .values()
+                .filter_map(|weak| weak.upgrade())
+                .filter(|t| !t.is_exited())
+                .collect::<Vec<_>>();
+
+            drop(pcb);
+
+            for child in children.into_iter() {
+                child
+                    .exit_code
+                    .store(exit_code, core::sync::atomic::Ordering::Relaxed);
+
+                *child.task_status.lock() = TaskStatus::Exited;
+
+                // Process group leader
+                // TODO: send signal instead of killing them directly
+                if child.task_id.id() == pgid {
+                    let mut child_pcb = child.pcb.lock();
+
+                    for child_process_task in child_pcb
+                        .tasks
+                        .values()
+                        .filter_map(|weak| weak.upgrade())
+                        .filter(|t| !t.is_exited())
+                    {
+                        child
+                            .exit_code
+                            .store(exit_code, core::sync::atomic::Ordering::Relaxed);
+
+                        *child_process_task.task_status.lock() = TaskStatus::Exited;
+                    }
+
+                    child_pcb.exit_code = exit_code;
+                    child_pcb.status = TaskStatus::Exited;
                 }
             }
         }
 
-        pcb.status = TaskStatus::Exited;
-        pcb.exit_code = exit_code as i32;
+        let exit_code = ctx.arg0::<i32>();
+
+        recursive_exit(ctx, exit_code);
+
+        let pcb = ctx.pcb.lock();
 
         debug!("Task group {} exited with code {}", pcb.id, exit_code);
+
+        if scheduling::task_count() > 1 // The initproc still exists
+            && pcb.is_initproc.load(core::sync::atomic::Ordering::Relaxed)
+        {
+            log::warn!(
+                "Shutting down the kernel due to initproc exit. Remaining tasks: {}",
+                scheduling::task_count()
+            );
+
+            platform_abstractions::machine_shutdown(cfg!(debug_assertions));
+        }
+
         Ok(0)
     }
 

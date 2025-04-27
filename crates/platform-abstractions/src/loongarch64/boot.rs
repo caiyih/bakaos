@@ -86,7 +86,8 @@ pub unsafe extern "C" fn _start() -> ! {
 
             # aka. u0 in Linux
             csrrd       $r21, 0x20           # cpuid
-
+            
+            move        $a0, $r21
             bl          {main_processor_init}
 
             la.global   $t0, __kernel_start_main
@@ -137,7 +138,17 @@ static mut PT_L1: [u64; 512] = {
     pt_l1
 };
 
-extern "C" fn main_processor_init() {
+extern "C" fn main_processor_init(r21: usize) {
+    if r21 != 0 {
+        platform_specific::legacy_println!("Non main CPU({}) booting, go sleeping", r21);
+
+        loop {
+            unsafe {
+                core::arch::asm!("idle 0");
+            }
+        }
+    }
+
     // loongson,ls7a-rtc
     // https://github.com/qemu/qemu/blob/661c2e1ab29cd9c4d268ae3f44712e8d421c0e56/include/hw/pci-host/ls7a.h#L45
     const RTC_BASE: usize = 0x10000000 + 0x00080000 + 0x00050100;

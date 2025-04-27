@@ -24,7 +24,13 @@ unsafe impl Sync for Lwext4FileSystem {}
 impl Lwext4FileSystem {
     #[allow(clippy::result_unit_err)]
     pub fn new(device: Arc<DirectoryTreeNode>) -> Result<Lwext4FileSystem, ()> {
-        let inner = Ext4BlockWrapper::<Lwext4Disk>::new(Lwext4Disk::new(device)).map_err(|_| ())?;
+        let inner =
+            Ext4BlockWrapper::<Lwext4Disk>::new(Lwext4Disk::new(device.clone())).map_err(|_| ())?;
+
+        log::info!(
+            "Created a new Lwext4FileSystem with the size of {:?} bytes",
+            device.metadata().size
+        );
 
         Ok(Lwext4FileSystem {
             root: Arc::new(Lwext4Inode {
@@ -456,7 +462,7 @@ impl KernelDevOp for Lwext4Disk {
         let new_pos = match whence as u32 {
             lwext4_rust::bindings::SEEK_SET => off,
             lwext4_rust::bindings::SEEK_CUR => dev.1 as i64 + off,
-            lwext4_rust::bindings::SEEK_END => 2 * 1024 * 1024 * 1024,
+            lwext4_rust::bindings::SEEK_END => dev.0.metadata().size as i64 + off,
             _ => unimplemented!(),
         };
 
