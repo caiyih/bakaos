@@ -31,6 +31,7 @@ platform-specific = { path = "../crates/platform-specific" }
 page_table = { path = "../crates/page_table" }
 
 drivers = { path = "../crates/drivers", features = ["virt"] }
+bitflags = "2.9.0"
 
 [patch.crates-io]
 # patches LoongArch64 support for https://github.com/japaric/cty
