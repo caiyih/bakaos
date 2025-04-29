@@ -57,14 +57,6 @@ fn create_filesystem(device: Arc<DirectoryTreeNode>) -> Result<Arc<dyn IFileSyst
         return Ok(Arc::new(fat32));
     }
 
-    #[cfg(any(target_arch = "riscv64", target_arch = "loongarch64"))]
-    {
-        if let Ok(lwext4) = Lwext4FileSystem::new(device.clone()) {
-            log::warn!("Creating lwext4");
-            return Ok(Arc::new(lwext4));
-        }
-    }
-
     if let Ok(ext4) = Ext4FileSystem::new(device.clone()) {
         #[cfg(debug_assertions)]
         log::debug!("Creating ext4_rs");
@@ -78,6 +70,14 @@ fn create_filesystem(device: Arc<DirectoryTreeNode>) -> Result<Arc<dyn IFileSyst
         }
 
         return Ok(Arc::new(ext4));
+    }
+
+    #[cfg(any(target_arch = "riscv64", target_arch = "loongarch64"))]
+    {
+        if let Ok(lwext4) = Lwext4FileSystem::new(device.clone()) {
+            log::warn!("Creating lwext4");
+            return Ok(Arc::new(lwext4));
+        }
     }
 
     Err(MountError::InvalidInput) // Unsupported filesystem
