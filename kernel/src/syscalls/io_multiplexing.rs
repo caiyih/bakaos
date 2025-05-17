@@ -165,17 +165,21 @@ async_syscall!(sys_pselect6_async, ctx, {
     }
 });
 
+bitflags::bitflags! {
+    pub struct PollEvents: u16 {
+        const PollIn = 0x001;
+        const PollOut = 0x004;
+    }
+}
+
 #[repr(C)]
 struct PollFd {
     fd: i32,
-    events: i16,
-    revents: i16,
+    events: PollEvents,
+    revents: PollEvents,
 }
 
 async_syscall!(sys_ppoll_async, ctx, {
-    const POLLIN: i16 = 0x001;
-    const POLLOUT: i16 = 0x004;
-
     let pfds = ctx.arg0::<*mut PollFd>();
     let nfds = ctx.arg1::<usize>();
 
@@ -202,29 +206,29 @@ async_syscall!(sys_ppoll_async, ctx, {
                     let pcb = ctx.pcb.lock();
 
                     for poll in fds.as_mut().iter_mut() {
-                        poll.revents = 0;
+                        let mut revents = PollEvents::empty();
 
                         if let Some(fd) = pcb.fd_table.get(poll.fd as usize) {
                             let file = fd.access_ref();
                             let mut ready = false;
 
                             // read
-                            if poll.events & POLLIN == POLLIN
+                            if poll.events.contains(PollEvents::PollIn)
                                 && fd.can_read()
                                 && file.can_read()
                                 && file.read_avaliable()
                             {
-                                poll.revents |= POLLIN;
+                                revents |= PollEvents::PollIn;
                                 ready = true;
                             }
 
                             // write
-                            if poll.events & POLLOUT == POLLOUT
+                            if poll.events.contains(PollEvents::PollOut)
                                 && fd.can_write()
                                 && file.can_write()
                                 && file.write_avaliable()
                             {
-                                poll.revents |= POLLOUT;
+                                revents |= PollEvents::PollOut;
                                 ready = true;
                             }
 
@@ -232,6 +236,8 @@ async_syscall!(sys_ppoll_async, ctx, {
                                 n_ready += 1;
                             }
                         }
+
+                        poll.revents = revents;
                     }
                 }
 
