@@ -1,20 +1,20 @@
 ## 内核模块详解：内存管理
 
-### 引言 (Introduction to Memory Management)
+### 引言
 
 内存管理是操作系统的核心组成部分，它负责在计算机系统中高效、安全地分配和管理内存资源。一个设计良好的内存管理系统对于操作系统的稳定性、性能以及多任务处理能力至关重要。BakaOS 的内存管理系统主要分为三个层面：物理内存管理、虚拟内存管理和内核堆管理。本章将详细阐述这三个层面的设计理念、实现机制及其优缺点。
 
-### 1. 物理内存管理 (Physical Memory Management)
+### 1. 物理内存管理
 
 物理内存管理模块直接与硬件内存打交道，其核心任务是追踪系统中所有可用的物理页帧，并按需进行分配与回收。由`crates/allocation`库提供。
 
-#### 1.1 背景与动机 (Background and Motivation)
+#### 1.1 背景与动机
 
 - **问题阐述：** 操作系统内核及其运行的进程都需要使用物理内存。如果没有一个统一的管理器，将会导致内存分配冲突、重复释放、内存泄漏以及严重的内存碎片问题。早期的或简单的分配方式（如裸指针、简单的 Bump Allocator）难以满足现代操作系统对内存安全和高效利用的要求。
 
-- **BakaOS 的目标：** 使用RAII机制封装裸指针和简单的 Bump Allocato操作，降低了内存错误的风险，又能相对高效地利用物理内存，同时简化内核其他部分对物理内存使用的页帧分配器。
+- **BakaOS 的目标：** 使用RAII机制低级内存操作，降低了内存错误的风险，又能相对高效地利用物理内存，同时简化内核其他部分对物理内存使用的页帧分配器。
 
-#### 1.2 核心思想与设计 (Key Idea and Design)
+#### 1.2 核心思想与设计
 
 BakaOS 的物理内存管理采用以页帧为基本单位的分配策略，其核心设计思想体现在以下几个方面：
 
@@ -46,11 +46,11 @@ BakaOS 的物理内存管理采用以页帧为基本单位的分配策略，其�
   
   - **接口清晰：** 提供了分配单个、多个（不保证连续）和多个连续页帧的接口，满足不同场景的需求。
 
-### 2. 虚拟内存管理 (Virtual Memory Management)
+### 2. 虚拟内存管理
 
 虚拟内存管理是现代操作系统的基石，它为每个进程提供了一个独立的、连续的地址空间，并负责将这些虚拟地址映射到实际的物理内存页帧上。
 
-#### 2.1 背景与动机 (Background and Motivation)
+#### 2.1 背景与动机
 
 - **解决的核心问题：**
   
@@ -72,7 +72,7 @@ BakaOS 的物理内存管理采用以页帧为基本单位的分配策略，其�
   
   - 为了让内核能够管理全部物理内存，BakaOS 将虚拟地址空间大致对半分：低地址部分（例如，前256GB）分配给用户空间，高地址部分则用于映射整个物理内存以及内核自身代码和数据。例如，内核可以通过一个固定的偏移量（如 `VIRT_ADDR_OFFSET`，其值为 `0xffff_ffc0_0000_0000` 或 `0x9000_0000_0000_0000`，具体取决于架构）来访问任何物理地址。
 
-#### 2.2 核心思想与设计 (Key Idea and Design)
+#### 2.2 核心思想与设计
 
 BakaOS 的虚拟内存管理围绕以下核心概念构建：
 
@@ -84,7 +84,7 @@ BakaOS 的虚拟内存管理围绕以下核心概念构建：
   
   - 当CPU处于内核态时，可以通过 `sstatus` 寄存器的SUM位（Supervisor User Memory access）等机制，直接访问当前进程用户空间的有效虚拟地址。
 
-- **地址空间布局 (Address Space Layout):**
+- **地址空间布局:**
   
   **启动时的初始页表与向高半核的迁移 (Initial Boot Page Table and Transition to Higher Half):**
   
@@ -104,7 +104,7 @@ BakaOS 的虚拟内存管理围绕以下核心概念构建：
          
          - **高半核目标区域映射 (Higher-Half Mappings):** 同时，这个初始页表也必须建立起内核最终要运行的高半虚拟地址区域的映射，以及将物理内存映射到高半核的直接映射区。例如，将物理地址 `0x0000_0000` 开始的若干GB（如示例中的前3GB）映射到以 `VIRT_ADDR_OFFSET` 开头的高半虚拟地址。
            
-    ``` 
+    ```ascii
       // 示例：RISC-V64 启动时的页表项 
       // arr[2] = (0x80000 << 10) | 0xcf; // 物理地址 0x8000_0000 (内核代码区) -> 虚拟地址 0x8000_0000 (1GB 大页)
       // arr[0x100] = (0x00000 << 10) | 0xcf; // 物理地址 0x0000_0000 -> 虚拟地址 VIRT_ADDR_OFFSET + 0x0000_0000 (1GB 大页)
@@ -157,43 +157,7 @@ BakaOS 的虚拟内存管理围绕以下核心概念构建：
     
     5. `PageGuard` 对象在离开作用域时，其 `Drop` 实现（或显式调用 `restore_temporary_modified_pages()`）会恢复对页表项权限的临时修改，并刷新TLB。
 
-#### 2.3 实现要点 (Implementation Highlights)
-
-- **关键类型：**
-  
-  - `PageTable` (位于 `crates/paging/src/page_table.rs`): 管理单个地址空间的页表，包含对 `PageTable64Impl` 的封装和 `PageGuard` 相关逻辑。
-  
-  - `PageTable64Impl` (类型别名，实际为 `crates/page_table::PageTable64<CurrentArch, CurrentPTE>`): 平台无关的页表操作逻辑。
-  
-  - `LA64PageTableEntry`, `RV64PageTableEntry`: 特定架构的页表项定义。
-  
-  - `GenericMappingFlags`: 平台无关的页表权限标志。
-  
-  - `MemorySpace`: 代表一个完整的进程虚拟地址空间。
-  
-  - `MappingArea`: 描述 `MemorySpace` 中的一个内存区域。
-  
-  - `VirtualAddress`, `PhysicalAddress`, `VirtualPageNum`, `PhysicalPageNum`: 地址和页号的强类型封装。
-  
-  - `PageGuardBuilder`, `MustHavePageGuard`, `WithPageGuard`: `PageGuard`机制的核心组件。
-
-- **核心操作：**
-  
-  - `PageTable::activate()`: 激活页表（写入 `satp` 或龙芯的 `PGDL`/`PGDH` 寄存器）。
-  
-  - `PageTable::query_virtual()`: 将虚拟地址翻译成物理地址和权限。
-  
-  - `PageTable::map_single()`: 映射单个页面。
-  
-  - `PageTable::unmap_single()`: 解除单个页面的映射。
-  
-  - `PageTable::guard_ptr()`, `PageTable::guard_slice()`: 创建 `PageGuard`。
-  
-  - `MemorySpaceBuilder::from_raw()`: 从ELF文件构建新的用户内存空间。
-  
-  - `mmap` 和 `munmap` 系统调用的处理逻辑，会涉及到 `TaskMemoryMap` 和 `MemoryMappedFile`。
-
-#### 2.4 优势与权衡 (Benefits and Trade-offs)
+#### 2.4 优势与权衡
 
 - **优势：**
   
