@@ -167,12 +167,12 @@ BakaOS 的虚拟内存管理围绕以下核心概念构建：
   
   - `PageGuard` 提供的安全性： 极大地减少了因处理用户提供的非法指针而导致的内核崩溃风险，强制开发者在访问用户内存前进行权限检查和声明。
 
-- 权衡/待改进：
+- 工作方向：
+
+  - 高半核的固有安全风险： BakaOS 当前采用的单页表高半核模型，虽然通过 `PageGuard` 保证了直接访问的安全性，但并未完全消除这类微架构层面的风险。即使有页表权限位保护，只要内核页面的映射存在于用户进程的活动页表中，理论上就存在被 Meltdown、Spectre 等侧信道攻击利用的风险，因为这些攻击可能绕过权限检查进行推测执行。
   
-  - 高半核的固有安全风险： 正如issue中提到的[Proposal: Secure User/Kernel Isolation via Split Page Tables with Trampoline Support · Issue #42 · caiyih/bakaos · GitHub](https://github.com/caiyih/bakaos/issues/42)，即使有页表权限位保护，只要内核页面的映射存在于用户进程的活动页表中，理论上就存在被 Meltdown、Spectre 等侧信道攻击利用的风险，因为这些攻击可能绕过权限检查进行推测执行。BakaOS 当前采用的单页表高半核模型，虽然通过 `PageGuard` 保证了直接访问的安全性，但并未完全消除这类微架构层面的风险。
-    
-    - 未来方向： 可以考虑引入类似参考文档中提到的“双页表策略”或“跳板页隔离”机制作为可选的安全增强特性，在性能和安全性之间提供选择。例如，在进入用户态时切换到一个只包含用户空间映射的页表 (`PT_user`)，并在陷入内核时通过跳板页切换回包含完整内核映射的页表 (`PT_full`)。这对 `platform_abstractions::return_to_user` 接口会有较大影响。
-  
+  - [Proposal: Secure User/Kernel Isolation via Split Page Tables with Trampoline Support · Issue #42 · caiyih/bakaos · GitHub](https://github.com/caiyih/bakaos/issues/42)，我们已经提出一种设计，将内核部分与用户部分分离，并使用跳板页进行地址空间切换，同时保留高半内核的优势，但是能够防护Meltdown、Spectre 等侧信道攻击利用的风险。
+
   - TLB 管理：
     
     - 优点： 单一地址空间模型下，用户态到内核态的转换（非页表切换）通常不会导致全局TLB刷写。
