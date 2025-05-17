@@ -6,13 +6,13 @@
 
 ### 1. 物理内存管理 (Physical Memory Management)
 
-物理内存管理模块直接与硬件内存打交道，其核心任务是追踪系统中所有可用的物理页帧，并按需进行分配与回收。
+物理内存管理模块直接与硬件内存打交道，其核心任务是追踪系统中所有可用的物理页帧，并按需进行分配与回收。由`crates/allocation`库提供。
 
 #### 1.1 背景与动机 (Background and Motivation)
 
 - **问题阐述：** 操作系统内核及其运行的进程都需要使用物理内存。如果没有一个统一的管理器，将会导致内存分配冲突、重复释放、内存泄漏以及严重的内存碎片问题。早期的或简单的分配方式（如裸指针、简单的 Bump Allocator）难以满足现代操作系统对内存安全和高效利用的要求。
 
-- **BakaOS 的目标：** 实现一个既能有效防止内存泄漏，又能相对高效地利用物理内存，同时简化内核其他部分对物理内存使用的页帧分配器。
+- **BakaOS 的目标：** 使用RAII机制封装裸指针和简单的 Bump Allocato操作，降低了内存错误的风险，又能相对高效地利用物理内存，同时简化内核其他部分对物理内存使用的页帧分配器。
 
 #### 1.2 核心思想与设计 (Key Idea and Design)
 
@@ -24,63 +24,27 @@ BakaOS 的物理内存管理采用以页帧为基本单位的分配策略，其�
 
 - **中心化的页帧分配器 (`FrameAllocator`)：**
   
-  - `FrameAllocator` 负责管理一个预定义的可用物理内存池。
+  - `FrameAllocator` 负责管理所有的全局物理帧。
   
-  - 它维护一个 `current` 指针，用于快速分配连续的空闲页帧。
+  - 能够快速分配连续页。
   
-  - 同时，它包含一个 `recycled` 列表，用于存储被回收的、可能不连续的页帧。分配时会优先从 `recycled` 列表中查找，以期复用内存并减少碎片。
-  
-  - 在回收页帧时，分配器会尝试将回收的页帧与 `current` 指针指向的空闲区域或 `recycled` 列表中的其他相邻空闲页帧合并，以形成更大的连续空闲块。
+  - 通过算法，将回收帧压缩成连续页，优化分配速度。
 
-- **页帧清零 (可选特性)：**
+- **页帧清零 ：**
   
-  - 为了增强数据安全，防止旧数据通过新分配的页帧泄露，分配器在创建 `TrackedFrame` 时，可以通过 `zero_frame` 函数将页帧内容清零（此功能由编译特性 `zero_page`控制）。
+  - 为了增强数据安全，防止旧数据通过新分配的页帧泄露，分配器在创建 `TrackedFrame` 时，会通过 `zero_frame` 函数将页帧内容清零。
 
-#### 1.3 实现要点 (Implementation Highlights)
-
-- **关键类型：**
-  
-  - `FrameAllocator`: 物理页帧分配器的核心结构。
-  
-  - `TrackedFrame`: 代表一个被追踪的、已分配的单个物理页帧。
-  
-  - `TrackedFrameRange`: 代表一段被追踪的、已分配的连续物理页帧。
-  
-  - `PhysicalPageNum`: 物理页号的抽象。
-
-- **核心函数/操作：**
-  
-  - `allocation::init(bottom: usize, memory_end: usize)`: 初始化物理内存分配器，设定其管理的内存范围。
-  
-  - `alloc_frame()`: 全局函数，用于分配单个物理页帧，返回 `TrackedFrame`。
-  
-  - `alloc_contiguous(count: usize)`: 分配指定数量的连续物理页帧，返回 `TrackedFrameRange`。
-  
-  - `dealloc_frame(frame: &TrackedFrame)`: （通常由 `TrackedFrame::drop` 自动调用）回收单个页帧。
-
-#### 1.4 优势与权衡 (Benefits and Trade-offs)
+#### 1.3 优势
 
 - **优势：**
   
-  - **内存安全与简便性：** RAII 机制的运用使得物理内存的分配和回收几乎自动化，显著降低了内存泄漏的风险，简化了内核其他模块的内存管理逻辑。
+  - **内存安全与简便性：** RAII 机制的运用使得物理内存的分配和回收几乎自动化，显著降低了内存问题的风险，简化了内核其他模块的内存管理逻辑。
   
   - **一定程度的碎片缓解：** 通过回收列表和回收时合并相邻空闲块的策略，有助于减少物理内存碎片。
   
-  - **安全性增强：** 可选的页帧清零功能有助于防止敏感数据泄露。
+  - **安全性增强：** 页帧清零功能有助于防止敏感数据泄露。
   
   - **接口清晰：** 提供了分配单个、多个（不保证连续）和多个连续页帧的接口，满足不同场景的需求。
-
-- **权衡/待改进：**
-  
-  - **分配策略的简单性：** 当前的分配策略（优先回收，然后是基于 `current` 指针的简单线性分配）在高度碎片化的场景下可能不是最优的。更复杂的分配算法（如伙伴系统）可能会提供更好的碎片管理，但也会增加实现的复杂度。
-  
-  - **全局锁的潜在瓶颈：** `FRAME_ALLOCATOR` 使用 `SpinMutex` 进行保护，确保了多核环境下的线程安全。但在极高并发的分配和回收请求下，这个全局锁可能成为性能瓶颈。未来可以考虑每核心分配器或无锁数据结构等方案。
-
-#### 1.5 相关代码模块 (Relevant Code Crates/Modules)
-
-- `crates/allocation/src/frame.rs`
-
-- `crates/allocation/src/lib.rs`
 
 ### 2. 虚拟内存管理 (Virtual Memory Management)
 
@@ -140,15 +104,16 @@ BakaOS 的虚拟内存管理围绕以下核心概念构建：
          
          - **高半核目标区域映射 (Higher-Half Mappings):** 同时，这个初始页表也必须建立起内核最终要运行的高半虚拟地址区域的映射，以及将物理内存映射到高半核的直接映射区。例如，将物理地址 `0x0000_0000` 开始的若干GB（如示例中的前3GB）映射到以 `VIRT_ADDR_OFFSET` 开头的高半虚拟地址。
            
-           ```
-           // 示例：RISC-V64 启动时的页表项 
-           // arr[2] = (0x80000 << 10) | 0xcf; // 物理地址 0x8000_0000 (内核代码区) -> 虚拟地址 0x8000_0000 (1GB 大页)
-           // arr[0x100] = (0x00000 << 10) | 0xcf; // 物理地址 0x0000_0000 -> 虚拟地址 VIRT_ADDR_OFFSET + 0x0000_0000 (1GB 大页)
-           // arr[0x101] = (0x40000 << 10) | 0xcf; // 物理地址 0x4000_0000 -> 虚拟地址 VIRT_ADDR_OFFSET + 0x4000_0000 (1GB 大页)
-           // arr[0x102] = (0x80000 << 10) | 0xcf; // 物理地址 0x8000_0000 -> 虚拟地址 VIRT_ADDR_OFFSET + 0x8000_0000 (1GB 大页)
-           // 其中 0xcf (二进制 11001111) 代表 Valid, Readable, Writable, Executable, Global, Accessed, Dirty 等权限。
-           // (XXX << 10) 是RISC-V SV39/SV48中将页号转换为PTE物理地址部分（右移12位再左移10位，等效于右移2位）。
-           ```
+    ``` 
+      // 示例：RISC-V64 启动时的页表项 
+      // arr[2] = (0x80000 << 10) | 0xcf; // 物理地址 0x8000_0000 (内核代码区) -> 虚拟地址 0x8000_0000 (1GB 大页)
+      // arr[0x100] = (0x00000 << 10) | 0xcf; // 物理地址 0x0000_0000 -> 虚拟地址 VIRT_ADDR_OFFSET + 0x0000_0000 (1GB 大页)
+      // arr[0x101] = (0x40000 << 10) | 0xcf; // 物理地址 0x4000_0000 -> 虚拟地址 VIRT_ADDR_OFFSET + 0x4000_0000 (1GB 大页)
+      // arr[0x102] = (0x80000 << 10) | 0xcf; // 物理地址 0x8000_0000 -> 虚拟地址 VIRT_ADDR_OFFSET + 0x8000_0000 (1GB 大页)
+      // 其中 0xcf (二进制 11001111) 代表 Valid, Readable, Writable, Executable, Global, Accessed, Dirty 等权限。
+      // (XXX << 10) 是RISC-V SV39/SV48中将页号转换为PTE物理地址部分（右移12位再左移10位，等效于右移2位）。
+    ```
+
        
        - **启用分页：** 将此初始页表的物理基地址写入CPU的页表基址寄存器（如RISC-V的`satp`），并执行必要的TLB刷新指令（如`sfence.vma`）。
     
@@ -191,8 +156,6 @@ BakaOS 的虚拟内存管理围绕以下核心概念构建：
     4. 如果权限不足，`.with_xxx()` 方法会**临时修改**页表项以赋予所需权限，并将原始权限记录下来。
     
     5. `PageGuard` 对象在离开作用域时，其 `Drop` 实现（或显式调用 `restore_temporary_modified_pages()`）会恢复对页表项权限的临时修改，并刷新TLB。
-  
-  - **效果：** 确保内核只在验证通过且拥有正确（可能是临时提升的）权限的情况下访问用户内存，极大地增强了内核的健壮性。
 
 #### 2.3 实现要点 (Implementation Highlights)
 
@@ -239,12 +202,10 @@ BakaOS 的虚拟内存管理围绕以下核心概念构建：
   - **简化的地址空间切换：** 由于内核和用户共享顶层页表结构（内核部分是共享的），从用户态进入内核态（如系统调用或中断）理论上不需要完整的页表切换，仅需改变权限级别。这可能比完全分离的内核/用户页表方案（如某些使用跳板页的系统）在上下文切换时有更低的TLB开销。
   
   - **`PageGuard` 提供的安全性：** 极大地减少了因处理用户提供的非法指针而导致的内核崩溃风险，强制开发者在访问用户内存前进行权限检查和声明。
-  
-  - **清晰的内存区域管理：** `MemorySpace` 和 `MappingArea` 为进程地址空间的组织提供了清晰的抽象。
 
 - **权衡/待改进：**
   
-  - **高半核的固有安全风险：** 正如你提供的参考文档所述，即使有页表权限位保护，只要内核页面的映射存在于用户进程的活动页表中，理论上就存在被 Meltdown、Spectre 等侧信道攻击利用的风险，因为这些攻击可能绕过权限检查进行推测执行。BakaOS 当前采用的单页表高半核模型，虽然通过 `PageGuard` 保证了直接访问的安全性，但并未完全消除这类微架构层面的风险。
+  - **高半核的固有安全风险：** 正如issue中提到的[Proposal: Secure User/Kernel Isolation via Split Page Tables with Trampoline Support · Issue #42 · caiyih/bakaos · GitHub](https://github.com/caiyih/bakaos/issues/42)，即使有页表权限位保护，只要内核页面的映射存在于用户进程的活动页表中，理论上就存在被 Meltdown、Spectre 等侧信道攻击利用的风险，因为这些攻击可能绕过权限检查进行推测执行。BakaOS 当前采用的单页表高半核模型，虽然通过 `PageGuard` 保证了直接访问的安全性，但并未完全消除这类微架构层面的风险。
     
     - **未来方向：** 可以考虑引入类似参考文档中提到的“双页表策略”或“跳板页隔离”机制作为可选的安全增强特性，在性能和安全性之间提供选择。例如，在进入用户态时切换到一个只包含用户空间映射的页表 (`PT_user`)，并在陷入内核时通过跳板页切换回包含完整内核映射的页表 (`PT_full`)。这对 `platform_abstractions::return_to_user` 接口会有较大影响。
   
@@ -253,85 +214,3 @@ BakaOS 的虚拟内存管理围绕以下核心概念构建：
     - **优点：** 单一地址空间模型下，用户态到内核态的转换（非页表切换）通常不会导致全局TLB刷写。
     
     - **缺点：** 内核映射和用户映射共享TLB条目，可能会增加TLB冲突的概率。`PageGuard` 临时修改权限后需要刷新TLB（`PageTable64Impl::flush_tlb`），这会带来一定的性能开销。
-  
-  - **页表内存开销：** 每个进程都有一套完整的页表（尽管高半部分是共享的或简单复制的），这会占用一定的物理内存。
-
-#### 2.5 相关代码模块 (Relevant Code Crates/Modules)
-
-- `crates/address/`: 包含所有地址和页号相关的抽象。
-
-- `crates/page_table/`: 平台无关的页表结构 (`PageTable64Impl`) 和页表项 (`LA64PageTableEntry`, `RV64PageTableEntry`) 定义。
-
-- `crates/paging/src/page_table.rs`: `PageTable` 结构，核心的 `PageGuard` 机制。
-
-- `crates/paging/src/memory.rs`: `MemorySpace`, `MappingArea`, `MemorySpaceBuilder` (用于从ELF文件构建内存空间)。
-
-- `crates/paging/src/memory_map.rs`: `TaskMemoryMap`, `MemoryMapRecord`, `MemoryMappedFile` (用于 `mmap` 实现)。
-
-- `platform-abstractions/src/<arch>/boot.rs`: 内核启动时初始页表的设置。
-
-- `kernel/src/trap.rs` 和 `platform-abstractions/src/<arch>/trap/`: 缺页中断的处理入口。
-
-### 3. 内核堆 (Kernel Heap)
-
-内核自身也需要动态分配内存来存储各种内部数据结构，例如任务控制块、打开文件表、IPC 缓冲区等。
-
-#### 3.1 背景与动机 (Background and Motivation)
-
-- **问题阐述：** 内核不能像用户程序那样依赖C库的 `malloc`。它需要一个在内核地址空间内、由自身管理的动态内存分配机制。
-
-- **BakaOS 的目标：** 提供一个简单、可靠的内核堆分配器。
-
-#### 3.2 核心思想与设计 (Key Idea and Design)
-
-- **专用内存区域：** 在内核初始化阶段，在高半核虚拟地址空间中划分出一块连续的区域作为内核堆。这个区域的大小通常在链接脚本中定义或在启动时计算。
-
-- **现有分配器库的利用：** BakaOS 使用了 `buddy_system_allocator` 这个成熟的库来实现底层的堆块管理。
-
-- **线程安全：** 全局的堆分配器 `GLOBAL_ALLOCATOR` 通过 `SpinMutex` 进行包装，以确保在多核环境下的并发访问安全。
-
-- **错误处理：** 内核堆分配失败是一个严重错误，通过 `#[alloc_error_handler]` 定义了 `__on_kernel_heap_oom` 函数，在分配失败时会触发 panic。
-
-#### 3.3 实现要点 (Implementation Highlights)
-
-- **关键类型/实例：**
-  
-  - `GLOBAL_ALLOCATOR`: `buddy_system_allocator::LockedHeap<32>` 类型的静态实例。
-  
-  - `KERNEL_HEAP_START`: 内核堆的起始地址符号（通常在链接脚本中定义，并在代码中通过 `extern "C"` 引用）。
-  
-  - `constants::KERNEL_HEAP_SIZE`: 内核堆大小的常量。
-
-- **核心函数/操作：**
-  
-  - `global_heap::init(range: VirtualAddressRange)`: 初始化 `GLOBAL_ALLOCATOR`，传入内核堆的虚拟地址范围。
-  
-  - `#[global_allocator]`: 将 `GLOBAL_ALLOCATOR` 注册为全局分配器。
-  
-  - `#[alloc_error_handler]`: 定义分配错误处理函数 `__on_kernel_heap_oom`。
-
-#### 3.4 优势与权衡 (Benefits and Trade-offs)
-
-- **优势：**
-  
-  - **功能性：** 为内核提供了必需的动态内存分配能力。
-  
-  - **实现简单：** 复用了现有的、经过测试的分配器库。
-  
-  - **线程安全：** 通过互斥锁保证。
-
-- **权衡/待改进：**
-  
-  - **固定大小：** 内核堆的大小在编译时或启动时固定，如果耗尽会导致内核 panic。更高级的系统可能会有动态调整内核堆大小的机制，但这会增加复杂性。
-  
-  - **锁竞争：** 全局锁在高度并发的内核操作中可能成为瓶颈。
-  
-  - **内存碎片：** 任何堆分配器都面临内部和外部碎片问题。`buddy_system_allocator` 本身有一定的碎片管理能力，但长期运行后仍可能出现。
-
-#### 3.5 相关代码模块 (Relevant Code Crates/Modules)
-
-- `crates/global_heap/src/lib.rs`
-
-- `kernel/src/memory.rs` (调用 `global_heap::init`)
-
-
