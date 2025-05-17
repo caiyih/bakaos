@@ -9,10 +9,23 @@ pub(crate) struct KernelThreadContext {
     // Which is usually in `return_to_user` funciton
     pub kra: usize,
     pub ksp: usize, // kernel stack pointer
+    pub pt: usize,  // kernel page table
 }
 
 static mut THREAD_CONTEXT_POOL: [KernelThreadContext; PROCESSOR_COUNT] =
     unsafe { core::mem::zeroed() };
+
+#[expect(dead_code)]
+pub(crate) fn set_kernel_page_table(pt: usize) {
+    // page table must be aligned to 4K
+    debug_assert!(pt % 4096 == 0);
+
+    let cpu = platform_specific::current_processor_index();
+
+    unsafe {
+        THREAD_CONTEXT_POOL[cpu].pt = pt;
+    }
+}
 
 // # Safety
 // This writes to $tp register
