@@ -14,5 +14,5 @@ filesystem-abstractions = { path = "../filesystem-abstractions", default-feature
 page_table = { path = "../page_table" }
 bitflags = "2.6.0"
 xmas-elf = "0.10"
-log = "0.4.22"
+log = "0.4.27"
 hermit-sync = "0.1.6"

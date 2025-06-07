@@ -9,7 +9,7 @@ edition = "2021"
 platform-specific = { path = "../platform-specific" }
 unwinding = { path = "../unwinding" }
 constants =  { path = "../constants", default-features = false }
-log = "0.4"
+log = "0.4.27"
 
 [target.'cfg(target_arch = "riscv64")'.dependencies]
 riscv = "0.12"
