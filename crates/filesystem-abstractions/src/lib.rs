@@ -93,7 +93,7 @@ pub enum DirectoryEntryType {
     BlockDevice = 6,
     File = 8,
     Symlink = 10,
-    // Socket = 12,
+    Socket = 12,
 }
 
 impl From<DirectoryEntryType> for FileStatisticsMode {
@@ -106,7 +106,7 @@ impl From<DirectoryEntryType> for FileStatisticsMode {
             DirectoryEntryType::CharDevice => FileStatisticsMode::CHAR,
             DirectoryEntryType::NamedPipe => FileStatisticsMode::FIFO,
             DirectoryEntryType::Symlink => FileStatisticsMode::LINK,
-            // DirectoryEntryType::Socket => FileStatisticsMode::SOCKET,
+            DirectoryEntryType::Socket => FileStatisticsMode::SOCKET,
         }
     }
 }
