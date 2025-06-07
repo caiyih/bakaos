@@ -18,7 +18,7 @@ runs:
     if: steps.cache-rv.outputs.cache-hit != 'true'
     shell: bash
     run: |
-      wget https://musl.cc/riscv64-linux-musl-cross.tgz
+      wget https://github.com/neuq-rcore/testsuit-binary/releases/download/riscv64/riscv64-linux-musl-cross.tgz
       tar -xf riscv64-linux-musl-cross.tgz
 
   - name: Cache sdcard.img if not cached
