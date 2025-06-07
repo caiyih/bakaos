@@ -1,3 +1,5 @@
+use core::ops::{Deref, DerefMut};
+
 use alloc::{vec, vec::Vec};
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
@@ -87,5 +89,19 @@ impl TransmitBuffer {
     /// Returns the network packet as a slice.
     pub fn packet(&self) -> &[u8] {
         &self.buf
+    }
+}
+
+impl Deref for TransmitBuffer {
+    type Target = Vec<u8>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.buf
+    }
+}
+
+impl DerefMut for TransmitBuffer {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.buf
     }
 }
