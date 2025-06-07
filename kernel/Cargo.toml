@@ -30,6 +30,8 @@ platform-abstractions = { path = "../crates/platform-abstractions" }
 platform-specific = { path = "../crates/platform-specific" }
 page_table = { path = "../crates/page_table" }
 
+network = { path = "../crates/network", default-features = false }
+
 drivers = { path = "../crates/drivers", features = ["virt"] }
 bitflags = "2.9.0"
 
