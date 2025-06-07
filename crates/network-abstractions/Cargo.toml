@@ -1,5 +1,5 @@
 [package]
-name = "network"
+name = "network-abstractions"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,6 +9,7 @@ filesystem-abstractions = { path = "../filesystem-abstractions", default-feature
 
 # v0.12.0
 virtio-drivers = { git = "https://github.com/rcore-os/virtio-drivers", rev = "3fc66fab639a8e1058c2d050e5c0b544db094a65" }
+zerocopy = { version = "0.8.25", features = ["derive"] }
 
 [dependencies.smoltcp]
 version = "0.9.1"

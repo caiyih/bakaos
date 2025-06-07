@@ -19,7 +19,7 @@ members = [
     "platform-abstractions",
     "page_table",
     "global_heap",
-    "network",
+    "network-abstractions",
 ]
 
 exclude = [

@@ -5,8 +5,9 @@ extern crate std;
 
 extern crate alloc;
 
+mod address;
+mod buffer;
+mod device;
 mod socket;
 
-pub fn init() {
-    
-}
+pub fn init() {}
