@@ -14,6 +14,7 @@ zerocopy = { version = "0.8.25", features = ["derive"] }
 
 smoltcp = { version = "0.9.1", default-features = false, features = [ "alloc", "log", "medium-ethernet", "proto-ipv4", "socket-raw", "socket-icmp", "socket-udp", "socket-tcp"] }
 hermit-sync = "0.1.6"
+log = "0.4.27"
 
 [features]
 default = ["no_std"]
