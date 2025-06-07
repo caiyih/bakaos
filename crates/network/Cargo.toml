@@ -1,0 +1,29 @@
+[package]
+name = "network"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[dependencies]
+filesystem-abstractions = { path = "../filesystem-abstractions", default-features = false }
+network-abstractions = { path = "../network-abstractions", default-features = false }
+
+# v0.12.0
+virtio-drivers = { git = "https://github.com/rcore-os/virtio-drivers", rev = "3fc66fab639a8e1058c2d050e5c0b544db094a65" }
+zerocopy = { version = "0.8.25", features = ["derive"] }
+
+[dependencies.smoltcp]
+version = "0.9.1"
+optional = true
+default-features = false
+features = [
+  "alloc", "log",   # no std
+  "medium-ethernet",
+  "proto-ipv4",
+  "socket-raw", "socket-icmp", "socket-udp", "socket-tcp",
+]
+
+[features]
+default = ["no_std"]
+std = []
+no_std = []
