@@ -71,11 +71,18 @@ impl Device for DeviceWrapper {
         &mut self,
         timestamp: smoltcp::time::Instant,
     ) -> Option<(Self::RxToken<'_>, Self::TxToken<'_>)> {
-        todo!()
+        match self.lock().receive() {
+            Ok(buf) => Some((
+                CustomRxToken(self.inner.clone(), buf),
+                CustomTxToken(self.inner.clone()),
+            )),
+            // TODO: handle types of errors
+            Err(()) => None,
+        }
     }
 
     fn transmit(&mut self, timestamp: smoltcp::time::Instant) -> Option<Self::TxToken<'_>> {
-        todo!()
+        Some(CustomTxToken(self.inner.clone()))
     }
 
     fn capabilities(&self) -> smoltcp::phy::DeviceCapabilities {
