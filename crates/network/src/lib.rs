@@ -3,6 +3,10 @@
 #[cfg(feature = "std")]
 extern crate std;
 
+extern crate alloc;
+
+mod socket;
+
 pub fn init() {
     
 }
