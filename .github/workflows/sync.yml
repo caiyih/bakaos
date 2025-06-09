@@ -21,7 +21,10 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-      
+
+      - name: Preprocess documents
+        run: bash .github/gitlab-prerun.sh
+
       - name: Push to GitLab
         env:
           GITLAB_URL: ${{ vars.GITLAB_URL }}
