@@ -23,7 +23,11 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Preprocess documents
-        run: bash .github/gitlab-prerun.sh
+        run: | 
+          bash .github/gitlab-prerun.sh
+
+          git add .
+          git commit -m "Sync from GitHub"
 
       - name: Push to GitLab
         env:
