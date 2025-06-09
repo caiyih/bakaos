@@ -21,11 +21,12 @@ mod syscalls;
 mod trap;
 
 use address::{IConvertableVirtualAddress, VirtualAddress};
-use alloc::{string::String, sync::Arc};
+use alloc::{format, string::String, sync::Arc, vec::Vec};
 use core::sync::atomic::AtomicBool;
 use dmesg::KernelMessageInode;
 use drivers::current_timespec;
 use filesystem_abstractions::{global_mount_inode, global_open, IInode};
+use network_abstractions::SocketType;
 use paging::PageTable;
 use platform_specific::legacy_println;
 use scheduling::ProcDeviceInode;
@@ -203,6 +204,9 @@ static BOOTED: AtomicBool = AtomicBool::new(false);
 #[no_mangle]
 #[allow(named_asm_labels)]
 unsafe extern "C" fn __kernel_init() {
+    
+        use filesystem_abstractions::IFile;
+        
     if BOOTED.load(core::sync::atomic::Ordering::Relaxed) {
         // TODO: non-main harts should wait for main hart to finish booting
         // Setup non-main hart's temporary stack
@@ -256,6 +260,47 @@ unsafe extern "C" fn __kernel_init() {
     log::info!("Setting up global rng with seed: {}", seed);
 
     rng::initialize(seed);
+
+    // TODO:
+    // let net_device = machine.create_net_device();
+
+    // network::init(net_device, Some(seed));
+
+    let socket = network::manager()
+        .create_socket(SocketType::Tcp, 5555)
+        .unwrap();
+
+    const HTML_HEADER: &'static str =
+        "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: ";
+
+    const HTML_CONTENT: &'static str = "<html><body><h1>Hello, World!</h1></body></html>";
+
+    let full_header = format!("{}{}\r\n\r\n", HTML_HEADER, HTML_CONTENT.len());
+    let payload = {
+        let mut buffer = Vec::new();
+
+        buffer.extend_from_slice(full_header.as_bytes());
+        buffer.extend_from_slice(HTML_CONTENT.as_bytes());
+
+        buffer
+    };
+
+    let mut buffer: &[u8] = &payload;
+
+    loop {
+        let time = current_timespec().to_timeval();
+        network::poll(time.tv_msec);
+
+        if !buffer.is_empty() {
+            let written = socket.write(&buffer);
+
+            if written == 0 {
+                break; // connection closed, recreate a socket to listen the next connection
+            }
+
+            buffer = &buffer[written..];
+        }
+    }
 }
 
 #[no_mangle]
