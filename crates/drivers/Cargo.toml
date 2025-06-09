@@ -18,6 +18,8 @@ filesystem-abstractions = { path = "../filesystem-abstractions", default-feature
 timing = { path = "../timing", default-features = false }
 platform-specific = { path = "../platform-specific" }
 
+network-abstractions = { path = "../network-abstractions", default-features = false }
+
 [features]
 default = []
 virt = []

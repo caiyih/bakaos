@@ -1,4 +1,6 @@
 mod block;
+mod net;
+
 pub mod hal;
 
 use block::VirtioDisk;
