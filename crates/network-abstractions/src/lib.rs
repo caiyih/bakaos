@@ -5,9 +5,9 @@ extern crate std;
 
 extern crate alloc;
 
-pub use device::*;
 pub use address::*;
 pub use buffer::*;
+pub use device::*;
 pub use socket::*;
 
 mod address;

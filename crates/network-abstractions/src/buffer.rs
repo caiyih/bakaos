@@ -27,7 +27,7 @@ pub struct ReciveBuffer {
 
 impl ReciveBuffer {
     /// Allocates a new buffer with length `buf_len`.
-    pub(crate) fn new(idx: usize, buf_len: usize) -> Self {
+    pub fn new(idx: usize, buf_len: usize) -> Self {
         Self {
             buf: vec![0; buf_len / size_of::<usize>()],
             packet_len: 0,
@@ -36,7 +36,7 @@ impl ReciveBuffer {
     }
 
     /// Set the network packet length.
-    pub(crate) fn set_packet_len(&mut self, packet_len: usize) {
+    pub fn set_packet_len(&mut self, packet_len: usize) {
         self.packet_len = packet_len
     }
 
@@ -69,6 +69,14 @@ impl ReciveBuffer {
     /// Returns the network packet as a mutable slice.
     pub fn packet_mut(&mut self) -> &mut [u8] {
         &mut self.buf.as_mut_bytes()[HEADER_SIZE..HEADER_SIZE + self.packet_len]
+    }
+
+    pub fn idx(&self) -> usize {
+        self.idx as usize
+    }
+
+    pub fn set_idx(&mut self, idx: usize) {
+        self.idx = idx.try_into().unwrap()
     }
 }
 
