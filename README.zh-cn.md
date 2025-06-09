@@ -269,12 +269,6 @@ Kernel annotation bot 是一个辅助工具，用于帮助你注释（annotate�
 
 内核调试和测试需要依赖测试套件。请从 [此链接](https://github.com/neuq-rcore/testsuits-for-oskernel/releases/tag/2025-pre) 下载，包含 `riscv64` 与 `loongarch64` 两个版本。下载后置于仓库根目录，无需解压，构建系统会自动加载对应文件。
 
-## 子项目（Subprojects）
-
-### Kernel Annotation Bot
-
-Kernel Annotation Bot 用于辅助内核测试注释。该工具在 GitHub Actions 上自动运行，也可本地使用，帮助可视化注释信息。在 GitHub Actions 上运行时，Bot 会根据测试结果生成注释并自动评论提交。请及时关注测试反馈。
-
 ## License
 
 本项目（包括内核与所有 crate）遵循 MIT License，详见 [LICENSE](LICENSE)。
