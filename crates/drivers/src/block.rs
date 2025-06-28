@@ -8,6 +8,10 @@ use hermit_sync::SpinMutex;
 pub const SECTOR_SIZE: usize = 512;
 
 pub trait IRawDiskDevice: Sync + Send {
+    fn is_read_only(&self) -> bool;
+
+    fn capacity(&self) -> u64;
+
     fn read_blocks(&mut self, buf: &mut [u8]);
 
     fn write_blocks(&mut self, buf: &[u8]);
@@ -137,10 +141,17 @@ impl BlockDeviceInode {
 
 impl IInode for BlockDeviceInode {
     fn metadata(&self) -> InodeMetadata {
+        let capacity = self.inner.lock().device.capacity();
+
+        assert!(
+            capacity <= usize::MAX as u64,
+            "Resolve this! Change the field to u64"
+        );
+
         InodeMetadata {
             filename: "Block device",
             entry_type: DirectoryEntryType::BlockDevice,
-            size: 0,
+            size: capacity as usize,
         }
     }
 

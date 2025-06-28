@@ -102,16 +102,20 @@ fn run_final_tests() {
         .unwrap();
     script.writeat(0, include_bytes!("test_script.sh")).unwrap();
 
+    #[cfg(target_arch = "loongarch64")]
+    const PLATFORM_STR: &str = "la";
+    #[cfg(target_arch = "riscv64")]
+    const PLATFORM_STR: &str = "rv";
+
     run_busybox(
         libc_spec!("/mnt/", "/busybox"),
-        &["sh", "/test_script.sh"],
+        &["sh", "/test_script.sh", PLATFORM_STR],
         &[
             "HOME=/root",
-            concat!("PATH=/bin:", libc_spec!("/mnt/", "")),
+            "PATH=/bin:",
             "USER=cirno",
             "LOGNAME=cirno",
             "TERM=xterm-256color",
-            concat!("PWD=", libc_spec!("/mnt/", "")),
             "SHELL=/bin/sh",
             "SHLVL=1",
             "LANG=C",
@@ -127,9 +131,12 @@ fn run_final_tests() {
         };
 
         let task = ProcessControlBlock::new(memspace);
-
-        task.pcb.lock().cwd = String::from(libc_spec!("/mnt/", ""));
-
+        {
+            let mut pcb = task.pcb.lock();
+            pcb.cwd = String::from("/mnt");
+            pcb.is_initproc
+                .store(true, core::sync::atomic::Ordering::Relaxed);
+        }
         spawn_task(task);
         threading::run_tasks();
     }

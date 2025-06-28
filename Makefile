@@ -49,9 +49,9 @@ all: _build_all
 
 _build_all:
 	@echo "Building for RISC-V64"
-	@make build ARCH=riscv64
+	@make build-final ARCH=riscv64
 	@echo "Building for LoongArch64"
-	@make build ARCH=loongarch64
+	@make build-final ARCH=loongarch64
 
 _warn:
 	@echo "This Makefile is only used for the contest submission or simulate a contest environment."
@@ -92,6 +92,7 @@ _test_internal:
 
 build-final:
 	@KERNEL_TEST="F" make _build_internal
+	make _prepare_image
 
 test-final: build-final _prepare_sdcard
 	@KERNEL_TEST="F" make _test_final_internal

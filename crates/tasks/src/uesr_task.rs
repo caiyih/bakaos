@@ -2,7 +2,7 @@ use abstractions::operations::IUsizeAlias;
 use alloc::collections::BTreeMap;
 use alloc::{string::String, sync::Arc, sync::Weak, vec::Vec};
 use core::mem;
-use core::sync::atomic::AtomicI32;
+use core::sync::atomic::{AtomicBool, AtomicI32};
 use core::{cell::UnsafeCell, mem::MaybeUninit, task::Waker};
 use drivers::UserTaskTimer;
 use filesystem_abstractions::FileDescriptorTable;
@@ -45,6 +45,7 @@ pub struct ProcessControlBlock {
     pub tasks: BTreeMap<usize, Weak<TaskControlBlock>>,
     pub executable: Arc<String>,
     pub command_line: Arc<Vec<String>>,
+    pub is_initproc: AtomicBool, // An initproc shutdowns the kernel when it exits
 }
 
 impl ProcessControlBlock {
@@ -69,6 +70,7 @@ impl ProcessControlBlock {
             tasks: BTreeMap::new(),
             executable: Arc::new(memory_space_builder.executable),
             command_line: Arc::new(memory_space_builder.command_line),
+            is_initproc: AtomicBool::new(false),
         };
 
         let tcb = Arc::new(TaskControlBlock {
@@ -272,6 +274,7 @@ impl TaskControlBlock {
                 tasks: BTreeMap::new(),
                 executable: this_pcb.executable.clone(),
                 command_line: this_pcb.command_line.clone(),
+                is_initproc: AtomicBool::new(false),
             })),
         });
 
