@@ -129,7 +129,7 @@ pub fn change_extension(path: &str, extension: &str) -> Option<String> {
 
     let changed = match extension.is_empty() {
         true => filename.to_string(),
-        false => format!("{}{}{}", filename, DOT, extension),
+        false => format!("{filename}{DOT}{extension}"),
     };
 
     match directory {

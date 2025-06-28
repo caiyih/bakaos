@@ -12,14 +12,12 @@ pub fn console_writestr(str: &[u8]) {
 }
 
 #[no_mangle]
-#[inline(always)]
 #[allow(static_mut_refs)]
 pub fn console_putchar(c: u8) {
     UART.putchar(c);
 }
 
 #[no_mangle]
-#[inline(always)]
 #[allow(static_mut_refs)]
 pub fn console_getchar() -> Option<u8> {
     UART.getchar()
