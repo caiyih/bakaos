@@ -18,7 +18,7 @@ log = "0.4.27"
 hermit-sync = "0.1.6"
 
 [target.'cfg(any(target_arch = "riscv64", target_arch = "loongarch64"))'.dependencies]
-lwext4_rust = { git = "https://github.com/neuq-rcore/lwext4_rust.git", rev = "8d5d526f05436d80af615309073df4f6b462803d", features = ["shutfuckup"] }
+lwext4_rust = { git = "https://github.com/neuq-rcore/lwext4_rust.git", rev = "c308e88aa220fa8ea8b61bb0bbc8c8e8575c2c5c", features = ["shutfuckup"] }
 
 [features]
 default = ["no_std"]
