@@ -78,7 +78,8 @@ fn setup_common_tools() {
     let bin = global_open("/bin", None).unwrap();
 
     for tool in [
-        "sh", "cp", "ls", "mv", "cat", "mkdir", "pwd", "rm", "grep", "busybox",
+        "sh", "cp", "ls", "mv", "cat", "mkdir", "pwd", "rm", "grep", "busybox", "vi", "clear",
+        "touch", "uname", "whoami", "arch", "date",
     ] {
         bin.hard_link(tool, &busybox).unwrap();
     }
