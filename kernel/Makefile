@@ -58,7 +58,7 @@ strip:
 	@$(OBJCOPY) --strip-all $(KERNEL_ELF) $(KERNEL_ELF)
 
 _prepare_sdcard:
-	make -C .. _prepare_sdcard
+	make -C .. _prepare_sdcard ARCH=$(ARCH)
 
 run: build _prepare_sdcard
 	$(QEMU) $(QEMU-ARGS-$(ARCH)) 2>&1 | tee qemu_output.log
