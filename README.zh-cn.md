@@ -251,7 +251,7 @@ $ make run LOG=TRACE
 
 为了保持仓库的最小体积，测试套件（testsuites）并未包含在该仓库中。相比之下，当前克隆整个仓库的大小约为 3.3MB，仅克隆最新提交大约为 1.3MB，而单个测试套件大约有 128MB，未来随着测试用例的增加可能会达到 2GB。
 
-但运行和调试内核时，可能需要使用测试套件。你可以从[这里](https://github.com/neuq-rcore/testsuits-for-oskernel/releases/tag/2025-pre)下载测试套件。下载包中已包含 `riscv64` 和 `loongarch64` 平台的测试套件。下载后将其放置在本仓库根目录下，无需解压，构建系统会自动识别并使用正确的测试套件。
+但运行和调试内核时，可能需要使用测试套件。你可以从[这里](https://github.com/oscomp/testsuits-for-oskernel/releases/latest)下载测试套件。下载包中已包含 `riscv64` 和 `loongarch64` 平台的测试套件。下载后将其放置在本仓库根目录下，无需解压，构建系统会自动识别并使用正确的测试套件。
 
 ### 子项目
 
@@ -267,7 +267,7 @@ Kernel annotation bot 是一个辅助工具，用于帮助你注释（annotate�
 
 为保持仓库体积精简，测试套件未随源码提供。完整仓库克隆约 3.3MB，仅克隆最新提交约 1.3MB，而单个测试套件已达 128MB，未来可能增加至 2GB。
 
-内核调试和测试需要依赖测试套件。请从 [此链接](https://github.com/neuq-rcore/testsuits-for-oskernel/releases/tag/2025-pre) 下载，包含 `riscv64` 与 `loongarch64` 两个版本。下载后置于仓库根目录，无需解压，构建系统会自动加载对应文件。
+内核调试和测试需要依赖测试套件。请从 [此链接](https://github.com/oscomp/testsuits-for-oskernel/releases/latest) 下载，包含 `riscv64` 与 `loongarch64` 两个版本。下载后置于仓库根目录，无需解压，构建系统会自动加载对应文件。
 
 ## License
 

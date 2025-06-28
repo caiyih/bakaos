@@ -42,10 +42,10 @@ impl Debug for UserInterrupt {
 
                 match () {
                     #[cfg(target_pointer_width = "64")]
-                    () => write!(f, "{}({:#018x})", type_str, stval),
+                    () => write!(f, "{type_str}({stval:#018x})"),
 
                     #[cfg(target_pointer_width = "32")]
-                    () => write!(f, "{}({:#010x})", type_str, stval),
+                    () => write!(f, "{type_str}({stval:#010x})"),
                 }
             }
         }

@@ -29,7 +29,7 @@ fn handle_linker_script_change() {
 
     match linker_script {
         Some(script) => {
-            println!("cargo:rerun-if-changed=lds/{}", script);
+            println!("cargo:rerun-if-changed=lds/{script}");
         }
         None => {
             println!("cargo:rerun-if-changed=lds");

@@ -15,7 +15,7 @@ static GLOBAL_ALLOCATOR: LockedHeap<32> = LockedHeap::empty();
 
 pub fn init(range: VirtualAddressRange) {
     unsafe {
-        debug!("Initializing kernel heap: {:#?}", range);
+        debug!("Initializing kernel heap: {range:#?}");
 
         GLOBAL_ALLOCATOR
             .lock()

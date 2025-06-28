@@ -583,7 +583,7 @@ impl MemorySpaceBuilder {
             // Only loadable segments are considered
             .filter(|p| p.get_type() == Ok(xmas_elf::program::Type::Load))
         {
-            debug!("loading ph: {:?}", ph);
+            debug!("loading ph: {ph:?}");
 
             let start = VirtualAddress::from_usize(ph.virtual_addr() as usize);
             let end = start + ph.mem_size() as usize;
@@ -642,7 +642,7 @@ impl MemorySpaceBuilder {
             max_end_vpn.start_addr(),
         );
 
-        log::debug!("Elf segments loaded, max_end_vpn: {:?}", max_end_vpn);
+        log::debug!("Elf segments loaded, max_end_vpn: {max_end_vpn:?}");
 
         let p_phhead = p_head + elf_info.header.pt2.ph_offset() as usize;
 
@@ -739,7 +739,7 @@ impl MemorySpaceBuilder {
 
                 let area_type = area.area_type;
 
-                log::debug!("{:?}: {}..{}", area_type, start, end);
+                log::debug!("{area_type:?}: {start}..{end}");
             }
 
             let trampoline_page = memory_space.signal_trampoline;

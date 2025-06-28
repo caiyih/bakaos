@@ -63,7 +63,7 @@ pub fn enumerate_pci_search(
 
     for bus in 0..=PCI_BUS_END as u8 {
         for (bdf, dev_info) in root.enumerate_bus(bus) {
-            log::debug!("PCI {}: {}", bdf, dev_info);
+            log::debug!("PCI {bdf}: {dev_info}");
 
             if dev_info.header_type != HeaderType::Standard {
                 continue;

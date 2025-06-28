@@ -30,10 +30,7 @@ pub async fn user_trap_handler_async(tcb: &Arc<TaskControlBlock>, return_reason:
                 None => match SyscallDispatcher::dispatch_async(&mut ctx, syscall_id).await {
                     Some(res) => res.to_ret(),
                     None => {
-                        warn!(
-                            "[Exception::Syscall] Handler for id: {} not found.",
-                            syscall_id
-                        );
+                        warn!("[Exception::Syscall] Handler for id: {syscall_id} not found.");
 
                         0
                     }

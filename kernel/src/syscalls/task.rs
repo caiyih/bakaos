@@ -149,7 +149,7 @@ impl ISyncSyscallHandler for BrkSyscall {
                 Ok(brk as isize)
             }
             Err(reason) => {
-                debug!("Failed to increase brk to {:#x}, reason: {}", brk, reason);
+                debug!("Failed to increase brk to {brk:#x}, reason: {reason}");
                 SyscallError::OperationNotPermitted
             }
         }

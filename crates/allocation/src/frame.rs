@@ -234,10 +234,7 @@ fn dealloc_frame(frame: &TrackedFrame) {
 }
 
 pub fn init_frame_allocator(bottom: usize, memory_end: usize) {
-    debug!(
-        "Initializing frame allocator at {:#018x}..{:#018x}",
-        bottom, memory_end
-    );
+    debug!("Initializing frame allocator at {bottom:#018x}..{memory_end:#018x}");
 
     FRAME_ALLOCATOR.lock().init(
         PhysicalPageNum::from_addr_ceil(PhysicalAddress::from_usize(bottom)),

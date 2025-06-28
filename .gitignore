@@ -43,6 +43,8 @@ obj
 # testsuits for 2025 preliminary contest
 sdcard-la.img.zst
 sdcard-rv.img.zst
+sdcard-la.img.xz
+sdcard-rv.img.xz
 sdcard-la.img
 sdcard-rv.img
 

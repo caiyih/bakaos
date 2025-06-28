@@ -135,14 +135,7 @@ fn display_current_time(timezone_offset: i64) -> TimeSpec {
     let day = (total_seconds + 1) as u8;
 
     log::info!(
-        "Welcome, current time is: {:04}-{:02}-{:02} {:02}:{:02}:{:02}(UTC+{:02})",
-        year,
-        month,
-        day,
-        hours,
-        minutes,
-        seconds,
-        timezone_offset
+        "Welcome, current time is: {year:04}-{month:02}-{day:02} {hours:02}:{minutes:02}:{seconds:02}(UTC+{timezone_offset:02})"
     );
 
     time_spec

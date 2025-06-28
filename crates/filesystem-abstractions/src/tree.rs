@@ -148,7 +148,7 @@ impl IInode for RamFileInode {
         let mut inner = self.inner.write();
 
         if new_size != inner.size as u64 {
-            let required_pages = ((new_size + 4095) / 4096) as usize;
+            let required_pages = new_size.div_ceil(4096) as usize;
             inner.frames.resize_with(required_pages, || {
                 allocation::alloc_frame().expect("Out of memory")
             });

@@ -260,7 +260,7 @@ unsafe extern "C" fn __kernel_init() {
     let seed =
         (((rtc_time.tv_nsec as u64) << 32) | machine.query_performance_frequency()) ^ 0xdeadbeef;
 
-    log::info!("Setting up global rng with seed: {}", seed);
+    log::info!("Setting up global rng with seed: {seed}");
 
     rng::initialize(seed);
 }

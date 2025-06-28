@@ -321,7 +321,7 @@ impl IInode for FatDirectoryInode {
                     return Ok(entry_to_inode(&entry, &self._holding, filename));
                 }
                 Err(err) => {
-                    warn!("Error while iterating over directory: {:?}", err);
+                    warn!("Error while iterating over directory: {err:?}");
                     return FileSystemResult::Err(FileSystemError::InternalError);
                 }
             }
@@ -387,7 +387,7 @@ impl IInode for FatDirectoryInode {
                     });
                 }
                 Err(err) => {
-                    warn!("Error while iterating over directory: {:?}", err);
+                    warn!("Error while iterating over directory: {err:?}");
                     return FileSystemResult::Err(FileSystemError::InternalError);
                 }
             }

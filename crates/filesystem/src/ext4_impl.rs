@@ -479,7 +479,7 @@ impl IDirectoryEntryType for ext4_rs::InodeFileType {
         } else if self.contains(InodeFileType::S_IFIFO) {
             DirectoryEntryType::NamedPipe
         } else {
-            log::warn!("Unsupported file type: {:?}", self);
+            log::warn!("Unsupported file type: {self:?}");
             DirectoryEntryType::File
         }
     }
