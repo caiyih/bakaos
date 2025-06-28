@@ -155,6 +155,7 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, 
 impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTable64<Arch, PTE> {
     /// # Safety
     /// This breaks Rust's mutability rule, use it properly
+    #[allow(clippy::mut_from_ref)]
     pub unsafe fn get_entry_internal(
         &self,
         vaddr: VirtualAddress,

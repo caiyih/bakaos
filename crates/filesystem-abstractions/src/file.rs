@@ -222,7 +222,7 @@ impl FileDescriptor {
     }
 
     /// Returns the file handle associated with the file descriptor, following any redirections.
-    pub fn file_handle<'a>(self: &'a Arc<FileDescriptor>) -> &'a Arc<FileCacheAccessor> {
+    pub fn file_handle(self: &Arc<FileDescriptor>) -> &Arc<FileCacheAccessor> {
         &self.inner.file_handle
     }
 

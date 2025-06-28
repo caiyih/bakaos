@@ -436,7 +436,7 @@ impl FutexQueue {
 
                 while let Some((_tid, waker)) = map.pop_first() {
                     #[cfg(debug_assertions)]
-                    log::debug!("[FutexQueue] waking task {}", _tid);
+                    log::debug!("[FutexQueue] waking task {_tid}");
 
                     waker.wake();
                     count += 1;
@@ -474,7 +474,7 @@ impl FutexQueue {
                 match prev_map.pop_first() {
                     Some((tid, waker)) => {
                         #[cfg(debug_assertions)]
-                        log::debug!("[FutexQueue] requeuing task {}", tid);
+                        log::debug!("[FutexQueue] requeuing task {tid}");
 
                         new_map.insert(tid, waker);
                     }
