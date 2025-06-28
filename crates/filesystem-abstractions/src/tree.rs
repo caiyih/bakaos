@@ -687,7 +687,7 @@ impl Drop for DirectoryTreeNode {
 }
 
 impl DirectoryTreeNode {
-    pub fn metadata<'a>(self: &'a Arc<DirectoryTreeNode>) -> InodeMetadata<'a> {
+    pub fn metadata(self: &Arc<DirectoryTreeNode>) -> InodeMetadata {
         let inner = self.inner.lock();
         let filename = self.name();
 
