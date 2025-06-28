@@ -28,7 +28,7 @@ jobs:
 
       - name: Install Rust toolchain
         env: 
-            TOOLCHAIN_VERSION: nightly-2025-01-18
+            TOOLCHAIN_VERSION: nightly-2025-02-01
         run: |
           rustup toolchain install $TOOLCHAIN_VERSION --profile minimal
           rustup default $TOOLCHAIN_VERSION
@@ -58,7 +58,7 @@ jobs:
 
       - name: Install Rust toolchain
         env: 
-            TOOLCHAIN_VERSION: nightly-2025-01-18
+            TOOLCHAIN_VERSION: nightly-2025-02-01
         run: |
           rustup toolchain install $TOOLCHAIN_VERSION --profile minimal
           rustup default $TOOLCHAIN_VERSION

@@ -143,7 +143,7 @@ impl TaskControlBlock {
         &mut *self.trap_context.get()
     }
 
-    pub fn to_syscall_context<'a>(self: &'a Arc<Self>) -> SyscallContext<'a> {
+    pub fn to_syscall_context(self: &Arc<Self>) -> SyscallContext {
         SyscallContext::new(unsafe { self.mut_trap_ctx() }, self.clone())
     }
 }
