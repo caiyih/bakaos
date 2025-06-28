@@ -51,12 +51,12 @@ libc_test() {
     local libc="$1"
     local arch="$2"
 
-    if [[ "$arch" == "rv" ]]; then
-        libc_test_rv_static "$libc"
+    if [[ "$arch" == "la" ]]; then
+        return
     fi
 
-    if [[ "$arch" == "la" ]]; then
-        libc_test_la_static "$libc"
+    if [[ "$arch" == "rv" ]]; then
+        libc_test_rv_static "$libc"
     fi
 
     ./run-dynamic.sh
@@ -72,19 +72,19 @@ libc_test_rv_static() {
     if [[ "$libc" == "glibc" ]]; then
         libc_test_static_run_case argv
         libc_test_static_run_case basename
-        # libc_test_static_run_case clocale_mbfuncs
+        libc_test_static_run_case clocale_mbfuncs
         libc_test_static_run_case clock_gettime
         libc_test_static_run_case dirname
         libc_test_static_run_case env
         libc_test_static_run_case fdopen
-        # libc_test_static_run_case fnmatch
+        libc_test_static_run_case fnmatch
         # libc_test_static_run_case fscanf
-        # libc_test_static_run_case fwscanf
+        libc_test_static_run_case fwscanf
         libc_test_static_run_case iconv_open
         libc_test_static_run_case inet_pton
-        # libc_test_static_run_case mbc
+        libc_test_static_run_case mbc
         libc_test_static_run_case memstream
-        # libc_test_static_run_case pthread_cancel_points
+        libc_test_static_run_case pthread_cancel_points
         libc_test_static_run_case pthread_cancel
         libc_test_static_run_case pthread_cond
         libc_test_static_run_case pthread_tsd
@@ -94,13 +94,13 @@ libc_test_rv_static() {
         libc_test_static_run_case search_insque
         libc_test_static_run_case search_lsearch
         libc_test_static_run_case search_tsearch
-        # libc_test_static_run_case setjmp
-        # libc_test_static_run_case snprintf
-        # libc_test_static_run_case socket
-        # libc_test_static_run_case sscanf
+        libc_test_static_run_case setjmp
+        libc_test_static_run_case snprintf
+        libc_test_static_run_case socket
+        libc_test_static_run_case sscanf
         libc_test_static_run_case sscanf_long
         # libc_test_static_run_case stat
-        # libc_test_static_run_case strftime
+        libc_test_static_run_case strftime
         libc_test_static_run_case string
         libc_test_static_run_case string_memcpy
         libc_test_static_run_case string_memmem
@@ -112,23 +112,23 @@ libc_test_rv_static() {
         libc_test_static_run_case strtod
         libc_test_static_run_case strtod_simple
         libc_test_static_run_case strtof
-        # libc_test_static_run_case strtol
+        libc_test_static_run_case strtol
         libc_test_static_run_case strtold
-        # libc_test_static_run_case swprintf
+        libc_test_static_run_case swprintf
         libc_test_static_run_case tgmath
         libc_test_static_run_case time
         libc_test_static_run_case tls_align
         libc_test_static_run_case udiv
         # libc_test_static_run_case ungetc
-        # libc_test_static_run_case utime
-        # libc_test_static_run_case wcsstr
-        # libc_test_static_run_case wcstol
-        # libc_test_static_run_case daemon_failure
-        # libc_test_static_run_case dn_expand_empty
-        # libc_test_static_run_case dn_expand_ptr_0
+        libc_test_static_run_case utime
+        libc_test_static_run_case wcsstr
+        libc_test_static_run_case wcstol
+        libc_test_static_run_case daemon_failure
+        libc_test_static_run_case dn_expand_empty
+        libc_test_static_run_case dn_expand_ptr_0
         libc_test_static_run_case fflush_exit
         libc_test_static_run_case fgets_eof
-        # libc_test_static_run_case fgetwc_buffering
+        libc_test_static_run_case fgetwc_buffering
         libc_test_static_run_case fpclassify_invalid_ld80
         libc_test_static_run_case ftello_unflushed_append
         libc_test_static_run_case getpwnam_r_crash
@@ -159,8 +159,8 @@ libc_test_rv_static() {
         libc_test_static_run_case putenv_doublefree
         libc_test_static_run_case regex_backref_0
         libc_test_static_run_case regex_bracket_icase
-        # libc_test_static_run_case regex_ere_backref
-        # libc_test_static_run_case regex_escaped_high_byte
+        libc_test_static_run_case regex_ere_backref
+        libc_test_static_run_case regex_escaped_high_byte
         libc_test_static_run_case regex_negated_range
         libc_test_static_run_case regexec_nosub
         libc_test_static_run_case rewind_clear_error
@@ -171,7 +171,7 @@ libc_test_rv_static() {
         # libc_test_static_run_case setvbuf_unget
         libc_test_static_run_case sigprocmask_internal
         libc_test_static_run_case sscanf_eof
-        # libc_test_static_run_case statvfs
+        libc_test_static_run_case statvfs
         libc_test_static_run_case strverscmp
         libc_test_static_run_case syscall_sign_extend
         libc_test_static_run_case uselocale_0
