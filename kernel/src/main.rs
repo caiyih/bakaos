@@ -113,12 +113,9 @@ fn run_final_tests() {
         &["sh", "/test_script.sh", PLATFORM_STR],
         &[
             "HOME=/root",
-            "PATH=/bin:",
-            "USER=cirno",
-            "LOGNAME=cirno",
+            "PATH=/bin",
             "TERM=xterm-256color",
             "SHELL=/bin/sh",
-            "SHLVL=1",
             "LANG=C",
         ],
     );
