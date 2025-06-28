@@ -79,7 +79,7 @@ test-only: build _prepare_sdcard _test_internal
 
 _prepare_sdcard:
 	@echo "Preparing sdcard..."
-	zstd -df ${SDCARD_IMAGE}.zst
+	xz -dk ${SDCARD_IMAGE}.xz
 
 _test_internal:
 	@echo -e "\e[32m// =========================================\e[0m"
