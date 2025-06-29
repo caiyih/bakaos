@@ -11,7 +11,7 @@ use address::{
 };
 use allocation::{alloc_contiguous, alloc_frame, TrackedFrame, TrackedFrameRange};
 use filesystem_abstractions::global_open;
-use log::debug;
+use log::{debug, warn};
 use xmas_elf::ElfFile;
 
 use crate::{page_table, PageTable};
@@ -576,20 +576,37 @@ impl MemorySpaceBuilder {
 
         let mut auxv = Vec::new();
 
-        let mut p_head = VirtualAddress::null();
+        let mut implied_ph = VirtualAddress::null();
+        let mut phdr = VirtualAddress::null();
 
-        for ph in elf_info
-            .program_iter()
-            // Only loadable segments are considered
-            .filter(|p| p.get_type() == Ok(xmas_elf::program::Type::Load))
-        {
-            debug!("loading ph: {ph:?}");
+        let mut interpreters = Vec::new();
+
+        for ph in elf_info.program_iter() {
+            debug!("Found program header: {ph:?}");
+
+            match ph.get_type() {
+                Ok(xmas_elf::program::Type::Load) => debug!("Loading"),
+                Ok(xmas_elf::program::Type::Interp) => {
+                    interpreters.push(ph);
+                    debug!("Handle later");
+                    continue;
+                }
+                Ok(xmas_elf::program::Type::Phdr) => {
+                    phdr = VirtualAddress::from_usize(ph.virtual_addr() as usize);
+                    debug!("Handled");
+                    continue;
+                }
+                _ => {
+                    warn!("skipping");
+                    continue;
+                }
+            }
 
             let start = VirtualAddress::from_usize(ph.virtual_addr() as usize);
             let end = start + ph.mem_size() as usize;
 
-            if p_head.is_null() {
-                p_head = start;
+            if implied_ph.is_null() {
+                implied_ph = start;
             }
 
             min_start_vpn = min_start_vpn.min(start.to_floor_page_num());
@@ -601,7 +618,7 @@ impl MemorySpaceBuilder {
                 segment_permissions |= GenericMappingFlags::Readable;
             }
 
-            if ph.flags().is_write() {
+            if ph.flags().is_write() || ph.get_type() == Ok(xmas_elf::program::Type::GnuRelro) {
                 segment_permissions |= GenericMappingFlags::Writable;
             }
 
@@ -632,6 +649,11 @@ impl MemorySpaceBuilder {
             debug_assert!(copied == data.len());
         }
 
+        for interp in interpreters {
+            warn!("interpreter found: {interp:?}")
+            // TODO
+        }
+
         // TODO: investigate this, certain section starts with the va of 0
         // e.g. testcase basic brk
         // debug_assert!(min_start_vpn > VirtualPageNum::from_usize(0));
@@ -644,9 +666,11 @@ impl MemorySpaceBuilder {
 
         log::debug!("Elf segments loaded, max_end_vpn: {max_end_vpn:?}");
 
-        let p_phhead = p_head + elf_info.header.pt2.ph_offset() as usize;
+        if phdr.is_null() {
+            phdr = implied_ph + elf_info.header.pt2.ph_offset() as usize
+        }
 
-        auxv.push(AuxVecEntry::new(AT_PHDR, p_phhead.as_usize()));
+        auxv.push(AuxVecEntry::new(AT_PHDR, phdr.as_usize()));
         auxv.push(AuxVecEntry::new(
             AT_PHENT,
             elf_info.header.pt2.ph_entry_size() as usize,
@@ -659,7 +683,7 @@ impl MemorySpaceBuilder {
         auxv.push(AuxVecEntry::new(AT_BASE, 0));
         auxv.push(AuxVecEntry::new(AT_FLAGS, 0));
         auxv.push(AuxVecEntry::new(
-            AT_ENTRY,
+            AT_ENTRY, // always the main program's entry point
             elf_info.header.pt2.entry_point() as usize,
         ));
         auxv.push(AuxVecEntry::new(AT_UID, 0));
@@ -729,6 +753,7 @@ impl MemorySpaceBuilder {
             .0;
         memory_space.brk_start = max_end_vpn.start_addr();
 
+        // FIXME: handle cases where there is a interpreter
         let entry_pc = VirtualAddress::from_usize(elf_info.header.pt2.entry_point() as usize);
 
         #[cfg(debug_assertions)]
@@ -802,7 +827,7 @@ impl MemorySpaceBuilder {
         debug_assert!(self.stack_top.as_usize() % 8 == 0);
 
         // Step3: Copy PLATFORM string to the stack
-        const PLATFORM: &str = "RISC-V64\0";
+        const PLATFORM: &str = "RISC-V64\0"; // FIXME
         const PLATFORM_LEN: usize = PLATFORM.len();
 
         // Ensure that start address of copied PLATFORM is aligned to 8 bytes
@@ -816,6 +841,7 @@ impl MemorySpaceBuilder {
         }
 
         // Step4: Setup 16 random bytes for aux vector
+        self.push(0xdeadbeefu64);
         self.push(0xdeadbeefu64);
         let aux_random_base = self.stack_top;
 
