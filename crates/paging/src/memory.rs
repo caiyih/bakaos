@@ -1,4 +1,4 @@
-use core::slice;
+use core::{ffi::CStr, slice};
 
 use abstractions::IUsizeAlias;
 use alloc::{collections::BTreeMap, string::String, sync::Arc, vec::Vec};
@@ -737,9 +737,50 @@ impl MemorySpaceBuilder {
             debug_assert!(copied == data.len());
         }
 
-        for interp in interpreters {
-            warn!("interpreter found: {interp:?}")
-            // TODO
+        let mut interpreter_entry_pc = None;
+
+        for path in interpreters
+            .iter()
+            .map(|i| {
+                CStr::from_bytes_with_nul(
+                    &boxed_elf[i.offset() as usize..i.offset() as usize + i.file_size() as usize],
+                )
+            })
+            .filter_map(|s| s.ok())
+        {
+            let path = path.to_string_lossy();
+
+            let path = match path {
+                _ if path.contains("riscv64") => "/mnt/glibc/lib/ld-linux-riscv64-lp64d.so.1",
+                _ if path.contains("loongarch") => "/mnt/glibc/lib/ld-linux-loongarch-lp64d.so.1",
+                _ => {
+                    warn!("Could not find ld.so for {path}");
+                    continue;
+                }
+            };
+
+            if let Ok(interp) = filesystem_abstractions::global_open(path, None) {
+                assert_eq!(
+                    interp.metadata().entry_type,
+                    filesystem_abstractions::DirectoryEntryType::File
+                );
+
+                match Self::handle_dynamic_linking(
+                    &mut memory_space,
+                    interp,
+                    &mut max_end_vpn,
+                    &current_page_table,
+                ) {
+                    Ok(entry_pc) => {
+                        interpreter_entry_pc = Some(entry_pc);
+                        break;
+                    }
+                    Err(e) => {
+                        warn!("Failed to handle dynamic linking: {:?}", e);
+                        continue;
+                    }
+                }
+            }
         }
 
         // TODO: investigate this, certain section starts with the va of 0
@@ -841,8 +882,10 @@ impl MemorySpaceBuilder {
             .0;
         memory_space.brk_start = max_end_vpn.start_addr();
 
-        // FIXME: handle cases where there is a interpreter
-        let entry_pc = VirtualAddress::from_usize(elf_info.header.pt2.entry_point() as usize);
+        let entry_pc = match interpreter_entry_pc {
+            Some(pc) => VirtualAddress::from_usize(pc),
+            None => VirtualAddress::from_usize(elf_info.header.pt2.entry_point() as usize),
+        };
 
         #[cfg(debug_assertions)]
         {
@@ -874,6 +917,103 @@ impl MemorySpaceBuilder {
             executable: String::from(executable_path),
             command_line: Vec::new(),
         })
+    }
+
+    fn handle_dynamic_linking(
+        memory_space: &mut MemorySpace,
+        interpreter: Arc<DirectoryTreeNode>,
+        max_end_vpn: &mut VirtualPageNum,
+        current_page_table: &PageTable,
+    ) -> Result<usize, &'static str> {
+        let elf_len = interpreter.metadata().size;
+
+        let interpreter_address_offset = max_end_vpn.end_addr();
+
+        // see https://github.com/caiyih/bakaos/issues/26
+        let boxed_elf: TrackedFrameRange;
+        let elf_data;
+
+        let elf_info = {
+            let required_frames = elf_len.div_ceil(constants::PAGE_SIZE);
+
+            boxed_elf = alloc_contiguous(required_frames).unwrap();
+
+            let va = boxed_elf.to_range().start().start_addr().to_high_virtual();
+            elf_data = unsafe { core::slice::from_raw_parts_mut(va.as_mut_ptr(), elf_len) };
+
+            let mut bytes_read = 0;
+
+            while bytes_read < elf_len {
+                bytes_read += interpreter
+                    .readat(bytes_read, &mut elf_data[bytes_read..])
+                    .map_err(|_| "Failed to read ELF file")?;
+            }
+
+            let boxed_elf = unsafe { core::slice::from_raw_parts(va.as_ptr(), elf_len) };
+            ElfFile::new(boxed_elf)?
+        };
+
+        debug!("Interpreter header: {:#?}", elf_info.header);
+
+        for ph in elf_info.program_iter() {
+            debug!("Interpreter Program header: {:?}", ph);
+
+            match ph.get_type() {
+                Err(why) => {
+                    warn!("Failed to get program header type for interpreter segment: {why:?}");
+                    continue;
+                }
+                Ok(xmas_elf::program::Type::Load) => debug!("Loading interpreter segment"),
+                _ => {
+                    debug!("Skipping");
+                    continue;
+                }
+            }
+
+            let start =
+                interpreter_address_offset + VirtualAddress::from_usize(ph.virtual_addr() as usize);
+            let end = start + ph.mem_size() as usize;
+
+            *max_end_vpn = Ord::max(end.to_floor_page_num(), *max_end_vpn);
+
+            let mut segment_permissions = GenericMappingFlags::User | GenericMappingFlags::Kernel;
+
+            if ph.flags().is_read() {
+                segment_permissions |= GenericMappingFlags::Readable;
+            }
+
+            if ph.flags().is_write() {
+                segment_permissions |= GenericMappingFlags::Writable;
+            }
+
+            if ph.flags().is_execute() {
+                segment_permissions |= GenericMappingFlags::Executable;
+            }
+
+            let page_range = VirtualPageNumRange::from_start_end(
+                start.to_floor_page_num(),
+                end.to_ceil_page_num(), // end is exclusive
+            );
+
+            memory_space.map_area(MappingArea::new(
+                page_range,
+                AreaType::UserElf,
+                MapType::Framed,
+                segment_permissions,
+            ));
+
+            let data = &elf_data[ph.offset() as usize..(ph.offset() + ph.file_size()) as usize];
+
+            let copied = current_page_table.activated_copy_data_to_other(
+                &memory_space.page_table,
+                start,
+                data,
+            );
+
+            debug_assert!(copied == data.len());
+        }
+
+        Ok(interpreter_address_offset.as_usize() + elf_info.header.pt2.entry_point() as usize)
     }
 
     fn push<T>(&mut self, value: T) {
