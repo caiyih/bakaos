@@ -108,6 +108,12 @@ fn run_final_tests() {
     #[cfg(target_arch = "riscv64")]
     const PLATFORM_STR: &str = "rv";
 
+    let root = global_open("/", None).unwrap();
+    let lib = global_open("/mnt/glibc/lib", None).unwrap();
+
+    root.mount_as(lib.clone(), Some("lib")).unwrap();
+    root.mount_as(lib.clone(), Some("lib64")).unwrap();
+
     run_busybox(
         libc_spec!("/mnt/", "/busybox"),
         &["sh", "/test_script.sh", PLATFORM_STR],
