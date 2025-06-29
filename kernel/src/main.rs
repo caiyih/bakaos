@@ -79,7 +79,7 @@ fn setup_common_tools() {
 
     for tool in [
         "sh", "cp", "ls", "mv", "cat", "mkdir", "pwd", "rm", "grep", "busybox", "vi", "clear",
-        "touch", "uname", "whoami", "arch", "date",
+        "touch", "uname", "whoami", "arch", "date", "sleep",
     ] {
         bin.hard_link(tool, &busybox).unwrap();
     }
