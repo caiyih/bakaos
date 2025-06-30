@@ -36,5 +36,14 @@
 - [小型内核-进阶](kernel/minimal-kernel-advance.md)
 
 ## Source Generation
+
+本项目随附有一个 Rust Source Generation 框架，旨在为中大型项目提供清晰、高效、可扩展的代码生成支持。它为静态代码生成场景提供统一的抽象与运行时环境，适用于模块化生成任务、符号注册与分析、自动化导出等需求，尤其适合 FFI、DSL 编译器前端、属性宏替代方案等工程场景。
+
 - [项目介绍](source-generation/README.md)
+- [安装](source-generation/installation.md)
+- [快速开始](source-generation/quickstart.md)
+- [架构概览](source-generation/core.md)
+- [进阶使用](source-generation/advance.md)
+- [基于语法语义分析的代码生成](source-generation/syntax-semantic-analysis.md)
+- [注意事项/FAQ](source-generation/notice-faq.md)
 
