@@ -53,17 +53,13 @@ Baka OS 是一个用 Rust 编写的类 UNIX 异步操作系统内核。它面向
 - **长期扩展性好**：可以无缝接入 formal verification、cross-architecture 测试
 - **符合工业级代码质量控制**：Mock + 宿主机测试让内核代码可以做到模块独立、高可测、易回归
 
-未来，我们考虑添加在宿主主机中对裸机的 Mock 实现，以实现对更多的 crates 的宿主主机测试的能力。
-
 微内核通过将代码从内核搬到用户空间，以实现更容易的对内核代码的维护，但是我们通过一种全新的方式，即通过将代码从内核中拆分，尽管仍然在内核空间中运行，但是我们通过宿主主机下的全面测试，保证这些代码的正确性，同样确保了代码的高质量，并且具有宏内核的性能优势。
-
-例如，目前阻碍宿主测试的一个难点是页帧分配，但是我们可以通过宿主主机的堆内存分配，来模拟机器上的页帧分配，以测试这部分依赖的代码，这样，几乎仅仅只有 HAL 层和内核不能够直接在宿主机上进行测试。
 
 ## Documentation
 
-_仍在编写中_
+**详细文档请参考 [`docs`](docs/README.md) 目录或点击 [`这里`](docs/README.md)（仅提供简体中文版本）。**
 
-详细文档请参考 [`docs`](docs/README.md) 目录（仅提供简体中文版本）。
+注：比赛要求的答辩PPT 和演示视频的链接也位于docs目录中。
 
 由于项目仍处于高速开发阶段，文档可能无法及时反映最新改动。如有疑问，请以源码为准。
 
@@ -146,8 +142,6 @@ Usage:
 Cargo 默认支持 `debug` 和 `release` 构建配置，而这些配置也被集成到了本构建系统中。此外，构建系统还提供了一个名为 `release-with-debug` 的额外配置。
 
 `release-with-debug` 用于在 release 级别优化的同时，保留调试符号。这对于调试仅在 release 模式下发生的 bug 十分有用。
-
-当然，下面是你提供的内容的完整翻译和润色版，保持简洁、正式、术语规范，风格与之前保持一致：
 
 #### 调试（Debugging）
 
@@ -273,30 +267,19 @@ Kernel annotation bot 是一个辅助工具，用于帮助你注释（annotate�
 
 本项目（包括内核与所有 crate）遵循 MIT License，详见 [LICENSE](LICENSE)。
 
-部分代码来源于其他项目，受其原始许可协议约束。具体信息记录在相关 crate 的 `lib.rs` 文件中。
+部分代码来源于其他项目，受其原始许可协议约束。具体信息记录在相关 crate 的 `lib.rs` 文件中，具体请参考以下列举：
 
-### 已引用的第三方代码
+### 参考/移植的第三方代码
 
-- **`path`**：部分实现来自 [.NET Standard Library](https://github.com/dotnet/runtime)，遵循 .NET Foundation 的 MIT 许可证。
+- **`path` crate**：部分实现来自 [.NET Standard Library](https://github.com/dotnet/runtime)，遵循 .NET Foundation 的 MIT 许可证。
 - **`TimeSpan`（在 `time` crate 中）**：部分实现同样源自 [.NET Standard Library]，遵循 MIT 许可证。
 
 ### 重要声明
 
-未经所有贡献者的书面许可，本项目（包括其派生项目或任何部分）**禁止**被直接用于 [`全国大学生计算机系统能力大赛`](https://os.educg.net) 及类似竞赛。若未使用特定贡献者的代码或引用其实现，则无需取得其单独授权。这是出于学术诚信的考量，在本项目不再用于参赛或毕设等用途后，会放开这部分限制。不过，如果你只是引用其中的一部分库，参考其中的部分代码，或者你的项目不是直接使用该项目或仅进行了非常简单的修改，将不受到本限制，在保留版权信息的情况下，MIT 许可证仍然适用。
+以下内容须在**相应协议**下自由使用：
 
-此限制适用于本仓库的所有提交记录，包括加入本声明前的提交。除上述竞赛用途限制外，其余使用场景遵循 MIT 许可证条款。
-
-本的最新版本声明始终适用于任何项目以及 forks，查看 [`caiyi/bakaos`](https://github.com/caiyih/bakaos) 的 `README.md` 以获取最新版本。
-
-#### 附加说明
-
-本仓库中特定声明或限制下的内容，用户依然可以根据原始开源协议自由使用、修改和再分发。这些特殊声明仅限制特定竞赛等场景，不影响开源协议允许的其他合法用途。
-
-##### 不受限制的组件
-
-以下内容不受竞赛使用限制，可在相应协议下自由使用：
-
-- **TftpServer**：不受限制，详见代码头部注释。遵循 Microsoft Public License。
+- **TftpServer**：详见代码头部注释，需要遵循 Microsoft Public License 使用，本项目对此不负责。
+- **KernelAnnotationBot**：不受限制，遵循 MIT License。
 - **初赛结果可视化脚本 (`test_preliminary/visualize_result.py`)**：不受限制，遵循 MIT License。
 - **内核异常栈回溯脚本 (`kernel/unwinder.py`)**：不受限制，遵循 MIT License。
 
