@@ -1,9 +1,12 @@
 # Documentation
 
-# 答辩 PPT
+## 答辩 PPT
 
 - 百度网盘：[https://pan.baidu.com/share/init?surl=yblEKQ_8lBl34ta_t9d8fg&pwd=wtkg](https://pan.baidu.com/share/init?surl=yblEKQ_8lBl34ta_t9d8fg&pwd=wtkg)
 - 金山文档在线访问：[https://kdocs.cn/l/ckInRi6gvOTx](https://kdocs.cn/l/ckInRi6gvOTx)
+## 演示视频
+
+- 百度网盘：[https://pan.baidu.com/s/19RYzUepQxyAHZJ7nXCLJsw?pwd=qemy](https://pan.baidu.com/s/19RYzUepQxyAHZJ7nXCLJsw?pwd=qemy)
 
 ## Repository 相关
 
@@ -18,10 +21,12 @@
 - [内核栈展开](kernel/stack-unwinding.md)
 - [Syscall Dispatcher](kernel/syscall-dispatcher.md)
 - [文件系统](kernel/filesystem.md)
-- [进程管理](kernel/process_manangement.md)
+- [进程管理](kernel/process_management.md)
 - [协程调度](kernel/coroutine-scheduling.md)
 - [内存管理](kernel/memory-overview.md)
 - [驱动程序](kernel/drivers.md)
+- [硬件抽象层](kernel/hardware-abstraction-layer.md)
+- [内核入口](kernel/README.md)
 
 ## 构建小型内核
 
