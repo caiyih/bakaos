@@ -13,8 +13,8 @@ replace_in_file() {
     sed -i "s|$search|$replace|g" "$file"
 }
 
-replace_in_file "README.md" "./README.zh-cn.md" "./README.md"
-replace_in_file "README.zh-cn.md" "./README.md" "./README.en-us.md"
+replace_in_file "README.md" "| English | [简体中文](./README.zh-cn.md) |" "| English | [简体中文](./README.md) |"
+replace_in_file "README.zh-cn.md" "| [English](./README.md) | 简体中文 |" "| [English](./README.en-us.md) | 简体中文 |"
 
 mv README.md README.en-us.md
 mv README.zh-cn.md README.md
