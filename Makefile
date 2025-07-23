@@ -79,15 +79,7 @@ test-only: build _prepare_sdcard _test_internal
 
 _prepare_sdcard:
 	@echo "Preparing sdcard..."
-	@if [ -f "${SDCARD_IMAGE}" ]; then \
-		echo "[WARN] Skipping for existing sdcard image."; \
-	else \
-		echo "Decompressing sdcard image..."; \
-		xz --decompress --keep ${SDCARD_IMAGE}.xz; \
-		if [ $$? -ne 0 ]; then \
-			echo "[Error] Failed to decompress ${SDCARD_IMAGE}.xz"; \
-		fi; \
-	fi
+	@python3 prepare-img.py ${SDCARD_IMAGE}
 
 _test_internal:
 	@echo -e "\e[32m// =========================================\e[0m"
@@ -104,6 +96,13 @@ build-final:
 
 test-final: build-final _prepare_sdcard
 	@KERNEL_TEST="F" make _test_final_internal
+
+build-online-final:
+	@KERNEL_TEST="O" make _build_internal
+	make _prepare_image
+
+test-online-final: build-online-final _prepare_sdcard
+	@KERNEL_TEST="O" make _test_final_internal
 
 _test_final_internal: _build_internal _test_internal
 
