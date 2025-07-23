@@ -52,7 +52,7 @@ jobs:
 
       - name: Download sdcard images
         run: |
-          wget https://github.com/neuq-rcore/testsuits-for-oskernel/releases/download/${{ vars.ONLINE_FINAl_TESTSUITS_TAG_VER }}/sdcard-${{ matrix.architecture.shortname }}.img.xz
+          wget https://github.com/neuq-rcore/testsuits-for-oskernel/releases/download/${{ vars.ONLINE_FINAl_TESTSUITS_TAG_VER }}/sdcard-${{ matrix.architecture.shortname }}.img.gz
           make _prepare_sdcard ARCH=${{ matrix.architecture.fullname }}
 
       - name: Run tests
