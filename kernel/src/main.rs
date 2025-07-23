@@ -61,12 +61,19 @@ macro_rules! libc_spec {
     };
 }
 
+#[cfg(target_arch = "loongarch64")]
+const PLATFORM_STR: &str = "la";
+#[cfg(target_arch = "riscv64")]
+const PLATFORM_STR: &str = "rv";
+
 #[no_mangle]
 fn main() {
     match option_env!("KERNEL_TEST") {
         Some(profile) => match profile.chars().next().unwrap_or('\0').to_ascii_uppercase() {
             'F' => run_final_tests(),
             'P' => run_preliminary_tests(),
+            'O' => run_online_final_tests(),
+            'S' => run_shell(),
             _ => panic!("Unrecognized kernel test profile: {}", profile),
         },
         None => run_preliminary_tests(),
@@ -86,33 +93,25 @@ fn setup_common_tools() {
 }
 
 #[allow(unused)]
+fn run_online_final_tests() {
+    setup_final_tests_env(Some(include_bytes!("scripts/online.sh")));
+
+    run_busybox(
+        libc_spec!("/mnt/", "/busybox"),
+        &["sh"],
+        &[
+            "HOME=/root",
+            "PATH=/bin",
+            "TERM=xterm-256color",
+            "SHELL=/bin/sh",
+            "LANG=C",
+        ],
+    );
+}
+
+#[allow(unused)]
 fn run_final_tests() {
-    use filesystem_abstractions::IFileSystem;
-    use paging::MemorySpaceBuilder;
-    use scheduling::spawn_task;
-    use tasks::TaskControlBlock;
-
-    setup_common_tools();
-
-    // mount and umount tests requires a node at '/dev/vda2'.
-    global_open("/dev", None).unwrap().mkdir("vda2");
-
-    let script = global_open("/", None)
-        .unwrap()
-        .touch("test_script.sh")
-        .unwrap();
-    script.writeat(0, include_bytes!("test_script.sh")).unwrap();
-
-    #[cfg(target_arch = "loongarch64")]
-    const PLATFORM_STR: &str = "la";
-    #[cfg(target_arch = "riscv64")]
-    const PLATFORM_STR: &str = "rv";
-
-    let root = global_open("/", None).unwrap();
-    let lib = global_open("/mnt/glibc/lib", None).unwrap();
-
-    root.mount_as(lib.clone(), Some("lib")).unwrap();
-    root.mount_as(lib.clone(), Some("lib64")).unwrap();
+    setup_final_tests_env(Some(include_bytes!("scripts/test_script.sh")));
 
     run_busybox(
         libc_spec!("/mnt/", "/busybox"),
@@ -125,25 +124,66 @@ fn run_final_tests() {
             "LANG=C",
         ],
     );
+}
 
-    fn run_busybox(path: &str, args: &[&str], envp: &[&str]) {
-        let memspace = {
-            let busybox = filesystem_abstractions::global_open(path, None).unwrap();
-            let busybox = busybox.readall().unwrap();
+#[allow(unused)]
+fn run_shell() {
+    setup_final_tests_env(None);
 
-            MemorySpaceBuilder::from_raw(&busybox, path, args, envp).unwrap()
-        };
+    run_busybox(
+        libc_spec!("/mnt/", "/busybox"),
+        &["sh"],
+        &[
+            "HOME=/root",
+            "PATH=/bin",
+            "TERM=xterm-256color",
+            "SHELL=/bin/sh",
+            "LANG=C",
+        ],
+    );
+}
 
-        let task = ProcessControlBlock::new(memspace);
-        {
-            let mut pcb = task.pcb.lock();
-            pcb.cwd = String::from("/mnt");
-            pcb.is_initproc
-                .store(true, core::sync::atomic::Ordering::Relaxed);
-        }
-        spawn_task(task);
-        threading::run_tasks();
+fn setup_final_tests_env(test_script: Option<&[u8]>) {
+    setup_common_tools();
+
+    // mount and umount tests requires a node at '/dev/vda2'.
+    global_open("/dev", None).unwrap().mkdir("vda2").unwrap();
+
+    if let Some(test_script) = test_script {
+        let script = global_open("/", None)
+            .unwrap()
+            .touch("test_script.sh")
+            .unwrap();
+        script.writeat(0, test_script).unwrap();
     }
+
+    let root = global_open("/", None).unwrap();
+    let lib = global_open("/mnt/glibc/lib", None).unwrap();
+
+    root.mount_as(lib.clone(), Some("lib")).unwrap();
+    root.mount_as(lib.clone(), Some("lib64")).unwrap();
+}
+
+fn run_busybox(path: &str, args: &[&str], envp: &[&str]) {
+    use paging::MemorySpaceBuilder;
+    use scheduling::spawn_task;
+
+    let memspace = {
+        let busybox = filesystem_abstractions::global_open(path, None).unwrap();
+        let busybox = busybox.readall().unwrap();
+
+        MemorySpaceBuilder::from_raw(&busybox, path, args, envp).unwrap()
+    };
+
+    let task = ProcessControlBlock::new(memspace);
+    {
+        let mut pcb = task.pcb.lock();
+        pcb.cwd = String::from("/mnt");
+        pcb.is_initproc
+            .store(true, core::sync::atomic::Ordering::Relaxed);
+    }
+    spawn_task(task);
+    threading::run_tasks();
 }
 
 #[allow(unused)]
