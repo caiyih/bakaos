@@ -98,7 +98,7 @@ fn run_online_final_tests() {
 
     run_busybox(
         libc_spec!("/mnt/", "/busybox"),
-        &["sh"],
+        &["sh", "/test_script.sh", PLATFORM_STR],
         &[
             "HOME=/root",
             "PATH=/bin",
