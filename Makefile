@@ -97,6 +97,13 @@ build-final:
 test-final: build-final _prepare_sdcard
 	@KERNEL_TEST="F" make _test_final_internal
 
+build-online-final:
+	@KERNEL_TEST="O" make _build_internal
+	make _prepare_image
+
+test-online-final: build-online-final _prepare_sdcard
+	@KERNEL_TEST="O" make _test_final_internal
+
 _test_final_internal: _build_internal _test_internal
 
 parse:
