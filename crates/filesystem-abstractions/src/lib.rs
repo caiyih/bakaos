@@ -51,6 +51,8 @@ pub enum FileSystemError {
     NotADirectory,
     NotALink,
     LinkTooDepth,
+    NotPermitted,
+    ReadOnly,
 }
 
 impl FileSystemError {
@@ -69,6 +71,8 @@ impl FileSystemError {
             FileSystemError::NotADirectory => ErrNo::NotADirectory,
             FileSystemError::NotALink => ErrNo::InvalidArgument,
             FileSystemError::LinkTooDepth => ErrNo::TooManyLevelsOfSymbolicLinks,
+            FileSystemError::NotPermitted => ErrNo::OperationNotPermitted,
+            FileSystemError::ReadOnly => ErrNo::ReadOnlyFileSystem,
             _ => ErrNo::Success,
         }
     }
