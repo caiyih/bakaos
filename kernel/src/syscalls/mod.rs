@@ -25,8 +25,6 @@ use task_async::{sys_nanosleep_async, sys_sched_yield_async, sys_wait4_async};
 use platform_specific::{syscall_ids::*, ISyscallContext};
 use tasks::SyscallContext;
 
-use crate::syscalls::shm::MemProtectSyscall;
-
 mod file;
 mod file_async;
 mod futex_async;
@@ -107,7 +105,7 @@ impl SyscallDispatcher {
             SYSCALL_ID_SHMAT => Some(&SharedMemoryAttachSyscall),
             SYSCALL_ID_SOCKET => Some(&SocketSyscall),
             SYSCALL_ID_STATX => Some(&StatxSyscall),
-            SYSCALL_ID_MPROTECT => Some(&MemProtectSyscall),
+            // SYSCALL_ID_MPROTECT => Some(&MemProtectSyscall),
             _ => None,
         }
     }
