@@ -25,6 +25,8 @@ use task_async::{sys_nanosleep_async, sys_sched_yield_async, sys_wait4_async};
 use platform_specific::{syscall_ids::*, ISyscallContext};
 use tasks::SyscallContext;
 
+use crate::syscalls::file_async::sys_splice;
+
 mod file;
 mod file_async;
 mod futex_async;
@@ -130,6 +132,7 @@ impl SyscallDispatcher {
             SYSCALL_ID_PPOLL => Some(sys_ppoll_async(ctx).await),
             SYSCALL_ID_PREAD => Some(sys_pread_async(ctx).await),
             SYSCALL_ID_PWRITE => Some(sys_pwrite_async(ctx).await),
+            SYSCALL_ID_SPLICE => Some(sys_splice(ctx).await),
             _ => None,
         }
     }
