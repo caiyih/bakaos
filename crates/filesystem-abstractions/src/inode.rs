@@ -67,6 +67,18 @@ pub trait IInode: DowncastSync + Send + Sync {
     fn resize(&self, _new_size: u64) -> FileSystemResult<u64> {
         Err(FileSystemError::NotAFile)
     }
+
+    fn removing(&self) -> FileSystemResult<()> {
+        Ok(())
+    }
+
+    fn rename(&self, _old_name: &str, _new_name: &str) -> FileSystemResult<()> {
+        Err(FileSystemError::Unimplemented)
+    }
+
+    fn renaming(&self, _new_name: &str) -> FileSystemResult<()> {
+        Ok(())
+    }
 }
 
 impl_downcast!(sync IInode);
