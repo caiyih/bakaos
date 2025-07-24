@@ -6,7 +6,7 @@ use core::{
 use address::{IAddressBase, VirtualAddress};
 use alloc::sync::Arc;
 use constants::{ErrNo, SyscallError};
-use filesystem_abstractions::{DirectoryEntryType, FileMetadata};
+use filesystem_abstractions::{DirectoryEntryType, FileMetadata, IFile, Pipe};
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder};
 use threading::yield_now;
 
@@ -467,6 +467,164 @@ async_syscall!(sys_copy_file_range, ctx, {
         }
 
         if written < read {
+            break;
+        }
+    }
+
+    Ok(bytes_transferred as isize)
+});
+
+fn is_pipe(fd: &dyn IFile) -> bool {
+    fd.is::<Pipe>()
+}
+
+async_syscall!(sys_splice, ctx, {
+    const BUF_SIZE: usize = 512;
+
+    let fd_in = ctx.arg0::<usize>();
+    let off_in = ctx.arg1::<VirtualAddress>();
+    let fd_out = ctx.arg2::<usize>();
+    let off_out = ctx.arg3::<VirtualAddress>();
+    let len = ctx.arg4::<usize>();
+    let _flags = ctx.arg5::<u32>();
+
+    if len == 0 {
+        return Ok(0);
+    }
+
+    let (fd_in, fd_out) = {
+        let pcb = ctx.pcb.lock();
+
+        (
+            match pcb.fd_table.get(fd_in) {
+                Some(fd) if fd.can_read() => fd.access(),
+                _ => return SyscallError::BadFileDescriptor,
+            },
+            match pcb.fd_table.get(fd_out) {
+                Some(fd) if fd.can_write() => fd.access(),
+                _ => return SyscallError::BadFileDescriptor,
+            },
+        )
+    };
+
+    if !fd_in.can_read() || !fd_out.can_write() {
+        return SyscallError::BadFileDescriptor;
+    }
+
+    let fd_in_is_pipe = is_pipe(fd_in.deref());
+    let fd_out_is_pipe = is_pipe(fd_out.deref());
+
+    // Either one of them is a pipe, and the other is a regular file
+    if fd_in_is_pipe == fd_out_is_pipe {
+        return SyscallError::InvalidArgument;
+    }
+
+    // if the fd is pipe, the corresponding offset must be null
+    // if the fd is file, the corresponding offset must be non-null
+    if fd_in_is_pipe != off_in.is_null() {
+        return SyscallError::InvalidArgument;
+    }
+
+    if fd_out_is_pipe != off_out.is_null() {
+        return SyscallError::InvalidArgument;
+    }
+
+    macro_rules! parse_offset {
+        ($offset:ident) => {
+            match $offset.is_null() {
+                true => None,
+                false => match ctx
+                    .borrow_page_table()
+                    .guard_ptr($offset.as_ptr::<isize>())
+                    .mustbe_user()
+                    .mustbe_readable()
+                    .with_write()
+                {
+                    Some(offset) => Some(offset),
+                    None => return SyscallError::BadAddress,
+                },
+            }
+        };
+    }
+
+    let (mut off_in, mut off_out) = (parse_offset!(off_in), parse_offset!(off_out));
+
+    if let Some(off_in) = &off_in {
+        let off_in = *off_in.deref();
+
+        if off_in < 0 {
+            return Err(-1);
+        }
+
+        if let Some(in_inode) = fd_in.inode() {
+            if off_in as usize >= in_inode.metadata().size {
+                return Ok(0);
+            }
+        }
+    }
+
+    if let Some(off_out) = &off_out {
+        let off_out = *off_out.deref();
+
+        if off_out < 0 {
+            return Err(-1);
+        }
+    }
+
+    // Consider allocating buffer on the heap if the buffer is large.
+    // Frequent yields can cause massive boxing/unboxing overhead.
+    let mut buf = [0u8; BUF_SIZE];
+
+    let mut bytes_transferred = 0;
+
+    while bytes_transferred < len {
+        while !fd_in.read_avaliable() {
+            if fd_in_is_pipe {
+                break;
+            }
+
+            yield_now().await;
+        }
+
+        let iter_bytes = buf.len().min(len - bytes_transferred);
+
+        let buf = &mut buf[..iter_bytes];
+
+        let bytes_read = match &off_in {
+            None => fd_in.read(buf),
+            Some(offset) => fd_in.pread(buf, *offset.deref() as u64),
+        };
+
+        debug_assert!(bytes_read <= iter_bytes);
+
+        if bytes_read == 0 {
+            break;
+        }
+
+        if let Some(off_in) = &mut off_in {
+            *off_in.deref_mut() += bytes_read as isize;
+        }
+
+        while !fd_out.write_avaliable() {
+            yield_now().await;
+        }
+
+        let buf = &buf[..bytes_read];
+
+        let bytes_written = match &off_out {
+            None => fd_out.write(buf),
+            Some(offset) => fd_out.pwrite(buf, *offset.deref() as u64),
+        };
+
+        debug_assert!(bytes_written <= bytes_read);
+
+        bytes_transferred += bytes_written;
+
+        if let Some(off_out) = &mut off_out {
+            *off_out.deref_mut() += bytes_written as isize;
+        }
+
+        if bytes_written < bytes_read {
             break;
         }
     }

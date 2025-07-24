@@ -11,7 +11,7 @@ use crate::{
 
 const PIPE_LIMIT: usize = 1024;
 
-struct Pipe {
+pub struct Pipe {
     buf_queue: SpinMutex<VecDeque<u8>>,
     write_end_weak: UnsafeCell<Weak<FileCacheAccessor>>,
     read_end_weak: UnsafeCell<Weak<FileCacheAccessor>>,

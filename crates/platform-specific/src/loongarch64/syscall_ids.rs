@@ -25,6 +25,7 @@ pub const SYSCALL_ID_PWRITE: usize = 68;
 pub const SYSCALL_ID_SENDFILE: usize = 71;
 pub const SYSCALL_ID_PSELECT6: usize = 72;
 pub const SYSCALL_ID_PPOLL: usize = 73;
+pub const SYSCALL_ID_SPLICE: usize = 76;
 pub const SYSCALL_ID_READLINKAT: usize = 78;
 pub const SYSCALL_ID_EXIT: usize = 93;
 pub const SYSCALL_ID_EXIT_GROUP: usize = 94;

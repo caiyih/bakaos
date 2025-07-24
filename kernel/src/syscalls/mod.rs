@@ -8,7 +8,7 @@ use file::{
 };
 use file_async::{
     sys_copy_file_range, sys_pread_async, sys_pwrite_async, sys_read_async, sys_readv_async,
-    sys_sendfile_async, sys_write_async, sys_writev_async,
+    sys_sendfile_async, sys_splice, sys_write_async, sys_writev_async,
 };
 use futex_async::sys_futex_async;
 use io_multiplexing::{sys_ppoll_async, sys_pselect6_async};
@@ -133,6 +133,7 @@ impl SyscallDispatcher {
             SYSCALL_ID_PREAD => Some(sys_pread_async(ctx).await),
             SYSCALL_ID_PWRITE => Some(sys_pwrite_async(ctx).await),
             SYSCALL_ID_COPY_FILE_RANGE => Some(sys_copy_file_range(ctx).await),
+            SYSCALL_ID_SPLICE => Some(sys_splice(ctx).await),
             _ => None,
         }
     }
