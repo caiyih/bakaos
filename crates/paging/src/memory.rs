@@ -80,6 +80,17 @@ pub struct MappingArea {
     permissions: GenericMappingFlags,
 }
 
+impl alloc::fmt::Debug for MappingArea {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("MappingArea")
+            .field("range", &self.range)
+            .field("area_type", &self.area_type)
+            .field("map_type", &self.map_type)
+            .field("permissions", &self.permissions)
+            .finish()
+    }
+}
+
 impl MappingArea {
     pub fn vpn_range(&self) -> VirtualPageNumRange {
         self.range
@@ -177,6 +188,10 @@ pub struct MemorySpace {
 }
 
 impl MemorySpace {
+    pub fn mappings(&self) -> &[MappingArea] {
+        &self.mapping_areas
+    }
+
     pub fn map_area(&mut self, mut area: MappingArea) {
         area.apply_mapping(|vpn, ppn, flags| {
             self.page_table

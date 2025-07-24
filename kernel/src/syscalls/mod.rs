@@ -108,6 +108,7 @@ impl SyscallDispatcher {
             SYSCALL_ID_SOCKET => Some(&SocketSyscall),
             SYSCALL_ID_STATX => Some(&StatxSyscall),
             SYSCALL_ID_RENAMEAT2 => Some(&RenameAt2Syscall),
+            // SYSCALL_ID_MPROTECT => Some(&MemProtectSyscall),
             _ => None,
         }
     }
