@@ -1223,6 +1223,18 @@ impl ISyncSyscallHandler for StatxSyscall {
     }
 }
 
+fn extract_parent_path<'a>(
+    path: &'a str,
+    dirfd: &Option<Arc<DirectoryTreeNode>>,
+    cwd: &'a str,
+) -> &'a str {
+    match (path::get_directory_name(path), dirfd) {
+        (Some(parent), _) if !parent.is_empty() => parent,
+        (_, Some(_)) => path::CURRENT_DIRECTORY,
+        _ => cwd,
+    }
+}
+
 pub struct RenameAt2Syscall;
 
 impl ISyncSyscallHandler for RenameAt2Syscall {
@@ -1268,10 +1280,7 @@ impl ISyncSyscallHandler for RenameAt2Syscall {
                 let new_path = unsafe { core::str::from_utf8_unchecked(&new_path) };
 
                 let (old_parent, old_name) = (
-                    path::get_directory_name(old_path).unwrap_or(match old_dirfd {
-                        None => &pcb.cwd,
-                        Some(_) => path::CURRENT_DIRECTORY,
-                    }),
+                    extract_parent_path(old_path, &old_dirfd, &pcb.cwd),
                     path::get_filename(old_path),
                 );
 
@@ -1279,10 +1288,7 @@ impl ISyncSyscallHandler for RenameAt2Syscall {
                     .map_err(|_| ErrNo::NoSuchFileOrDirectory)?;
 
                 let (new_parent, new_name) = (
-                    path::get_directory_name(new_path).unwrap_or(match new_dirfd {
-                        None => &pcb.cwd,
-                        Some(_) => path::CURRENT_DIRECTORY,
-                    }),
+                    extract_parent_path(new_path, &new_dirfd, &pcb.cwd),
                     path::get_filename(new_path),
                 );
 
