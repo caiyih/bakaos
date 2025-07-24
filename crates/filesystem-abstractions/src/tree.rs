@@ -485,16 +485,27 @@ impl DirectoryTreeNode {
         unsafe { &self.inner.data_ptr().as_ref().unwrap().name }
     }
 
-    pub fn close(&self, name: &str) -> (bool, bool) {
+    pub fn close(&self, name: &str) -> FileSystemResult<(bool, bool)> {
         let mut inner = self.inner.lock();
 
         let closed = inner.opened.remove(name);
-        let unmounted = inner.mounted.remove(name);
+        let mut unmounted = inner.mounted.remove_entry(name);
+
+        if let Some((name, unmounted_node)) = unmounted {
+            if let Err(e) = unmounted_node.removing() {
+                inner.mounted.insert(name, unmounted_node);
+
+                return Err(e);
+            }
+
+            unmounted = Some((name, unmounted_node));
+        }
+
         inner.children_cache.remove(name);
 
         drop(inner); // prevent deadlock in recursive close
 
-        (closed.is_some(), unmounted.is_some())
+        Ok((closed.is_some(), unmounted.is_some()))
     }
 
     pub fn open(
@@ -681,7 +692,9 @@ impl DirectoryTreeNode {
 impl Drop for DirectoryTreeNode {
     fn drop(&mut self) {
         if let Some(ref parent) = self.parent {
-            parent.close(self.name());
+            if let Err(e) = parent.close(self.name()) {
+                log::warn!("Failed to close directory node: {}, {:?}", self.name(), e);
+            }
         }
     }
 }
@@ -759,9 +772,10 @@ impl DirectoryTreeNode {
     }
 
     pub fn rmdir(self: &Arc<DirectoryTreeNode>, name: &str) -> FileSystemResult<()> {
-        // FIXME: Do we have to check if it's a directory?
-        if self.close(name).1 {
-            return Ok(());
+        match self.close(name) {
+            Ok((closed, unmounted)) if closed || unmounted => return Ok(()),
+            Err(e) => return Err(e),
+            _ => (),
         }
 
         match self.inner.lock().meta.as_inode() {
@@ -771,8 +785,10 @@ impl DirectoryTreeNode {
     }
 
     pub fn remove(self: &Arc<DirectoryTreeNode>, name: &str) -> FileSystemResult<()> {
-        if self.close(name).1 {
-            return Ok(());
+        match self.close(name) {
+            Ok((closed, unmounted)) if closed || unmounted => return Ok(()),
+            Err(e) => return Err(e),
+            _ => (),
         }
 
         match self.inner.lock().meta.as_inode() {
@@ -999,6 +1015,66 @@ impl DirectoryTreeNode {
         match inner.meta.as_inode() {
             Some(inode) => inode.resize(new_size),
             None => Err(FileSystemError::NotAFile),
+        }
+    }
+
+    pub fn rename(
+        self: &Arc<DirectoryTreeNode>,
+        old_name: &str,
+        new_name: &str,
+    ) -> FileSystemResult<()> {
+        let mut inner = self.inner.lock();
+
+        macro_rules! do_check {
+            ($field:ident, $old_name:ident, $node:ident, true) => {
+                if let Err(err) = $node.renaming(new_name) {
+                    inner.$field.insert($old_name, $node);
+
+                    return Err(err);
+                }
+            };
+            ($field:ident, $old_name:ident, $node:ident, false) => {};
+        }
+
+        macro_rules! checked_rename {
+            ($field:ident, $early_return:tt, $do_check:tt) => {
+                if let Some((_old_name, node)) = inner.$field.remove_entry(old_name) {
+                    do_check!($field, _old_name, node, $do_check);
+
+                    inner.$field.insert(new_name.to_string(), node);
+
+                    if $early_return {
+                        return Ok(());
+                    }
+                }
+            };
+        }
+
+        checked_rename!(mounted, true, true); // early return | do renaming check
+        checked_rename!(opened, false, false);
+        checked_rename!(children_cache, false, true);
+
+        match inner.meta.as_inode() {
+            Some(inode) => inode.rename(old_name, new_name),
+            _ => Err(FileSystemError::NotFound),
+        }
+    }
+
+    fn renaming(self: &Arc<DirectoryTreeNode>, new_name: &str) -> FileSystemResult<()> {
+        let inner = self.inner.lock();
+
+        match inner.meta.as_inode() {
+            Some(inode) => inode.renaming(new_name),
+            _ => Ok(()),
+        }
+    }
+
+    fn removing(self: &Arc<DirectoryTreeNode>) -> FileSystemResult<()> {
+        let inner = self.inner.lock();
+
+        match inner.meta.as_inode() {
+            Some(inode) => inode.removing(),
+            _ => Ok(()),
         }
     }
 }
@@ -1515,7 +1591,7 @@ mod tests {
         let child = DirectoryTreeNode::from_empty(Some(Arc::clone(&parent)), "child".to_string());
 
         parent.mount_as(Arc::clone(&child), Some("child")).unwrap();
-        let (closed, unmounted) = parent.close("child");
+        let (closed, unmounted) = parent.close("child").unwrap();
         assert!(closed || unmounted);
         assert!(!parent.inner.lock().is_mounted("child"));
     }

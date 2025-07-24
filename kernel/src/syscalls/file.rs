@@ -1222,3 +1222,101 @@ impl ISyncSyscallHandler for StatxSyscall {
         "sys_statx"
     }
 }
+
+fn extract_parent_path<'a>(
+    path: &'a str,
+    dirfd: &Option<Arc<DirectoryTreeNode>>,
+    cwd: &'a str,
+) -> &'a str {
+    match (path::get_directory_name(path), dirfd) {
+        (Some(parent), _) if !parent.is_empty() => parent,
+        (_, Some(_)) => path::CURRENT_DIRECTORY,
+        _ => cwd,
+    }
+}
+
+pub struct RenameAt2Syscall;
+
+impl ISyncSyscallHandler for RenameAt2Syscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        const PATH_MAX_LEN: usize = 256;
+        const PAGE_FLAGS: GenericMappingFlags =
+            GenericMappingFlags::User.union(GenericMappingFlags::Readable);
+
+        let old_dirfd = ctx.arg0::<usize>();
+        let old_path = ctx.arg1::<*const u8>();
+        let new_dirfd = ctx.arg2::<usize>();
+        let new_path = ctx.arg3::<*const u8>();
+
+        macro_rules! get_fd_from_inode {
+            ($pcb:ident, $fd:ident) => {
+                match $fd as isize {
+                    FileDescriptor::AT_FDCWD => None,
+                    _ => $pcb
+                        .fd_table
+                        .get($fd)
+                        .ok_or(ErrNo::BadFileDescriptor)?
+                        .access_ref()
+                        .inode(),
+                }
+            };
+        }
+
+        let pcb = ctx.pcb.lock();
+
+        let old_dirfd = get_fd_from_inode!(pcb, old_dirfd);
+        let new_dirfd = get_fd_from_inode!(pcb, new_dirfd);
+
+        match (
+            ctx.borrow_page_table()
+                .guard_cstr(old_path, PATH_MAX_LEN)
+                .must_have(PAGE_FLAGS),
+            ctx.borrow_page_table()
+                .guard_cstr(new_path, PATH_MAX_LEN)
+                .must_have(PAGE_FLAGS),
+        ) {
+            (Some(old_path), Some(new_path)) => {
+                let old_path = unsafe { core::str::from_utf8_unchecked(&old_path) };
+                let new_path = unsafe { core::str::from_utf8_unchecked(&new_path) };
+
+                let (old_parent, old_name) = (
+                    extract_parent_path(old_path, &old_dirfd, &pcb.cwd),
+                    path::get_filename(old_path),
+                );
+
+                let old_parent = global_open(old_parent, old_dirfd.as_ref())
+                    .map_err(|_| ErrNo::NoSuchFileOrDirectory)?;
+
+                let (new_parent, new_name) = (
+                    extract_parent_path(new_path, &new_dirfd, &pcb.cwd),
+                    path::get_filename(new_path),
+                );
+
+                let new_parent = global_open(new_parent, new_dirfd.as_ref())
+                    .map_err(|_| ErrNo::NoSuchFileOrDirectory)?;
+
+                if Arc::ptr_eq(&old_parent, &new_parent) {
+                    return old_parent
+                        .rename(old_name, new_name)
+                        .map(|_| 0)
+                        .map_err(|e| e.to_errno());
+                } else {
+                    // FIXME: we have to move the node to the new parent
+                    #[cfg(debug_assertions)]
+                    unimplemented!();
+
+                    #[cfg(not(debug_assertions))]
+                    return Ok(0);
+                }
+
+                #[allow(unreachable_code)]
+                SyscallError::Success
+            }
+            _ => SyscallError::BadAddress,
+        }
+    }
+
+    fn name(&self) -> &str {
+        "sys_renameat2"
+    }
+}

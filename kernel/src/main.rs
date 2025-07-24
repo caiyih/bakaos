@@ -31,6 +31,8 @@ use platform_specific::legacy_println;
 use scheduling::ProcDeviceInode;
 use tasks::ProcessControlBlock;
 
+use crate::trap::ProcInterrputsInode;
+
 extern crate alloc;
 
 // Rust compiler leaves out `_start` if not explicitly used in the exact project to be compiled
@@ -284,6 +286,8 @@ unsafe extern "C" fn __kernel_init() {
 
     filesystem_abstractions::initialize();
     ProcDeviceInode::setup();
+
+    global_mount_inode(&ProcInterrputsInode::new(), "/proc/interrupts", None).unwrap();
 
     let sda = machine.create_block_device_at(0);
     filesystem_abstractions::global_mount_inode(&(sda as Arc<dyn IInode>), "/dev/sda", None)
