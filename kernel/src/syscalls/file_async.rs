@@ -1,5 +1,9 @@
-use core::mem::MaybeUninit;
+use core::{
+    mem::MaybeUninit,
+    ops::{Deref, DerefMut},
+};
 
+use address::{IAddressBase, VirtualAddress};
 use alloc::sync::Arc;
 use constants::{ErrNo, SyscallError};
 use filesystem_abstractions::{DirectoryEntryType, FileMetadata};
@@ -357,4 +361,115 @@ async_syscall!(sys_pwrite_async, ctx, {
         Some(guard) => Ok(file.pwrite(&guard, offset) as isize),
         None => SyscallError::BadAddress,
     }
+});
+
+async_syscall!(sys_copy_file_range, ctx, {
+    const BUF_SIZE: usize = 512;
+
+    let fd_in = ctx.arg0::<usize>();
+    let off_in = ctx.arg1::<VirtualAddress>();
+    let fd_out = ctx.arg2::<usize>();
+    let off_out = ctx.arg3::<VirtualAddress>();
+    let len = ctx.arg4::<usize>();
+    let _flags = ctx.arg5::<u32>();
+
+    if len == 0 {
+        return Ok(0);
+    }
+
+    let (fd_in, fd_out) = {
+        let pcb = ctx.pcb.lock();
+
+        (
+            match pcb.fd_table.get(fd_in) {
+                Some(fd) if fd.can_read() => fd.access(),
+                _ => return SyscallError::BadFileDescriptor,
+            },
+            match pcb.fd_table.get(fd_out) {
+                Some(fd) if fd.can_write() => fd.access(),
+                _ => return SyscallError::BadFileDescriptor,
+            },
+        )
+    };
+
+    if !fd_in.can_read() || !fd_out.can_write() {
+        return SyscallError::BadFileDescriptor;
+    }
+
+    // Consider allocating buffer on the heap if the buffer is large.
+    // Frequent yields can cause massive boxing/unboxing overhead.
+    let mut buf = [0u8; BUF_SIZE];
+
+    let mut bytes_transferred = 0;
+
+    while bytes_transferred < len {
+        macro_rules! parse_offset {
+            ($offset:ident) => {
+                match $offset.is_null() {
+                    true => None,
+                    false => match ctx
+                        .borrow_page_table()
+                        .guard_ptr($offset.as_ptr::<usize>())
+                        .mustbe_user()
+                        .mustbe_readable()
+                        .with_write()
+                    {
+                        Some(offset) => Some(offset),
+                        None => return SyscallError::BadAddress,
+                    },
+                }
+            };
+        }
+
+        while !fd_in.read_avaliable() {
+            yield_now().await;
+        }
+
+        let read;
+
+        {
+            let mut off_in = parse_offset!(off_in);
+
+            let iter_bytes = buf.len().min(len - bytes_transferred);
+
+            read = match off_in {
+                Some(ref off_in) => fd_in.pread(&mut buf[..iter_bytes], *off_in.deref() as u64),
+                None => fd_in.read(&mut buf[..iter_bytes]),
+            };
+
+            debug_assert!(read <= iter_bytes);
+
+            if read == 0 {
+                break;
+            }
+
+            if let Some(off_in) = &mut off_in {
+                *off_in.deref_mut() += read;
+            }
+        }
+
+        while !fd_out.write_avaliable() {
+            yield_now().await;
+        }
+
+        let mut off_out = parse_offset!(off_out);
+
+        let written = match off_out {
+            Some(ref off_out) => fd_out.pwrite(&buf[..read], *off_out.deref() as u64),
+            None => fd_out.write(&buf[..read]),
+        };
+
+        debug_assert!(written <= read);
+        bytes_transferred += written;
+
+        if let Some(off_out) = &mut off_out {
+            *off_out.deref_mut() += written;
+        }
+
+        if written < read {
+            break;
+        }
+    }
+
+    Ok(bytes_transferred as isize)
 });

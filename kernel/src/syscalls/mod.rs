@@ -3,12 +3,12 @@ use constants::SyscallError;
 use file::{
     CloseSyscall, Dup3Syscall, DupSyscall, FileTruncateSyscall, GetDents64Syscall, LinkAtSyscall,
     LongSeekSyscall, MkdirAtSyscall, MmapSyscall, MountSyscall, MunmapSyscall, NewFstatSyscall,
-    NewFstatatSyscall, OpenAtSyscall, Pipe2Syscall, ReadLinkAtSyscall, SocketSyscall, StatxSyscall,
-    SymbolLinkAtSyscall, UmountSyscall, UnlinkAtSyscall,
+    NewFstatatSyscall, OpenAtSyscall, Pipe2Syscall, ReadLinkAtSyscall, RenameAt2Syscall,
+    SocketSyscall, StatxSyscall, SymbolLinkAtSyscall, UmountSyscall, UnlinkAtSyscall,
 };
 use file_async::{
-    sys_pread_async, sys_pwrite_async, sys_read_async, sys_readv_async, sys_sendfile_async,
-    sys_write_async, sys_writev_async,
+    sys_copy_file_range, sys_pread_async, sys_pwrite_async, sys_read_async, sys_readv_async,
+    sys_sendfile_async, sys_write_async, sys_writev_async,
 };
 use futex_async::sys_futex_async;
 use io_multiplexing::{sys_ppoll_async, sys_pselect6_async};
@@ -24,8 +24,6 @@ use task_async::{sys_nanosleep_async, sys_sched_yield_async, sys_wait4_async};
 
 use platform_specific::{syscall_ids::*, ISyscallContext};
 use tasks::SyscallContext;
-
-use crate::syscalls::file::RenameAt2Syscall;
 
 mod file;
 mod file_async;
@@ -134,6 +132,7 @@ impl SyscallDispatcher {
             SYSCALL_ID_PPOLL => Some(sys_ppoll_async(ctx).await),
             SYSCALL_ID_PREAD => Some(sys_pread_async(ctx).await),
             SYSCALL_ID_PWRITE => Some(sys_pwrite_async(ctx).await),
+            SYSCALL_ID_COPY_FILE_RANGE => Some(sys_copy_file_range(ctx).await),
             _ => None,
         }
     }

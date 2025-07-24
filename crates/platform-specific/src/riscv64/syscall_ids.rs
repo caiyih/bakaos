@@ -58,5 +58,6 @@ pub const SYSCALL_ID_WAIT4: usize = 260;
 pub const SYSCALL_ID_PRLIMIT64: usize = 261;
 pub const SYSCALL_ID_RENAMEAT2: usize = 276;
 pub const SYSCALL_ID_GETRANDOM: usize = 278;
+pub const SYSCALL_ID_COPY_FILE_RANGE: usize = 285;
 pub const SYSCALL_ID_STATX: usize = 291;
 pub const SYSCALL_ID_CLOCK_GETTIME: usize = 113;
