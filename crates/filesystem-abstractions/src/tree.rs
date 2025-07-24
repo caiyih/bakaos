@@ -1591,7 +1591,7 @@ mod tests {
         let child = DirectoryTreeNode::from_empty(Some(Arc::clone(&parent)), "child".to_string());
 
         parent.mount_as(Arc::clone(&child), Some("child")).unwrap();
-        let (closed, unmounted) = parent.close("child");
+        let (closed, unmounted) = parent.close("child").unwrap();
         assert!(closed || unmounted);
         assert!(!parent.inner.lock().is_mounted("child"));
     }
