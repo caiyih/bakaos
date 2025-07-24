@@ -1238,11 +1238,15 @@ impl ISyncSyscallHandler for RenameAt2Syscall {
 
         macro_rules! get_fd_from_inode {
             ($pcb:ident, $fd:ident) => {
-                $pcb.fd_table
-                    .get($fd)
-                    .ok_or(ErrNo::BadFileDescriptor)?
-                    .access_ref()
-                    .inode()
+                match $fd as isize {
+                    FileDescriptor::AT_FDCWD => None,
+                    _ => $pcb
+                        .fd_table
+                        .get($fd)
+                        .ok_or(ErrNo::BadFileDescriptor)?
+                        .access_ref()
+                        .inode(),
+                }
             };
         }
 
@@ -1264,7 +1268,10 @@ impl ISyncSyscallHandler for RenameAt2Syscall {
                 let new_path = unsafe { core::str::from_utf8_unchecked(&new_path) };
 
                 let (old_parent, old_name) = (
-                    path::get_directory_name(old_path).unwrap_or(path::DOT_STR),
+                    path::get_directory_name(old_path).unwrap_or(match old_dirfd {
+                        None => &pcb.cwd,
+                        Some(_) => path::CURRENT_DIRECTORY,
+                    }),
                     path::get_filename(old_path),
                 );
 
@@ -1272,7 +1279,10 @@ impl ISyncSyscallHandler for RenameAt2Syscall {
                     .map_err(|_| ErrNo::NoSuchFileOrDirectory)?;
 
                 let (new_parent, new_name) = (
-                    path::get_directory_name(new_path).unwrap_or(path::DOT_STR),
+                    path::get_directory_name(new_path).unwrap_or(match new_dirfd {
+                        None => &pcb.cwd,
+                        Some(_) => path::CURRENT_DIRECTORY,
+                    }),
                     path::get_filename(new_path),
                 );
 
