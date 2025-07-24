@@ -1054,17 +1054,17 @@ impl DirectoryTreeNode {
         checked_rename!(opened, false, false);
         checked_rename!(children_cache, false, true);
 
-        match &inner.meta {
-            DirectoryTreeNodeMetadata::Inode { inode } => inode.rename(old_name, new_name),
+        match inner.meta.as_inode() {
+            Some(inode) => inode.rename(old_name, new_name),
             _ => Err(FileSystemError::NotFound),
         }
     }
 
     fn renaming(self: &Arc<DirectoryTreeNode>, new_name: &str) -> FileSystemResult<()> {
-        let mut inner = self.inner.lock();
+        let inner = self.inner.lock();
 
-        match &mut inner.meta {
-            DirectoryTreeNodeMetadata::Inode { inode } => inode.renaming(new_name),
+        match inner.meta.as_inode() {
+            Some(inode) => inode.renaming(new_name),
             _ => Ok(()),
         }
     }
@@ -1072,8 +1072,8 @@ impl DirectoryTreeNode {
     fn removing(self: &Arc<DirectoryTreeNode>) -> FileSystemResult<()> {
         let inner = self.inner.lock();
 
-        match &inner.meta {
-            DirectoryTreeNodeMetadata::Inode { inode } => inode.removing(),
+        match inner.meta.as_inode() {
+            Some(inode) => inode.removing(),
             _ => Ok(()),
         }
     }
