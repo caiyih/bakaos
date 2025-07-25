@@ -30,7 +30,7 @@ output.log
 results.json
 __pycache__
 
-.vscode
+.vscode/settings.json
 
 # We want to ignore the workspace setup script by default
 # So that developers can modify it freely without worrying about git

@@ -1,0 +1,69 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "(Debug, RISC-V64) Qemu",
+            "type": "lldb",
+            "request": "attach",
+            "targetCreateCommands": [
+                "target create ${workspaceFolder}/kernel/target/riscv64gc-unknown-none-elf/debug/bakaos"
+            ],
+            "processCreateCommands": [
+                "gdb-remote localhost:1234"
+            ],
+            "initCommands": [
+                "process handle --pass true --stop false --notify true SIGTRAP"
+            ],
+            "preLaunchTask": "Debug RISC-V64 (Qemu)",
+            "internalConsoleOptions": "neverOpen",
+        },
+        {
+            "name": "(Release, RISC-V64) Qemu",
+            "type": "lldb",
+            "request": "attach",
+            "targetCreateCommands": [
+                "target create ${workspaceFolder}/kernel/target/riscv64gc-unknown-none-elf/release-with-debug/bakaos"
+            ],
+            "processCreateCommands": [
+                "gdb-remote localhost:1234"
+            ],
+            "initCommands": [
+                "process handle --pass true --stop false --notify true SIGTRAP"
+            ],
+            "preLaunchTask": "Debug RISC-V64 (Qemu, Release)",
+            "internalConsoleOptions": "neverOpen",
+        },
+        {
+            "name": "(Debug, LoongArch64) Qemu",
+            "type": "lldb",
+            "request": "attach",
+            "targetCreateCommands": [
+                "target create ${workspaceFolder}/kernel/target/riscv64gc-unknown-none-elf/debug/bakaos"
+            ],
+            "processCreateCommands": [
+                "gdb-remote localhost:1234"
+            ],
+            "initCommands": [
+                "process handle --pass true --stop false --notify true SIGTRAP"
+            ],
+            "preLaunchTask": "Debug LoongArch64 (Qemu)",
+            "internalConsoleOptions": "neverOpen",
+        },
+        {
+            "name": "(Release, LoongArch64) Qemu",
+            "type": "lldb",
+            "request": "attach",
+            "targetCreateCommands": [
+                "target create ${workspaceFolder}/kernel/target/loongarch64-unknown-none/release-with-debug/bakaos"
+            ],
+            "processCreateCommands": [
+                "gdb-remote localhost:1234"
+            ],
+            "initCommands": [
+                "process handle --pass true --stop false --notify true SIGTRAP"
+            ],
+            "preLaunchTask": "Debug LoongArch64 (Qemu, Release)",
+            "internalConsoleOptions": "neverOpen",
+        },
+    ]
+}
