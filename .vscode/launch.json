@@ -14,6 +14,9 @@
             "initCommands": [
                 "process handle --pass true --stop false --notify true SIGTRAP"
             ],
+            "sourceLanguages": [
+                "rust"
+            ],
             "preLaunchTask": "Debug RISC-V64 (Qemu)",
             "internalConsoleOptions": "neverOpen",
         },
@@ -29,6 +32,9 @@
             ],
             "initCommands": [
                 "process handle --pass true --stop false --notify true SIGTRAP"
+            ],
+            "sourceLanguages": [
+                "rust"
             ],
             "preLaunchTask": "Debug RISC-V64 (Qemu, Release)",
             "internalConsoleOptions": "neverOpen",
