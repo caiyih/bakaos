@@ -604,25 +604,21 @@ impl MemorySpaceBuilder {
             }
         }
 
-        if is_shebang {
-            let first_new_line = match header.iter().position(|b| *b == b'\n') {
-                Some(idx) => idx,
-                None => {
-                    return Err("Can not find the end of the shebang within the first 128 bytes")
-                }
-            };
-
-            debug_assert!(first_new_line > 2);
-
-            // If the file starts with a shebang, process it
-            let shebang = header[2..first_new_line].trim_ascii();
-
-            if let Ok(ret) = try_shebang(shebang) {
-                return Ok(ret);
-            }
+        if !is_shebang {
+            return Err("No interpreter specified");
         }
 
-        Err("Unable to find the end of shebang within SHEBANG_MAX_LEN bytes or open default interpreter")
+        let first_new_line = match header.iter().position(|b| *b == b'\n') {
+            Some(idx) => idx,
+            None => return Err("Can not find the end of the shebang within the first 128 bytes"),
+        };
+
+        debug_assert!(first_new_line > 2);
+
+        // If the file starts with a shebang, process it
+        let shebang = header[2..first_new_line].trim_ascii();
+
+        try_shebang(shebang)
     }
 
     fn from_elf(
