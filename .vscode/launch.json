@@ -47,6 +47,7 @@
             "program": "${workspaceFolder}/kernel/target/riscv64gc-unknown-none-elf/debug/bakaos",
             "miDebuggerServerAddress": "localhost:1234",
             "MIMode": "gdb",
+            "miDebuggerPath": "rust-gdb",
             "hardwareBreakpoints": {
                 "require": true,
                 "count": 40,
@@ -63,6 +64,7 @@
             "program": "${workspaceFolder}/kernel/target/riscv64gc-unknown-none-elf/release-with-debug/bakaos",
             "miDebuggerServerAddress": "localhost:1234",
             "MIMode": "gdb",
+            "miDebuggerPath": "rust-gdb",
             "hardwareBreakpoints": {
                 "require": true,
                 "count": 40,
@@ -79,6 +81,7 @@
             "program": "${workspaceFolder}/kernel/target/loongarch64-unknown-none/debug/bakaos",
             "miDebuggerServerAddress": "localhost:1234",
             "MIMode": "gdb",
+            "miDebuggerPath": "rust-gdb",
             "hardwareBreakpoints": {
                 "require": true,
                 "count": 40,
@@ -95,6 +98,7 @@
             "program": "${workspaceFolder}/kernel/target/loongarch64-unknown-none/release-with-debug/bakaos",
             "miDebuggerServerAddress": "localhost:1234",
             "MIMode": "gdb",
+            "miDebuggerPath": "rust-gdb",
             "hardwareBreakpoints": {
                 "require": true,
                 "count": 40,
