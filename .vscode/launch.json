@@ -35,33 +35,31 @@
         },
         {
             "name": "(Debug, LoongArch64) Qemu",
-            "type": "lldb",
-            "request": "attach",
-            "targetCreateCommands": [
-                "target create ${workspaceFolder}/kernel/target/riscv64gc-unknown-none-elf/debug/bakaos"
-            ],
-            "processCreateCommands": [
-                "gdb-remote localhost:1234"
-            ],
-            "initCommands": [
-                "process handle --pass true --stop false --notify true SIGTRAP"
-            ],
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/kernel/target/loongarch64-unknown-none/debug/bakaos",
+            "miDebuggerServerAddress": "localhost:1234",
+            "MIMode": "gdb",
+            "hardwareBreakpoints": {
+                "require": true,
+                "count": 40,
+            },
+            "useExtendedRemote": true,
             "preLaunchTask": "Debug LoongArch64 (Qemu)",
             "internalConsoleOptions": "neverOpen",
         },
         {
             "name": "(Release, LoongArch64) Qemu",
-            "type": "lldb",
-            "request": "attach",
-            "targetCreateCommands": [
-                "target create ${workspaceFolder}/kernel/target/loongarch64-unknown-none/release-with-debug/bakaos"
-            ],
-            "processCreateCommands": [
-                "gdb-remote localhost:1234"
-            ],
-            "initCommands": [
-                "process handle --pass true --stop false --notify true SIGTRAP"
-            ],
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/kernel/target/loongarch64-unknown-none/debug/bakaos",
+            "miDebuggerServerAddress": "localhost:1234",
+            "MIMode": "gdb",
+            "hardwareBreakpoints": {
+                "require": true,
+                "count": 40,
+            },
+            "useExtendedRemote": true,
             "preLaunchTask": "Debug LoongArch64 (Qemu, Release)",
             "internalConsoleOptions": "neverOpen",
         },
