@@ -1,7 +1,7 @@
 use core::slice;
 
 use abstractions::IUsizeAlias;
-use alloc::{collections::BTreeMap, string::String, vec::Vec};
+use alloc::{collections::BTreeMap, string::String, sync::Arc, vec::Vec};
 
 use ::page_table::GenericMappingFlags;
 use address::{
@@ -10,7 +10,7 @@ use address::{
     VirtualPageNumRange,
 };
 use allocation::{alloc_contiguous, alloc_frame, TrackedFrame, TrackedFrameRange};
-use filesystem_abstractions::global_open;
+use filesystem_abstractions::{global_open, DirectoryTreeNode, IInode};
 use log::{debug, warn};
 use xmas_elf::ElfFile;
 
@@ -473,23 +473,82 @@ pub struct MemorySpaceBuilder {
 unsafe impl Sync for MemorySpaceBuilder {}
 unsafe impl Send for MemorySpaceBuilder {}
 
+pub trait ILoadExecutable {
+    fn read_at(&self, offset: usize, buf: &mut [u8]) -> Result<usize, &'static str>;
+
+    fn len(&self) -> usize;
+
+    fn is_empty(&self) -> bool {
+        // clippy requirement
+        self.len() == 0
+    }
+}
+
+impl ILoadExecutable for &[u8] {
+    fn read_at(&self, offset: usize, buf: &mut [u8]) -> Result<usize, &'static str> {
+        if offset >= self.len() {
+            return Ok(0);
+        }
+
+        let end = core::cmp::min(self.len(), offset + buf.len());
+        buf.copy_from_slice(&self[offset..end]);
+
+        Ok(end - offset)
+    }
+
+    fn len(&self) -> usize {
+        (self as &[u8]).len()
+    }
+}
+
+impl ILoadExecutable for dyn IInode {
+    fn read_at(&self, offset: usize, buf: &mut [u8]) -> Result<usize, &'static str> {
+        let this = self as &dyn IInode;
+
+        this.readat(offset, buf).map_err(|_| "Failed to read")
+    }
+
+    fn len(&self) -> usize {
+        let this = self as &dyn IInode;
+
+        this.metadata().size
+    }
+}
+
+impl ILoadExecutable for Arc<DirectoryTreeNode> {
+    fn read_at(&self, offset: usize, buf: &mut [u8]) -> Result<usize, &'static str> {
+        let this = self as &Arc<DirectoryTreeNode>;
+
+        this.readat(offset, buf).map_err(|_| "Failed to read")
+    }
+
+    fn len(&self) -> usize {
+        let this = self as &Arc<DirectoryTreeNode>;
+
+        this.metadata().size
+    }
+}
+
 impl MemorySpaceBuilder {
     pub fn from_raw(
-        data: &[u8],
+        data: &impl ILoadExecutable,
         path: &str,
         args: &[&str],
         envp: &[&str],
     ) -> Result<Self, &'static str> {
         if let Ok((mut shebang, shebang_args)) = Self::from_shebang(data, path) {
-            let shebang_args = unsafe { core::str::from_utf8_unchecked(shebang_args) };
-            let shebang_args = shebang_args
-                .split(' ')
-                .skip_while(|s| s.is_empty())
-                .collect::<Vec<_>>();
+            let args_boxed = {
+                let shebang_args = shebang_args
+                    .split(' ')
+                    .skip_while(|s| s.is_empty())
+                    .collect::<Vec<_>>();
 
-            let mut args_boxed = Vec::with_capacity(shebang_args.len() + args.len());
-            args_boxed.extend_from_slice(&shebang_args);
-            args_boxed.extend_from_slice(args);
+                let mut aggregate_args = Vec::with_capacity(shebang_args.len() + args.len());
+                aggregate_args.extend_from_slice(&shebang_args);
+                aggregate_args.extend_from_slice(args);
+
+                aggregate_args
+            };
 
             shebang.init_stack(&args_boxed, envp);
             Ok(shebang)
@@ -501,39 +560,39 @@ impl MemorySpaceBuilder {
         }
     }
 
-    fn from_shebang<'a>(data: &'a [u8], path: &str) -> Result<(Self, &'a [u8]), &'static str> {
+    fn from_shebang(
+        data: &impl ILoadExecutable,
+        path: &str,
+    ) -> Result<(Self, String), &'static str> {
         const SHEBANG_MAX_LEN: usize = 127;
         const DEFAULT_SHEBANG: &[(&str, &[u8])] = &[(".sh", b"/bin/busybox sh")];
 
-        fn try_shebang(interpreter: &[u8]) -> Result<(MemorySpaceBuilder, &[u8]), &'static str> {
-            let interpreter_path_end = interpreter
-                .iter()
-                .position(|&b| b == b' ')
-                .unwrap_or(interpreter.len());
-            let interpreter_path =
-                unsafe { core::str::from_utf8_unchecked(&interpreter[..interpreter_path_end]) };
+        let mut header = [0u8; SHEBANG_MAX_LEN + 2];
 
-            if let Ok(interpreter_file) = global_open(interpreter_path, None) {
-                if let Ok(contents) = interpreter_file.readall() {
-                    return match MemorySpaceBuilder::from_elf(&contents, interpreter_path) {
-                        Ok(builder) => Ok((builder, &interpreter[interpreter_path_end..])),
-                        Err(err) => Err(err),
-                    };
-                }
+        let len = data.read_at(0, &mut header)?;
 
-                return Err("Unable to find/load interpreter");
-            }
-
-            Err("invalid interpreter path")
-        }
+        let header = &header[..len]; // extract valid part
 
         // Check if the file starts with a shebang or if the path matches any default shebang pattern
-        let is_shebang = data.len() >= 3 && &data[..3] == b"#!/";
+        let is_shebang = len >= 3 && &header[..3] == b"#!/";
         let matches_default_shebang = DEFAULT_SHEBANG.iter().any(|f| path.ends_with(f.0));
 
         if !is_shebang && !matches_default_shebang {
             // Try to use the default shebang
-            return Err("Unable to open default interpreter");
+            return Err("No interpreter specified and no default shebang found");
+        }
+
+        fn try_shebang(shebang: &[u8]) -> Result<(MemorySpaceBuilder, String), &'static str> {
+            let shebang = core::str::from_utf8(shebang).map_err(|_| "Not a valid UTF-8 string")?;
+
+            let (path, args) = shebang.split_once(' ').unwrap_or((shebang, ""));
+
+            let interpreter = global_open(path, None).map_err(|_| "Interpreter not found")?;
+
+            Ok((
+                MemorySpaceBuilder::from_elf(&interpreter, path)?,
+                String::from(args),
+            ))
         }
 
         // Prefer default shebang
@@ -546,38 +605,56 @@ impl MemorySpaceBuilder {
         }
 
         if is_shebang {
-            // If the file starts with a shebang, process it
-            if let Some(end) = data.iter().take(SHEBANG_MAX_LEN).position(|&b| b == b'\n') {
-                let shebang = &data[2..end];
-
-                if let Ok(ret) = try_shebang(shebang) {
-                    return Ok(ret);
+            let first_new_line = match header.iter().position(|b| *b == b'\n') {
+                Some(idx) => idx,
+                None => {
+                    return Err("Can not find the end of the shebang within the first 128 bytes")
                 }
+            };
+
+            debug_assert!(first_new_line > 2);
+
+            // If the file starts with a shebang, process it
+            let shebang = header[2..first_new_line].trim_ascii();
+
+            if let Ok(ret) = try_shebang(shebang) {
+                return Ok(ret);
             }
         }
 
         Err("Unable to find the end of shebang within SHEBANG_MAX_LEN bytes or open default interpreter")
     }
 
-    fn from_elf(elf_data: &[u8], executable_path: &str) -> Result<Self, &'static str> {
+    fn from_elf(
+        elf_data: &impl ILoadExecutable,
+        executable_path: &str,
+    ) -> Result<Self, &'static str> {
         let current_page_table = PageTable::borrow_current();
         let mut memory_space = MemorySpace::empty();
         memory_space.register_kernel_area();
 
         // see https://github.com/caiyih/bakaos/issues/26
-        let boxed_elf: TrackedFrameRange;
+        let boxed_elf_holding: TrackedFrameRange;
+
+        let mut boxed_elf;
 
         let elf_info = {
             let required_frames = elf_data.len().div_ceil(constants::PAGE_SIZE);
 
-            boxed_elf = alloc_contiguous(required_frames).unwrap();
+            boxed_elf_holding = alloc_contiguous(required_frames).unwrap();
 
-            let va = boxed_elf.to_range().start().start_addr().to_high_virtual();
+            let va = boxed_elf_holding
+                .to_range()
+                .start()
+                .start_addr()
+                .to_high_virtual();
 
-            // faster copy than slice::copy_from
-            unsafe { core::ptr::copy(elf_data.as_ptr(), va.as_mut_ptr(), elf_data.len()) };
+            boxed_elf = unsafe { core::slice::from_raw_parts_mut(va.as_mut_ptr(), elf_data.len()) };
 
-            let boxed_elf = unsafe { core::slice::from_raw_parts(va.as_ptr(), elf_data.len()) };
+            let len = elf_data.read_at(0, boxed_elf)?;
+
+            boxed_elf = &mut boxed_elf[..len];
+
             ElfFile::new(boxed_elf)?
         };
 
@@ -653,7 +730,7 @@ impl MemorySpaceBuilder {
                 segment_permissions,
             ));
 
-            let data = &elf_data[ph.offset() as usize..(ph.offset() + ph.file_size()) as usize];
+            let data = &boxed_elf[ph.offset() as usize..(ph.offset() + ph.file_size()) as usize];
 
             let copied = current_page_table.activated_copy_data_to_other(
                 &memory_space.page_table,

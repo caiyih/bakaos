@@ -12,7 +12,8 @@ use timing::TimeSpec;
 use address::{IPageNum, VirtualAddress};
 use hermit_sync::SpinMutex;
 use paging::{
-    MemoryMapFlags, MemoryMapProt, MemorySpace, MemorySpaceBuilder, PageTable, TaskMemoryMap,
+    ILoadExecutable, MemoryMapFlags, MemoryMapProt, MemorySpace, MemorySpaceBuilder, PageTable,
+    TaskMemoryMap,
 };
 
 use crate::{
@@ -169,12 +170,12 @@ impl TaskControlBlock {
 impl TaskControlBlock {
     pub fn execve(
         self: &Arc<TaskControlBlock>,
-        elf: &[u8],
+        elf_loader: &impl ILoadExecutable,
         path: &str,
         args: &[&str],
         envp: &[&str],
     ) -> Result<(), &'static str> {
-        let memory_space_builder = MemorySpaceBuilder::from_raw(elf, path, args, envp)?;
+        let memory_space_builder = MemorySpaceBuilder::from_raw(elf_loader, path, args, envp)?;
 
         *unsafe { self.mut_trap_ctx() } = create_task_context(&memory_space_builder);
 

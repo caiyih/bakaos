@@ -421,12 +421,10 @@ impl ISyncSyscallHandler for ExecveSyscall {
                             envp
                         );
 
-                        let file = filesystem_abstractions::global_open(&fullpath, None)
+                        let file_inode = filesystem_abstractions::global_open(&fullpath, None)
                             .map_err(|_| ErrNo::NoSuchFileOrDirectory)?;
 
-                        let bytes = file.readall().map_err(|_| ErrNo::OperationNotPermitted)?;
-
-                        ctx.execve(&bytes, &fullpath, &args, &envp)
+                        ctx.execve(&file_inode, &fullpath, &args, &envp)
                             .map_err(|_| ErrNo::ExecFormatError)?;
 
                         unsafe {

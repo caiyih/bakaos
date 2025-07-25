@@ -172,7 +172,6 @@ fn run_busybox(path: &str, args: &[&str], envp: &[&str]) {
 
     let memspace = {
         let busybox = filesystem_abstractions::global_open(path, None).unwrap();
-        let busybox = busybox.readall().unwrap();
 
         MemorySpaceBuilder::from_raw(&busybox, path, args, envp).unwrap()
     };
@@ -196,12 +195,10 @@ fn run_preliminary_tests() {
         use tasks::TaskControlBlock;
 
         let memspace = {
-            let elf = filesystem_abstractions::global_open(path, None)
-                .expect("Failed to open path")
-                .readall()
-                .expect("Failed to read file");
+            let elf_file =
+                filesystem_abstractions::global_open(path, None).expect("Failed to open path");
 
-            MemorySpaceBuilder::from_raw(&elf, path, args.unwrap_or(&[]), envp.unwrap_or(&[]))
+            MemorySpaceBuilder::from_raw(&elf_file, path, args.unwrap_or(&[]), envp.unwrap_or(&[]))
                 .unwrap()
         };
 
