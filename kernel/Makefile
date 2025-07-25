@@ -64,7 +64,9 @@ run: build _prepare_sdcard
 	$(QEMU) $(QEMU-ARGS-$(ARCH)) 2>&1 | tee qemu_output.log
 	@python3 unwinder.py --silent --file qemu_output.log
 
-debug: build _prepare_sdcard
+debug: build _prepare_sdcard _debug_internal
+
+_debug_internal:
 	pkill qemu || echo '[!] Previous Qemu killed'
 	@echo '[!] Waiting for debugger'
 	@$(QEMU) $(QEMU-ARGS-$(ARCH)) -s -S 2>&1 | tee qemu_output.log

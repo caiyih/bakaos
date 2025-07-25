@@ -30,7 +30,7 @@ output.log
 results.json
 __pycache__
 
-.vscode
+.vscode/settings.json
 
 # We want to ignore the workspace setup script by default
 # So that developers can modify it freely without worrying about git
@@ -41,14 +41,14 @@ bin
 obj
 
 # testsuits for 2025 preliminary contest
-sdcard-la.img.zst
-sdcard-rv.img.zst
-sdcard-la.img.xz
-sdcard-rv.img.xz
-sdcard-la.img.gz
-sdcard-rv.img.gz
-sdcard-la.img
-sdcard-rv.img
+sdcard-la.img.zst*
+sdcard-rv.img.zst*
+sdcard-la.img.xz*
+sdcard-rv.img.xz*
+sdcard-la.img.gz*
+sdcard-rv.img.gz*
+sdcard-la.img*
+sdcard-rv.img*
 
 # Build artifacts for test script
 kernel-rv
