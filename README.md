@@ -192,7 +192,7 @@ $ make debug
 
 You have to connect use a GDB client or run `make connect` to connect to the GDB server.
 
-Also, vscode debugging is supported. Just open the development workspace in vscode and press `F5`. No need to run `make debug` manually.
+Also, vscode debugging is supported. Ensure you have installed the [`CodeLLDB`](https://marketplace.visualstudio.com/items?itemName=vadimcn.vscode-lldb) extension. Just open the development workspace in vscode and press `F5`.
 
 #### Clean
 
