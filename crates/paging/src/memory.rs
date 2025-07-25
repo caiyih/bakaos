@@ -537,14 +537,18 @@ impl MemorySpaceBuilder {
         envp: &[&str],
     ) -> Result<Self, &'static str> {
         if let Ok((mut shebang, shebang_args)) = Self::from_shebang(data, path) {
-            let shebang_args = shebang_args
-                .split(' ')
-                .skip_while(|s| s.is_empty())
-                .collect::<Vec<_>>();
+            let args_boxed = {
+                let shebang_args = shebang_args
+                    .split(' ')
+                    .skip_while(|s| s.is_empty())
+                    .collect::<Vec<_>>();
 
-            let mut args_boxed = Vec::with_capacity(shebang_args.len() + args.len());
-            args_boxed.extend_from_slice(&shebang_args);
-            args_boxed.extend_from_slice(args);
+                let mut aggregate_args = Vec::with_capacity(shebang_args.len() + args.len());
+                aggregate_args.extend_from_slice(&shebang_args);
+                aggregate_args.extend_from_slice(args);
+
+                aggregate_args
+            };
 
             shebang.init_stack(&args_boxed, envp);
             Ok(shebang)
