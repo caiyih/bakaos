@@ -571,6 +571,8 @@ impl MemorySpaceBuilder {
 
         let len = data.read_at(0, &mut header)?;
 
+        let header = &header[..len]; // extract valid part
+
         // Check if the file starts with a shebang or if the path matches any default shebang pattern
         let is_shebang = len >= 3 && &header[..3] == b"#!/";
         let matches_default_shebang = DEFAULT_SHEBANG.iter().any(|f| path.ends_with(f.0));
@@ -610,10 +612,10 @@ impl MemorySpaceBuilder {
                 }
             };
 
-            let header = &mut header[..first_new_line];
+            debug_assert!(first_new_line > 2);
 
             // If the file starts with a shebang, process it
-            let shebang = &header[2..].trim_ascii();
+            let shebang = header[2..first_new_line].trim_ascii();
 
             if let Ok(ret) = try_shebang(shebang) {
                 return Ok(ret);
