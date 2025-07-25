@@ -580,20 +580,17 @@ impl MemorySpaceBuilder {
             return Err("No interpreter specified and no default shebang found");
         }
 
-        fn try_shebang(
-            interpreter_path: &[u8],
-        ) -> Result<(MemorySpaceBuilder, String), &'static str> {
-            let interpreter_path =
-                core::str::from_utf8(interpreter_path).map_err(|_| "Not a valid UTF-8 string")?;
+        fn try_shebang(shebang: &[u8]) -> Result<(MemorySpaceBuilder, String), &'static str> {
+            let shebang = core::str::from_utf8(shebang).map_err(|_| "Not a valid UTF-8 string")?;
 
-            if let Ok(interpreter_file) = global_open(interpreter_path, None) {
-                return match MemorySpaceBuilder::from_elf(&interpreter_file, interpreter_path) {
-                    Ok(builder) => Ok((builder, String::from(interpreter_path))),
-                    Err(err) => Err(err),
-                };
-            }
+            let (path, args) = shebang.split_once(' ').unwrap_or((shebang, ""));
 
-            Err("invalid interpreter path")
+            let interpreter = global_open(path, None).map_err(|_| "Interpreter not found")?;
+
+            Ok((
+                MemorySpaceBuilder::from_elf(&interpreter, path)?,
+                String::from(args),
+            ))
         }
 
         // Prefer default shebang
