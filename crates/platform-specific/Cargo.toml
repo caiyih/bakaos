@@ -7,6 +7,9 @@ edition = "2021"
 
 [dependencies]
 
+[build-dependencies]
+source-generation = { path = "../../source-generation" }
+
 [target.'cfg(target_arch = "riscv64")'.dependencies]
 riscv = "0.12"
 

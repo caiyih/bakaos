@@ -23,6 +23,8 @@ pub use loongarch64::*;
 #[cfg(target_arch = "loongarch64")]
 pub type TaskTrapContext = loongarch64::TaskTrapContext;
 
+mod generated;
+
 mod context;
 mod serial;
 mod syscalls;
