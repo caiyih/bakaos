@@ -139,10 +139,13 @@ fn check_feature_selected(source_text: &mut SourceText) {
     let arch_to_features = PLATFORM_VALIDATIONS
         .iter()
         .flat_map(|p| p.arch.iter().map(move |arch| (arch, p.feature)))
-        .fold(BTreeMap::new(), |mut map, (arch, feature)| {
-            map.entry(arch).or_insert_with(|| vec![feature]);
-            map
-        });
+        .fold(
+            BTreeMap::new(),
+            |mut map: BTreeMap<&TargetArch, Vec<_>>, (arch, feature)| {
+                map.entry(arch).or_default().push(feature);
+                map
+            },
+        );
 
     for (arch, features_list) in arch_to_features
         .iter()
@@ -168,7 +171,7 @@ fn check_feature_selected(source_text: &mut SourceText) {
         ));
         source_text.generate_error("No platform feature enabled, please enable one");
 
-        for i in 0..(features_list.len() - 1) {
+        for i in 0..features_list.len() {
             for j in (i + 1)..features_list.len() {
                 let (f1, f2) = (features_list[i], features_list[j]);
 
