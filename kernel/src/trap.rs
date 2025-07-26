@@ -50,10 +50,15 @@ pub async fn user_trap_handler_async(tcb: &Arc<TaskControlBlock>, return_reason:
             tcb.borrow_page_table().restore_temporary_modified_pages();
         }
         e => {
+            let pcb = tcb.pcb.lock();
             log::warn!(
-                "[Task: {}] User mode exeption occurred: {:?}, kernel killing it.",
+                "[Task: {}] User mode exeption occurred: {:?}, kernel killing it. Commandline: \"{} {:?}\".Memory space: \n{:#018x?}\nTrap Context: \n{:#018x?}",
                 tcb.task_id.id(),
-                e
+                e,
+                pcb.executable,
+                pcb.command_line,
+                pcb.memory_space.mappings(),
+                unsafe { tcb.trap_context.get().as_ref().unwrap() },
             );
 
             *tcb.task_status.lock() = TaskStatus::Exited;
