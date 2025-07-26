@@ -124,9 +124,7 @@ fn check_feature_selected(source_text: &mut SourceText) {
         .iter()
         .flat_map(|p| p.arch.iter().map(move |arch| (arch, p.feature)))
         .fold(BTreeMap::new(), |mut map, (arch, feature)| {
-            map.entry(arch.clone())
-                .or_insert_with(Vec::new)
-                .push(feature);
+            map.entry(arch).or_insert_with(|| vec![feature]);
             map
         });
 
