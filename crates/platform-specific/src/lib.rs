@@ -23,6 +23,7 @@ pub use loongarch64::*;
 #[cfg(target_arch = "loongarch64")]
 pub type TaskTrapContext = loongarch64::TaskTrapContext;
 
+#[rustfmt::skip]
 mod generated;
 
 mod context;
