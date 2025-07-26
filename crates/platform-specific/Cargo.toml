@@ -12,3 +12,9 @@ riscv = "0.12"
 
 [target.'cfg(target_arch = "loongarch64")'.dependencies]
 ns16550a = "0.4.0"
+
+[features]
+default = ["virt"]
+virt = []
+vf2 = []
+2k1000 = []
