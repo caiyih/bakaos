@@ -10,7 +10,7 @@ SECTIONS
 
     stext = .;
     .text ALIGN(4K) : AT(BASE_ADDRESS) {
-        *(.text.entry)
+        KEEP(*(.text.entry))
         *(.text .text.*)
         . = ALIGN(4K);
         strampoline = .;

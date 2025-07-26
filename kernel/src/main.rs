@@ -35,14 +35,6 @@ use crate::trap::ProcInterrputsInode;
 
 extern crate alloc;
 
-// Rust compiler leaves out `_start` if not explicitly used in the exact project to be compiled
-// So we use a stub to ensure it compiled.
-// This function does not have to be called, and is even not compiled
-// it's only used to cheat the compiler
-unsafe extern "C" fn __ensure_start_compiled() -> ! {
-    platform_abstractions::_start();
-}
-
 #[cfg(target_arch = "loongarch64")]
 macro_rules! libc_val {
     () => {
