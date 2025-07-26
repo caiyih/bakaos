@@ -1,5 +1,5 @@
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fmt::Display,
     sync::LazyLock,
     time::{SystemTime, UNIX_EPOCH},
@@ -117,15 +117,22 @@ impl SourceText {
     }
 }
 
-fn check_target_arch(source_text: &mut SourceText) {
+fn check_target_arch() -> bool {
     let target_arch =
         std::env::var("CARGO_CFG_TARGET_ARCH").expect("Failed to get CARGO_CFG_TARGET_ARCH");
 
-    let target_arch = target_arch.as_str().into();
+    let target_arch: TargetArch = target_arch.as_str().into();
 
-    if let TargetArch::NotSupported(target_arch) = target_arch {
-        source_text.generate_error(&format!("Target arch {} is not supported", target_arch));
-    }
+    let supported_architectures =
+        PLATFORM_VALIDATIONS
+            .iter()
+            .flat_map(|p| &p.arch)
+            .fold(BTreeSet::new(), |mut set, arch| {
+                set.insert(arch);
+                set
+            });
+
+    supported_architectures.contains(&target_arch)
 }
 
 fn check_feature_selected(source_text: &mut SourceText) {
@@ -243,11 +250,15 @@ impl ISourceGenerator for FeatureCheckGenerator {
     fn execute(&mut self, ctx: &mut SourceGenerationContext) -> Result<(), SourceGenerationError> {
         let mut source_text = SourceText::new();
 
-        check_target_arch(&mut source_text);
+        // If the target architecture is supported,
+        // We will clean the generated compatibility rules.
+        // As the user may be running a unit test,
+        // those compilation rules may blocks the compilation.
+        if check_target_arch() {
+            check_feature_selected(&mut source_text);
 
-        check_feature_selected(&mut source_text);
-
-        check_platform_compatibility(&mut source_text);
+            check_platform_compatibility(&mut source_text);
+        }
 
         ctx.add_source("_compatibility_rules.rs", &source_text.text, false, true)
     }
