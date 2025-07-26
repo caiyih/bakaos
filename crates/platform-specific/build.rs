@@ -30,6 +30,7 @@ static PLATFORM_VALIDATIONS: LazyLock<Vec<Platform>> = LazyLock::new(|| {
 enum TargetArch {
     RISCV64,
     LoongArch64,
+    X86_64,
     NotSupported(String),
 }
 
@@ -38,7 +39,19 @@ impl Display for TargetArch {
         match self {
             TargetArch::RISCV64 => write!(f, "riscv64"),
             TargetArch::LoongArch64 => write!(f, "loongarch64"),
+            TargetArch::X86_64 => write!(f, "x86_64"),
             TargetArch::NotSupported(s) => write!(f, "NotSupported({})", s),
+        }
+    }
+}
+
+impl From<&str> for TargetArch {
+    fn from(value: &str) -> Self {
+        match value {
+            "riscv64" => TargetArch::RISCV64,
+            "loongarch64" => TargetArch::LoongArch64,
+            "x86_64" => TargetArch::X86_64,
+            _ => TargetArch::NotSupported(value.to_string()),
         }
     }
 }
@@ -108,11 +121,7 @@ fn check_target_arch(source_text: &mut SourceText) {
     let target_arch =
         std::env::var("CARGO_CFG_TARGET_ARCH").expect("Failed to get CARGO_CFG_TARGET_ARCH");
 
-    let target_arch = match target_arch.as_str() {
-        "riscv64" => TargetArch::RISCV64,
-        "loongarch64" => TargetArch::LoongArch64,
-        _ => TargetArch::NotSupported(target_arch),
-    };
+    let target_arch = target_arch.as_str().into();
 
     if let TargetArch::NotSupported(target_arch) = target_arch {
         source_text.generate_error(&format!("Target arch {} is not supported", target_arch));
