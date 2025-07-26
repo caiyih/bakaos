@@ -46,7 +46,7 @@ extern "C" fn __kernel_start_main() -> ! {
     ));
 
     let allocator_bottom = virt_to_phys(ekernel as usize);
-    let allocator_top = allocator_bottom + 0x100000; // 1 MB
+    let allocator_top = allocator_bottom + 0x400000; // 4 MB
 
     allocation::init(allocator_bottom, allocator_top);
     paging::init(PageTable::borrow_current());
