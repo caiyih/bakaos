@@ -130,7 +130,10 @@ fn check_feature_selected(source_text: &mut SourceText) {
             map
         });
 
-    for (arch, features_list) in arch_to_features {
+    for (arch, features_list) in arch_to_features
+        .iter()
+        .filter(|(_, features_list)| !features_list.is_empty())
+    {
         let arch = arch.to_string();
 
         let comment_prefix = format!("// \"{}\" Rule: ", arch);
@@ -151,8 +154,10 @@ fn check_feature_selected(source_text: &mut SourceText) {
         ));
         source_text.generate_error("No platform feature enabled, please enable one");
 
-        for f1 in features_list.iter() {
-            for f2 in features_list.iter().filter(|f| *f != f1) {
+        for i in 0..(features_list.len() - 1) {
+            for j in (i + 1)..features_list.len() {
+                let (f1, f2) = (features_list[i], features_list[j]);
+
                 source_text.append_line(&format!(
                     "{}Only one platform feature can be enabled",
                     comment_prefix
