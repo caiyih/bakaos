@@ -42,8 +42,14 @@ jobs:
         run: cargo clippy --target ${{ matrix.architecture }} -- -D warnings
 
       # driver crate has many features to support different platform
-      - name: Clippy driver
-        run: cargo clippy --target ${{ matrix.architecture }} --all-features --manifest-path=${{ matrix.multi-features-crates }}/Cargo.toml -- -D warnings
+      # FIXME: Temporary disabled this
+      # drivers and its dependency platform-specific is quite special, they have a lot of features
+      # each features match a platform(maybe more if a platform support multiple target architectures, like QEMU's virt)
+      # Test them isn't quite easy, because only one feature can be enabled at a time
+      # And each feature must match their specific target architecture
+      # So let's skip them in CI
+      # - name: Clippy driver
+      #   run: cargo clippy --target ${{ matrix.architecture }} --all-features --manifest-path=${{ matrix.multi-features-crates }}/Cargo.toml -- -D warnings
 
   fmt:
     name: Code Format
