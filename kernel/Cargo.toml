@@ -27,10 +27,10 @@ hermit-sync = "0.1.6"
 log = "0.4.27"
 async-task = { version = "4.7.1", default-features = false }
 platform-abstractions = { path = "../crates/platform-abstractions" }
-platform-specific = { path = "../crates/platform-specific" }
+platform-specific = { path = "../crates/platform-specific", default-features = false }
 page_table = { path = "../crates/page_table" }
 
-drivers = { path = "../crates/drivers", features = ["virt"] }
+drivers = { path = "../crates/drivers", default-features = false, features = ["virt"] }
 bitflags = "2.9.0"
 
 [patch.crates-io]

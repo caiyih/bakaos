@@ -13,7 +13,7 @@ abstractions = { path = "../abstractions", default-features = false }
 allocation = { path = "../allocation", features = ["no_std"] }
 
 [target.'cfg(target_os = "none")'.dependencies]
-platform-specific = { path = "../platform-specific" }
+platform-specific = { path = "../platform-specific", default-features = false }
 
 [features]
 default = []

@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 constants = { path = "../constants" }
 abstractions = { path = "../abstractions", default-features = false }
-platform-specific = { path = "../platform-specific" }
+platform-specific = { path = "../platform-specific", default-features = false }
 
 [features]
 default = ["no_std"]
