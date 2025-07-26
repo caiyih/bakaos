@@ -74,7 +74,7 @@ fn main() -> Result<(), &'static str> {
 }
 
 fn create_user_space(program: &[u8]) -> MemorySpaceBuilder {
-    MemorySpaceBuilder::from_raw(program, "", &[], &[]).unwrap()
+    MemorySpaceBuilder::from_raw(&program, "", &[], &[]).unwrap()
 }
 
 fn create_task_context(mem_space: &MemorySpaceBuilder) -> TaskTrapContext {

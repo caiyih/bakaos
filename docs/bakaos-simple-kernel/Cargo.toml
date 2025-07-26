@@ -4,12 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-platform-abstractions = { git = "https://github.com/caiyih/bakaos.git" }
-platform-specific = { git = "https://github.com/caiyih/bakaos.git" }
-paging = { git = "https://github.com/caiyih/bakaos.git" }
-allocation = { git = "https://github.com/caiyih/bakaos.git" }
-threading = { git = "https://github.com/caiyih/bakaos.git" }
-address = { git = "https://github.com/caiyih/bakaos.git" }
-abstractions = { git = "https://github.com/caiyih/bakaos.git" }
-global_heap = { git = "https://github.com/caiyih/bakaos.git" }
+platform-abstractions = { path = "../../crates/platform-abstractions" }
+platform-specific = { path = "../../crates/platform-specific" }
+paging = { path = "../../crates/paging" }
+allocation = { path = "../../crates/allocation" }
+threading = { path = "../../crates/threading" }
+address = { path = "../../crates/address" }
+abstractions = { path = "../../crates/abstractions" }
+global_heap = { path = "../../crates/global_heap" }
 buddy_system_allocator = { git = "https://github.com/neuq-rcore/buddy_system_allocator" }
