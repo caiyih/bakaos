@@ -253,7 +253,7 @@ unsafe extern "C" fn __kernel_init() {
 
     debug_info();
     logging::init();
-    drivers::initialize();
+    drivers::initialize_rtc();
     kernel::init();
 
     memory::init();
