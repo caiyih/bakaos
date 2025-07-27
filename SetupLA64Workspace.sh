@@ -11,6 +11,10 @@ cat << EOF > .vscode/settings.json
     "rust-analyzer.rustc.source": "discover",
     "rust-analyzer.cargo.target": "${TARGET}",
     "rust-analyzer.check.allTargets": false,
+    "rust-analyzer.check.noDefaultFeatures": true,
+    "rust-analyzer.cargo.noDefaultFeatures": true,
+    "rust-analyzer.cargo.features": ["virt"],
+    "rust-analyzer.check.features": ["virt"],
     "rust-analyzer.check.extraArgs": [
         "--target",
         "${TARGET}"

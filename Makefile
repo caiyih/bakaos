@@ -11,6 +11,7 @@ QEMU_SMP := 1 # TODO: Fix this
 LOG ?= OFF
 MODE ?= release
 ARCH :=
+PROFILE ?= virt
 
 ifeq ($(ARCH), riscv64)
 	TARGET := riscv64gc-unknown-none-elf
@@ -66,7 +67,7 @@ build: _build_internal _prepare_image
 
 _build_internal:
 	@echo "Building..."
-	cd kernel && LOG=${LOG} cargo build --release --target ${TARGET}
+	cd kernel && LOG=${LOG} cargo build --release --target ${TARGET} --features ${PROFILE} --no-default-features
 
 _prepare_image:
 	@echo "Preparing image..."
@@ -105,6 +106,13 @@ test-online-final: build-online-final _prepare_sdcard
 	@KERNEL_TEST="O" make _test_final_internal
 
 _test_final_internal: _build_internal _test_internal
+
+vf2:
+	@make build ARCH=riscv64 PROFILE=vf2
+	@mv kernel-rv kernel-vf2
+	@rust-objcopy -O binary --strip-all kernel-vf2 kernel-vf2.bin
+	@mv kernel-vf2 kernel-vf2.debug
+	@echo "Build complete. Kernel image is in kernel-vf2.bin"
 
 parse:
 	@echo "Parsing test output..."

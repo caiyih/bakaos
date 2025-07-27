@@ -1,5 +1,4 @@
 [build]
-linker = "rust-lld"
 rustflags = [
     "-Clink-arg=-Tlinker.ld", "-Cforce-frame-pointers=yes"
 ]

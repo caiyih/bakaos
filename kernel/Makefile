@@ -2,6 +2,7 @@
 OUTPUT_NAME = bakaos
 CARGO := cargo
 OBJCOPY := rust-objcopy
+PROFILE=virt
 
 ARCH := riscv64
 
@@ -52,7 +53,7 @@ QEMU-ARGS-loongarch64 := $(QEMU-ARGS-common) \
 all: help
 
 build:
-	$(CARGO) build $(CARGO_FLAGS)
+	$(CARGO) build $(CARGO_FLAGS) --no-default-features --features $(PROFILE)
 
 strip:
 	@$(OBJCOPY) --strip-all $(KERNEL_ELF) $(KERNEL_ELF)

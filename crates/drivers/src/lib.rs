@@ -24,7 +24,7 @@ use loongarch64::*;
 mod rtc;
 pub use rtc::{current_timespec, current_timeval, ITimer, UserTaskTimer};
 
-pub fn initialize() {
+pub fn initialize_rtc() {
     let rtc_offset = machine().get_rtc_offset();
     rtc::initialize(rtc_offset);
 }
