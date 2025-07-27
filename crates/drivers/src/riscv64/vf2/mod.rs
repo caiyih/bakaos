@@ -6,7 +6,7 @@ use abstractions::IUsizeAlias;
 use address::IConvertablePhysicalAddress;
 use address::PhysicalAddress;
 use alloc::{boxed::Box, sync::Arc};
-use timing::{TimeSpec, NSEC_PER_SEC};
+use timing::TimeSpec;
 
 use crate::{BlockDeviceInode, IMachine};
 
@@ -41,8 +41,8 @@ impl IMachine for VF2Machine {
     }
 
     fn memory_end(&self) -> usize {
-        // 4 GB
-        0x1_80000000
+        // start + size
+        0x0000000040000000 + 0x0000000100000000
     }
 
     fn create_block_device_at(&self, device_id: usize) -> Arc<BlockDeviceInode> {
@@ -63,19 +63,10 @@ impl IMachine for VF2Machine {
 
         // mmio, width
         // 0x17040000, 0x10000
-        let mmio = PhysicalAddress::from_usize(0x17040000);
-        let mmio = mmio.to_high_virtual();
+        // let mmio = PhysicalAddress::from_usize(0x17040000);
+        // let mmio = mmio.to_high_virtual();
 
-        let low = unsafe { mmio.as_ptr::<u32>().read_volatile() };
-        let tick = self.query_performance_counter();
-
-        let high = unsafe { mmio.as_ptr::<u32>().add(1).read_volatile() };
-
-        let rtc_ns = ((high as u64) << 32) | low as u64;
-
-        let reg_time = TimeSpec::from_ticks(tick as i64, self.query_performance_frequency());
-        let rtc_time = TimeSpec::from_ticks(rtc_ns as i64, NSEC_PER_SEC as u64);
-
-        rtc_time - reg_time
+        // No RTC support for now
+        TimeSpec::zero()
     }
 }
