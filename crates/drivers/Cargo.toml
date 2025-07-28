@@ -23,6 +23,6 @@ cfg-if = "1.0"
 source-generation = { path = "../../source-generation" }
 
 [features]
-default = []
+default = ["virt"]
 virt = []
 vf2 = ["visionfive2-sd"]
