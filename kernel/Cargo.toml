@@ -38,7 +38,7 @@ bitflags = "2.9.0"
 cty = { git = "https://github.com/neuq-rcore/lwext4_rust.git" }
 
 [features]
-default = []
+default = ["virt"]
 virt = ["platform-specific/virt", "drivers/virt"]
 vf2 = ["platform-specific/vf2", "drivers/vf2"]
 2k1000 = ["platform-specific/2k1000"]
