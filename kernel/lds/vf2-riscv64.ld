@@ -12,7 +12,7 @@ SECTIONS
     skernel = .;
 
     stext = .;
-    .text ALIGN(4K) : AT(BASE_ADDRESS) {
+    .text ALIGN(4K) : {
         KEEP(*(.text.entry))
         *(.text .text.*)
         . = ALIGN(4K);
@@ -58,14 +58,13 @@ SECTIONS
 
     . = ALIGN(4K);
     ebss = .;
-
-    . = ALIGN(8);
+    ekernel = .;
 
     .debug_line : {
         KEEP(*(.debug_line))
     }
 
-    . = ALIGN(8);
-
-    ekernel = .;
+    /DISCARD/ : {
+        *(.eh_frame)
+    }
 }
