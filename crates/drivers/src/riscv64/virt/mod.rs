@@ -16,12 +16,13 @@ use crate::{BlockDeviceInode, IMachine};
 #[derive(Clone, Copy)]
 pub struct VirtMachine;
 
-impl VirtMachine {
-    #[allow(unused)]
-    pub const fn new() -> Self {
-        Self
-    }
+#[allow(unused)]
+pub fn machine_virt() -> &'static dyn IMachine {
+    static INSTANCE: VirtMachine = VirtMachine;
+    &INSTANCE
+}
 
+impl VirtMachine {
     const fn bus0(&self) -> usize {
         0x1000_1000
     }

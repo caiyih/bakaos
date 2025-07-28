@@ -14,12 +14,13 @@ use crate::{BlockDeviceInode, IMachine};
 #[derive(Clone, Copy)]
 pub struct VF2Machine;
 
-impl VF2Machine {
-    #[allow(unused)]
-    pub const fn new() -> Self {
-        Self
-    }
+#[allow(unused)]
+pub fn machine_vf2() -> &'static dyn IMachine {
+    static INSTANCE: VF2Machine = VF2Machine;
+    &INSTANCE
+}
 
+impl VF2Machine {
     const fn bus0(&self) -> usize {
         0x16020000
     }
