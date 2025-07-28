@@ -119,7 +119,6 @@ impl IRawDiskDevice for VisionFive2Disk {
     }
 
     fn capacity(&self) -> u64 {
-        512 * 1024 * 1024
-        // todo!("IRawDiskDevice::capacity not implemented for VisionFive2Disk")
+        todo!("IRawDiskDevice::capacity not implemented for VisionFive2Disk")
     }
 }
