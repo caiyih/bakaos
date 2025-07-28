@@ -82,7 +82,10 @@ impl VisionFive2Disk {
     const SECTOR_SIZE: usize = 512;
 
     pub fn new(hal: VisionFive2SdMMIO) -> VisionFive2Disk {
-        let driver = Vf2SdDriver::<_, SleepHelper>::new(hal);
+        let mut driver = Vf2SdDriver::<_, SleepHelper>::new(hal);
+
+        driver.init();
+
         VisionFive2Disk {
             sector: 0,
             offset: 0,
@@ -116,6 +119,7 @@ impl IRawDiskDevice for VisionFive2Disk {
     }
 
     fn capacity(&self) -> u64 {
-        todo!("IRawDiskDevice::capacity not implemented for VisionFive2Disk")
+        512 * 1024 * 1024
+        // todo!("IRawDiskDevice::capacity not implemented for VisionFive2Disk")
     }
 }
