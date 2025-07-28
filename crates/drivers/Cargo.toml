@@ -16,7 +16,7 @@ hermit-sync = "0.1.6"
 filesystem-abstractions = { path = "../filesystem-abstractions", default-features = false }
 timing = { path = "../timing", default-features = false }
 platform-specific = { path = "../platform-specific", default-features = false }
-visionfive2-sd = { git = "https://github.com/os-module/visionfive2-sd", optional = true }
+visionfive2-sd = { git = "https://github.com/neuq-rcore/visionfive2-sd.git", default-features = false, features = ["bequietpls"], optional = true }
 cfg-if = "1.0"
 
 [build-dependencies]
