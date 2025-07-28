@@ -6,12 +6,19 @@ use abstractions::IUsizeAlias;
 use address::IConvertablePhysicalAddress;
 use address::PhysicalAddress;
 use alloc::{boxed::Box, sync::Arc};
+use platform_specific::legacy_println;
 use timing::TimeSpec;
 
 use crate::{BlockDeviceInode, IMachine};
 
 #[derive(Clone, Copy)]
 pub struct VF2Machine;
+
+#[allow(unused)]
+pub fn machine_vf2() -> &'static dyn IMachine {
+    static INSTANCE: VF2Machine = VF2Machine;
+    &INSTANCE
+}
 
 impl VF2Machine {
     const fn bus0(&self) -> usize {
@@ -57,6 +64,7 @@ impl IMachine for VF2Machine {
     }
 
     fn get_rtc_offset(&self) -> TimeSpec {
+        legacy_println!("Entered virtual call");
         // TODO: this is a temporary implementation, only mmio is comfirmerd
         // This implementation is based on QEMU virt's implementation, goldfish_rtc
         // Need to figure out the layout of the RTC registers

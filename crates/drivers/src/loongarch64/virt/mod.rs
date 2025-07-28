@@ -12,6 +12,12 @@ use virtio_drivers::device::blk::VirtIOBlk;
 
 use crate::{BlockDeviceInode, IMachine};
 
+#[allow(unused)]
+pub fn machine_virt() -> &'static dyn IMachine {
+    static INSTANCE: VirtMachine = VirtMachine;
+    &INSTANCE
+}
+
 #[derive(Clone, Copy)]
 pub struct VirtMachine;
 

@@ -30,7 +30,7 @@ platform-abstractions = { path = "../crates/platform-abstractions" }
 platform-specific = { path = "../crates/platform-specific", default-features = false }
 page_table = { path = "../crates/page_table" }
 
-drivers = { path = "../crates/drivers", default-features = false, features = ["virt"] }
+drivers = { path = "../crates/drivers", default-features = false }
 bitflags = "2.9.0"
 
 [patch.crates-io]

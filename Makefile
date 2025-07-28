@@ -110,7 +110,7 @@ _test_final_internal: _build_internal _test_internal
 vf2:
 	@make build ARCH=riscv64 PROFILE=vf2
 	@mv kernel-rv kernel-vf2
-	@rust-objcopy -O binary --strip-all kernel-vf2 kernel-vf2.bin
+	@rust-objcopy -O binary --gap-fill=0 --strip-all kernel-vf2 kernel-vf2.bin
 	@mv kernel-vf2 kernel-vf2.debug
 	@echo "Build complete. Kernel image is in kernel-vf2.bin"
 

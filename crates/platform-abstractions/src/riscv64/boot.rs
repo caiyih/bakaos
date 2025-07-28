@@ -9,10 +9,16 @@ use crate::clear_bss;
 #[allow(clippy::missing_safety_doc)]
 pub unsafe extern "C" fn _start() -> ! {
     naked_asm!(
-        // Read the hart id
-        "mv tp, a0",
-        // Read the device tree address
-        "mv gp, a1",
+        // FIXME: we use `go ${addr}` to boot in Vision Five 2
+        // So these arguments were NOT passed by bootloader, and therefore we
+        // have to manually set them here.
+        // To prevent any undefined behavior, we set them to zero.
+        "xor tp, tp, tp",
+        "xor gp, gp, gp",
+        // // Read the hart id
+        // "mv tp, a0",
+        // // Read the device tree address
+        // "mv gp, a1",
         // Setup virtual memory
         // See comments below for details
         "la t0, {page_table}",

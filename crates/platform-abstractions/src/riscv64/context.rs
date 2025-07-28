@@ -24,6 +24,9 @@ static mut THREAD_CONTEXT_POOL: [KernelThreadContext; PROCESSOR_COUNT] =
 // Can only be called once for each thread.
 pub unsafe fn init_thread_info() {
     let hartid = platform_specific::tp();
+
+    platform_specific::legacy_println!("Initialize hart, id: {}", hartid);
+
     let p_ctx = unsafe { &raw mut THREAD_CONTEXT_POOL[hartid] }.cast::<usize>();
 
     p_ctx.write_volatile(hartid);
