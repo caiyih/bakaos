@@ -17,6 +17,11 @@ use crate::{BlockDeviceInode, IMachine};
 pub struct VirtMachine;
 
 impl VirtMachine {
+    #[allow(unused)]
+    pub const fn new() -> Self {
+        Self
+    }
+
     const fn bus0(&self) -> usize {
         0x1000_1000
     }

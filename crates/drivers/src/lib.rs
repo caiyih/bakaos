@@ -29,23 +29,20 @@ pub fn initialize_rtc() {
     rtc::initialize(rtc_offset);
 }
 
+cfg_if::cfg_if! {
+    if #[cfg(target_arch = "riscv64")] {
+        type MachineImpl = riscv64::MachineImpl;
+    } else if #[cfg(target_arch = "loongarch64")] {
+        type MachineImpl = loongarch64::MachineImpl;
+    } else {
+        compile_error!("No valid machine feature enabled");
+    }
+}
+
+static MACHINE_IMPL: MachineImpl = MachineImpl::new();
+
 #[inline(always)]
 #[allow(unreachable_code)]
 pub fn machine() -> &'static dyn IMachine {
-    #[cfg(target_arch = "riscv64")]
-    {
-        #[cfg(feature = "virt")]
-        return &riscv64::virt::VirtMachine;
-
-        #[cfg(feature = "vf2")]
-        return &riscv64::vf2::VF2Machine;
-    }
-
-    #[cfg(target_arch = "loongarch64")]
-    {
-        #[cfg(feature = "virt")]
-        return &loongarch64::virt::VirtMachine;
-    }
-
-    panic!("No avaliable machine interface")
+    &MACHINE_IMPL
 }

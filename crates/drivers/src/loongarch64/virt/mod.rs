@@ -15,6 +15,13 @@ use crate::{BlockDeviceInode, IMachine};
 #[derive(Clone, Copy)]
 pub struct VirtMachine;
 
+impl VirtMachine {
+    #[allow(unused)]
+    pub const fn new() -> Self {
+        Self
+    }
+}
+
 impl IMachine for VirtMachine {
     fn name(&self) -> &'static str {
         "QEMU Virt Machine(LoongArch64)"
