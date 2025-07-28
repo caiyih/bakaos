@@ -19,6 +19,9 @@ platform-specific = { path = "../platform-specific", default-features = false }
 visionfive2-sd = { git = "https://github.com/os-module/visionfive2-sd", optional = true }
 cfg-if = "1.0"
 
+[build-dependencies]
+source-generation = { path = "../../source-generation" }
+
 [features]
 default = []
 virt = []
