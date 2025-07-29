@@ -114,6 +114,13 @@ vf2:
 	@mv kernel-vf2 kernel-vf2.debug
 	@echo "Build complete. Kernel image is in kernel-vf2.bin"
 
+2k1000:
+	@make build ARCH=loongarch64 PROFILE=2k1000
+	@mv kernel-la kernel-2k1000
+	@rust-objcopy -O binary --gap-fill=0 --strip-all kernel-2k1000 kernel-2k1000.bin
+	@mv kernel-2k1000 kernel-2k1000.debug
+	@echo "Build complete. Kernel image is in kernel-2k1000.bin"
+
 parse:
 	@echo "Parsing test output..."
 	@python3 test_preliminary/filter_log.py output.log basic.log
