@@ -26,3 +26,4 @@ source-generation = { path = "../../source-generation" }
 default = ["virt"]
 virt = []
 vf2 = ["visionfive2-sd"]
+2k1000 = []
