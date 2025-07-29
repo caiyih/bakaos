@@ -41,4 +41,4 @@ cty = { git = "https://github.com/neuq-rcore/lwext4_rust.git" }
 default = ["virt"]
 virt = ["platform-specific/virt", "drivers/virt"]
 vf2 = ["platform-specific/vf2", "drivers/vf2"]
-2k1000 = ["platform-specific/2k1000"]
+2k1000 = ["platform-specific/2k1000", "drivers/2k1000"]
