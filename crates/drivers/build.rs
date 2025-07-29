@@ -59,9 +59,11 @@ impl ISourceGenerator for MachineImplGenerator {
         &mut self,
         context: &mut SourceGenerationContext,
     ) -> Result<(), SourceGenerationError> {
+        let module_name = get_platform_module_name(&self.platform);
+
         let source_text = format!(
             "pub use crate::{}::{}::machine_{} as machine;",
-            self.target_arch, self.platform, self.platform
+            self.target_arch, module_name, self.platform
         );
 
         context.add_source("_machine_export.rs", &source_text, false, true)?;
@@ -79,4 +81,14 @@ impl ISourceGenerator for MachineImplGenerator {
     fn name(&self) -> &'static str {
         "MachineImplGenerator"
     }
+}
+
+fn get_platform_module_name(platform: &str) -> String {
+    if let Some(first_char) = platform.chars().next() {
+        if first_char.is_numeric() {
+            return format!("_{}", platform);
+        }
+    }
+
+    String::from(platform)
 }
