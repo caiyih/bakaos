@@ -95,7 +95,7 @@ impl ISyncSyscallHandler for ShutdownSyscall {
     fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
         log::warn!("Shutdown syscall from task: {}", ctx.task_id.id());
 
-        platform_abstractions::machine_shutdown(false)
+        unsafe { platform_abstractions::machine_shutdown(false) }
     }
 
     fn name(&self) -> &str {
