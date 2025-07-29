@@ -110,7 +110,7 @@ impl SourceText {
 
     pub fn generate_error(&mut self, error_message: &str) {
         self.append_line(&format!(
-            "compile_error!(\"{}\");",
+            "::core::compile_error!(\"{}\");",
             error_message.replace("\"", "\\\"")
         ));
         self.text.push('\n');
