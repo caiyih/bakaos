@@ -608,7 +608,9 @@ impl ISyncSyscallHandler for ExitGroupSyscall {
                 scheduling::task_count()
             );
 
-            platform_abstractions::machine_shutdown(cfg!(debug_assertions));
+            unsafe {
+                platform_abstractions::machine_shutdown(cfg!(debug_assertions));
+            }
         }
 
         Ok(0)
