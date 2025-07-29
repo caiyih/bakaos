@@ -7,15 +7,24 @@ use source_generation::{
 };
 
 fn main() {
-    // Force rebuild
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-    println!("cargo:rustc-env=FORCE_REBUILD_TS={}", now.as_nanos());
+    trigger_force_rebuild();
 
     let context = SourceGenerationContext::new("src/generated".into(), true);
 
     let driver = SourceGenerationDriver::new(vec![Box::new(BuildInfoGenerator)]);
 
     driver.execute(context, false).unwrap();
+}
+
+fn trigger_force_rebuild() {
+    const FORCE_REBUILD_ENV: &str = "FORCE_REBUILD_TS";
+
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+    println!("cargo:rustc-env={}={}", FORCE_REBUILD_ENV, now.as_nanos());
+    println!("cargo:rerun-if-env-changed={}", FORCE_REBUILD_ENV);
+
+    println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=src/generated");
 }
 
 struct BuildInfoGenerator;
