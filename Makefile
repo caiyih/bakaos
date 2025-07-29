@@ -103,7 +103,7 @@ build-online-final:
 	make _prepare_image
 
 test-online-final: build-online-final _prepare_sdcard
-	@KERNEL_TEST="O" make _test_final_internal
+	@KERNEL_TEST="O" make _test_internal
 
 _test_final_internal: _build_internal _test_internal
 
