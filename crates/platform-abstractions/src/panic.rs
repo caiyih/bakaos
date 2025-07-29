@@ -11,9 +11,8 @@ static PANIC_NESTING_DEPTH: AtomicU32 = AtomicU32::new(0);
 
 // A workaround to disable panic_impl for host target
 #[cfg(not(panic = "unwind"))]
-#[no_mangle]
 #[panic_handler]
-unsafe fn rust_begin_unwind(info: &::core::panic::PanicInfo) -> ! {
+unsafe fn _rust_begin_unwind(info: &::core::panic::PanicInfo) -> ! {
     extern "Rust" {
         fn panic_handler(info: &::core::panic::PanicInfo) -> !;
     }
@@ -26,7 +25,8 @@ unsafe fn rust_begin_unwind(info: &::core::panic::PanicInfo) -> ! {
 unsafe extern "Rust" fn panic_handler(info: &::core::panic::PanicInfo) -> ! {
     let nesting_depth = PANIC_NESTING_DEPTH.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
 
-    legacy_println!("[BAKA-OS] Kernel panicked for: {}", info.message());
+    let msg = info.message();
+    legacy_println!("[BAKA-OS] Kernel panicked for: {msg}");
 
     if nesting_depth > 0 {
         legacy_println!("[BAKA-OS] Kernel panic recursion detected!");
@@ -36,7 +36,7 @@ unsafe extern "Rust" fn panic_handler(info: &::core::panic::PanicInfo) -> ! {
         match info.location() {
             Some(location) => {
                 legacy_println!(
-                    "[BAKA-OS]     at {}:{}:{}",
+                    "[BAKA-OS]     at {}:{:#x}:{:#x}",
                     location.file(),
                     location.line(),
                     location.column()
