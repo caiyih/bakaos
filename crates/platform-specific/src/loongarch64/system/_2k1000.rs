@@ -1,3 +1,18 @@
+use loongArch64::register::misc;
+
+pub fn boot_init() {
+    // Disable page modify exception, we don't need it
+    misc::set_dwpl0(true);
+    misc::set_dwpl1(true);
+    misc::set_dwpl2(true);
+
+    // Disable (some of) address aligmnent checks
+    misc::set_alcl0(false);
+    misc::set_alcl1(false);
+    misc::set_alcl2(false);
+    misc::set_alcl3(false);
+}
+
 #[unsafe(no_mangle)]
 #[allow(clippy::empty_loop)]
 extern "C" fn machine_shutdown(_failure: bool) -> ! {

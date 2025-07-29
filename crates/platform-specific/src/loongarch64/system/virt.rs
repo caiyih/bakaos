@@ -1,3 +1,5 @@
+pub fn boot_init() {}
+
 #[no_mangle]
 #[allow(clippy::empty_loop)]
 extern "C" fn machine_shutdown(_failure: bool) -> ! {

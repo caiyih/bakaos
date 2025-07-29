@@ -14,7 +14,7 @@ source-generation = { path = "../../source-generation" }
 riscv = "0.12"
 
 [target.'cfg(target_arch = "loongarch64")'.dependencies]
-ns16550a = "0.4.0"
+loongArch64 = "0.2.4"
 
 [features]
 default = ["virt"]

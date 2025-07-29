@@ -6,6 +6,7 @@ mod system;
 
 // IMPORTANT: Must provide for every platform
 pub mod syscall_ids;
+pub use system::boot_init;
 
 use core::ffi::CStr;
 

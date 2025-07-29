@@ -4,7 +4,7 @@ use loongArch64::{
     self,
     register::{
         ecfg::{self},
-        eentry, euen, misc, tcfg,
+        eentry, euen, tcfg,
     },
 };
 
@@ -183,16 +183,7 @@ extern "C" fn main_processor_init(r21: usize) {
     tcfg::set_periodic(false);
     tcfg::set_en(true);
 
-    // Disable page modify exception, we don't need it
-    misc::set_dwpl0(true);
-    misc::set_dwpl1(true);
-    misc::set_dwpl2(true);
-
-    // Disable (some of) address aligmnent checks
-    misc::set_alcl0(false);
-    misc::set_alcl1(false);
-    misc::set_alcl2(false);
-    misc::set_alcl3(false);
+    platform_specific::boot_init();
 }
 
 fn set_trap_vector_base(eentry: usize) {
