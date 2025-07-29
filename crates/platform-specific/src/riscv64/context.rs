@@ -172,9 +172,9 @@ impl ITaskContext for TaskTrapContext {
     fn new(
         entry_pc: usize,
         stack_top: usize,
-        argc: usize,
-        argv_base: usize,
-        envp_base: usize,
+        _argc: usize,
+        _argv_base: usize,
+        _envp_base: usize,
     ) -> Self {
         let mut ctx = unsafe { core::mem::zeroed::<TaskTrapContext>() };
         ctx.sepc = entry_pc;
@@ -188,9 +188,7 @@ impl ITaskContext for TaskTrapContext {
 
         ctx.sstatus = unsafe { core::mem::transmute::<Sstatus, usize>(sstatus) };
 
-        ctx.regs.a0 = argc;
-        ctx.regs.a1 = argv_base;
-        ctx.regs.a2 = envp_base;
+        ctx.regs.a0 = 0;
 
         ctx
     }

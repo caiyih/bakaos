@@ -124,7 +124,7 @@ impl ITaskContext for TaskTrapContext {
         entry_pc: usize,
         stack_top: usize,
         _argc: usize,
-        argv_base: usize,
+        _argv_base: usize,
         _envp_base: usize,
     ) -> Self {
         const PPLV_UMODE: usize = 0b11;
@@ -135,7 +135,7 @@ impl ITaskContext for TaskTrapContext {
         ctx.era = entry_pc;
         ctx.prmd = PPLV_UMODE | PIE;
 
-        ctx.regs.a0 = argv_base;
+        ctx.regs.a0 = 0;
 
         ctx
     }
