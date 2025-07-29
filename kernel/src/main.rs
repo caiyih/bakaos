@@ -21,7 +21,7 @@ mod syscalls;
 mod trap;
 
 use address::{IConvertableVirtualAddress, VirtualAddress};
-use alloc::{string::String, sync::Arc};
+use alloc::{string::String, sync::Arc, vec::Vec};
 use core::sync::atomic::AtomicBool;
 use dmesg::KernelMessageInode;
 use drivers::current_timespec;
@@ -165,7 +165,11 @@ fn run_busybox(path: &str, args: &[&str], envp: &[&str]) {
     let memspace = {
         let busybox = filesystem_abstractions::global_open(path, None).unwrap();
 
-        MemorySpaceBuilder::from_raw(&busybox, path, args, envp).unwrap()
+        let mut argv = Vec::with_capacity(args.len() + 1);
+        argv.push(path);
+        argv.extend_from_slice(args);
+
+        MemorySpaceBuilder::from_raw(&busybox, path, &argv, envp).unwrap()
     };
 
     let task = ProcessControlBlock::new(memspace);
