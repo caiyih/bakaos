@@ -1,6 +1,10 @@
 use ::sbi_rt::{system_reset, NoReason, Shutdown, SystemFailure};
 use platform_specific::legacy_println;
 
+/// # Safety
+/// Calling this function will shutdown the machine.
+///
+/// This function will never return.
 #[allow(clippy::empty_loop)]
 pub unsafe fn machine_shutdown(failure: bool) -> ! {
     match failure {
