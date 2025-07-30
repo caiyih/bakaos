@@ -39,6 +39,7 @@ pub const SYSCALL_ID_SYSLOG: usize = 116;
 pub const SYSCALL_ID_SCHED_YIELD: usize = 124;
 pub const SYSCALL_ID_TIMES: usize = 153;
 pub const SYSCALL_ID_UNAME: usize = 160;
+pub const SYSCALL_ID_GETRUSAGE: usize = 165;
 pub const SYSCALL_ID_GETTIMEOFDAY: usize = 169;
 pub const SYSCALL_ID_GETPID: usize = 172;
 pub const SYSCALL_ID_GETPPID: usize = 173;
