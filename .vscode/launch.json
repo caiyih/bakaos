@@ -25,7 +25,7 @@
             "type": "lldb",
             "request": "attach",
             "targetCreateCommands": [
-                "target create ${workspaceFolder}/kernel/target/riscv64gc-unknown-none-elf/release-with-debug/bakaos"
+                "target create ${workspaceFolder}/kernel/target/riscv64gc-unknown-none-elf/release/bakaos"
             ],
             "processCreateCommands": [
                 "gdb-remote localhost:1234"
@@ -61,7 +61,7 @@
             "type": "cppdbg",
             "request": "launch",
             "cwd": "${workspaceFolder}",
-            "program": "${workspaceFolder}/kernel/target/riscv64gc-unknown-none-elf/release-with-debug/bakaos",
+            "program": "${workspaceFolder}/kernel/target/riscv64gc-unknown-none-elf/release/bakaos",
             "miDebuggerServerAddress": "localhost:1234",
             "MIMode": "gdb",
             "miDebuggerPath": "rust-gdb",
@@ -95,7 +95,7 @@
             "type": "cppdbg",
             "request": "launch",
             "cwd": "${workspaceFolder}",
-            "program": "${workspaceFolder}/kernel/target/loongarch64-unknown-none/release-with-debug/bakaos",
+            "program": "${workspaceFolder}/kernel/target/loongarch64-unknown-none/release/bakaos",
             "miDebuggerServerAddress": "localhost:1234",
             "MIMode": "gdb",
             "miDebuggerPath": "rust-gdb",

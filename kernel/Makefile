@@ -108,5 +108,5 @@ help:
 	@echo ''
 	@echo 'Environment variables:'
 	@echo '- ARCH=riscv64(default)|loongarch64            : Set the target architecture'
-	@echo '- MODE=debug(default)|release-with-debug       : Set the build mode'
+	@echo '- MODE=debug(default)|release       : Set the build mode'
 	@echo '- LOG=TRACE|DEBUG|INFO(default)|WARN|ERROR|OFF : Set the log level'

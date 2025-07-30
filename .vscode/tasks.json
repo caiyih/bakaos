@@ -17,7 +17,7 @@
         {
             "label": "Build Release (Qemu, RISC-V64)",
             "type": "shell",
-            "command": "make -C kernel build MODE=release-with-debug ARCH=riscv64",
+            "command": "make -C kernel build MODE=release ARCH=riscv64",
             "group": "build",
             "isBackground": false,
             "presentation": {
@@ -43,7 +43,7 @@
         {
             "label": "Build Release (Qemu, LoongArch64)",
             "type": "shell",
-            "command": "make -C kernel build MODE=release-with-debug ARCH=loongarch64",
+            "command": "make -C kernel build MODE=release ARCH=loongarch64",
             "group": "build",
             "isBackground": false,
             "presentation": {

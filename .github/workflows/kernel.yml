@@ -56,7 +56,7 @@ jobs:
         # The matrix tests runs too many flows(2 ^ 3) and always take too much CI resources
         # So we disabled 'OFF' level, because we have another workflow which uses 'OFF' level
         log_level: [TRACE]
-        profile: [release-with-debug, debug]
+        profile: [release, debug]
         architecture:
           - { triplet: riscv64gc-unknown-none-elf, fullname: riscv64, shortname: rv }
           - { triplet: loongarch64-unknown-none, fullname: loongarch64, shortname: la }
