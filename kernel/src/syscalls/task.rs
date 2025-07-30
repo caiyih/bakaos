@@ -6,7 +6,7 @@ use alloc::vec::Vec;
 use constants::{ErrNo, SyscallError};
 use drivers::{current_timespec, current_timeval, ITimer};
 use filesystem_abstractions::DirectoryEntryType;
-use log::{debug, info};
+use log::debug;
 use page_table::GenericMappingFlags;
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, PageTable};
 use platform_specific::{ISyscallContext, ISyscallContextMut, ITaskContext};
@@ -763,9 +763,9 @@ impl ISyncSyscallHandler for GetResUsageSyscall {
                 let mut r = ResUsage::default();
 
                 let (utime, stime) = match target {
-                    RUSAGE_THREAD => task_time(&ctx),
+                    RUSAGE_THREAD => task_time(ctx),
                     RUSAGE_SELF => process_time(&ctx.pcb.lock()),
-                    RUSAGE_CHILDREN => children_time(&ctx),
+                    RUSAGE_CHILDREN => children_time(ctx),
                     _ => return SyscallError::InvalidArgument,
                 };
 
