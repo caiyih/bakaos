@@ -62,6 +62,12 @@ impl TimeVal {
     }
 }
 
+impl Default for TimeVal {
+    fn default() -> Self {
+        Self::zero()
+    }
+}
+
 impl core::ops::Add for TimeVal {
     type Output = TimeVal;
 
