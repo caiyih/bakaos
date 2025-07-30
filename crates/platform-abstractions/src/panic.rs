@@ -36,6 +36,9 @@ unsafe extern "Rust" fn panic_handler(info: &::core::panic::PanicInfo) -> ! {
         match info.location() {
             Some(location) => {
                 legacy_println!(
+                    // Why this line number and column number is hex?
+                    // You should ask why does the rust standard library's decimal formatting causes address misalignment exception.
+                    // Dumb as fuck
                     "[BAKA-OS]     at {}:{:#x}:{:#x}",
                     location.file(),
                     location.line(),
