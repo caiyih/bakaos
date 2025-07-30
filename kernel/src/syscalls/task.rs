@@ -1,4 +1,4 @@
-use core::str;
+use core::{ops::DerefMut, str};
 
 use abstractions::operations::IUsizeAlias;
 use address::{IAddressBase, IPageNum, IToPageNum, VirtualAddress};
@@ -6,11 +6,11 @@ use alloc::vec::Vec;
 use constants::{ErrNo, SyscallError};
 use drivers::{current_timespec, current_timeval, ITimer};
 use filesystem_abstractions::DirectoryEntryType;
-use log::debug;
+use log::{debug, info};
 use page_table::GenericMappingFlags;
 use paging::{page_table::IOptionalPageGuardBuilderExtension, IWithPageGuardBuilder, PageTable};
 use platform_specific::{ISyscallContext, ISyscallContextMut, ITaskContext};
-use tasks::{SyscallContext, TaskCloneFlags, TaskControlBlock, TaskStatus};
+use tasks::{ProcessControlBlock, SyscallContext, TaskCloneFlags, TaskControlBlock, TaskStatus};
 use timing::{TimeSpec, TimeVal};
 
 use crate::scheduling::{self, spawn_task};
@@ -676,5 +676,111 @@ impl ISyncSyscallHandler for GetTaskIdSyscall {
 
     fn name(&self) -> &str {
         "sys_gettid"
+    }
+}
+
+pub struct GetResUsageSyscall;
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default)]
+struct ResUsage {
+    utime: TimeVal,
+    stime: TimeVal,
+    maxrss: usize,
+    ixrss: usize,
+    idrss: usize,
+    isrss: usize,
+    minflt: usize,
+    majflt: usize,
+    nswap: usize,
+    inblock: usize,
+    oublock: usize,
+    msgsnd: usize,
+    msgrcv: usize,
+    nsignals: usize,
+    nvcsw: usize,
+    nivcsw: usize,
+}
+
+fn task_time(task: &TaskControlBlock) -> (TimeVal, TimeVal) {
+    // defined in <time.h>
+    const CLOCKS_PER_SEC: f64 = 1000000.0;
+
+    let timer_elapsed = task.timer.lock().elapsed().total_seconds();
+    let kernel_elapsed = task.kernel_timer.lock().elapsed().total_seconds();
+
+    (
+        TimeVal::from_ticks(
+            (timer_elapsed * CLOCKS_PER_SEC) as i64,
+            CLOCKS_PER_SEC as u64,
+        ),
+        TimeVal::from_ticks(
+            (kernel_elapsed * CLOCKS_PER_SEC) as i64,
+            CLOCKS_PER_SEC as u64,
+        ),
+    )
+}
+
+fn process_time(process: &ProcessControlBlock) -> (TimeVal, TimeVal) {
+    process
+        .tasks
+        .iter()
+        .filter_map(|(_, w)| w.upgrade())
+        .map(|t| task_time(&t))
+        .fold((TimeVal::zero(), TimeVal::zero()), |a, b| {
+            (a.0 + b.0, a.1 + b.1)
+        })
+}
+
+fn children_time(task: &TaskControlBlock) -> (TimeVal, TimeVal) {
+    task.children
+        .lock()
+        .iter()
+        .map(|c| task_time(c))
+        .fold((TimeVal::zero(), TimeVal::zero()), |a, b| {
+            (a.0 + b.0, a.1 + b.1)
+        })
+}
+
+impl ISyncSyscallHandler for GetResUsageSyscall {
+    fn handle(&self, ctx: &mut SyscallContext) -> SyscallResult {
+        pub const RUSAGE_SELF: i32 = 0;
+        pub const RUSAGE_CHILDREN: i32 = -1;
+        pub const RUSAGE_THREAD: i32 = 1;
+
+        let target = ctx.arg0::<i32>();
+        let rusage_ptr = ctx.arg1::<VirtualAddress>();
+
+        match ctx
+            .borrow_page_table()
+            .guard_ptr(rusage_ptr.as_ptr::<ResUsage>())
+            .mustbe_user()
+            .mustbe_readable()
+            .with_write()
+            .as_mut()
+        {
+            Some(rusage) => {
+                let mut r = ResUsage::default();
+
+                let (utime, stime) = match target {
+                    RUSAGE_THREAD => task_time(&ctx),
+                    RUSAGE_SELF => process_time(&ctx.pcb.lock()),
+                    RUSAGE_CHILDREN => children_time(&ctx),
+                    _ => return SyscallError::InvalidArgument,
+                };
+
+                r.utime = utime;
+                r.stime = stime;
+
+                *rusage.deref_mut() = r;
+
+                SyscallError::Success
+            }
+            None => SyscallError::BadAddress,
+        }
+    }
+
+    fn name(&self) -> &str {
+        "sys_getrusage"
     }
 }
