@@ -9,6 +9,7 @@ use filesystem_abstractions::FileDescriptorTable;
 use hermit_sync::SpinMutex;
 use memory_space::MemorySpaceBuilder;
 use memory_space_abstractions::MemorySpace;
+use mmu_abstractions::IMMU;
 use platform_specific::{ITaskContext, TaskTrapContext};
 use task_abstractions::{IProcess, ITask, ITaskIdAllocator, TaskId};
 
@@ -23,6 +24,7 @@ pub struct Process {
     threads: Vec<Arc<dyn ITask>>,
     children: Vec<Weak<dyn IProcess>>,
     memory_space: SpinMutex<MemorySpace>,
+    mmu: Arc<SpinMutex<dyn IMMU>>,
     fd_table: SpinMutex<FileDescriptorTable>,
     working_directory: SpinMutex<String>,
     exit_code: SpinMutex<Option<u8>>,
@@ -41,6 +43,8 @@ impl Process {
 
         Self::register_kernel_area_for_pt(&builder.memory_space);
 
+        let mmu = builder.memory_space.mmu().clone();
+
         let process = Arc::new(Self {
             pgid: *pid,
             pid,
@@ -48,6 +52,7 @@ impl Process {
             parent: None,
             threads: Vec::new(),
             children: Vec::new(),
+            mmu,
             memory_space: SpinMutex::new(builder.memory_space),
             fd_table: SpinMutex::new(FileDescriptorTable::new()),
             working_directory: SpinMutex::new(String::new()),
@@ -105,6 +110,10 @@ impl IProcess for Process {
 
     fn exit_code(&self) -> &SpinMutex<Option<u8>> {
         &self.exit_code
+    }
+
+    fn mmu(&self) -> &SpinMutex<dyn IMMU> {
+        &self.mmu
     }
 }
 

@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 bitflags = "2.6.0"
 hermit-sync = "0.1.6"
+mmu-abstractions = { path = "../mmu-abstractions", default-features = false }
 trap-abstractions = { path = "../trap-abstractions", default-features = false }
 memory-space-abstractions = { path = "../memory-space-abstractions", default-features = false }
 filesystem-abstractions = { path = "../filesystem-abstractions", default-features = false }

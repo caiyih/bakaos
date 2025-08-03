@@ -3,6 +3,7 @@ use std::sync::{Arc, Weak};
 use filesystem_abstractions::FileDescriptorTable;
 use hermit_sync::SpinMutex;
 use memory_space_abstractions::MemorySpace;
+use mmu_abstractions::IMMU;
 use task_abstractions::{status::TaskStatus, IProcess, ITask, UserTaskStatistics};
 use trap_abstractions::ITaskTrapContext;
 
@@ -218,5 +219,9 @@ impl IProcess for TestProcess {
 
     fn exit_code(&self) -> &SpinMutex<Option<u8>> {
         &self.exit_code
+    }
+
+    fn mmu(&self) -> &SpinMutex<dyn IMMU> {
+        unsafe { &self.memory_space().data_ptr().as_ref().unwrap().mmu() }
     }
 }

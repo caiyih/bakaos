@@ -34,9 +34,8 @@ impl SyscallContext {
 
         let mut bytes_written = 0;
 
-        let memory_space = self.task.process().memory_space().lock();
-
-        memory_space
+        self.task
+            .process()
             .mmu()
             .lock()
             .inspect_framed(buf, count, |buf, _| {
@@ -60,7 +59,7 @@ mod tests {
     use hermit_sync::SpinMutex;
     use kernel_abstractions::IKernel;
     use memory_space_abstractions::MemorySpace;
-    use mmu_abstractions::{GenericMappingFlags, IMMU, PageSize};
+    use mmu_abstractions::{GenericMappingFlags, PageSize, IMMU};
     use test_utilities::{
         allocation::contiguous::TestFrameAllocator, kernel::TestKernel, task::TestProcess,
     };

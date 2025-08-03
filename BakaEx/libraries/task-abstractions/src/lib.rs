@@ -15,6 +15,7 @@ use filesystem_abstractions::FileDescriptorTable;
 use hermit_sync::SpinMutex;
 pub use id::*;
 use memory_space_abstractions::MemorySpace;
+use mmu_abstractions::IMMU;
 pub use task_id::*;
 use trap_abstractions::ITaskTrapContext;
 
@@ -32,6 +33,8 @@ pub trait IProcess {
     fn children(&self) -> Vec<Arc<dyn IProcess>>;
 
     fn memory_space(&self) -> &SpinMutex<MemorySpace>;
+
+    fn mmu(&self) -> &SpinMutex<dyn IMMU>;
 
     fn fd_table(&self) -> &SpinMutex<FileDescriptorTable>;
 

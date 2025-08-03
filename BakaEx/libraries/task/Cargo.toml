@@ -11,6 +11,7 @@ memory-space-abstractions = { path = "../memory-space-abstractions", default-fea
 filesystem-abstractions = { path = "../filesystem-abstractions", default-features = false }
 trap-abstractions = { path = "../trap-abstractions", default-features = false }
 task-abstractions = { path = "../task-abstractions", default-features = false }
+mmu-abstractions = { path = "../mmu-abstractions", default-features = false }
 memory-space = { path = "../memory-space", default-features = false }
 
 address = { path = "../address", default-features = false }

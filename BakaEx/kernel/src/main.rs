@@ -86,8 +86,7 @@ fn main(kernel: Arc<Kernel>) -> Result<(), &'static str> {
 
     // activate page tabe for the task
     {
-        let memory_space = task.process().memory_space().lock();
-        let mmu = memory_space.mmu().lock();
+        let mmu = task.process().mmu().lock();
 
         kernel.activate_mmu(mmu.deref());
     }
