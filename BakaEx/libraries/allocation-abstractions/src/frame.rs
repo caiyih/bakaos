@@ -30,9 +30,9 @@ pub struct FrameRangeDesc {
 }
 
 impl FrameRangeDesc {
-    pub unsafe fn new(start: PhysicalAddress, count: usize) -> Self {
+    pub unsafe fn new(start: PhysicalAddress, len: usize) -> Self {
         Self {
-            range: start..start + count,
+            range: start..start + len,
         }
     }
 }

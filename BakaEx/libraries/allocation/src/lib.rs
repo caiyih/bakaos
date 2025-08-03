@@ -119,9 +119,10 @@ impl IFrameAllocator for FrameAllocator {
         match count {
             count if count < avaliable => {
                 let start = self.current;
-                self.current += count * constants::PAGE_SIZE;
+                let len = count * constants::PAGE_SIZE;
+                self.current += len;
 
-                Some(unsafe { FrameRangeDesc::new(start, count) })
+                Some(unsafe { FrameRangeDesc::new(start, len) })
             }
             // Prevent dealloc if we don't have enough frames
             _ => None,
