@@ -15,7 +15,7 @@ use allocation::FrameAllocator;
 use hermit_sync::SpinMutex;
 use kernel_abstractions::IKernel;
 use memory_space::MemorySpaceBuilder;
-use mmu_abstractions::IPageTable;
+use mmu_abstractions::IMMU;
 use mmu_native::PageTable;
 use platform_abstractions::{return_to_user, UserInterrupt};
 use platform_specific::{legacy_println, virt_to_phys, SyscallPayload};
@@ -87,9 +87,9 @@ fn main(kernel: Arc<Kernel>) -> Result<(), &'static str> {
     // activate page tabe for the task
     {
         let memory_space = task.process().memory_space().lock();
-        let pt = memory_space.pt().lock();
+        let mmu = memory_space.mmu().lock();
 
-        kernel.activate_mmu(pt.deref());
+        kernel.activate_mmu(mmu.deref());
     }
     let exit_code = block_on!(task_closure);
 
@@ -107,10 +107,10 @@ static ELF: &'static [u8] = include_bytes!("../../hello-la");
 static ELF: &'static [u8] = include_bytes!("../../hello-rv");
 
 fn create_task(kernel: &Kernel) -> Arc<dyn ITask> {
-    let pt: Arc<SpinMutex<dyn IPageTable>> =
+    let mmu: Arc<SpinMutex<dyn IMMU>> =
         Arc::new(SpinMutex::new(PageTable::alloc(kernel.allocator())));
 
-    let builder = MemorySpaceBuilder::from_elf(&ELF, "", &pt, &kernel.allocator()).unwrap();
+    let builder = MemorySpaceBuilder::from_elf(&ELF, "", &mmu, &kernel.allocator()).unwrap();
 
     let task = Process::new(builder, 0);
     {

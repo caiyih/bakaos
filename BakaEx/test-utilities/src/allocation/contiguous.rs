@@ -6,7 +6,7 @@ use address::PhysicalAddress;
 use allocation::FrameAllocator;
 use allocation_abstractions::IFrameAllocator;
 use hermit_sync::SpinMutex;
-use mmu_abstractions::IPageTable;
+use mmu_abstractions::IMMU;
 
 use crate::{allocation::ITestFrameAllocator, memory::TestMMU};
 
@@ -36,7 +36,7 @@ impl TestFrameAllocator {
         memory_size: usize,
     ) -> (
         Arc<SpinMutex<dyn IFrameAllocator>>,
-        Arc<SpinMutex<dyn IPageTable>>,
+        Arc<SpinMutex<dyn IMMU>>,
     ) {
         let alloc = Self::new(memory_size);
 

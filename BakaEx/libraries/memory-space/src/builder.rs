@@ -11,7 +11,7 @@ use log::{debug, warn};
 use memory_space_abstractions::{
     AreaType, MapType, MappingArea, MemorySpace, MemorySpaceAttribute,
 };
-use mmu_abstractions::{GenericMappingFlags, IPageTable};
+use mmu_abstractions::{GenericMappingFlags, IMMU};
 use xmas_elf::ElfFile;
 
 use crate::auxv::*;
@@ -96,7 +96,7 @@ impl MemorySpaceBuilder {
         args: &[&str],
         envp: &[&str],
         fs: Arc<DirectoryTreeNode>,
-        pt: Arc<SpinMutex<dyn IPageTable>>,
+        pt: Arc<SpinMutex<dyn IMMU>>,
         allocator: Arc<SpinMutex<dyn IFrameAllocator>>,
     ) -> Result<Self, &'static str> {
         if let Ok((mut shebang, shebang_args)) = Self::from_shebang(data, path, fs, &pt, &allocator)
@@ -128,7 +128,7 @@ impl MemorySpaceBuilder {
         data: &impl ILoadExecutable,
         path: &str,
         fs: Arc<DirectoryTreeNode>,
-        pt: &Arc<SpinMutex<dyn IPageTable>>,
+        pt: &Arc<SpinMutex<dyn IMMU>>,
         allocator: &Arc<SpinMutex<dyn IFrameAllocator>>,
     ) -> Result<(Self, String), &'static str> {
         const SHEBANG_MAX_LEN: usize = 127;
@@ -152,7 +152,7 @@ impl MemorySpaceBuilder {
         fn try_shebang(
             shebang: &[u8],
             fs: &Arc<DirectoryTreeNode>,
-            pt: &Arc<SpinMutex<dyn IPageTable>>,
+            pt: &Arc<SpinMutex<dyn IMMU>>,
             allocator: &Arc<SpinMutex<dyn IFrameAllocator>>,
         ) -> Result<(MemorySpaceBuilder, String), &'static str> {
             let shebang = core::str::from_utf8(shebang).map_err(|_| "Not a valid UTF-8 string")?;
@@ -196,7 +196,7 @@ impl MemorySpaceBuilder {
     pub fn from_elf(
         elf_data: &impl ILoadExecutable,
         executable_path: &str,
-        pt: &Arc<SpinMutex<dyn IPageTable>>,
+        pt: &Arc<SpinMutex<dyn IMMU>>,
         allocator: &Arc<SpinMutex<dyn IFrameAllocator>>,
     ) -> Result<Self, &'static str> {
         let mut memory_space = MemorySpace::new(pt.clone(), allocator.clone());
@@ -481,7 +481,7 @@ impl MemorySpaceBuilder {
         self.stack_top -= core::mem::size_of::<T>();
         self.stack_top = self.stack_top.align_down(core::mem::align_of::<T>());
 
-        let pt = self.memory_space.pt().lock();
+        let pt = self.memory_space.mmu().lock();
 
         pt.export(self.stack_top, value).unwrap();
     }

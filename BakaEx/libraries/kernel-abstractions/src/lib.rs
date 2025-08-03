@@ -7,7 +7,7 @@ use allocation_abstractions::IFrameAllocator;
 use downcast_rs::{impl_downcast, Downcast};
 use filesystem_abstractions::DirectoryTreeNode;
 use hermit_sync::SpinMutex;
-use mmu_abstractions::IPageTable;
+use mmu_abstractions::IMMU;
 
 #[cfg(feature = "std")]
 extern crate std;
@@ -21,7 +21,7 @@ pub trait IKernel: Downcast {
 
     fn allocator(&self) -> Arc<SpinMutex<dyn IFrameAllocator>>;
 
-    fn activate_mmu(&self, pt: &dyn IPageTable);
+    fn activate_mmu(&self, pt: &dyn IMMU);
 }
 
 impl_downcast!(IKernel);

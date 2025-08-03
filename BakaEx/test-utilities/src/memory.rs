@@ -4,7 +4,7 @@ use abstractions::IUsizeAlias;
 use address::{IAlignableAddress, PhysicalAddress, VirtualAddress};
 use hermit_sync::SpinMutex;
 use mmu_abstractions::{
-    GenericMappingFlags, IPageTable, MMUError, PageSize, PagingError, PagingResult,
+    GenericMappingFlags, IMMU, MMUError, PageSize, PagingError, PagingResult,
 };
 
 use crate::allocation::ITestFrameAllocator;
@@ -23,7 +23,7 @@ struct MappingRecord {
 }
 
 impl TestMMU {
-    pub fn new(alloc: Arc<SpinMutex<dyn ITestFrameAllocator>>) -> Arc<SpinMutex<dyn IPageTable>> {
+    pub fn new(alloc: Arc<SpinMutex<dyn ITestFrameAllocator>>) -> Arc<SpinMutex<dyn IMMU>> {
         Arc::new(SpinMutex::new(Self {
             alloc,
             mappings: Vec::new(),
@@ -31,7 +31,7 @@ impl TestMMU {
     }
 }
 
-impl IPageTable for TestMMU {
+impl IMMU for TestMMU {
     fn map_single(
         &mut self,
         vaddr: VirtualAddress,

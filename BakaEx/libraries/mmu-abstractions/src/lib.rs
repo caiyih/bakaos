@@ -21,7 +21,7 @@ pub enum MMUError {
     PageNotWritable { vaddr: VirtualAddress },
 }
 
-impl dyn IPageTable {
+impl dyn IMMU {
     pub fn inspect_framed(
         &self,
         vaddr: VirtualAddress,
@@ -77,7 +77,7 @@ impl dyn IPageTable {
     }
 }
 
-pub trait IPageTable {
+pub trait IMMU {
     fn map_single(
         &mut self,
         vaddr: VirtualAddress,
@@ -140,8 +140,6 @@ pub trait IPageTable {
     #[cfg(not(target_os = "none"))]
     fn unregister_internal(&mut self, vaddr: VirtualAddress);
 }
-
-// impl_downcast!(IPageTable);
 
 /// The error type for page table operation failures.
 #[derive(Debug, PartialEq, Eq)]

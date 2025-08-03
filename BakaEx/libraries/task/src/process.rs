@@ -60,7 +60,7 @@ impl Process {
     }
 
     fn register_kernel_area_for_pt(space: &MemorySpace) {
-        let _pt = space.pt().lock();
+        let _pt = space.mmu().lock();
 
         #[cfg_accessible(platform_specific::register_kernel_area_for_pt)]
         platform_specific::register_kernel_area_for_pt(_pt.platform_payload());

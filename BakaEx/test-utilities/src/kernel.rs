@@ -52,7 +52,7 @@ impl IKernel for TestKernel {
         self.allocator.as_ref().unwrap().clone()
     }
 
-    fn activate_mmu(&self, _pt: &dyn mmu_abstractions::IPageTable) {}
+    fn activate_mmu(&self, _pt: &dyn mmu_abstractions::IMMU) {}
 }
 
 pub struct TestSerial {

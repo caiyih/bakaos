@@ -9,7 +9,7 @@ use alloc::{sync::Arc, vec, vec::Vec};
 use allocation_abstractions::{FrameDesc, IFrameAllocator};
 use hermit_sync::SpinMutex;
 use mmu_abstractions::{
-    GenericMappingFlags, IPageTable, MMUError, PageSize, PagingError, PagingResult,
+    GenericMappingFlags, IMMU, MMUError, PageSize, PagingError, PagingResult,
 };
 
 pub trait IPageTableArchAttribute {
@@ -42,7 +42,7 @@ impl Drop for PageTableAllocation {
     }
 }
 
-impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> IPageTable
+impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> IMMU
     for PageTableNative<Arch, PTE>
 {
     fn map_single(

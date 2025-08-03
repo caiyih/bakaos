@@ -37,7 +37,7 @@ impl SyscallContext {
         let memory_space = self.task.process().memory_space().lock();
 
         memory_space
-            .pt()
+            .mmu()
             .lock()
             .inspect_framed(buf, count, |buf, _| {
                 bytes_written += file.write(buf);
@@ -60,7 +60,7 @@ mod tests {
     use hermit_sync::SpinMutex;
     use kernel_abstractions::IKernel;
     use memory_space_abstractions::MemorySpace;
-    use mmu_abstractions::{GenericMappingFlags, IPageTable, PageSize};
+    use mmu_abstractions::{GenericMappingFlags, IMMU, PageSize};
     use test_utilities::{
         allocation::contiguous::TestFrameAllocator, kernel::TestKernel, task::TestProcess,
     };
@@ -105,7 +105,7 @@ mod tests {
     fn setup_kernel_with_memory() -> (
         Arc<dyn IKernel>,
         Arc<SpinMutex<dyn IFrameAllocator>>,
-        Arc<SpinMutex<dyn IPageTable>>,
+        Arc<SpinMutex<dyn IMMU>>,
     ) {
         const MEMORY_RANGE: usize = 1 * 1024 * 1024 * 1024; // 1 GB
 

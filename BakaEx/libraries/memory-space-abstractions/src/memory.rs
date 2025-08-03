@@ -8,10 +8,10 @@ use address::{
 };
 use allocation_abstractions::IFrameAllocator;
 use hermit_sync::SpinMutex;
-use mmu_abstractions::{GenericMappingFlags, IPageTable, PageSize};
+use mmu_abstractions::{GenericMappingFlags, PageSize, IMMU};
 
 pub struct MemorySpace {
-    pt: Arc<SpinMutex<dyn IPageTable>>,
+    mmu: Arc<SpinMutex<dyn IMMU>>,
     mapping_areas: Vec<MappingArea>,
     attr: MemorySpaceAttribute,
     allocator: Arc<SpinMutex<dyn IFrameAllocator>>,
@@ -71,7 +71,7 @@ impl MemorySpace {
 
                 alloc.frames.insert(vpn, frame);
 
-                self.pt
+                self.mmu
                     .lock()
                     .map_single(vpn.start_addr(), paddr, PageSize::_4K, area.permissions())
                     .unwrap();
@@ -87,7 +87,7 @@ impl MemorySpace {
             Some(index) => {
                 let area = self.mapping_areas.remove(index);
                 for vpn in area.range.iter() {
-                    self.pt.lock().unmap_single(vpn.start_addr()).unwrap();
+                    self.mmu.lock().unmap_single(vpn.start_addr()).unwrap();
                 }
                 // Drop area to release allocated frames
                 true
@@ -156,7 +156,7 @@ impl MemorySpace {
 
             area.allocation.as_mut().unwrap().frames.insert(vpn, frame);
 
-            self.pt
+            self.mmu
                 .lock()
                 .map_single(vpn.start_addr(), paddr, PageSize::_4K, area.permissions())
                 .unwrap();
@@ -172,19 +172,19 @@ impl MemorySpace {
 
 impl MemorySpace {
     pub fn new(
-        pt: Arc<SpinMutex<dyn IPageTable>>,
+        mmu: Arc<SpinMutex<dyn IMMU>>,
         allocator: Arc<SpinMutex<dyn IFrameAllocator>>,
     ) -> Self {
         Self {
-            pt,
+            mmu,
             mapping_areas: Vec::new(),
             attr: MemorySpaceAttribute::default(),
             allocator,
         }
     }
 
-    pub fn pt(&self) -> &Arc<SpinMutex<dyn IPageTable>> {
-        &self.pt
+    pub fn mmu(&self) -> &Arc<SpinMutex<dyn IMMU>> {
+        &self.mmu
     }
 
     pub fn allocator(&self) -> &Arc<SpinMutex<dyn IFrameAllocator>> {
@@ -211,10 +211,10 @@ impl MemorySpace {
     // Clone the existing memory space
     pub fn clone_existing(
         them: &MemorySpace,
-        pt: Arc<SpinMutex<dyn IPageTable>>,
+        mmu: Arc<SpinMutex<dyn IMMU>>,
         allocator: Option<Arc<SpinMutex<dyn IFrameAllocator>>>,
     ) -> Self {
-        let mut this = Self::new(pt, allocator.unwrap_or(them.allocator().clone()));
+        let mut this = Self::new(mmu, allocator.unwrap_or(them.allocator().clone()));
 
         let mut buffer: [u8; constants::PAGE_SIZE] = [0; constants::PAGE_SIZE];
 
@@ -224,13 +224,13 @@ impl MemorySpace {
 
             // Copy datas through high half address
             for src_page in area.range.iter() {
-                let their_pt = them.pt().lock();
+                let their_pt = them.mmu().lock();
 
                 their_pt
                     .read_bytes(src_page.start_addr(), &mut buffer)
                     .unwrap();
 
-                this.pt()
+                this.mmu()
                     .lock()
                     .write_bytes(src_page.start_addr(), &buffer)
                     .unwrap();
@@ -258,7 +258,7 @@ impl MemorySpace {
 
         let trampoline_page = self.signal_trampoline();
 
-        self.pt
+        self.mmu
             .lock()
             .map_single(trampoline_page, sigreturn, PageSize::_4K, PERMISSIONS)
             .unwrap();

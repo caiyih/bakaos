@@ -4,7 +4,7 @@ use allocation_abstractions::IFrameAllocator;
 use filesystem_abstractions::DirectoryTreeNode;
 use hermit_sync::SpinMutex;
 use kernel_abstractions::{IKernel, IKernelSerial};
-use mmu_abstractions::IPageTable;
+use mmu_abstractions::IMMU;
 use syscalls::SyscallContext;
 use task_abstractions::ITask;
 
@@ -41,7 +41,7 @@ impl IKernel for Kernel {
         self.allocator.clone()
     }
 
-    fn activate_mmu(&self, _pt: &dyn IPageTable) {
+    fn activate_mmu(&self, _pt: &dyn IMMU) {
         #[cfg_accessible(platform_specific::activate_pt)]
         platform_specific::activate_pt(_pt.platform_payload())
     }
