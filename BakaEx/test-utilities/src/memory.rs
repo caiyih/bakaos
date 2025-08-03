@@ -164,7 +164,7 @@ impl IMMU for TestMMU {
 
             let offset = (checking_vaddr - mapping.virt).as_usize();
             let mapping_len = mapping.len - offset;
-            let len = mapping_len.min(len - offset);
+            let len = mapping_len.min(len - checking_offset);
 
             if !mapping.from_test_env && !self.alloc.lock().check_paddr(mapping.phys + offset, len)
             {
@@ -205,7 +205,7 @@ impl IMMU for TestMMU {
 
             let offset = (checking_vaddr - mapping.virt).as_usize();
             let mapping_len = mapping.len - offset;
-            let len = mapping_len.min(len - offset);
+            let len = mapping_len.min(len - checking_offset);
 
             if !mapping.from_test_env && !self.alloc.lock().check_paddr(mapping.phys + offset, len)
             {
