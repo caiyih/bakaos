@@ -48,6 +48,10 @@ impl ITestFrameAllocator for TestFrameAllocator {
     fn check_paddr(&self, paddr: PhysicalAddress, len: usize) -> bool {
         return self.inner.bottom() <= paddr && paddr + len <= self.inner.top();
     }
+
+    fn linear_map(&self, paddr: PhysicalAddress) -> Option<*mut u8> {
+        Some(paddr.as_usize() as *mut u8)
+    }
 }
 
 impl IFrameAllocator for TestFrameAllocator {

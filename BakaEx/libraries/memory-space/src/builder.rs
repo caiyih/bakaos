@@ -205,7 +205,7 @@ impl MemorySpaceBuilder {
         // see https://github.com/caiyih/bakaos/issues/26
         let boxed_elf_holding: FrameRangeDesc;
 
-        let mut boxed_elf;
+        let boxed_elf;
 
         let elf_info = {
             let required_frames = elf_data.len().div_ceil(constants::PAGE_SIZE);
@@ -217,20 +217,16 @@ impl MemorySpaceBuilder {
 
             let pt = pt.lock();
 
-            let vaddr_range = pt
-                .translate_continuous_paddr(
+            let slice = pt
+                .translate_phys(
                     boxed_elf_holding.start,
                     boxed_elf_holding.end.as_usize() - boxed_elf_holding.start.as_usize(),
                 )
                 .unwrap();
 
-            boxed_elf = unsafe {
-                core::slice::from_raw_parts_mut(vaddr_range.start().as_mut_ptr(), elf_data.len())
-            };
+            let len = elf_data.read_at(0, slice)?;
 
-            let len = elf_data.read_at(0, boxed_elf)?;
-
-            boxed_elf = &mut boxed_elf[..len];
+            boxed_elf = &mut slice[..len];
 
             match ElfFile::new(boxed_elf) {
                 Ok(elf) => elf,

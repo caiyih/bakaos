@@ -50,6 +50,10 @@ impl ITestFrameAllocator for TestFrameAllocator {
 
         return false;
     }
+
+    fn linear_map(&self, _: PhysicalAddress) -> Option<*mut u8> {
+        None
+    }
 }
 
 pub(crate) struct HostMemory {

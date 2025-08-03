@@ -6,4 +6,6 @@ pub mod segment;
 
 pub trait ITestFrameAllocator: IFrameAllocator {
     fn check_paddr(&self, paddr: PhysicalAddress, len: usize) -> bool;
+
+    fn linear_map(&self, paddr: PhysicalAddress) -> Option<*mut u8>;
 }

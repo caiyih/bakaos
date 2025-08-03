@@ -1,5 +1,3 @@
-use core::slice;
-
 use abstractions::IUsizeAlias;
 use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
 
@@ -218,6 +216,8 @@ impl MemorySpace {
     ) -> Self {
         let mut this = Self::new(pt, allocator.unwrap_or(them.allocator().clone()));
 
+        let mut buffer: [u8; constants::PAGE_SIZE] = [0; constants::PAGE_SIZE];
+
         for area in them.mapping_areas.iter() {
             let my_area = MappingArea::clone_from(area);
             this.alloc_and_map_area(my_area);
@@ -226,17 +226,13 @@ impl MemorySpace {
             for src_page in area.range.iter() {
                 let their_pt = them.pt().lock();
 
-                let src_range = their_pt
-                    .translate_continuous(src_page.start_addr(), constants::PAGE_SIZE)
+                their_pt
+                    .read_bytes(src_page.start_addr(), &mut buffer)
                     .unwrap();
-
-                let src_slice = unsafe {
-                    slice::from_raw_parts(src_range.start().as_ptr::<u8>(), constants::PAGE_SIZE)
-                };
 
                 this.pt()
                     .lock()
-                    .write_bytes(src_page.start_addr(), src_slice)
+                    .write_bytes(src_page.start_addr(), &buffer)
                     .unwrap();
             }
         }

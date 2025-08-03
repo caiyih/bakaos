@@ -167,34 +167,6 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> IPageTable
                 .map(|_| core::slice::from_raw_parts_mut(vaddr.as_mut_ptr::<u8>(), len))
         }
     }
-
-    unsafe fn translate_paddr(&self, paddr: PhysicalAddress) -> Result<VirtualAddress, MMUError> {
-        Ok(paddr.to_high_virtual())
-    }
-
-    fn translate_continuous_paddr(
-        &self,
-        paddr: PhysicalAddress,
-        size: usize,
-    ) -> Result<address::VirtualAddressRange, MMUError> {
-        let vaddr = paddr.to_high_virtual();
-
-        Ok(VirtualAddressRange::from_start_len(vaddr, size))
-    }
-
-    fn translate_continuous(
-        &self,
-        vaddr: VirtualAddress,
-        size: usize,
-    ) -> Result<VirtualAddressRange, MMUError> {
-        let vaddr = vaddr.to_low_physical().to_high_virtual();
-
-        Ok(VirtualAddressRange::from_start_len(vaddr, size))
-    }
-
-    fn translate_page(&self, vaddr: VirtualAddress) -> Result<VirtualAddress, MMUError> {
-        Ok(vaddr.to_low_physical().to_high_virtual())
-    }
 }
 
 impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTableNative<Arch, PTE> {

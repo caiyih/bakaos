@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use abstractions::IUsizeAlias;
-use address::{IAddressBase, PhysicalAddress, VirtualAddress, VirtualAddressRange};
+use address::{IAlignableAddress, PhysicalAddress, VirtualAddress};
 use hermit_sync::SpinMutex;
 use mmu_abstractions::{
     GenericMappingFlags, IPageTable, MMUError, PageSize, PagingError, PagingResult,
@@ -19,7 +19,7 @@ struct MappingRecord {
     virt: VirtualAddress,
     flags: GenericMappingFlags,
     len: usize,
-    test_env_memory: bool,
+    from_test_env: bool,
 }
 
 impl TestMMU {
@@ -39,7 +39,26 @@ impl IPageTable for TestMMU {
         size: PageSize,
         flags: GenericMappingFlags,
     ) -> PagingResult<()> {
-        todo!()
+        paging_ensure_addr_valid(vaddr)?;
+        paging_ensure_addr_valid(target)?;
+
+        // Check overlapping
+        for mapping in &self.mappings {
+            if mapping.virt <= vaddr && vaddr < mapping.virt + mapping.len {
+                return Err(PagingError::AlreadyMapped);
+            }
+        }
+
+        // Add mapping
+        self.mappings.push(MappingRecord {
+            phys: target,
+            virt: vaddr,
+            flags,
+            len: size.as_usize(),
+            from_test_env: false,
+        });
+
+        Ok(())
     }
 
     fn remap_single(
@@ -48,11 +67,37 @@ impl IPageTable for TestMMU {
         new_target: PhysicalAddress,
         flags: GenericMappingFlags,
     ) -> PagingResult<PageSize> {
-        todo!()
+        paging_ensure_addr_valid(vaddr)?;
+        paging_ensure_addr_valid(new_target)?;
+
+        // Find and modify the mapping
+        for mapping in self.mappings.iter_mut() {
+            if vaddr == mapping.virt {
+                mapping.phys = new_target;
+                mapping.flags = flags;
+                return Ok(PageSize::from(mapping.len));
+            }
+        }
+
+        Err(PagingError::NotMapped)
     }
 
     fn unmap_single(&mut self, vaddr: VirtualAddress) -> PagingResult<(PhysicalAddress, PageSize)> {
-        todo!()
+        match self
+            .mappings
+            .iter()
+            .enumerate()
+            .find(|(_, m)| m.virt == vaddr)
+        {
+            None => Err(PagingError::NotMapped),
+            Some((idx, mapping)) => {
+                let ret = (mapping.phys, PageSize::from(mapping.len));
+
+                self.mappings.remove(idx);
+
+                Ok(ret)
+            }
+        }
     }
 
     fn query_virtual(
@@ -76,74 +121,149 @@ impl IPageTable for TestMMU {
         paddr: Option<PhysicalAddress>,
         flags: Option<GenericMappingFlags>,
     ) -> PagingResult<()> {
-        todo!()
-    }
+        paging_ensure_addr_valid(vaddr)?;
+        paging_ensure_valid_size(size)?;
 
-    fn translate_continuous(
-        &self,
-        vaddr: VirtualAddress,
-        size: usize,
-    ) -> Result<VirtualAddressRange, MMUError> {
-        todo!()
-    }
-
-    fn translate_page(&self, vaddr: VirtualAddress) -> Result<VirtualAddress, MMUError> {
-        todo!()
-    }
-
-    fn translate_continuous_paddr(
-        &self,
-        paddr: PhysicalAddress,
-        size: usize,
-    ) -> Result<VirtualAddressRange, MMUError> {
-        todo!()
-    }
-
-    unsafe fn translate_paddr(&self, paddr: PhysicalAddress) -> Result<VirtualAddress, MMUError> {
-        todo!()
-    }
-
-    fn inspect_bytes(&self, vaddr: VirtualAddress, len: usize) -> Result<&[u8], MMUError> {
-        if vaddr.is_null() {
-            return Err(MMUError::InvalidAddress);
+        if let Some(paddr) = paddr {
+            paging_ensure_addr_valid(paddr)?;
         }
 
-        let mut current_vaddr = vaddr;
-        let end_vaddr = vaddr + len;
+        // Find and update the mapping
+        for mapping in self.mappings.iter_mut() {
+            if mapping.virt == vaddr && size == PageSize::from(mapping.len) {
+                if let Some(paddr) = paddr {
+                    mapping.phys = paddr;
+                }
 
-        while current_vaddr < end_vaddr {
+                if let Some(flags) = flags {
+                    mapping.flags = flags;
+                }
+
+                return Ok(());
+            }
+        }
+
+        Err(PagingError::NotMapped)
+    }
+
+    fn inspect_framed_internal(
+        &self,
+        vaddr: VirtualAddress,
+        len: usize,
+        callback: &mut dyn FnMut(&[u8], usize) -> bool,
+    ) -> Result<(), MMUError> {
+        mmu_ensure_addr_valid(vaddr)?;
+
+        let mut checking_vaddr = vaddr;
+        let mut checking_offset = 0;
+
+        while checking_offset < len {
             let mapping = self
-                .query_mapping(current_vaddr)
+                .query_mapping(checking_vaddr)
                 .ok_or(MMUError::InvalidAddress)?;
 
-            ensure_permisssion(current_vaddr, mapping.flags, false)?;
+            mmu_ensure_permisssion(checking_vaddr, mapping.flags, false)?;
 
-            if !mapping.test_env_memory && !self.alloc.lock().check_paddr(mapping.phys, mapping.len) {
+            let offset = (checking_vaddr - mapping.virt).as_usize();
+            let mapping_len = mapping.len - offset;
+            let len = mapping_len.min(len - offset);
+
+            if !mapping.from_test_env && !self.alloc.lock().check_paddr(mapping.phys + offset, len)
+            {
                 return Err(MMUError::AccessFault);
             }
 
-            let offset_in_mapping = current_vaddr.as_usize() - mapping.virt.as_usize();
-            let remaining_in_mapping = mapping.len - offset_in_mapping;
+            let ptr = mapping.phys.as_usize() as *const u8;
+            let slice = unsafe { std::slice::from_raw_parts(ptr.add(offset), len) };
 
-            let remaining_in_request = end_vaddr - current_vaddr;
+            if !callback(slice, checking_offset) {
+                break;
+            }
 
-            let step = remaining_in_mapping.min(remaining_in_request.as_usize());
-            current_vaddr += step;
+            checking_offset += len;
+            checking_vaddr += len;
         }
 
-        unsafe { Ok(std::slice::from_raw_parts(vaddr.as_ptr::<u8>(), len)) }
+        Ok(())
     }
 
-    fn inspect_bytes_mut(&self, vaddr: VirtualAddress, len: usize) -> Result<&mut [u8], MMUError> {
-        todo!()
+    fn inspect_framed_mut_internal(
+        &self,
+        vaddr: VirtualAddress,
+        len: usize,
+        callback: &mut dyn FnMut(&mut [u8], usize) -> bool,
+    ) -> Result<(), MMUError> {
+        mmu_ensure_addr_valid(vaddr)?;
+
+        let mut checking_vaddr = vaddr;
+        let mut checking_offset = 0;
+
+        while checking_offset < len {
+            let mapping = self
+                .query_mapping(checking_vaddr)
+                .ok_or(MMUError::InvalidAddress)?;
+
+            mmu_ensure_permisssion(checking_vaddr, mapping.flags, false)?;
+
+            let offset = (checking_vaddr - mapping.virt).as_usize();
+            let mapping_len = mapping.len - offset;
+            let len = mapping_len.min(len - offset);
+
+            if !mapping.from_test_env && !self.alloc.lock().check_paddr(mapping.phys + offset, len)
+            {
+                return Err(MMUError::AccessFault);
+            }
+
+            let ptr = mapping.phys.as_usize() as *mut u8;
+            let slice = unsafe { std::slice::from_raw_parts_mut(ptr.add(offset), len) };
+
+            if !callback(slice, checking_offset) {
+                break;
+            }
+
+            checking_offset += len;
+            checking_vaddr += len;
+        }
+
+        Ok(())
     }
 
     fn read_bytes(&self, vaddr: VirtualAddress, buf: &mut [u8]) -> Result<(), MMUError> {
-        todo!()
+        self.inspect_framed_internal(vaddr, buf.len(), &mut |src, offset| {
+            buf[offset..offset + src.len()].copy_from_slice(src);
+            true
+        })
     }
 
     fn write_bytes(&self, vaddr: VirtualAddress, buf: &[u8]) -> Result<(), MMUError> {
-        todo!()
+        self.inspect_framed_mut_internal(vaddr, buf.len(), &mut |dst, offset| {
+            dst.copy_from_slice(&buf[offset..offset + dst.len()]);
+            true
+        })
+    }
+
+    fn translate_phys(
+        &self,
+        paddr: PhysicalAddress,
+        len: usize,
+    ) -> Result<&'static mut [u8], MMUError> {
+        for mapping in self.mappings.iter().filter(|m| m.from_test_env) {
+            if paddr >= mapping.phys && paddr < mapping.phys + mapping.len {
+                return Ok(unsafe {
+                    std::slice::from_raw_parts_mut(paddr.as_usize() as *mut u8, len)
+                });
+            }
+        }
+
+        let alloc = self.alloc.lock();
+
+        if !alloc.check_paddr(paddr, len) {
+            return Err(MMUError::AccessFault);
+        }
+
+        let ptr= alloc.linear_map(paddr).expect("The test allocator does not support linear mapping. Use contiguous::TestFrameAllocator");
+
+        Ok(unsafe { std::slice::from_raw_parts_mut(ptr as *mut u8, len) })
     }
 
     fn platform_payload(&self) -> usize {
@@ -162,7 +282,7 @@ impl IPageTable for TestMMU {
             virt: vaddr,
             flags,
             len,
-            test_env_memory: true,
+            from_test_env: true,
         });
     }
 
@@ -190,7 +310,33 @@ impl TestMMU {
     }
 }
 
-fn ensure_permisssion(
+fn paging_ensure_valid_size(size: PageSize) -> PagingResult<()> {
+    if let PageSize::Custom(size) = size {
+        if size % constants::PAGE_SIZE != 0 {
+            return Err(PagingError::NotAligned);
+        }
+    }
+
+    Ok(())
+}
+
+fn paging_ensure_addr_valid<T: IAlignableAddress>(addr: T) -> PagingResult<()> {
+    if !addr.is_page_aligned() {
+        return Err(PagingError::NotAligned);
+    }
+
+    Ok(())
+}
+
+fn mmu_ensure_addr_valid<T: IAlignableAddress>(addr: T) -> Result<(), MMUError> {
+    if addr.is_null() {
+        return Err(MMUError::InvalidAddress);
+    }
+
+    Ok(())
+}
+
+fn mmu_ensure_permisssion(
     vaddr: VirtualAddress,
     flags: GenericMappingFlags,
     mutable: bool,
@@ -203,7 +349,7 @@ fn ensure_permisssion(
         return Err(MMUError::PageNotReadable { vaddr });
     }
 
-    if !mutable && flags.contains(GenericMappingFlags::Writable) {
+    if mutable && !flags.contains(GenericMappingFlags::Writable) {
         return Err(MMUError::PageNotWritable { vaddr });
     }
 

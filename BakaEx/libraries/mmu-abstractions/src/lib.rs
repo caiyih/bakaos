@@ -1,6 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use address::{IAlignableAddress, PhysicalAddress, VirtualAddress, VirtualAddressRange};
+use address::{PhysicalAddress, VirtualAddress};
 
 #[cfg(feature = "std")]
 extern crate std;
@@ -22,44 +22,22 @@ pub enum MMUError {
 }
 
 impl dyn IPageTable {
-    pub fn access<T>(&self, vaddr: VirtualAddress) -> Result<&T, MMUError> {
-        ensure_aligned::<T>(vaddr)?;
-
-        unsafe {
-            self.inspect_bytes(vaddr, core::mem::size_of::<T>())
-                .map(|_| vaddr.as_ptr::<T>().as_ref().unwrap())
-        }
-    }
-
-    pub fn access_mut<T>(&self, vaddr: VirtualAddress) -> Result<&mut T, MMUError> {
-        ensure_aligned::<T>(vaddr)?;
-
-        unsafe {
-            self.inspect_bytes_mut(vaddr, core::mem::size_of::<T>())
-                .map(|_| vaddr.as_mut_ptr::<T>().as_mut().unwrap())
-        }
-    }
-
-    pub fn access_slice<T>(&self, vaddr: VirtualAddress, len: usize) -> Result<&[T], MMUError> {
-        ensure_aligned::<T>(vaddr)?;
-
-        unsafe {
-            self.inspect_bytes(vaddr, len * core::mem::size_of::<T>())
-                .map(|_| core::slice::from_raw_parts(vaddr.as_ptr::<T>(), len))
-        }
-    }
-
-    pub fn access_slice_mut<T>(
+    pub fn inspect_framed(
         &self,
         vaddr: VirtualAddress,
         len: usize,
-    ) -> Result<&mut [T], MMUError> {
-        ensure_aligned::<T>(vaddr)?;
+        mut callback: impl FnMut(&[u8], usize) -> bool,
+    ) -> Result<(), MMUError> {
+        self.inspect_framed_internal(vaddr, len, &mut callback)
+    }
 
-        unsafe {
-            self.inspect_bytes_mut(vaddr, len * core::mem::size_of::<T>())
-                .map(|_| core::slice::from_raw_parts_mut(vaddr.as_mut_ptr::<T>(), len))
-        }
+    pub fn inspect_framed_mut(
+        &self,
+        vaddr: VirtualAddress,
+        len: usize,
+        mut callback: impl FnMut(&mut [u8], usize) -> bool,
+    ) -> Result<(), MMUError> {
+        self.inspect_framed_mut_internal(vaddr, len, &mut callback)
     }
 
     pub fn import<T: Copy>(&self, vaddr: VirtualAddress) -> Result<T, MMUError> {
@@ -99,14 +77,6 @@ impl dyn IPageTable {
     }
 }
 
-fn ensure_aligned<T>(vaddr: VirtualAddress) -> Result<(), MMUError> {
-    if !vaddr.is_aligned(core::mem::align_of::<T>()) {
-        return Err(MMUError::MisalignedAddress);
-    }
-
-    Ok(())
-}
-
 pub trait IPageTable {
     fn map_single(
         &mut self,
@@ -138,25 +108,25 @@ pub trait IPageTable {
         flags: Option<GenericMappingFlags>,
     ) -> PagingResult<()>;
 
-    fn translate_continuous(
+    fn inspect_framed_internal(
         &self,
         vaddr: VirtualAddress,
-        size: usize,
-    ) -> Result<VirtualAddressRange, MMUError>;
+        len: usize,
+        callback: &mut dyn FnMut(&[u8], usize) -> bool,
+    ) -> Result<(), MMUError>;
 
-    fn translate_page(&self, vaddr: VirtualAddress) -> Result<VirtualAddress, MMUError>;
+    fn inspect_framed_mut_internal(
+        &self,
+        vaddr: VirtualAddress,
+        len: usize,
+        callback: &mut dyn FnMut(&mut [u8], usize) -> bool,
+    ) -> Result<(), MMUError>;
 
-    fn translate_continuous_paddr(
+    fn translate_phys(
         &self,
         paddr: PhysicalAddress,
-        size: usize,
-    ) -> Result<VirtualAddressRange, MMUError>;
-
-    unsafe fn translate_paddr(&self, paddr: PhysicalAddress) -> Result<VirtualAddress, MMUError>;
-
-    fn inspect_bytes(&self, vaddr: VirtualAddress, len: usize) -> Result<&[u8], MMUError>;
-
-    fn inspect_bytes_mut(&self, vaddr: VirtualAddress, len: usize) -> Result<&mut [u8], MMUError>;
+        len: usize,
+    ) -> Result<&'static mut [u8], MMUError>;
 
     fn read_bytes(&self, vaddr: VirtualAddress, buf: &mut [u8]) -> Result<(), MMUError>;
 
