@@ -5,7 +5,7 @@ use alloc::{
     sync::{Arc, Weak},
     vec::Vec,
 };
-use constants::SyscallError;
+use constants::{ErrNo, SyscallError};
 use core::{cell::UnsafeCell, mem::MaybeUninit, ops::DerefMut};
 use hermit_sync::SpinMutex;
 use timing::TimeSpec;
@@ -36,7 +36,7 @@ impl MountError {
         }
     }
 
-    pub fn to_syscall_error(self) -> Result<isize, isize> {
+    pub fn to_syscall_error(self) -> Result<isize, ErrNo> {
         match self {
             MountError::InvalidInput => SyscallError::InvalidArgument,
             MountError::NotADirectory => SyscallError::NoSuchFileOrDirectory,
