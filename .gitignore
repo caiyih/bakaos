@@ -51,4 +51,4 @@ sdcard-la.img*
 sdcard-rv.img*
 
 # Build artifacts for test script
-kernel-*
+/kernel-*
