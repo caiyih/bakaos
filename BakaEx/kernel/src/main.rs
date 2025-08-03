@@ -81,14 +81,14 @@ extern "C" fn __kernel_start_main() -> ! {
 fn main(kernel: Arc<Kernel>) -> Result<(), &'static str> {
     let task = create_task(&kernel);
     let ctx = kernel.create_syscall_contenxt_for(task.clone());
-    
+
     let task_closure = run_task(ctx);
-    
+
     // activate page tabe for the task
     {
         let memory_space = task.process().memory_space().lock();
         let pt = memory_space.pt().lock();
-        
+
         kernel.activate_mmu(pt.deref());
     }
     let exit_code = block_on!(task_closure);
@@ -150,7 +150,11 @@ async fn handle_user_trap(sys_ctx: &SyscallContext, return_reason: UserInterrupt
 
             payload.move_to_next_instruction();
 
-            let ret = handle_syscall_async(&payload).await.as_usize();
+            let ret = handle_syscall_async(&payload).await;
+
+            log::info!("[syscall return]: {:?}", ret);
+
+            let ret = ret.as_usize();
 
             if task.status().is_exited() {
                 return Some(ret);
