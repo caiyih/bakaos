@@ -116,10 +116,12 @@ impl IFrameAllocator for TestFrameAllocator {
 
     fn dealloc(&mut self, frame: allocation_abstractions::FrameDesc) {
         self.records.remove(&frame.0);
+        core::mem::forget(frame);
     }
 
     fn dealloc_range(&mut self, range: allocation_abstractions::FrameRangeDesc) {
         self.records.remove(&range.start);
+        core::mem::forget(range);
     }
 }
 
