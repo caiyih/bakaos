@@ -3,9 +3,7 @@ use std::sync::Arc;
 use abstractions::IUsizeAlias;
 use address::{IAlignableAddress, PhysicalAddress, VirtualAddress};
 use hermit_sync::SpinMutex;
-use mmu_abstractions::{
-    GenericMappingFlags, IMMU, MMUError, PageSize, PagingError, PagingResult,
-};
+use mmu_abstractions::{GenericMappingFlags, MMUError, PageSize, PagingError, PagingResult, IMMU};
 
 use crate::allocation::ITestFrameAllocator;
 
@@ -270,6 +268,7 @@ impl IMMU for TestMMU {
         panic!("There's no platform payload for test environment")
     }
 
+    #[cfg(not(target_os = "none"))]
     fn register_internal(&mut self, vaddr: VirtualAddress, len: usize, mutable: bool) {
         let mut flags = GenericMappingFlags::User | GenericMappingFlags::Readable;
 
@@ -286,6 +285,7 @@ impl IMMU for TestMMU {
         });
     }
 
+    #[cfg(not(target_os = "none"))]
     fn unregister_internal(&mut self, vaddr: VirtualAddress) {
         let mut i = 0;
 
