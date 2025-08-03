@@ -3,8 +3,7 @@ use core::marker::PhantomData;
 use crate::IArchPageTableEntry;
 use abstractions::IUsizeAlias;
 use address::{
-    IAddressBase, IAlignableAddress, IConvertablePhysicalAddress, IConvertableVirtualAddress,
-    PhysicalAddress, VirtualAddress, VirtualAddressRange,
+    IAddressBase, IAlignableAddress, IConvertablePhysicalAddress, PhysicalAddress, VirtualAddress,
 };
 use alloc::{sync::Arc, vec, vec::Vec};
 use allocation_abstractions::{FrameDesc, IFrameAllocator};
@@ -154,27 +153,11 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> IPageTable
         })
     }
 
-    fn inspect_bytes(&self, vaddr: VirtualAddress, len: usize) -> Result<&[u8], MMUError> {
-        unsafe {
-            self.inspect_internal(vaddr, len, false)
-                .map(|_| core::slice::from_raw_parts(vaddr.as_ptr::<u8>(), len))
-        }
-    }
-
-    fn inspect_bytes_mut(&self, vaddr: VirtualAddress, len: usize) -> Result<&mut [u8], MMUError> {
-        unsafe {
-            self.inspect_internal(vaddr, len, true)
-                .map(|_| core::slice::from_raw_parts_mut(vaddr.as_mut_ptr::<u8>(), len))
-        }
-    }
-}
-
-impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTableNative<Arch, PTE> {
-    fn inspect_internal(
+    fn inspect_framed_internal(
         &self,
         vaddr: VirtualAddress,
         len: usize,
-        mutable: bool,
+        callback: &mut dyn FnMut(&[u8], usize) -> bool,
     ) -> Result<(), MMUError> {
         ensure_vaddr_valid(vaddr)?;
 
@@ -184,13 +167,25 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTableNative<Ar
         loop {
             let (paddr, flags, size) = self.query_virtual(checking_vaddr).map_err(|e| e.into())?;
 
-            ensure_permission(vaddr, flags, mutable)?;
+            ensure_permission(vaddr, flags, false)?;
 
             let frame_base = paddr.align_down(size.as_usize());
 
             let frame_remain_len = size.as_usize() - (paddr.as_usize() - frame_base.as_usize());
 
             let avaliable_len = remaining_len.min(frame_remain_len);
+
+            let slice = unsafe {
+                core::slice::from_raw_parts(
+                    // query_virtual adds offset internally
+                    paddr.to_high_virtual().as_mut::<u8>(),
+                    avaliable_len,
+                )
+            };
+
+            if !callback(slice, avaliable_len) {
+                break;
+            }
 
             checking_vaddr += frame_remain_len;
             remaining_len -= avaliable_len;
@@ -203,6 +198,63 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTableNative<Ar
         Ok(())
     }
 
+    fn inspect_framed_mut_internal(
+        &self,
+        vaddr: VirtualAddress,
+        len: usize,
+        callback: &mut dyn FnMut(&mut [u8], usize) -> bool,
+    ) -> Result<(), MMUError> {
+        ensure_vaddr_valid(vaddr)?;
+
+        let mut checking_vaddr = vaddr;
+        let mut remaining_len = len;
+
+        loop {
+            let (paddr, flags, size) = self.query_virtual(checking_vaddr).map_err(|e| e.into())?;
+
+            ensure_permission(vaddr, flags, true)?;
+
+            let frame_base = paddr.align_down(size.as_usize());
+
+            let frame_remain_len = size.as_usize() - (paddr.as_usize() - frame_base.as_usize());
+
+            let avaliable_len = remaining_len.min(frame_remain_len);
+
+            let slice = unsafe {
+                core::slice::from_raw_parts_mut(
+                    // query_virtual adds offset internally
+                    paddr.to_high_virtual().as_mut::<u8>(),
+                    avaliable_len,
+                )
+            };
+
+            if !callback(slice, avaliable_len) {
+                break;
+            }
+
+            checking_vaddr += frame_remain_len;
+            remaining_len -= avaliable_len;
+
+            if remaining_len == 0 {
+                break;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn translate_phys(
+        &self,
+        paddr: PhysicalAddress,
+        len: usize,
+    ) -> Result<&'static mut [u8], MMUError> {
+        let virt = paddr.to_high_virtual();
+
+        Ok(unsafe { core::slice::from_raw_parts_mut(virt.as_mut::<u8>(), len) })
+    }
+}
+
+impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTableNative<Arch, PTE> {
     fn inspect_bytes_through_linear(
         &self,
         vaddr: VirtualAddress,
