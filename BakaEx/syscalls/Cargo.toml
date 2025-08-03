@@ -1,0 +1,28 @@
+[package]
+name = "syscalls"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+log = "0.4"
+hermit-sync = "0.1.6"
+constants = { path = "../libraries/constants", default-features = false }
+address = { path = "../libraries/address", default-features = false }
+threading = { path = "../libraries/threading", default-features = false }
+kernel-abstractions = { path = "../libraries/kernel-abstractions", default-features = false }
+filesystem-abstractions = { path = "../libraries/filesystem-abstractions", default-features = false }
+task-abstractions = { path = "../libraries/task-abstractions", default-features = false }
+memory-space-abstractions = { path = "../libraries/memory-space-abstractions", default-features = false }
+mmu-abstractions = { path = "../libraries/mmu-abstractions", default-features = false }
+allocation-abstractions = { path = "../libraries/allocation-abstractions", default-features = false }
+task = { path = "../libraries/task", default-features = false }
+
+[dev-dependencies]
+test-utilities = { path = "../test-utilities" }
+
+[features]
+default = ["no_std"]
+std = []
+no_std = []
