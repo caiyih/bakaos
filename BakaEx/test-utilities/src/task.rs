@@ -6,7 +6,7 @@ use hermit_sync::SpinMutex;
 use memory_space_abstractions::MemorySpace;
 use mmu_abstractions::IMMU;
 use platform_specific::TaskTrapContext;
-use task_abstractions::{status::TaskStatus, IProcess, ITask, UserTaskStatistics};
+use task_abstractions::{IProcess, ITask, UserTaskStatistics, status::TaskStatus};
 use trap_abstractions::ITaskTrapContext;
 
 pub struct TestTask {
@@ -103,7 +103,7 @@ impl ITask for TestTask {
         trap_ctx.copy_from(self.trap_context());
 
         Arc::new(TestTask {
-            tid: self.tid,
+            tid: self.tid, // TODO: allocate a new one
             tgid: self.tgid,
             process: self.process.clone(),
             status: SpinMutex::new(*self.status.lock()),
@@ -113,7 +113,9 @@ impl ITask for TestTask {
     }
 
     fn fork_process(&self) -> Arc<dyn ITask> {
-        unimplemented!("TestTask is intended for light-weight mock testing. Use task::Task instead, which also supports unit test")
+        unimplemented!(
+            "TestTask is intended for light-weight mock testing. Use task::Task instead, which also supports unit test"
+        )
     }
 }
 
@@ -249,11 +251,15 @@ impl IProcess for TestProcess {
     }
 
     fn execve(&self, _: MemorySpace, _: u32) {
-        unimplemented!("TestProcess is intended for light-weight mock testing. Use task::Process instead, which also supports unit test")
+        unimplemented!(
+            "TestProcess is intended for light-weight mock testing. Use task::Process instead, which also supports unit test"
+        )
     }
 
     fn alloc_id(&self) -> task_abstractions::TaskId {
-        unimplemented!("TestProcess is intended for light-weight mock testing. Use task::Process instead, which also supports unit test")
+        unimplemented!(
+            "TestProcess is intended for light-weight mock testing. Use task::Process instead, which also supports unit test"
+        )
     }
 
     fn push_thread(&self, task: Arc<dyn ITask>) {

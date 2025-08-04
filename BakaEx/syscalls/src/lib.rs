@@ -9,6 +9,7 @@ use task_abstractions::ITask;
 
 extern crate alloc;
 
+pub mod sys_clone;
 pub mod sys_exit;
 pub mod sys_mmap;
 pub mod sys_write;
