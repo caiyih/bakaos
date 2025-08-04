@@ -108,6 +108,7 @@ pub trait IMMU {
         flags: Option<GenericMappingFlags>,
     ) -> PagingResult<()>;
 
+    #[doc(hidden)]
     fn inspect_framed_internal(
         &self,
         vaddr: VirtualAddress,
@@ -115,6 +116,7 @@ pub trait IMMU {
         callback: &mut dyn FnMut(&[u8], usize) -> bool,
     ) -> Result<(), MMUError>;
 
+    #[doc(hidden)]
     fn inspect_framed_mut_internal(
         &self,
         vaddr: VirtualAddress,
@@ -134,9 +136,11 @@ pub trait IMMU {
 
     fn platform_payload(&self) -> usize;
 
+    #[doc(hidden)]
     #[cfg(not(target_os = "none"))]
     fn register_internal(&mut self, vaddr: VirtualAddress, len: usize, mutable: bool);
 
+    #[doc(hidden)]
     #[cfg(not(target_os = "none"))]
     fn unregister_internal(&mut self, vaddr: VirtualAddress);
 }
