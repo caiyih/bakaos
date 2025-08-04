@@ -7,6 +7,7 @@ use kernel_abstractions::{IKernel, IKernelSerial};
 use mmu_abstractions::IMMU;
 use syscalls::SyscallContext;
 use task_abstractions::ITask;
+use timing::TimeSpec;
 
 use crate::serial::KernelSerial;
 
@@ -44,5 +45,9 @@ impl IKernel for Kernel {
     fn activate_mmu(&self, _pt: &dyn IMMU) {
         #[cfg_accessible(platform_specific::activate_pt)]
         platform_specific::activate_pt(_pt.platform_payload())
+    }
+
+    fn time(&self) -> TimeSpec {
+        todo!()
     }
 }

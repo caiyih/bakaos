@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 hermit-sync = "0.1.6"
+timing = { path = "../libraries/timing", default-features = false }
 abstractions = { path = "../libraries/abstractions", default-features = false }
 address = { path = "../libraries/address", default-features = false }
 constants = { path = "../libraries/constants", default-features = false }

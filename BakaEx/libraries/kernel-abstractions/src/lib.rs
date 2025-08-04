@@ -8,6 +8,7 @@ use downcast_rs::{impl_downcast, Downcast};
 use filesystem_abstractions::DirectoryTreeNode;
 use hermit_sync::SpinMutex;
 use mmu_abstractions::IMMU;
+use timing::TimeSpec;
 
 #[cfg(feature = "std")]
 extern crate std;
@@ -22,6 +23,8 @@ pub trait IKernel: Downcast {
     fn allocator(&self) -> Arc<SpinMutex<dyn IFrameAllocator>>;
 
     fn activate_mmu(&self, pt: &dyn IMMU);
+
+    fn time(&self) -> TimeSpec;
 }
 
 impl_downcast!(IKernel);

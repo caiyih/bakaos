@@ -2,7 +2,13 @@ use allocation_abstractions::IFrameAllocator;
 use filesystem_abstractions::DirectoryTreeNode;
 use hermit_sync::SpinMutex;
 use kernel_abstractions::{IKernel, IKernelSerial};
-use std::{collections::vec_deque::VecDeque, sync::Arc, vec::Vec};
+use std::{
+    collections::vec_deque::VecDeque,
+    sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
+    vec::Vec,
+};
+use timing::TimeSpec;
 
 pub struct TestKernel {
     pub serial: Option<Arc<dyn IKernelSerial>>,
@@ -53,6 +59,15 @@ impl IKernel for TestKernel {
     }
 
     fn activate_mmu(&self, _pt: &dyn mmu_abstractions::IMMU) {}
+
+    fn time(&self) -> TimeSpec {
+        let now = SystemTime::now();
+        let unix = now.duration_since(UNIX_EPOCH).unwrap();
+        TimeSpec {
+            tv_sec: unix.as_secs() as i64,
+            tv_nsec: unix.subsec_nanos() as i64,
+        }
+    }
 }
 
 pub struct TestSerial {
