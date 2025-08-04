@@ -41,6 +41,12 @@ pub trait IProcess {
     fn working_directory(&self) -> String;
 
     fn exit_code(&self) -> &SpinMutex<Option<u8>>;
+
+    fn execve(&self, mem: MemorySpace, calling: u32);
+
+    fn alloc_id(&self) -> TaskId;
+
+    fn push_thread(&self, task: Arc<dyn ITask>);
 }
 
 pub trait ITask {
@@ -59,8 +65,6 @@ pub trait ITask {
     fn trap_context(&self) -> &dyn ITaskTrapContext;
 
     fn trap_context_mut(&self) -> &mut dyn ITaskTrapContext;
-
-    fn execve(&self, builder: &mut MemorySpace, trap_ctx: &dyn ITaskTrapContext);
 
     fn fork_thread(&self) -> Arc<dyn ITask>;
 

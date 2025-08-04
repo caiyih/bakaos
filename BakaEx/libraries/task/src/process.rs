@@ -1,6 +1,9 @@
+use core::cell::RefCell;
+
 use alloc::{
     string::String,
     sync::{Arc, Weak},
+    vec,
     vec::Vec,
 };
 
@@ -18,13 +21,12 @@ use crate::{id_allocator::TaskIdAllocator, Task};
 pub struct Process {
     pid: TaskId,
     pgid: u32,
-    #[allow(unused)]
     id_allocator: Arc<dyn ITaskIdAllocator>,
     parent: Option<Arc<dyn IProcess>>,
-    threads: Vec<Arc<dyn ITask>>,
-    children: Vec<Weak<dyn IProcess>>,
+    threads: SpinMutex<Vec<Arc<dyn ITask>>>,
+    children: SpinMutex<Vec<Weak<dyn IProcess>>>,
     memory_space: SpinMutex<MemorySpace>,
-    mmu: Arc<SpinMutex<dyn IMMU>>,
+    mmu: RefCell<Arc<SpinMutex<dyn IMMU>>>,
     fd_table: SpinMutex<FileDescriptorTable>,
     working_directory: SpinMutex<String>,
     exit_code: SpinMutex<Option<u8>>,
@@ -50,9 +52,9 @@ impl Process {
             pid,
             id_allocator,
             parent: None,
-            threads: Vec::new(),
-            children: Vec::new(),
-            mmu,
+            threads: SpinMutex::new(Vec::new()),
+            children: SpinMutex::new(Vec::new()),
+            mmu: RefCell::new(mmu),
             memory_space: SpinMutex::new(builder.memory_space),
             fd_table: SpinMutex::new(FileDescriptorTable::new()),
             working_directory: SpinMutex::new(String::new()),
@@ -86,11 +88,12 @@ impl IProcess for Process {
     }
 
     fn threads(&self) -> Vec<Arc<dyn ITask>> {
-        self.threads.clone()
+        self.threads.lock().clone()
     }
 
     fn children(&self) -> Vec<Arc<dyn IProcess>> {
         self.children
+            .lock()
             .iter()
             .filter_map(|w| w.upgrade())
             .collect::<Vec<_>>()
@@ -113,7 +116,28 @@ impl IProcess for Process {
     }
 
     fn mmu(&self) -> &SpinMutex<dyn IMMU> {
-        &self.mmu
+        unsafe { self.mmu.as_ptr().as_ref().unwrap() }
+    }
+
+    fn execve(&self, mem: MemorySpace, calling: u32) {
+        *self.mmu.borrow_mut() = mem.mmu().clone();
+        *self.memory_space.lock() = mem;
+
+        let mut threads = self.threads.lock();
+
+        let calling = threads.iter().find(|t| t.tid() == calling).unwrap();
+
+        *threads = vec![calling.clone()];
+
+        self.fd_table.lock().clear_exec();
+    }
+
+    fn alloc_id(&self) -> TaskId {
+        self.id_allocator.clone().alloc()
+    }
+
+    fn push_thread(&self, task: Arc<dyn ITask>) {
+        self.threads.lock().push(task);
     }
 }
 

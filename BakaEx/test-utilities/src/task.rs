@@ -94,10 +94,6 @@ impl ITask for TestTask {
         todo!()
     }
 
-    fn execve(&self, _: &mut MemorySpace, _: &dyn ITaskTrapContext) {
-        unimplemented!("TestTask is intended for light-weight mock testing. Use task::Task instead, which also supports unit test")
-    }
-
     fn fork_thread(&self) -> Arc<dyn ITask> {
         unimplemented!("TestTask is intended for light-weight mock testing. Use task::Task instead, which also supports unit test")
     }
@@ -111,8 +107,8 @@ pub struct TestProcess {
     pub pid: u32,
     pub pgid: u32,
     pub parent: Option<Arc<dyn IProcess>>,
-    pub threads: Vec<Arc<dyn ITask>>,
-    pub children: Vec<Weak<dyn IProcess>>,
+    pub threads: SpinMutex<Vec<Arc<dyn ITask>>>,
+    pub children: SpinMutex<Vec<Weak<dyn IProcess>>>,
     pub memory_space: Option<SpinMutex<MemorySpace>>,
     pub fd_table: Option<SpinMutex<FileDescriptorTable>>,
     pub working_directory: String,
@@ -126,8 +122,8 @@ impl TestProcess {
             pid: 0,
             pgid: 0,
             parent: None,
-            threads: Vec::new(),
-            children: Vec::new(),
+            threads: SpinMutex::new(Vec::new()),
+            children: SpinMutex::new(Vec::new()),
             memory_space: None,
             fd_table: None,
             working_directory: String::new(),
@@ -168,12 +164,12 @@ impl TestProcess {
     }
 
     pub fn with_threads(mut self, threads: Vec<Arc<dyn ITask>>) -> Self {
-        self.threads = threads;
+        self.threads = SpinMutex::new(threads);
         self
     }
 
     pub fn with_children(mut self, children: Vec<Weak<dyn IProcess>>) -> Self {
-        self.children = children;
+        self.children = SpinMutex::new(children);
         self
     }
 
@@ -207,11 +203,12 @@ impl IProcess for TestProcess {
     }
 
     fn threads(&self) -> Vec<Arc<dyn ITask>> {
-        self.threads.clone()
+        self.threads.lock().clone()
     }
 
     fn children(&self) -> Vec<Arc<dyn IProcess>> {
         self.children
+            .lock()
             .iter()
             .filter_map(|w| w.upgrade())
             .collect::<Vec<_>>()
@@ -235,5 +232,17 @@ impl IProcess for TestProcess {
 
     fn mmu(&self) -> &SpinMutex<dyn IMMU> {
         unsafe { &self.memory_space().data_ptr().as_ref().unwrap().mmu() }
+    }
+
+    fn execve(&self, _: MemorySpace, _: u32) {
+        unimplemented!("TestProcess is intended for light-weight mock testing. Use task::Process instead, which also supports unit test")
+    }
+
+    fn alloc_id(&self) -> task_abstractions::TaskId {
+        unimplemented!("TestProcess is intended for light-weight mock testing. Use task::Process instead, which also supports unit test")
+    }
+
+    fn push_thread(&self, task: Arc<dyn ITask>) {
+        self.threads.lock().push(task);
     }
 }

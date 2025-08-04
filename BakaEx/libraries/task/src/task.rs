@@ -2,7 +2,6 @@ use core::cell::UnsafeCell;
 
 use alloc::sync::Arc;
 use hermit_sync::SpinMutex;
-use memory_space_abstractions::MemorySpace;
 use platform_specific::TaskTrapContext;
 use task_abstractions::{status::TaskStatus, IProcess, ITask, TaskId, UserTaskStatistics};
 use trap_abstractions::ITaskTrapContext;
@@ -20,10 +19,7 @@ impl Task {
             id,
             process: UnsafeCell::new(None),
             trap_ctx: UnsafeCell::new(trap_ctx),
-            inner: SpinMutex::new(TaskMutableInner {
-                status: TaskStatus::Uninitialized,
-                stats: UserTaskStatistics::default(),
-            }),
+            inner: SpinMutex::new(TaskMutableInner::default()),
         })
     }
 }
@@ -31,6 +27,24 @@ impl Task {
 pub(crate) struct TaskMutableInner {
     status: TaskStatus,
     stats: UserTaskStatistics,
+}
+
+impl Default for TaskMutableInner {
+    fn default() -> Self {
+        Self {
+            status: TaskStatus::Uninitialized,
+            stats: UserTaskStatistics::default(),
+        }
+    }
+}
+
+impl Clone for TaskMutableInner {
+    fn clone(&self) -> Self {
+        Self {
+            status: self.status.clone(),
+            stats: UserTaskStatistics::default(),
+        }
+    }
 }
 
 impl ITask for Task {
@@ -71,12 +85,20 @@ impl ITask for Task {
         prev_status
     }
 
-    fn execve(&self, _builder: &mut MemorySpace, _trap_ctx: &dyn ITaskTrapContext) {
-        todo!()
-    }
-
     fn fork_thread(&self) -> Arc<dyn ITask> {
-        todo!()
+        let process = self.process().clone();
+        let id = process.alloc_id();
+
+        let mut trap_ctx = TaskTrapContext::default();
+
+        trap_ctx.copy_from(self.trap_context());
+
+        Arc::new(Task {
+            id,
+            process: UnsafeCell::new(Some(process)),
+            trap_ctx: UnsafeCell::new(trap_ctx),
+            inner: SpinMutex::new(self.inner.lock().clone()),
+        })
     }
 
     fn fork_process(&self) -> Arc<dyn ITask> {
