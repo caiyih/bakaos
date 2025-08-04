@@ -227,4 +227,73 @@ mod tests {
 
         assert_eq!(ret, Err(ErrNo::BadAddress));
     }
+
+    struct ReadOnlyFile;
+
+    impl IFile for ReadOnlyFile {
+        fn can_write(&self) -> bool {
+            false
+        }
+
+        fn write(&self, _: &[u8]) -> usize {
+            0
+        }
+    }
+
+    #[test]
+    fn test_bad_fd_if_can_not_write() {
+        let (kernel, alloc, mmu) = setup_kernel_with_memory();
+
+        let mut fd_table = FileDescriptorTable::new();
+        fd_table.allocate(Arc::new(ReadOnlyFile {}));
+
+        let (_, task) = TestProcess::new()
+            .with_fd_table(Some(fd_table))
+            .with_memory_space(Some(MemorySpace::new(mmu.clone(), alloc)))
+            .build();
+
+        let ctx = SyscallContext::new(task, kernel);
+
+        let ret = block_on!(ctx.sys_write(0, VirtualAddress::null(), 0));
+
+        assert_eq!(ret, Err(ErrNo::BadFileDescriptor));
+    }
+
+    struct LengthLimitedFile {
+        len: usize,
+    }
+
+    impl IFile for LengthLimitedFile {
+        fn can_write(&self) -> bool {
+            true
+        }
+
+        fn write(&self, buf: &[u8]) -> usize {
+            self.len.min(buf.len())
+        }
+    }
+
+    #[test]
+    fn test_write_with_length_limit() {
+        let limited_len = 5000;
+        let buffer = &[0x42u8; 8192];
+
+        let (kernel, alloc, mmu) = setup_kernel_with_memory();
+
+        let mut fd_table = FileDescriptorTable::new();
+        fd_table.allocate(Arc::new(LengthLimitedFile { len: limited_len }));
+
+        let (_, task) = TestProcess::new()
+            .with_fd_table(Some(fd_table))
+            .with_memory_space(Some(MemorySpace::new(mmu.clone(), alloc)))
+            .build();
+
+        let ctx = SyscallContext::new(task, kernel);
+
+        mmu.lock().register(buffer, false);
+
+        let ret = block_on!(ctx.sys_write(0, buffer.into(), buffer.len()));
+
+        assert_eq!(ret, Ok(limited_len as isize));
+    }
 }
