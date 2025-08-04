@@ -159,7 +159,7 @@ async fn handle_user_trap(sys_ctx: &SyscallContext, return_reason: UserInterrupt
                 return Some(ret);
             }
 
-            payload.set_return_value(ret);
+            payload.trap_ctx.set_return_value(ret);
         }
         _ => unimplemented!("Unhandled user interrupt: {:?}", return_reason),
     }

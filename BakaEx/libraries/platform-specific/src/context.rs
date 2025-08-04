@@ -6,18 +6,26 @@ pub trait ITaskContext {
         argv_base: usize,
         envp_base: usize,
     ) -> Self;
-
-    fn set_stack_top(&mut self, stack_top: usize);
-
-    fn set_syscall_return_value(&mut self, ret: usize);
 }
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct TestTaskContext {
-    stack_top: usize,
-    entry_pc: usize,
-    return_value: usize,
+    pub stack_top: usize,
+    pub entry_pc: usize,
+    pub return_value: usize,
+}
+
+impl TestTaskContext {
+    #[allow(unused)]
+    pub(crate) fn set_stack_top_internal(&mut self, stack_top: usize) {
+        self.stack_top = stack_top;
+    }
+
+    #[allow(unused)]
+    pub(crate) fn set_return_value_internal(&mut self, ret: usize) {
+        self.return_value = ret;
+    }
 }
 
 impl ITaskContext for TestTaskContext {
@@ -33,13 +41,5 @@ impl ITaskContext for TestTaskContext {
             entry_pc,
             return_value: 0,
         }
-    }
-
-    fn set_stack_top(&mut self, stack_top: usize) {
-        self.stack_top = stack_top;
-    }
-
-    fn set_syscall_return_value(&mut self, ret: usize) {
-        self.return_value = ret;
     }
 }

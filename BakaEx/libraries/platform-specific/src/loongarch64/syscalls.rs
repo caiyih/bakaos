@@ -75,9 +75,4 @@ impl<TPayload> ISyscallPayloadMut for SyscallPayload<'_, TPayload> {
     fn move_to_next_instruction(&mut self) {
         self.trap_ctx_mut().era += 4
     }
-
-    #[inline(always)]
-    fn set_return_value(&mut self, value: usize) {
-        self.trap_ctx_mut().regs.a0 = value;
-    }
 }

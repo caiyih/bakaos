@@ -107,6 +107,16 @@ pub struct TaskTrapContext {
     pub fregs: FloatRegisterContext,
 }
 
+impl TaskTrapContext {
+    pub(crate) fn set_stack_top_internal(&mut self, stack_top: usize) {
+        self.regs.sp = stack_top
+    }
+
+    pub(crate) fn set_return_value_internal(&mut self, ret: usize) {
+        self.regs.a0 = ret
+    }
+}
+
 impl Debug for TaskTrapContext {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("TaskTrapContext")
@@ -138,14 +148,6 @@ impl ITaskContext for TaskTrapContext {
         ctx.regs.a0 = 0;
 
         ctx
-    }
-
-    fn set_stack_top(&mut self, stack_top: usize) {
-        self.regs.sp = stack_top;
-    }
-
-    fn set_syscall_return_value(&mut self, ret: usize) {
-        self.regs.a0 = ret;
     }
 }
 

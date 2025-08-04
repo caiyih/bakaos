@@ -31,6 +31,14 @@ impl ITaskTrapContext for TaskTrapContext {
 
         *self = *other;
     }
+    
+    fn set_stack_top(&mut self, stack_top: usize) {
+        self.set_stack_top_internal(stack_top);
+    }
+    
+    fn set_return_value(&mut self, ret: usize) {
+        self.set_return_value_internal(ret)
+    }
 }
 
 impl Default for TaskTrapContext {
