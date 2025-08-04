@@ -93,6 +93,18 @@ impl ITask for TestTask {
     fn trap_context_mut(&self) -> &mut dyn ITaskTrapContext {
         todo!()
     }
+
+    fn execve(&self, _: &mut MemorySpace, _: &dyn ITaskTrapContext) {
+        unimplemented!("TestTask is intended for light-weight mock testing. Use task::Task instead, which also supports unit test")
+    }
+
+    fn fork_thread(&self) -> Arc<dyn ITask> {
+        unimplemented!("TestTask is intended for light-weight mock testing. Use task::Task instead, which also supports unit test")
+    }
+
+    fn fork_process(&self) -> Arc<dyn ITask> {
+        unimplemented!("TestTask is intended for light-weight mock testing. Use task::Task instead, which also supports unit test")
+    }
 }
 
 pub struct TestProcess {

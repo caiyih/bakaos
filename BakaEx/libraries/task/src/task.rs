@@ -2,6 +2,7 @@ use core::cell::UnsafeCell;
 
 use alloc::sync::Arc;
 use hermit_sync::SpinMutex;
+use memory_space_abstractions::MemorySpace;
 use platform_specific::TaskTrapContext;
 use task_abstractions::{status::TaskStatus, IProcess, ITask, TaskId, UserTaskStatistics};
 use trap_abstractions::ITaskTrapContext;
@@ -68,5 +69,17 @@ impl ITask for Task {
         inner.status = new_status;
 
         prev_status
+    }
+
+    fn execve(&self, _builder: &mut MemorySpace, _trap_ctx: &dyn ITaskTrapContext) {
+        todo!()
+    }
+
+    fn fork_thread(&self) -> Arc<dyn ITask> {
+        todo!()
+    }
+
+    fn fork_process(&self) -> Arc<dyn ITask> {
+        todo!()
     }
 }

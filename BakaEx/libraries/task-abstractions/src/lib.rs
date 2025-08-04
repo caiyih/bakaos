@@ -59,6 +59,12 @@ pub trait ITask {
     fn trap_context(&self) -> &dyn ITaskTrapContext;
 
     fn trap_context_mut(&self) -> &mut dyn ITaskTrapContext;
+
+    fn execve(&self, builder: &mut MemorySpace, trap_ctx: &dyn ITaskTrapContext);
+
+    fn fork_thread(&self) -> Arc<dyn ITask>;
+
+    fn fork_process(&self) -> Arc<dyn ITask>;
 }
 
 #[derive(Debug, Clone, Default)]
