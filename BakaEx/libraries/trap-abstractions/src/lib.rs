@@ -3,7 +3,9 @@
 #[cfg(feature = "std")]
 extern crate std;
 
-pub trait ITaskTrapContext {}
+pub trait ITaskTrapContext {
+    fn copy_from(&mut self, other: &dyn ITaskTrapContext);
+}
 
 pub trait ISyscallPayload {
     fn syscall_id(&self) -> usize;
