@@ -1,9 +1,11 @@
+use core::cell::UnsafeCell;
 use std::sync::{Arc, Weak};
 
 use filesystem_abstractions::FileDescriptorTable;
 use hermit_sync::SpinMutex;
 use memory_space_abstractions::MemorySpace;
 use mmu_abstractions::IMMU;
+use platform_specific::TaskTrapContext;
 use task_abstractions::{status::TaskStatus, IProcess, ITask, UserTaskStatistics};
 use trap_abstractions::ITaskTrapContext;
 
@@ -13,6 +15,7 @@ pub struct TestTask {
     process: Option<Arc<dyn IProcess>>,
     status: SpinMutex<TaskStatus>,
     stats: UserTaskStatistics,
+    trap_ctx: UnsafeCell<TaskTrapContext>,
 }
 
 impl TestTask {
@@ -23,6 +26,7 @@ impl TestTask {
             process: None,
             status: SpinMutex::new(TaskStatus::Running),
             stats: UserTaskStatistics::default(),
+            trap_ctx: UnsafeCell::new(TaskTrapContext::default()),
         }
     }
 
@@ -87,15 +91,25 @@ impl ITask for TestTask {
     }
 
     fn trap_context(&self) -> &dyn ITaskTrapContext {
-        todo!()
+        unsafe { self.trap_ctx.get().as_ref().unwrap() }
     }
 
     fn trap_context_mut(&self) -> &mut dyn ITaskTrapContext {
-        todo!()
+        unsafe { self.trap_ctx.get().as_mut().unwrap() }
     }
 
     fn fork_thread(&self) -> Arc<dyn ITask> {
-        unimplemented!("TestTask is intended for light-weight mock testing. Use task::Task instead, which also supports unit test")
+        let mut trap_ctx = TaskTrapContext::default();
+        trap_ctx.copy_from(self.trap_context());
+
+        Arc::new(TestTask {
+            tid: self.tid,
+            tgid: self.tgid,
+            process: self.process.clone(),
+            status: SpinMutex::new(*self.status.lock()),
+            stats: self.stats.clone(),
+            trap_ctx: UnsafeCell::new(trap_ctx),
+        })
     }
 
     fn fork_process(&self) -> Arc<dyn ITask> {
@@ -143,7 +157,7 @@ impl TestProcess {
 
         let main_thread = main_thread.with_process(Some(process.clone())).build();
 
-        // TODO: Add main thread to threads.
+        process.push_thread(main_thread.clone());
 
         (process, main_thread)
     }
