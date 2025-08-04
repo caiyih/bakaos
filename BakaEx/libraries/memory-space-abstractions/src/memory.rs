@@ -82,6 +82,16 @@ impl MemorySpace {
         self.mapping_areas.push(area);
     }
 
+    pub fn map_area(&mut self, area: MappingArea) {
+        debug_assert!(area.allocation.is_some());
+        debug_assert!(Arc::ptr_eq(
+            &area.allocation.as_ref().unwrap().allocator,
+            &self.allocator
+        ));
+
+        self.mapping_areas.push(area);
+    }
+
     pub fn unmap_first_area_that(&mut self, predicate: &impl Fn(&MappingArea) -> bool) -> bool {
         match self.mapping_areas.iter().position(predicate) {
             Some(index) => {

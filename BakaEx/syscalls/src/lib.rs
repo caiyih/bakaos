@@ -1,4 +1,5 @@
 #![feature(future_join)]
+#![feature(const_trait_impl)]
 #![cfg_attr(target_os = "none", no_std)]
 
 use alloc::sync::Arc;
@@ -9,6 +10,7 @@ use task_abstractions::ITask;
 extern crate alloc;
 
 pub mod sys_exit;
+pub mod sys_mmap;
 pub mod sys_write;
 
 pub type SyscallResult = Result<isize, ErrNo>;

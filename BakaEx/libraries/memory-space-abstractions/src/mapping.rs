@@ -75,6 +75,15 @@ pub struct MappingAreaAllocation {
     pub frames: BTreeMap<VirtualPageNum, FrameDesc>,
 }
 
+impl MappingAreaAllocation {
+    pub fn empty(allocator: Arc<SpinMutex<dyn IFrameAllocator>>) -> Self {
+        Self {
+            allocator,
+            frames: BTreeMap::new(),
+        }
+    }
+}
+
 impl Drop for MappingAreaAllocation {
     fn drop(&mut self) {
         while let Some((_, frame)) = self.frames.pop_first() {

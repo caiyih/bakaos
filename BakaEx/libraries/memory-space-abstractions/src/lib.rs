@@ -64,5 +64,6 @@ pub enum AreaType {
     UserStack,
     UserStackGuardTop,
     UserBrk,
+    VMA,
     Kernel,
 }
