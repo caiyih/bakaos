@@ -13,6 +13,7 @@ pub mod sys_clone;
 pub mod sys_execve;
 pub mod sys_exit;
 pub mod sys_mmap;
+pub mod sys_sched_yield;
 pub mod sys_write;
 
 pub type SyscallResult = Result<isize, ErrNo>;
