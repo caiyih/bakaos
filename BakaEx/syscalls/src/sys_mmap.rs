@@ -2,6 +2,7 @@ use abstractions::IUsizeAlias;
 use address::{
     IAddressBase, IAlignableAddress, IPageNum, IToPageNum, VirtualAddress, VirtualPageNumRange,
 };
+use alloc::vec::Vec;
 use constants::SyscallError;
 use memory_space_abstractions::{AreaType, MapType, MappingArea, MemorySpace};
 use mmap_abstractions::{MemoryMapFlags, MemoryMapProt};
