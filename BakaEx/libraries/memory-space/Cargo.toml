@@ -14,7 +14,7 @@ allocation-abstractions = { path = "../allocation-abstractions", default-feature
 filesystem-abstractions = { path = "../filesystem-abstractions", default-features = false }
 memory-space-abstractions = { path = "../memory-space-abstractions", default-features = false }
 
-bitflags = "2.6.0"
+bitflags = "2.9"
 xmas-elf = "0.10"
 log = "0.4.27"
 hermit-sync = "0.1.6"

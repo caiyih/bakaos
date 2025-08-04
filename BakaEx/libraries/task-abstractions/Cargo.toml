@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bitflags = "2.6.0"
+bitflags = "2.9"
 hermit-sync = "0.1.6"
 mmu-abstractions = { path = "../mmu-abstractions", default-features = false }
 trap-abstractions = { path = "../trap-abstractions", default-features = false }
