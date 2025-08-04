@@ -23,7 +23,15 @@ pub use loongarch64::*;
 #[cfg(target_arch = "loongarch64")]
 pub type TaskTrapContext = loongarch64::TaskTrapContext;
 
-impl ITaskTrapContext for TaskTrapContext {}
+impl ITaskTrapContext for TaskTrapContext {
+    fn copy_from(&mut self, other: &dyn ITaskTrapContext) {
+        let other = other
+            .downcast_ref::<TaskTrapContext>()
+            .expect("The other trap context is not of type TaskTrapContext");
+
+        *self = *other;
+    }
+}
 
 #[rustfmt::skip]
 mod generated;

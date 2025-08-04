@@ -1,11 +1,15 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use downcast_rs::{impl_downcast, Downcast};
+
 #[cfg(feature = "std")]
 extern crate std;
 
-pub trait ITaskTrapContext {
+pub trait ITaskTrapContext: Downcast {
     fn copy_from(&mut self, other: &dyn ITaskTrapContext);
 }
+
+impl_downcast!(ITaskTrapContext);
 
 pub trait ISyscallPayload {
     fn syscall_id(&self) -> usize;
