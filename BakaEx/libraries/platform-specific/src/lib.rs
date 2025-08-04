@@ -33,6 +33,12 @@ impl ITaskTrapContext for TaskTrapContext {
     }
 }
 
+impl Default for TaskTrapContext {
+    fn default() -> Self {
+        unsafe { core::mem::zeroed() }
+    }
+}
+
 #[rustfmt::skip]
 mod generated;
 
