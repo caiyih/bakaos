@@ -1,0 +1,21 @@
+[package]
+name = "platform-abstractions"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+trap-abstractions = { path = "../trap-abstractions", default-features = false }
+platform-specific = { path = "../platform-specific", default-features = false }
+unwinding = { path = "../unwinding" }
+constants =  { path = "../constants", default-features = false }
+log = "0.4.27"
+
+[target.'cfg(target_arch = "riscv64")'.dependencies]
+riscv = "0.12"
+sbi-rt = "0.0.3"
+sbi-spec = "0.0.8"
+
+[target.'cfg(target_arch = "loongarch64")'.dependencies]
+loongArch64 = "0.2.4"
