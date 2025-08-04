@@ -20,6 +20,7 @@ mmu-abstractions = { path = "../libraries/mmu-abstractions", default-features = 
 mmap-abstractions = { path = "../libraries/mmap-abstractions", default-features = false }
 allocation-abstractions = { path = "../libraries/allocation-abstractions", default-features = false }
 task = { path = "../libraries/task", default-features = false }
+rand = "0.9.2"
 
 [dev-dependencies]
 test-utilities = { path = "../test-utilities" }

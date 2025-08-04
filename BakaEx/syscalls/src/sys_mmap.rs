@@ -507,4 +507,44 @@ mod tests {
 
         assert!(inspect_result.is_err());
     }
+
+    #[test]
+    fn test_syscall_anonymous_content_persists() {
+        let ctx = setup_syscall_context();
+
+        let len = 8192;
+
+        let ret = ctx.sys_mmap(
+            VirtualAddress::null(),
+            len,
+            MemoryMapProt::READ | MemoryMapProt::WRITE,
+            MemoryMapFlags::ANONYMOUS,
+            0,
+            0,
+        );
+
+        let vaddr = VirtualAddress::from_usize(ret.unwrap() as usize);
+
+        let mut random_content = create_buffer(len);
+
+        fill_buffer_with_random_bytes(&mut random_content);
+
+        let mmu = ctx.task.process().mmu().lock();
+
+        mmu.write_bytes(vaddr, &random_content).unwrap();
+
+        let mut read_buffer = create_buffer(len);
+
+        mmu.read_bytes(vaddr, &mut read_buffer).unwrap();
+
+        assert_eq!(random_content, read_buffer);
+    }
+
+    fn fill_buffer_with_random_bytes(buf: &mut [u8]) {
+        use rand::Rng;
+
+        let mut rng = rand::rng();
+
+        rng.fill(buf);
+    }
 }
