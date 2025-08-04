@@ -21,6 +21,7 @@ members = [
     "libraries/allocation-abstractions",
     "libraries/mmu-abstractions",
     "libraries/memory-space-abstractions",
+    "libraries/mmap-abstractions",
     "libraries/task-abstractions",
     "libraries/trap-abstractions",
 ]
