@@ -34,17 +34,45 @@ impl ISourceGenerator for BuildInfoGenerator {
         &mut self,
         context: &mut SourceGenerationContext,
     ) -> Result<(), SourceGenerationError> {
+        let mut source_text = String::new();
+
         let build_time = Local::now();
         let build_time = build_time.format("%a, %d %b %Y %H:%M:%S %z").to_string();
 
-        let source_text = format!(
+        source_text.push_str(&format!(
             "pub const BUILD_TIME: &::core::primitive::str = \"{}\";",
             build_time.trim()
-        );
+        ));
+
+        let build_version = format!("#1 SMP PREEMPT_DYNAMIC {}", build_time.trim());
+
+        source_text.push_str(&format!(
+            "pub const BUILD_VERSION: &::core::primitive::str = \"{}\";",
+            build_version.trim()
+        ));
+
+        let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
+
+        source_text.push_str(&format!(
+            "pub const TARGET_ARCH: &::core::primitive::str = \"{}\";",
+            target_arch.trim()
+        ));
 
         context.add_source("build_info.rs", &source_text, false, true)?;
         context.register_export_symbol(
             "build_info::BUILD_TIME",
+            SymbolExportType::Use { as_name: None },
+            true,
+        )?;
+
+        context.register_export_symbol(
+            "build_info::BUILD_VERSION",
+            SymbolExportType::Use { as_name: None },
+            true,
+        )?;
+
+        context.register_export_symbol(
+            "build_info::TARGET_ARCH",
             SymbolExportType::Use { as_name: None },
             true,
         )?;
