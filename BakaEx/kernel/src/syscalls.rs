@@ -8,9 +8,15 @@ use trap_abstractions::ISyscallPayload;
 pub async fn handle_syscall_async(p: &SyscallPayload<'_, &SyscallContext>) -> SyscallResult {
     let ctx = p.payload;
 
+    macro_rules! syscall {
+        ($num:tt, $name:ident) => {
+            syscalls::syscall_internal!($num, $name, ctx, p)
+        };
+    }
+
     match p.syscall_id() {
-        SYSCALL_ID_WRITE => ctx.sys_write(p.arg0(), p.arg1(), p.arg2()).await,
-        SYSCALL_ID_EXIT => ctx.sys_exit(p.arg0()),
+        SYSCALL_ID_WRITE => syscall!(3, sys_write).await,
+        SYSCALL_ID_EXIT => syscall!(1, sys_exit),
         id => panic!("Unimplemented syscall: {}", id),
     }
 }
