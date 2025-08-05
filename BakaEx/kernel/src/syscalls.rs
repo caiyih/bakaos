@@ -9,14 +9,14 @@ pub async fn handle_syscall_async(p: &SyscallPayload<'_, &SyscallContext>) -> Sy
     let ctx = p.payload;
 
     macro_rules! syscall {
-        ($num:tt, $name:ident) => {
-            syscalls::syscall_internal!($num, $name, ctx, p)
+        ($name:ident, $num_arg:tt) => {
+            syscalls::syscall_internal!($num_arg, $name, ctx, p)
         };
     }
 
     match p.syscall_id() {
-        SYSCALL_ID_WRITE => syscall!(3, sys_write).await,
-        SYSCALL_ID_EXIT => syscall!(1, sys_exit),
+        SYSCALL_ID_WRITE => syscall!(sys_write, 3).await,
+        SYSCALL_ID_EXIT => syscall!(sys_exit, 1),
         id => panic!("Unimplemented syscall: {}", id),
     }
 }
