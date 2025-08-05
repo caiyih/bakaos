@@ -3,7 +3,6 @@ use std::{
     ffi::OsStr,
     fs::{File, Metadata},
     io::{Error, Read, Seek, Write},
-    os::unix::fs::MetadataExt,
     path::{Path, PathBuf},
     sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
@@ -214,11 +213,14 @@ impl IInode for HostFile {
         stat.atime = systime_to_timespec(meta.accessed().unwrap_or(UNIX_EPOCH));
         stat.mtime = systime_to_timespec(meta.modified().unwrap_or(UNIX_EPOCH));
 
-        stat.inode_id = meta.ino();
-        stat.device_id = meta.dev();
-        stat.gid = meta.gid();
-        stat.rdev = meta.rdev();
-        stat.link_count = meta.nlink() as u32;
+        // These are only supported on UNIX-like systems.
+        // We will not handle them to support more platforms.
+
+        // stat.inode_id = meta.ino();
+        // stat.device_id = meta.dev();
+        // stat.gid = meta.gid();
+        // stat.rdev = meta.rdev();
+        // stat.link_count = meta.nlink() as u32;
 
         Ok(())
     }
