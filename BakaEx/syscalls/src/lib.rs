@@ -15,6 +15,7 @@ pub mod sys_exit;
 pub mod sys_mmap;
 pub mod sys_nanosleep;
 pub mod sys_sched_yield;
+pub mod sys_uname;
 pub mod sys_write;
 
 pub type SyscallResult = Result<isize, ErrNo>;
