@@ -30,19 +30,11 @@ impl SyscallContext {
     }
 
     fn sys_uname_internal(&self, vaddr: VirtualAddress, utsname: UtsName) -> SyscallResult {
-        let len = core::mem::size_of::<UtsName>();
-
-        let utsname =
-            unsafe { core::slice::from_raw_parts(&utsname as *const _ as *const u8, len) };
-
         self.task
             .process()
             .mmu()
             .lock()
-            .inspect_framed_mut(vaddr, len, |dst, off| {
-                dst.copy_from_slice(&utsname[off..off + dst.len()]);
-                true
-            })
+            .export(vaddr, utsname)
             .map(|_| 0)
             .map_err(|_| ErrNo::BadAddress)
     }
