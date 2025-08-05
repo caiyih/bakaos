@@ -437,7 +437,7 @@ mod tests {
         let ret = ctx.sys_mmap(
             SyscallContext::VMA_BASE,
             len,
-            MemoryMapProt::READ,
+            MemoryMapProt::READ | MemoryMapProt::WRITE,
             MemoryMapFlags::ANONYMOUS,
             0,
             0,

@@ -201,7 +201,7 @@ impl IMMU for TestMMU {
                 .query_mapping(checking_vaddr)
                 .ok_or(MMUError::InvalidAddress)?;
 
-            mmu_ensure_permisssion(checking_vaddr, mapping.flags, false)?;
+            mmu_ensure_permisssion(checking_vaddr, mapping.flags, true)?;
 
             let offset = (checking_vaddr - mapping.virt).as_usize();
             let mapping_len = mapping.len - offset;
