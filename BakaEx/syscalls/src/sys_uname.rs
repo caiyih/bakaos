@@ -16,6 +16,8 @@ impl SyscallContext {
 
                 #[cfg(target_os = "none")]
                 {
+                    use alloc::format;
+
                     &format!("{release}-BakaOS-BareMetal")
                 }
                 #[cfg(not(target_os = "none"))]
