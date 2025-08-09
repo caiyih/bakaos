@@ -64,7 +64,9 @@ Baka OS 是一个用 Rust 编写的类 UNIX 异步操作系统内核。它面向
 
 ## Documentation
 
-**详细文档请参考 [`docs`](docs/README.md) 目录或点击 [`这里`](docs/README.md)（仅提供简体中文版本）。**
+1. 对于 BakaEx 内核的架构与测试能力的详细介绍，请点击这里 [BakaEx 文档](docs/BakaEx/README.md)。（推荐）
+
+2. 对于整个仓库的文档，请参考 [`docs`](docs/README.md) 目录。
 
 注：比赛要求的答辩 PPT 和演示视频的链接也位于 docs 目录中。
 
