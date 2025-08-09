@@ -2,8 +2,6 @@
 
 | [English](./README.md) | 简体中文 |
 
-_注意：翻译版本的所有内容目前由 ChatGPT 4o 翻译，对于不完整的情况，请参考 [README.md](./README.md)。未来会同步简体中文和 English 的内容。_
-
 <a href="https://github.com/caiyih/bakaos">
     <img alt = "Language Rust" src="https://img.shields.io/badge/language-Rust-orange">
 </a>
