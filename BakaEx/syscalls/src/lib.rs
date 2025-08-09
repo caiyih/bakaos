@@ -45,3 +45,30 @@ impl SyscallContext {
         Self { task, kernel }
     }
 }
+
+#[doc(hidden)]
+#[macro_export]
+#[rustfmt::skip]
+macro_rules! syscall_internal {
+    (0, $name:ident, $ctx:ident, $p:ident) => {
+        $ctx.$name()
+    };
+    (1, $name:ident, $ctx:ident, $p:ident) => {
+        $ctx.$name($p.arg0())
+    };
+    (2, $name:ident, $ctx:ident, $p:ident) => {
+        $ctx.$name($p.arg0(), $p.arg1())
+    };
+    (3, $name:ident, $ctx:ident, $p:ident) => {
+        $ctx.$name($p.arg0(), $p.arg1(), $p.arg2())
+    };
+    (4, $name:ident, $ctx:ident, $p:ident) => {
+        $ctx.$name($p.arg0(), $p.arg1(), $p.arg2(), $p.arg3())
+    };
+    (5, $name:ident, $ctx:ident, $p:ident) => {
+        $ctx.$name($p.arg0(), $p.arg1(), $p.arg2(), $p.arg3(), $p.arg4())
+    };
+    (6, $name:ident, $ctx:ident, $p:ident) => {
+        $ctx.$name($p.arg0(), $p.arg1(), $p.arg2(), $p.arg3(), $p.arg4(), $p.arg5())
+    };
+}
