@@ -42,20 +42,23 @@ Baka OS is a UNIX-like asynchronous operating system kernel written in Rust. Tar
 
 With the help of stackless coroutine and CPU pool, it has the potential to run thousands of tasks concurrently with multi-core support.
 
-This kernel does not based on any existing project, and is developed from scratch. With years of OOP experience, this kernel utilized the power of abstraction and encapsulation, resulting a clean and reusable codebase.
+The kernel is organized into multiple crates, strictly following the **dual-crate implementation pattern**: each functional domain is split into an _abstractions_ crate (pure interfaces) and an implementation crate. This makes every kernel subsystem **highly decoupled, testable, and replaceable**.
 
-The kernel is separated into multiple crates, and the crates is tested and inspected on the host machine, ensuring high quality code that is easy to maintain and debug.　Maintainability and ease of debugging are key aspects of our design. Our design philosophy is "logically microkernel, physically monolithic kernel." This modern operating system kernel design integrates **microkernel architecture concepts**, **Test-Driven Development (TDD) principles**, and **monolithic kernel performance advantages**. We aim to achieve the following characteristics:
+Most kernel code including syscalls, components like filesystem, memory space and more — can be tested **directly on the host machine** without running on bare-metal. This is achieved through:
 
-- **Systematic**: A complete development, testing, and validation loop
-- **Practical orientation**: Solves efficiency issues in real-world development processes
-- **Good long-term extensibility**: Seamless integration of formal verification and cross-architecture testing
-- **Compliance with industrial-grade code quality control**: Mock + host machine testing allows kernel code to be modular, highly testable, and easy to regress
+- **Inversion of Control (IoC)**: clear separation of interfaces and implementations
+- **Dependency Injection**: all critical services are passed explicitly, avoiding global state
+- **Platform-independent implementations**: enabling host-based execution for unit tests
+- **MMU simulation**: simulates a whole isolated virtual memory space with read/write capability
 
-In the future, we are considering adding a **mock implementation of the bare-metal environment** on the host machine. This will enable host-based testing for more crates.
+Only the **platform abstraction layer** and a minimal part of the core kernel require bare-metal execution. Everything else shares the same code in both the production kernel and host-based tests, ensuring consistency and reliability.
 
-While traditional microkernels improve maintainability by moving code from kernel space to user space, our approach takes a new direction: **we split the code from the kernel into separate components**, but they **still run in kernel space**. However, we ensure their **correctness and high quality** through **comprehensive testing on the host machine**, achieving maintainability similar to microkernels while retaining the **performance advantages of a monolithic kernel**.
+Our design philosophy is **"logically microkernel, physically monolithic kernel"**.  
+We combine the **maintainability of microkernels** with the **performance of monolithic kernels** by keeping subsystems logically independent yet running in the same address space.
 
-For example, one current obstacle to host-based testing is **page frame allocation**. But we can simulate page frame allocation on the host machine by using its heap memory allocator, enabling testing for the dependent components. In this way, **only the HAL layer and a small part of the core kernel remain unsuitable for direct testing on the host machine**.
+For a detailed explanation of BakaEx’s architecture and testing capabilities, see:
+
+- [BakaEx Documentation](docs/BakaEx/README.md) （Avaliable in Simplified Chinese）
 
 <!-- <p>
     <del>
