@@ -53,6 +53,18 @@ Most kernel code including syscalls, components like filesystem, memory space an
 
 Only the **platform abstraction layer** and a minimal part of the core kernel require bare-metal execution. Everything else shares the same code in both the production kernel and host-based tests, ensuring consistency and reliability.
 
+Key advantages of this design include:
+
+- **Systematic workflow**: complete development–testing–validation loop
+- **Practical focus**: solves efficiency bottlenecks in real-world kernel development
+- **Long-term extensibility**: seamless integration with formal verification and cross-architecture testing
+- **Industrial-grade code quality**: Mock + host-based testing ensures modular, highly testable, and regression-friendly code
+- **Platform independence**: develop and test on Windows, Linux, or macOS without QEMU or bare-metal setup
+- **Decoupled and pluggable architecture**: freely combine, replace, or remove components for specialized needs
+- **Parallelized testing**: run `cargo test` with full parallelization to greatly accelerate testing cycles
+- **Low entry barrier**: development process is close to standard Rust application development, suitable even for teaching
+- **Unikernel compatibility**: the kernel design is a superset of the Unikernel model
+
 Our design philosophy is **"logically microkernel, physically monolithic kernel"**.  
 We combine the **maintainability of microkernels** with the **performance of monolithic kernels** by keeping subsystems logically independent yet running in the same address space.
 
