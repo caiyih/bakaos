@@ -106,7 +106,7 @@ BakaEx 内核被划分为多个 crate（Rust 项目），并在宿主机上对�
 
 2. [**可测试内核的依赖注入**](./dependency.md)
 
-3. [**可测试内核的抽象解耦**](./abstractions.md)
+3. [**可测试内核的控制反转**](./abstractions.md)
 
 4. [**可测试内核的内存抽象**](./memory.md)
 
