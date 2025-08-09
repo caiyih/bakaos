@@ -64,6 +64,7 @@ Key advantages of this design include:
 - **Parallelized testing**: run `cargo test` with full parallelization to greatly accelerate testing cycles
 - **Low entry barrier**: development process is close to standard Rust application development, suitable even for teaching
 - **Unikernel compatibility**: the kernel design is a superset of the Unikernel model
+- **Flexible isolation environment**: through dependency injection and IKernel instantiation mechanism, the OS can easily create and modify kernel-level isolated running environments.
 
 Our design philosophy is **"logically microkernel, physically monolithic kernel"**.  
 We combine the **maintainability of microkernels** with the **performance of monolithic kernels** by keeping subsystems logically independent yet running in the same address space.
