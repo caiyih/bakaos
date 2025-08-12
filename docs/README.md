@@ -2,8 +2,7 @@
 
 ## 答辩 PPT
 
-- 金山文档在线访问：[https://kdocs.cn/l/ceTW4JnBxtUh](https://kdocs.cn/l/ceTW4JnBxtUh)
-- 百度网盘：[https://pan.baidu.com/share/init?surl=yblEKQ_8lBl34ta_t9d8fg&pwd=wtkg](https://pan.baidu.com/share/init?surl=yblEKQ_8lBl34ta_t9d8fg&pwd=wtkg)
+- 金山文档在线访问：[BakaEx：基于依赖注入的全可测内核架构](https://kdocs.cn/l/cczjIUiHF6P6) (2025-08-12 更新)
 
 ## 演示视频
 
