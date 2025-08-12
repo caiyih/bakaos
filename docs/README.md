@@ -8,6 +8,26 @@
 
 - 百度网盘：[https://pan.baidu.com/s/19RYzUepQxyAHZJ7nXCLJsw?pwd=qemy](https://pan.baidu.com/s/19RYzUepQxyAHZJ7nXCLJsw?pwd=qemy)
 
+## BakaEx 可测试架构介绍 
+
+1. [**BakaEx 介绍**](./BakaEx)
+
+2. [**可测试内核的设计哲学**](./BakaEx/philophy.md)
+
+3. [**可测试内核的依赖注入**](./BakaEx/dependency.md)
+
+4. [**可测试内核的控制反转**](./BakaEx/abstractions.md)
+
+5. [**可测试内核的内存抽象**](./BakaEx/memory.md)
+
+6. [**系统调用的测试驱动开发 —— 以 sys_mmap 为例**](./BakaEx/sys_mmap.md)
+
+7. [**将宿主文件系统带入 BakaEx 中测试**](./BakaEx/filesystem.md)
+
+8. [**BakaEx 的 Unikernel 模式**](./BakaEx/unikernel.md)
+
+9. [**BakaEx 的隔离执行环境**](./BakaEx/container.md)
+
 ## Repository 相关
 
 - [项目结构](repository/structure.md)
