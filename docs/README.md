@@ -6,6 +6,7 @@
 
 ## 演示视频
 
+- 百度网盘：[宿主环境测试演示](https://pan.baidu.com/s/13FokiM5Qvw5i1C8QoNpvCQ?pwd=w8d3)
 - 百度网盘：[https://pan.baidu.com/s/19RYzUepQxyAHZJ7nXCLJsw?pwd=qemy](https://pan.baidu.com/s/19RYzUepQxyAHZJ7nXCLJsw?pwd=qemy)
 
 ## BakaEx 可测试架构介绍 
