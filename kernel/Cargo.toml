@@ -1,46 +1,31 @@
 [package]
-name = "bakaos"
+name = "bakaos-ex"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[profile.release]
-debug = true
-opt-level = 3
-overflow-checks = false
-panic = "abort"
-
 [dependencies]
-constants = { path = "../crates/constants", default-features = false }
-abstractions = { path = "../crates/abstractions", default-features = false }
-address = { path = "../crates/address", default-features = false }
-path = { path = "../crates/path", default-features = false }
-allocation = { path = "../crates/allocation", features = ["no_std", "zero_page"] }
-timing = { path = "../crates/timing", default-features = false }
-filesystem-abstractions = { path = "../crates/filesystem-abstractions", features = ["no_std", "allocation"] }
-filesystem = { path = "../crates/filesystem", default-features = false }
-paging = { path = "../crates/paging", default-features = false }
-tasks = { path = "../crates/tasks", default-features = false }
-threading = { path = "../crates/threading", default-features = false }
-rng = { path = "../crates/rng", default-features = false }
-global_heap = { path = "../crates/global_heap", default-features = false }
+log = "0.4"
 hermit-sync = "0.1.6"
-log = "0.4.27"
-async-task = { version = "4.7.1", default-features = false }
-platform-abstractions = { path = "../crates/platform-abstractions" }
-platform-specific = { path = "../crates/platform-specific", default-features = false }
-page_table = { path = "../crates/page_table" }
-
-drivers = { path = "../crates/drivers", default-features = false }
-bitflags = "2.9.0"
-
-[patch.crates-io]
-# patches LoongArch64 support for https://github.com/japaric/cty
-cty = { git = "https://github.com/neuq-rcore/lwext4_rust.git" }
+syscalls = { path = "../syscalls" }
+timing = { path = "../libraries/timing" }
+kernel-abstractions = { path = "../libraries/kernel-abstractions" }
+trap-abstractions = { path = "../libraries/trap-abstractions" }
+platform-abstractions = { path = "../libraries/platform-abstractions" }
+platform-specific = { path = "../libraries/platform-specific" }
+memory-space = { path = "../libraries/memory-space" }
+allocation = { path = "../libraries/allocation" }
+allocation-abstractions = { path = "../libraries/allocation-abstractions" }
+filesystem-abstractions = { path = "../libraries/filesystem-abstractions" }
+mmu-abstractions = { path = "../libraries/mmu-abstractions" }
+task-abstractions = { path = "../libraries/task-abstractions" }
+task = { path = "../libraries/task" }
+mmu-native = { path = "../libraries/mmu-native" }
+threading = { path = "../libraries/threading" }
+address = { path = "../libraries/address" }
+abstractions = { path = "../libraries/abstractions" }
+global_heap = { path = "../libraries/global_heap" }
+buddy_system_allocator = { git = "https://github.com/neuq-rcore/buddy_system_allocator" }
 
 [features]
 default = ["virt"]
-virt = ["platform-specific/virt", "drivers/virt"]
-vf2 = ["platform-specific/vf2", "drivers/vf2"]
-2k1000 = ["platform-specific/2k1000", "drivers/2k1000"]
+virt = []
