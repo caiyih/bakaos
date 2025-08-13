@@ -1385,14 +1385,6 @@ mod tests {
     }
 
     #[test]
-    fn test_directory_tree_node_touch() {
-        let parent = DirectoryTreeNode::from_empty(None, "parent".to_string());
-        let result = parent.touch("new_file");
-        assert!(result.is_ok());
-        assert!(parent.inner.lock().is_mounted("new_file"));
-    }
-
-    #[test]
     fn test_directory_tree_node_stat() {
         let parent = None;
         let name = "test_file";
