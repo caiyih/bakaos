@@ -29,3 +29,12 @@ buddy_system_allocator = { git = "https://github.com/neuq-rcore/buddy_system_all
 [features]
 default = ["virt"]
 virt = []
+
+[profile.release]
+debug = true
+opt-level = 3
+overflow-checks = false
+panic = "abort"
+
+[workspace]
+resolver = "2"

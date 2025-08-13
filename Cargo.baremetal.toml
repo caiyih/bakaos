@@ -1,9 +1,0 @@
-[workspace]
-resolver = "2"
-members = [
-    "kernel",
-    "libraries/platform-specific",
-    "libraries/platform-abstractions",
-]
-
-target = "riscv64gc-unknown-none-elf"
