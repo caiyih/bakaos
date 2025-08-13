@@ -32,18 +32,11 @@ impl SyscallContext {
             yield_now().await;
         }
 
-        let mut bytes_written = 0;
+        let mmu = self.task.process().mmu().lock();
 
-        self.task
-            .process()
-            .mmu()
-            .lock()
-            .inspect_framed(buf, count, |buf, _| {
-                bytes_written += file.write(buf);
+        let buf = mmu.map_buffer(buf, count).map_err(|_| ErrNo::BadAddress)?;
 
-                true
-            })
-            .map_err(|_| ErrNo::BadAddress)?;
+        let bytes_written = file.write(&buf);
 
         Ok(bytes_written as isize)
     }
