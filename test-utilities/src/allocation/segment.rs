@@ -1,9 +1,5 @@
 use core::{alloc::Layout, ptr::NonNull};
-use std::{
-    alloc::{AllocError, Allocator},
-    collections::BTreeMap,
-    sync::Arc,
-};
+use std::{collections::BTreeMap, sync::Arc};
 
 use abstractions::IUsizeAlias;
 use address::{PhysicalAddress, PhysicalAddressRange};
@@ -64,7 +60,7 @@ pub(crate) struct HostMemory {
 impl HostMemory {
     pub fn alloc(num_frames: usize) -> (PhysicalAddress, Self) {
         let layout = create_layout(num_frames);
-        let (pa, ptr) = heap_allocate(layout).unwrap();
+        let (pa, ptr) = heap_allocate(layout);
 
         (pa, Self { ptr, layout })
     }
@@ -131,16 +127,14 @@ const fn create_layout(num_frame: usize) -> Layout {
     }
 }
 
-fn heap_allocate(layout: Layout) -> Result<(PhysicalAddress, NonNull<u8>), AllocError> {
-    let slice_ptr: NonNull<[u8]> = std::alloc::Global.allocate_zeroed(layout)?;
+fn heap_allocate(layout: Layout) -> (PhysicalAddress, NonNull<u8>) {
+    let raw_ptr = unsafe { std::alloc::alloc_zeroed(layout) };
 
-    let raw_ptr = slice_ptr.as_ptr() as *mut u8;
-
-    Ok((PhysicalAddress::from_usize(raw_ptr as usize), unsafe {
+    (PhysicalAddress::from_usize(raw_ptr as usize), unsafe {
         NonNull::new_unchecked(raw_ptr)
-    }))
+    })
 }
 
 fn heap_deallocate(ptr: NonNull<u8>, layout: Layout) {
-    unsafe { std::alloc::Global.deallocate(ptr, layout) }
+    unsafe { std::alloc::dealloc(ptr.as_ptr(), layout) }
 }
