@@ -14,8 +14,8 @@ $(error "Please specify a valid architecture like `make build ARCH=<arch>` where
 endif
 
 build:
-	cargo build --target $(TARGET) --manifest-path kernel/Cargo.toml
-	cp target/$(TARGET)/debug/$(OUTPUT) kernel-$(ARCH).bin
+	cd kernel && cargo build --target $(TARGET)
+	cp kernel/target/$(TARGET)/debug/$(OUTPUT) kernel-$(ARCH).bin
 
 run: build
 	@$(QEMU) \
