@@ -38,11 +38,9 @@
 [![Kernel CI](https://github.com/caiyih/bakaos/actions/workflows/kernel.yml/badge.svg)](https://github.com/caiyih/bakaos/actions/workflows/kernel.yml)
 [![Preliminary test](https://github.com/caiyih/bakaos/actions/workflows/preliminary.yml/badge.svg)](https://github.com/caiyih/bakaos/actions/workflows/preliminary.yml)
 
-Baka OS 是一个用 Rust 编写的类 UNIX 异步操作系统内核。它面向 RISC-V 和 LoongArch64 架构，开发目标是 2024 年操作系统内核大赛（东北赛区）和 2025 年操作系统内核大赛（国赛）。
+> *你可能在寻找的是 [BakaOS](https://github.com/caiyih/bakaos/tree/bakaos/master)，我们的上一代内核，目前被移动到 `BakaOS/master` 分支进行单独开发。尽管 BakaOS 在功能性上更加完备，BakaEx 的一些令人兴奋的特性让我们最终决定放弃 BakaOS。BakaEx 采用我们提出的下一代内核架构，具有许多更优秀的特性，且修复了 BakaOS 的错误设计和遗留问题。*
 
-借助 Stackless Coroutine 和 CPU Pool，Baka OS 拥有在多核环境下并发运行上千个任务的潜力。
-
-本内核并非基于任何现有项目，而是完全从零开发。凭借多年的 OOP 经验，该内核充分利用了抽象与封装的优势，形成了结构清晰、可复用性强的代码库。
+BakaEx（BakaOS Extended）是 BakaOS 的继任者，是一个用 Rust 编写的类 UNIX 异步操作系统内核，支持 RISC-V 和 LoongArch64 架构。
 
 内核采用多 crate 组织，并严格遵循**双库实现模式**：每个功能领域都拆分为 _abstractions_ 抽象库（纯接口定义）和实现库。这使得内核的每个子系统都具有**高度解耦、可测试、可替换**的特性。
 
@@ -73,15 +71,11 @@ Baka OS 是一个用 Rust 编写的类 UNIX 异步操作系统内核。它面向
 
 不仅如此，BakaEx 还具有相当多优秀的特性，对于 BakaEx 架构与测试能力的详细介绍，请参见 [BakaEx 文档](docs/BakaEx/README.md)
 
-## Documentation
-
-1. 对于 BakaEx 内核的架构与测试能力的详细介绍，请点击这里 [BakaEx 文档](docs/BakaEx/README.md)。（推荐）
-
-2. 对于整个仓库的文档，请参考 [`docs`](docs/README.md) 目录。
-
-注：比赛要求的答辩 PPT 和演示视频的链接也位于 docs 目录中。
-
 由于项目仍处于高速开发阶段，文档可能无法及时反映最新改动。如有疑问，请以源码为准。
+
+BakaOS 时代的文档：[`docs`](./docs/README.md)
+
+*许多内容仍然是 BakaOS 的遗产（包括下面的 README 内容，但 BakaEx 的文档除外），我们会在近期清理他们。同时，我们也会尽快将 BakaOS 优秀的特性迁移到 BakaEx 中。*
 
 ## Continuous Integration
 
@@ -293,15 +287,6 @@ Kernel annotation bot 是一个辅助工具，用于帮助你注释（annotate�
 
 - **`path` crate**：部分实现来自 [.NET Standard Library](https://github.com/dotnet/runtime)，遵循 .NET Foundation 的 MIT 许可证。
 - **`TimeSpan`（在 `time` crate 中）**：部分实现同样源自 [.NET Standard Library]，遵循 MIT 许可证。
-
-### 重要声明
-
-以下内容须在**相应协议**下自由使用：
-
-- **TftpServer**：详见代码头部注释，需要遵循 Microsoft Public License 使用，本项目对此不负责。
-- **KernelAnnotationBot**：不受限制，遵循 MIT License。
-- **初赛结果可视化脚本 (`test_preliminary/visualize_result.py`)**：不受限制，遵循 MIT License。
-- **内核异常栈回溯脚本 (`kernel/unwinder.py`)**：不受限制，遵循 MIT License。
 
 ## Funky!
 

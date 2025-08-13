@@ -38,9 +38,9 @@
 [![Kernel CI](https://github.com/caiyih/bakaos/actions/workflows/kernel.yml/badge.svg)](https://github.com/caiyih/bakaos/actions/workflows/kernel.yml)
 [![Preliminary test](https://github.com/caiyih/bakaos/actions/workflows/preliminary.yml/badge.svg)](https://github.com/caiyih/bakaos/actions/workflows/preliminary.yml)
 
-Baka OS is a UNIX-like asynchronous operating system kernel written in Rust. Targeting RISC-V and LoongArch64 architectures, it is developed for the 2024 Operating System Kernel Contest(northeastern region) and 2025 Operating System Kernel Contest(national).
+> *You might be looking for [BakaOS](https://github.com/caiyih/bakaos/tree/bakaos/master), our previous kernel, which has been moved to the `BakaOS/master` branch for separate development. Although BakaOS is more functional, BakaEx has some exciting features that led us to abandon BakaOS. BakaEx adopts our proposed next-generation kernel architecture, which has many better features and fixes some design errors and legacy issues in BakaOS.*
 
-With the help of stackless coroutine and CPU pool, it has the potential to run thousands of tasks concurrently with multi-core support.
+BakaEx (BakaOS Extended), the successor to BakaOS, is a Rust-based UNIX-like asynchronous operating system kernel that supports RISC-V and LoongArch64 architectures.
 
 The kernel is organized into multiple crates, strictly following the **dual-crate implementation pattern**: each functional domain is split into an _abstractions_ crate (pure interfaces) and an implementation crate. This makes every kernel subsystem **highly decoupled, testable, and replaceable**.
 
@@ -73,20 +73,7 @@ For a detailed explanation of BakaEx’s architecture and testing capabilities, 
 
 - [BakaEx Documentation](docs/BakaEx/README.md) （Avaliable in Simplified Chinese）
 
-<!-- <p>
-    <del>
-        The prototype version of whole project is developed within 3 weeks, with over 400 commits and 12k lines of code. (until the 2024 Operating System Kernel Contest(northeastern region) preliminary test submission).
-    </del>
-    Outdated
-</p> -->
-
-## Documentation
-
-_Still working in progress_
-
-_⚠️ WARNING: Many of the existing documents were written a long time ago and may not reflect the latest code base. We are unable to update them in time due to the lack of time and developers._
-
-For detailed documentations, please refer to the [`docs`](docs/README.md) directory(Only avaliable in Simplified Chinese).
+*Many contents are still BakaOS’ legacy (including the README content, but BakaEx’s documentation is not included), we will clean them up soon. We will also migrate BakaOS’ excellent features to BakaEx as soon as possible.*
 
 ## Continuous Integration
 
@@ -288,12 +275,6 @@ The testsuites are not contained in this repository to maintain the minimal size
 
 But to run and debug the kernel may requires the testsuites. You can download the testsuites from [here](https://github.com/oscomp/testsuits-for-oskernel/releases/latest). Both the ones for `riscv64` and `loongarch64` are included, you should download them and place them in the root of this repository and do NOT decompress them, the build system will automatically pick up the correct one.
 
-### Subprojects
-
-#### Kernel annotation bot
-
-The kernel annotation bot is a tool to help you annotate the kernel tests. It's a bot that runs on GitHub Actions. But you can also run to visualize the annotations. When running on GitHub Actions, it will annotate the test results and then generate a comment to the commits. Check the feedback when you push a commit.
-
 ## License
 
 This project (including the kernel and crates) is licensed under the MIT License. See [LICENSE](LICENSE) for more details.
@@ -305,26 +286,6 @@ Currently, the following crates include code derived from other projects:
 - **`path`**: Derived from the [.NET Standard Library](https://github.com/dotnet/runtime), licensed under the MIT License by the .NET Foundation.
 
 - **`TimeSpan` struct in `time`**: Partially derived from the [.NET Standard Library](https://github.com/dotnet/runtime), licensed under the MIT License by the .NET Foundation.
-
-### Important Statement
-
-This project/repository (including any derivative projects or repositories, or any part thereof) **cannot** be used in the [`全国大学生计算机系统能力大赛`](https://os.educg.net) or similar contests without prior written authorization from all contributors. Authorization from specific contributors is not required if their code is not used or referenced.
-
-This restriction applies to all commits in this repository, including those made prior to the inclusion of this statement. For all other use cases, the terms of the MIT License apply as outlined above.
-
-This statement always applies to the most recent version of this project. See `README.md` in [`caiyi/bakaos`](https://github.com/caiyih/bakaos).
-
-#### Additional
-
-For any content explicitly covered by special statements or restrictions in this repository, users are still allowed to use, modify, or redistribute the code **as long as they comply with the terms of the open-source license under which it is provided**. These special statements only restrict specific use cases, such as participation in certain contests, but do not limit other lawful uses permitted by the original license.
-
-##### Unrestricted Components
-
-The following parts of this repository are not restricted and can be freely used under the terms of their respective licenses:
-
-- **TftpServer**: Not restricted. Refer to the header of the code for more details. The Microsoft Public License is applied.
-- **Preliminary test visualizer script (`test_preliminary/visualize_result.py`)**: Not restricted. The MIT License is applied.
-- **Kernel unwinder script (`kernel/unwinder.py`)**: Not restricted. The MIT License is applied.
 
 ## Funky!
 
