@@ -1,14 +1,5 @@
 # Documentation
 
-## 答辩 PPT
-
-- 金山文档在线访问：[BakaEx：基于依赖注入的全可测内核架构](https://kdocs.cn/l/cczjIUiHF6P6) (2025-08-12 更新)
-
-## 演示视频
-
-- 百度网盘：[宿主环境测试演示](https://pan.baidu.com/s/13FokiM5Qvw5i1C8QoNpvCQ?pwd=w8d3)
-- 百度网盘：[https://pan.baidu.com/s/19RYzUepQxyAHZJ7nXCLJsw?pwd=qemy](https://pan.baidu.com/s/19RYzUepQxyAHZJ7nXCLJsw?pwd=qemy)
-
 ## BakaEx 可测试架构介绍 
 
 1. [**BakaEx 介绍**](./BakaEx)
@@ -28,6 +19,10 @@
 8. [**BakaEx 的 Unikernel 模式**](./BakaEx/unikernel.md)
 
 9. [**BakaEx 的隔离执行环境**](./BakaEx/container.md)
+
+## 提示
+
+下面的内容大多属于 BakaOS 的遗产，尽管 BakaEx 从 BakaOS 中继承了许多代码，然而某些内容可能不再适用。我们在实现 BakaEx 的过程中对 BakaOS 的代码进行了大量更改，并删除了一些设计缺陷、错误设计和历史遗留问题。
 
 ## Repository 相关
 
