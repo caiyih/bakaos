@@ -1,7 +1,9 @@
 [workspace]
 resolver = "2"
 members = [
-    "kernel",
+    "syscalls",
+    "test-utilities",
+    "source-generation",
     "libraries/timing",
     "libraries/address",
     "libraries/path",
@@ -11,13 +13,11 @@ members = [
     "libraries/allocation",
     "libraries/memory-space",
     "libraries/mmu-native",
-    "libraries/global_heap",
     "libraries/task",
     "libraries/abstractions",
     "libraries/kernel-abstractions",
     "libraries/filesystem-abstractions",
     "libraries/platform-specific",
-    "libraries/platform-abstractions",
     "libraries/allocation-abstractions",
     "libraries/mmu-abstractions",
     "libraries/memory-space-abstractions",
@@ -27,6 +27,5 @@ members = [
 ]
 
 exclude = [
-    "test-utilities",
-    "source-generation",
+    "kernel"
 ]
