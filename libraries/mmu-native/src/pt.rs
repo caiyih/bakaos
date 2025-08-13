@@ -8,9 +8,7 @@ use address::{
 use alloc::{sync::Arc, vec, vec::Vec};
 use allocation_abstractions::{FrameDesc, IFrameAllocator};
 use hermit_sync::SpinMutex;
-use mmu_abstractions::{
-    GenericMappingFlags, IMMU, MMUError, PageSize, PagingError, PagingResult,
-};
+use mmu_abstractions::{GenericMappingFlags, MMUError, PageSize, PagingError, PagingResult, IMMU};
 
 pub trait IPageTableArchAttribute {
     const LEVELS: usize;
@@ -42,9 +40,7 @@ impl Drop for PageTableAllocation {
     }
 }
 
-impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> IMMU
-    for PageTableNative<Arch, PTE>
-{
+impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> IMMU for PageTableNative<Arch, PTE> {
     fn map_single(
         &mut self,
         vaddr: VirtualAddress,
@@ -252,9 +248,60 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> IMMU
 
         Ok(unsafe { core::slice::from_raw_parts_mut(virt.as_mut::<u8>(), len) })
     }
+
+    fn map_buffer_internal(&self, vaddr: VirtualAddress, len: usize) -> Result<&'_ [u8], MMUError> {
+        self.inspect_permission(vaddr, len, false)?;
+
+        Ok(unsafe { core::slice::from_raw_parts(vaddr.as_ptr(), len) })
+    }
+
+    fn map_buffer_mut_internal(
+        &self,
+        vaddr: VirtualAddress,
+        len: usize,
+        _force_mut: bool,
+    ) -> Result<&'_ mut [u8], MMUError> {
+        self.inspect_permission(vaddr, len, true)?;
+
+        Ok(unsafe { core::slice::from_raw_parts_mut(vaddr.as_mut_ptr(), len) })
+    }
+
+    fn unmap_buffer(&self, _vaddr: VirtualAddress) {}
 }
 
 impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTableNative<Arch, PTE> {
+    fn inspect_permission(
+        &self,
+        vaddr: VirtualAddress,
+        len: usize,
+        mutable: bool,
+    ) -> Result<(), MMUError> {
+        ensure_vaddr_valid(vaddr)?;
+
+        let mut checking_vaddr = vaddr;
+        let mut remaining_len = len;
+
+        loop {
+            let (paddr, flags, size) = self.query_virtual(checking_vaddr).map_err(|e| e.into())?;
+
+            ensure_permission(vaddr, flags, mutable)?;
+
+            let frame_base = paddr.align_down(size.as_usize());
+
+            let frame_remain_len = size.as_usize() - (paddr.as_usize() - frame_base.as_usize());
+            let avaliable_len = remaining_len.min(frame_remain_len);
+
+            checking_vaddr += frame_remain_len;
+            remaining_len -= avaliable_len;
+
+            if remaining_len == 0 {
+                break;
+            }
+        }
+
+        Ok(())
+    }
+
     fn inspect_bytes_through_linear(
         &self,
         vaddr: VirtualAddress,

@@ -1,5 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use core::ops::{Deref, DerefMut};
+
 use address::{PhysicalAddress, VirtualAddress};
 
 #[cfg(feature = "std")]
@@ -17,6 +19,7 @@ pub enum MMUError {
     PrivilegeError,
     AccessFault, // not mapped to a proper frame
     MisalignedAddress,
+    Borrowed,
     PageNotReadable { vaddr: VirtualAddress },
     PageNotWritable { vaddr: VirtualAddress },
 }
@@ -58,6 +61,28 @@ impl dyn IMMU {
         };
 
         self.write_bytes(vaddr, value_bytes)
+    }
+
+    pub fn map_buffer(&self, vaddr: VirtualAddress, len: usize) -> Result<Memory<'_>, MMUError> {
+        #[allow(deprecated)]
+        self.map_buffer_internal(vaddr, len).map(|buf| Memory {
+            mmu: self,
+            slice: buf,
+        })
+    }
+
+    pub fn map_buffer_mut(
+        &self,
+        vaddr: VirtualAddress,
+        len: usize,
+        force_mut: bool,
+    ) -> Result<MemoryMut<'_>, MMUError> {
+        #[allow(deprecated)]
+        self.map_buffer_mut_internal(vaddr, len, force_mut)
+            .map(|buf| MemoryMut {
+                mmu: self,
+                slice: buf,
+            })
     }
 
     #[cfg(not(target_os = "none"))]
@@ -134,6 +159,21 @@ pub trait IMMU {
 
     fn write_bytes(&self, vaddr: VirtualAddress, buf: &[u8]) -> Result<(), MMUError>;
 
+    #[doc(hidden)]
+    #[deprecated = "Do not use this method, use `map_buffer` from dyn IMMU"]
+    fn map_buffer_internal(&self, vaddr: VirtualAddress, len: usize) -> Result<&'_ [u8], MMUError>;
+
+    #[doc(hidden)]
+    #[deprecated = "Do not use this method, use `map_buffer_mut` from dyn IMMU"]
+    fn map_buffer_mut_internal(
+        &self,
+        vaddr: VirtualAddress,
+        len: usize,
+        force_mut: bool,
+    ) -> Result<&'_ mut [u8], MMUError>;
+
+    fn unmap_buffer(&self, vaddr: VirtualAddress);
+
     fn platform_payload(&self) -> usize;
 
     #[doc(hidden)]
@@ -207,3 +247,49 @@ impl PageSize {
 }
 
 pub type PagingResult<TValue> = Result<TValue, PagingError>;
+
+pub struct Memory<'a> {
+    mmu: &'a dyn IMMU,
+    slice: &'a [u8],
+}
+
+impl Deref for Memory<'_> {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        self.slice
+    }
+}
+
+impl Drop for Memory<'_> {
+    fn drop(&mut self) {
+        self.mmu
+            .unmap_buffer(VirtualAddress::from_ptr(self.slice.as_ptr()));
+    }
+}
+
+pub struct MemoryMut<'a> {
+    mmu: &'a dyn IMMU,
+    slice: &'a mut [u8],
+}
+
+impl Deref for MemoryMut<'_> {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        self.slice
+    }
+}
+
+impl DerefMut for MemoryMut<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.slice
+    }
+}
+
+impl Drop for MemoryMut<'_> {
+    fn drop(&mut self) {
+        self.mmu
+            .unmap_buffer(VirtualAddress::from_ptr(self.slice.as_ptr()));
+    }
+}

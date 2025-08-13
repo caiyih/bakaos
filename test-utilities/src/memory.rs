@@ -1,7 +1,7 @@
-use std::sync::Arc;
+use std::{alloc::Layout, collections::BTreeMap, sync::Arc};
 
 use abstractions::IUsizeAlias;
-use address::{IAlignableAddress, PhysicalAddress, VirtualAddress};
+use address::{IAlignableAddress, PhysicalAddress, VirtualAddress, VirtualAddressRange};
 use hermit_sync::SpinMutex;
 use mmu_abstractions::{GenericMappingFlags, MMUError, PageSize, PagingError, PagingResult, IMMU};
 
@@ -10,6 +10,7 @@ use crate::allocation::ITestFrameAllocator;
 pub struct TestMMU {
     alloc: Arc<SpinMutex<dyn ITestFrameAllocator>>,
     mappings: Vec<MappingRecord>,
+    mapped: SpinMutex<BTreeMap<VirtualAddress, MappedMemory>>,
 }
 
 struct MappingRecord {
@@ -25,6 +26,7 @@ impl TestMMU {
         Arc::new(SpinMutex::new(Self {
             alloc,
             mappings: Vec::new(),
+            mapped: SpinMutex::new(BTreeMap::new()),
         }))
     }
 }
@@ -297,6 +299,57 @@ impl IMMU for TestMMU {
             }
         }
     }
+
+    fn map_buffer_internal(&self, vaddr: VirtualAddress, len: usize) -> Result<&'_ [u8], MMUError> {
+        let mem = MappedMemory::alloc(vaddr, len);
+        let mut mapped = self.mapped.lock();
+
+        if mapped.iter().any(|m| m.1.range().intersects(&mem.range())) {
+            return Err(MMUError::Borrowed);
+        }
+
+        let slice = mem.slice_mut();
+
+        mapped.insert(vaddr, mem);
+
+        self.read_bytes(vaddr, slice)?;
+
+        Ok(slice)
+    }
+
+    fn map_buffer_mut_internal(
+        &self,
+        vaddr: VirtualAddress,
+        len: usize,
+        _force_mut: bool,
+    ) -> Result<&'_ mut [u8], MMUError> {
+        let mem = MappedMemory::alloc(vaddr, len);
+        let mut mapped = self.mapped.lock();
+
+        if mapped.iter().any(|m| m.1.range().intersects(&mem.range())) {
+            return Err(MMUError::Borrowed);
+        }
+
+        let slice = mem.slice_mut();
+
+        mapped.insert(vaddr, mem);
+
+        // TODO: Check if the permission matches force_mut
+        self.read_bytes(vaddr, slice)?;
+
+        Ok(slice)
+    }
+
+    fn unmap_buffer(&self, vaddr: VirtualAddress) {
+        let mut locked = self.mapped.lock();
+
+        if let Some(mapped) = locked.remove(&vaddr) {
+            // Sync the mapped memory to the physical memory
+            let slice = mapped.slice_mut();
+
+            let _ = self.write_bytes(vaddr, &slice);
+        }
+    }
 }
 
 impl TestMMU {
@@ -354,4 +407,34 @@ fn mmu_ensure_permisssion(
     }
 
     Ok(())
+}
+
+struct MappedMemory {
+    vaddr: VirtualAddress,
+    ptr: *mut u8,
+    layout: Layout,
+}
+
+impl MappedMemory {
+    fn alloc(vaddr: VirtualAddress, len: usize) -> Self {
+        let layout = Layout::from_size_align(len, constants::PAGE_SIZE).unwrap();
+
+        let ptr = unsafe { std::alloc::alloc(layout) };
+
+        Self { vaddr, ptr, layout }
+    }
+
+    fn range(&self) -> VirtualAddressRange {
+        VirtualAddressRange::from_start_len(self.vaddr, self.layout.size())
+    }
+
+    fn slice_mut(&self) -> &'static mut [u8] {
+        unsafe { std::slice::from_raw_parts_mut(self.ptr, self.layout.size()) }
+    }
+}
+
+impl Drop for MappedMemory {
+    fn drop(&mut self) {
+        unsafe { std::alloc::dealloc(self.ptr, self.layout) };
+    }
 }
