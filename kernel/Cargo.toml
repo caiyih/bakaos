@@ -6,24 +6,24 @@ edition = "2021"
 [dependencies]
 log = "0.4"
 hermit-sync = "0.1.6"
-syscalls = { path = "../syscalls" }
-timing = { path = "../libraries/timing" }
-kernel-abstractions = { path = "../libraries/kernel-abstractions" }
-trap-abstractions = { path = "../libraries/trap-abstractions" }
-platform-abstractions = { path = "../libraries/platform-abstractions" }
-platform-specific = { path = "../libraries/platform-specific" }
-memory-space = { path = "../libraries/memory-space" }
-allocation = { path = "../libraries/allocation" }
-allocation-abstractions = { path = "../libraries/allocation-abstractions" }
-filesystem-abstractions = { path = "../libraries/filesystem-abstractions" }
-mmu-abstractions = { path = "../libraries/mmu-abstractions" }
-task-abstractions = { path = "../libraries/task-abstractions" }
-task = { path = "../libraries/task" }
-mmu-native = { path = "../libraries/mmu-native" }
-threading = { path = "../libraries/threading" }
-address = { path = "../libraries/address" }
-abstractions = { path = "../libraries/abstractions" }
-global_heap = { path = "../libraries/global_heap" }
+syscalls = { path = "dependencies/syscalls" }
+timing = { path = "dependencies/libraries/timing" }
+kernel-abstractions = { path = "dependencies/libraries/kernel-abstractions" }
+trap-abstractions = { path = "dependencies/libraries/trap-abstractions" }
+platform-abstractions = { path = "dependencies/libraries/platform-abstractions" }
+platform-specific = { path = "dependencies/libraries/platform-specific" }
+memory-space = { path = "dependencies/libraries/memory-space" }
+allocation = { path = "dependencies/libraries/allocation" }
+allocation-abstractions = { path = "dependencies/libraries/allocation-abstractions" }
+filesystem-abstractions = { path = "dependencies/libraries/filesystem-abstractions" }
+mmu-abstractions = { path = "dependencies/libraries/mmu-abstractions" }
+task-abstractions = { path = "dependencies/libraries/task-abstractions" }
+task = { path = "dependencies/libraries/task" }
+mmu-native = { path = "dependencies/libraries/mmu-native" }
+threading = { path = "dependencies/libraries/threading" }
+address = { path = "dependencies/libraries/address" }
+abstractions = { path = "dependencies/libraries/abstractions" }
+global_heap = { path = "dependencies/libraries/global_heap" }
 buddy_system_allocator = { git = "https://github.com/neuq-rcore/buddy_system_allocator" }
 
 [features]
@@ -38,3 +38,8 @@ panic = "abort"
 
 [workspace]
 resolver = "2"
+
+exclude = [
+    "dependencies/source-generation",
+    "dependencies/test-utilities",
+]
