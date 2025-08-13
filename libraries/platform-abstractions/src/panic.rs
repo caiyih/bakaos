@@ -1,7 +1,4 @@
 use core::sync::atomic::{AtomicBool, AtomicU32};
-use platform_specific::legacy_println;
-
-use unwinding::StackTraceWalker;
 
 #[allow(unused)]
 pub(crate) static SKIP_PANIC_FRAME: AtomicBool = AtomicBool::new(false);
@@ -24,6 +21,9 @@ unsafe fn _rust_begin_unwind(info: &::core::panic::PanicInfo) -> ! {
 #[linkage = "weak"]
 #[cfg(target_os = "none")]
 unsafe extern "Rust" fn panic_handler(info: &::core::panic::PanicInfo) -> ! {
+    use platform_specific::legacy_println;
+    use unwinding::StackTraceWalker;
+
     let nesting_depth = PANIC_NESTING_DEPTH.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
 
     let msg = info.message();

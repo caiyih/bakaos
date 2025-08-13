@@ -57,10 +57,8 @@ pub use context::ITaskContext;
 pub use syscalls::*;
 use trap_abstractions::ITaskTrapContext;
 
-#[cfg(target_os = "none")]
 mod serial;
 
-#[cfg(target_os = "none")]
 pub use serial::*;
 
 #[cfg(target_os = "none")]
