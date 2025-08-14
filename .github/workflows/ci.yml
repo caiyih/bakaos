@@ -1,0 +1,62 @@
+name: Continuous Integration
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: Test
+    runs-on: ${{matrix.os.fullname}}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - { prettyname: Windows, fullname: windows-latest }
+          - { prettyname: Linux, fullname: ubuntu-latest }
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        env:
+          TOOLCHAIN_VERSION: nightly-2025-02-01
+        run: |
+          rustup toolchain install ${{ env.TOOLCHAIN_VERSION }} --profile minimal
+          rustup default ${{ env.TOOLCHAIN_VERSION }}
+          rustup override set ${{ env.TOOLCHAIN_VERSION }}
+
+      - name: Setup tarpaulin
+        uses: ./.github/workflows/actions/setup-tarpaulin
+
+      - name: Compile
+        run: cargo build
+
+      - name: Test
+        env:
+          RUST_LOG: "trace"
+        run: |
+          cargo tarpaulin --out Xml --out Html --output-dir . -- --show-output
+
+      - name: Process coverage result
+        run: |
+          mkdir -p coverage
+          cp cobertura.xml coverage/
+          cp tarpaulin-report.html coverage/
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.os.prettyname }}
+          path: coverage
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage/cobertura.xml
+          fail_ci_if_error: true
