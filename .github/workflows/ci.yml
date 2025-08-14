@@ -7,15 +7,79 @@ on:
   push:
   pull_request:
 
+env:
+  CARGO_TERM_COLOR: 'always'
+  TOOLCHAIN_VERSION: 'nightly-2025-02-01'
+
+permissions:
+  contents: read
+  actions: read
+  checks: write
+
 jobs:
   test:
     name: Test
-    runs-on: ${{matrix.os.fullname}}
+    runs-on: ${{ matrix.os.fullname }}
     strategy:
       fail-fast: false
       matrix:
         os:
+          - { prettyname: Linux, fullname: ubuntu-latest }
           - { prettyname: Windows, fullname: windows-latest }
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install ${{ env.TOOLCHAIN_VERSION }} --profile minimal
+          rustup default ${{ env.TOOLCHAIN_VERSION }}
+          rustup override set ${{ env.TOOLCHAIN_VERSION }}
+
+      - name: Setup Cargo-binstall
+        uses: ./.github/workflows/actions/setup-cargo-binstall
+
+      - name: Install cargo-nextest
+        shell: bash
+        run: |
+          cargo binstall cargo-nextest
+          cargo nextest --version
+
+      - name: Compile
+        run: cargo nextest run --no-run
+
+      - name: Test
+        env:
+          RUST_LOG: "trace"
+          RUST_BACKTRACE: "1"
+        run: |
+          cargo nextest run --no-fail-fast --hide-progress-bar --success-output immediate --failure-output immediate
+
+      - name: Upload Test Report to artifact
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: report-${{ matrix.os.prettyname }}
+          path: target/nextest/default/junit.xml
+
+      - name: Annotate CI run with test results 
+        uses: Cai1Hsu/test-reporter@main
+        if: ${{ !cancelled() }}
+        with:
+          name: Results
+          path: "target/nextest/default/junit.xml"
+          reporter: nextest-junit
+          list-tests: 'failed'
+
+  coverage:
+    name: Coverage
+    runs-on: ${{ matrix.os.fullname }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          # This workflow only collects coverage, to run on Windows is a waste of resources
           - { prettyname: Linux, fullname: ubuntu-latest }
 
     steps:
@@ -23,18 +87,22 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust
-        env:
-          TOOLCHAIN_VERSION: nightly-2025-02-01
         run: |
           rustup toolchain install ${{ env.TOOLCHAIN_VERSION }} --profile minimal
           rustup default ${{ env.TOOLCHAIN_VERSION }}
           rustup override set ${{ env.TOOLCHAIN_VERSION }}
 
-      - name: Setup tarpaulin
-        uses: ./.github/workflows/actions/setup-tarpaulin
+      - name: Setup Cargo-binstall
+        uses: ./.github/workflows/actions/setup-cargo-binstall
+
+      - name: Install cargo-tarpaulin
+        shell: bash
+        run: |
+          cargo binstall cargo-tarpaulin
+          cargo tarpaulin --version
 
       - name: Compile
-        run: cargo build
+        run: cargo test --no-run
 
       - name: Test
         env:

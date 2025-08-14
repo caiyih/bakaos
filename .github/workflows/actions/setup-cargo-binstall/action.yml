@@ -1,4 +1,4 @@
-name: Install tarpaulin with cargo-binstall
+name: Install cargo-binstall
 
 runs:
   using: composite
@@ -16,10 +16,6 @@ runs:
     run: |
       Set-ExecutionPolicy Unrestricted -Scope Process; iex (iwr "https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.ps1").Content
 
-  - name: Install cargo-tarpaulin
-    shell: bash
-    run: cargo binstall cargo-tarpaulin
-
   - name: Verify installation
     shell: bash
-    run: cargo tarpaulin --version
+    run: cargo binstall -h
