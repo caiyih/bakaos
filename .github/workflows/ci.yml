@@ -8,14 +8,14 @@ on:
   pull_request:
 
 jobs:
-  test:
-    name: Test
-    runs-on: ${{matrix.os.fullname}}
+  coverage:
+    name: Coverage collection
+    runs-on: ${{ matrix.os.fullname }}
     strategy:
       fail-fast: false
       matrix:
         os:
-          - { prettyname: Windows, fullname: windows-latest }
+          # This workflow only collects coverage, to run on Windows is a waste of resources
           - { prettyname: Linux, fullname: ubuntu-latest }
 
     steps:
