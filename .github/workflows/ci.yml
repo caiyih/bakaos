@@ -30,11 +30,17 @@ jobs:
           rustup default ${{ env.TOOLCHAIN_VERSION }}
           rustup override set ${{ env.TOOLCHAIN_VERSION }}
 
-      - name: Setup tarpaulin
-        uses: ./.github/workflows/actions/setup-tarpaulin
+      - name: Setup Cargo-binstall
+        uses: ./.github/workflows/actions/setup-cargo-binstall
+
+      - name: Install cargo-tarpaulin
+        shell: bash
+        run: |
+          cargo binstall cargo-tarpaulin
+          cargo tarpaulin --version
 
       - name: Compile
-        run: cargo build
+        run: cargo test --no-run
 
       - name: Test
         env:
