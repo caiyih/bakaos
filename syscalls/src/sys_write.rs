@@ -44,6 +44,13 @@ impl SyscallContext {
 
 #[cfg(test)]
 mod tests {
+    use core::{
+        future::Future,
+        pin::Pin,
+        task::{Context, Poll, Waker},
+    };
+    use std::sync::Mutex;
+
     use abstractions::IUsizeAlias;
     use address::{IAddressBase, VirtualAddress};
     use alloc::vec::Vec;
@@ -289,5 +296,61 @@ mod tests {
         let ret = block_on!(ctx.sys_write(0, buffer.into(), buffer.len()));
 
         assert_eq!(ret, Ok(limited_len as isize));
+    }
+
+    struct MaybeFilledFile {
+        pub full: Mutex<bool>,
+    }
+
+    impl IFile for MaybeFilledFile {
+        fn can_write(&self) -> bool {
+            true
+        }
+
+        fn write_avaliable(&self) -> bool {
+            !*self.full.lock().unwrap()
+        }
+
+        fn write(&self, buf: &[u8]) -> usize {
+            buf.len()
+        }
+    }
+
+    #[test]
+    fn test_blocking_until_write_avaliable() {
+        let (kernel, alloc, mmu) = setup_kernel_with_memory();
+
+        let file = Arc::new(MaybeFilledFile {
+            full: Mutex::new(true),
+        });
+
+        let mut fd_table = FileDescriptorTable::new();
+        fd_table.allocate(file.clone());
+
+        let (_, task) = TestProcess::new()
+            .with_fd_table(Some(fd_table))
+            .with_memory_space(Some(MemorySpace::new(mmu.clone(), alloc)))
+            .build();
+
+        let ctx = SyscallContext::new(task, kernel);
+
+        let buf = b"Hello, world";
+
+        ctx.task.process().mmu().lock().register(buf, false);
+
+        let mut fut = ctx.sys_write(0, buf.into(), buf.len());
+        let mut cx = Context::from_waker(Waker::noop());
+
+        for _ in 0..10 {
+            let poll1 = unsafe { Pin::new_unchecked(&mut fut).poll(&mut cx) };
+
+            assert_eq!(poll1, Poll::Pending); // file is not yet ready
+        }
+
+        *file.full.lock().unwrap() = false; // make the file ready
+
+        let poll2 = unsafe { Pin::new_unchecked(&mut fut).poll(&mut cx) };
+
+        assert_eq!(poll2, Poll::Ready(Ok(buf.len() as isize)));
     }
 }
