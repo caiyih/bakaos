@@ -12,7 +12,7 @@ runs:
 
   - name: Install cargo-binstall (Windows)
     if: ${{ runner.os == 'Windows' }}
-    shell: bash
+    shell: Powershell
     run: |
       Set-ExecutionPolicy Unrestricted -Scope Process; iex (iwr "https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.ps1").Content
 
