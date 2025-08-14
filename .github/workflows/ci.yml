@@ -26,9 +26,9 @@ jobs:
         env:
           TOOLCHAIN_VERSION: nightly-2025-02-01
         run: |
-          rustup toolchain install $TOOLCHAIN_VERSION --profile minimal
-          rustup default $TOOLCHAIN_VERSION
-          rustup override set $TOOLCHAIN_VERSION
+          rustup toolchain install ${{ env.TOOLCHAIN_VERSION }} --profile minimal
+          rustup default ${{ env.TOOLCHAIN_VERSION }}
+          rustup override set ${{ env.TOOLCHAIN_VERSION }}
 
       - name: Install cargo-tarpaulin
         run: cargo install cargo-tarpaulin
