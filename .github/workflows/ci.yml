@@ -58,7 +58,7 @@ jobs:
           path: target/nextest/default/junit.xml
 
   coverage:
-    name: Coverage collection
+    name: Coverage
     runs-on: ${{ matrix.os.fullname }}
     strategy:
       fail-fast: false
