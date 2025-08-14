@@ -18,4 +18,4 @@ runs:
 
   - name: Verify installation
     shell: bash
-    run: cargo binstall
+    run: cargo binstall -h
