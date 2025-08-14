@@ -11,6 +11,11 @@ env:
   CARGO_TERM_COLOR: 'always'
   TOOLCHAIN_VERSION: 'nightly-2025-02-01'
 
+permissions:
+  contents: read
+  actions: read
+  checks: write
+
 jobs:
   test:
     name: Test
