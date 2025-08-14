@@ -5,18 +5,21 @@ runs:
   steps:
 
   - name: Install cargo-binstall (Unix)
-    run: |
     if: ${{ runner.os != 'Windows' }}
+    shell: bash
     run: |
       curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
 
   - name: Install cargo-binstall (Windows)
     if: ${{ runner.os == 'Windows' }}
+    shell: bash
     run: |
       Set-ExecutionPolicy Unrestricted -Scope Process; iex (iwr "https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.ps1").Content
 
   - name: Install cargo-tarpaulin
+    shell: bash
     run: cargo binstall cargo-tarpaulin
 
   - name: Verify installation
+    shell: bash
     run: cargo tarpaulin --version
