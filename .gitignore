@@ -24,3 +24,9 @@ Cargo.lock
 
 # Build artifacts for test script
 /kernel-*.*
+
+# Code coverage
+coverage/
+cobertura.xml
+tarpaulin-report.*
+lcov.info
