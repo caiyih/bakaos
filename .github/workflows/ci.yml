@@ -53,7 +53,7 @@ jobs:
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
-          name: cobertura-${{ matrix.os.prettyname }}
+          name: coverage-${{ matrix.os.prettyname }}
           path: coverage
 
       - name: Upload coverage reports to Codecov
