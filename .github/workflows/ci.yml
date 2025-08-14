@@ -14,7 +14,7 @@ env:
 jobs:
   test:
     name: Test
-    runs-on: ${{matrix.os.fullname}}
+    runs-on: ${{ matrix.os.fullname }}
     strategy:
       fail-fast: false
       matrix:
@@ -53,9 +53,19 @@ jobs:
 
       - name: Upload Test Report to artifact
         uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
         with:
           name: report-${{ matrix.os.prettyname }}
           path: target/nextest/default/junit.xml
+
+      - name: Annotate CI run with test results 
+        uses: Cai1Hsu/test-reporter@main
+        if: ${{ !cancelled() }}
+        with:
+          name: Results
+          path: "target/nextest/default/junit.xml"
+          reporter: nextest-junit
+          list-tests: 'failed'
 
   coverage:
     name: Coverage
