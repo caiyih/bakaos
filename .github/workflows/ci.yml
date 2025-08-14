@@ -8,6 +8,53 @@ on:
   pull_request:
 
 jobs:
+  test:
+    name: Test
+    runs-on: ${{matrix.os.fullname}}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - { prettyname: Linux, fullname: ubuntu-latest }
+          - { prettyname: Windows, fullname: windows-latest }
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        env:
+          TOOLCHAIN_VERSION: nightly-2025-02-01
+        run: |
+          rustup toolchain install ${{ env.TOOLCHAIN_VERSION }} --profile minimal
+          rustup default ${{ env.TOOLCHAIN_VERSION }}
+          rustup override set ${{ env.TOOLCHAIN_VERSION }}
+
+      - name: Setup Cargo-binstall
+        uses: ./.github/workflows/actions/setup-cargo-binstall
+
+      - name: Install cargo-nextest
+        shell: bash
+        run: |
+          cargo binstall cargo-nextest
+          cargo nextest --version
+
+      - name: Compile
+        run: cargo nextest run --no-run
+
+      - name: Test
+        env:
+          RUST_LOG: "trace"
+          RUST_BACKTRACE: "1"
+        run: |
+          cargo nextest run --no-fail-fast --hide-progress-bar --success-output immediate --failure-output immediate --profile ci
+
+      - name: Upload Test Report to artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: report-${{ matrix.os.prettyname }}
+          path: target/nextest/default/junit.xml
+
   coverage:
     name: Coverage collection
     runs-on: ${{ matrix.os.fullname }}
