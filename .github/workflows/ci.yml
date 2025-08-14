@@ -7,6 +7,10 @@ on:
   push:
   pull_request:
 
+env:
+  CARGO_TERM_COLOR: 'always'
+  TOOLCHAIN_VERSION: 'nightly-2025-02-01'
+
 jobs:
   test:
     name: Test
@@ -23,8 +27,6 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust
-        env:
-          TOOLCHAIN_VERSION: nightly-2025-02-01
         run: |
           rustup toolchain install ${{ env.TOOLCHAIN_VERSION }} --profile minimal
           rustup default ${{ env.TOOLCHAIN_VERSION }}
@@ -70,8 +72,6 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust
-        env:
-          TOOLCHAIN_VERSION: nightly-2025-02-01
         run: |
           rustup toolchain install ${{ env.TOOLCHAIN_VERSION }} --profile minimal
           rustup default ${{ env.TOOLCHAIN_VERSION }}
