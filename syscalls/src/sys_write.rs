@@ -59,6 +59,7 @@ mod tests {
     use threading::block_on;
 
     use super::*;
+    use test_log::test;
 
     struct TestFile {
         bytes: SpinMutex<Vec<u8>>,

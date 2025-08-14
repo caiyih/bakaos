@@ -26,6 +26,7 @@ platform-specific = { path = "../libraries/platform-specific", default-features 
 
 [dev-dependencies]
 rand = "0.9.2"
+test-log = {version = "0.2", features = ["trace"]}
 test-utilities = { path = "../test-utilities" }
 
 [features]

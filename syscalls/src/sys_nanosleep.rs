@@ -62,7 +62,6 @@ mod tests {
     use core::time::Duration;
     use std::time::SystemTime;
 
-    use super::*;
     use address::IAddressBase;
     use alloc::sync::Arc;
     use hermit_sync::SpinMutex;
@@ -72,6 +71,9 @@ mod tests {
         allocation::segment::TestFrameAllocator, kernel::TestKernel, task::TestProcess,
     };
     use threading::block_on;
+
+    use super::*;
+    use test_log::test;
 
     fn setup_syscall_context() -> (Arc<SpinMutex<dyn IMMU>>, SyscallContext) {
         let kernel = TestKernel::new().build();

@@ -144,7 +144,6 @@ impl SyscallContext {
 mod tests {
     use std::sync::Arc;
 
-    use super::*;
     use address::{VirtualAddress, VirtualPageNum};
     use allocation_abstractions::IFrameAllocator;
     use hermit_sync::SpinMutex;
@@ -155,6 +154,9 @@ mod tests {
     use test_utilities::{
         allocation::contiguous::TestFrameAllocator, kernel::TestKernel, task::TestProcess,
     };
+
+    use super::*;
+    use test_log::test;
 
     fn setup_kernel_with_memory() -> (
         Arc<dyn IKernel>,

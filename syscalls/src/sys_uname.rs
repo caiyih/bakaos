@@ -120,7 +120,6 @@ impl UtsName {
 mod tests {
     use std::sync::Arc;
 
-    use super::*;
     use abstractions::IUsizeAlias;
     use hermit_sync::SpinMutex;
     use memory_space_abstractions::MemorySpace;
@@ -128,6 +127,9 @@ mod tests {
     use test_utilities::{
         allocation::segment::TestFrameAllocator, kernel::TestKernel, task::TestProcess,
     };
+
+    use super::*;
+    use test_log::test;
 
     fn setup_test() -> (SyscallContext, Arc<SpinMutex<dyn IMMU>>, Box<UtsName>) {
         let kernel = TestKernel::new().build();
@@ -160,12 +162,12 @@ mod tests {
         assert_eq!(utsname.machine(), constants::TARGET_ARCH);
         assert_eq!(utsname.domainname(), "localdomain");
 
-        println!("sysname: {}", utsname.sysname());
-        println!("nodename: {}", utsname.nodename());
-        println!("release: {}", utsname.release());
-        println!("version: {}", utsname.version());
-        println!("machine: {}", utsname.machine());
-        println!("domainname: {}", utsname.domainname());
+        log::info!("sysname: {}", utsname.sysname());
+        log::info!("nodename: {}", utsname.nodename());
+        log::info!("release: {}", utsname.release());
+        log::info!("version: {}", utsname.version());
+        log::info!("machine: {}", utsname.machine());
+        log::info!("domainname: {}", utsname.domainname());
     }
 
     #[test]
