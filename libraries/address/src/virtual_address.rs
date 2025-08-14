@@ -21,16 +21,19 @@ impl<T> Into<VirtualAddress> for &[T] {
 }
 
 impl<T, const N: usize> Into<VirtualAddress> for &[T; N] {
+    #[inline(always)]
     fn into(self) -> VirtualAddress {
         VirtualAddress::from_ptr(self.as_ptr())
     }
 }
 
 impl VirtualAddress {
+    #[inline(always)]
     pub fn from_ref<T>(r: &T) -> VirtualAddress {
         VirtualAddress::from_ptr(r as *const T)
     }
 
+    #[inline(always)]
     pub fn from_ptr<T>(p: *const T) -> VirtualAddress {
         VirtualAddress::from_usize(p as usize)
     }

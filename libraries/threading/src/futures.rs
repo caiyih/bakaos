@@ -48,6 +48,7 @@ impl Future for YieldFuture {
     }
 }
 
+#[inline(always)]
 pub fn block_run<T>(future: &mut T) -> <T as Future>::Output
 where
     T: Future,
@@ -69,9 +70,10 @@ macro_rules! block_on {
     () => {
         ()
     };
-    ($future:expr) => {
-        $crate::block_run(&mut core::future::join!($future))
-    };
+    ($future:expr) => {{
+            let mut future = $future;
+            $crate::block_run(&mut future)
+    }};
     ($future:expr, $($futures:expr),+) => {
         $crate::block_run(&mut core::future::join!($future, $($futures),+))
     };
