@@ -30,10 +30,8 @@ jobs:
           rustup default ${{ env.TOOLCHAIN_VERSION }}
           rustup override set ${{ env.TOOLCHAIN_VERSION }}
 
-      - name: Install cargo-tarpaulin
-        uses: taiki-e/cache-cargo-install-action@v2
-        with:
-          tool: cargo-tarpaulin
+      - name: Setup tarpaulin
+        uses: ./.github/workflows/actions/setup-tarpaulin
 
       - name: Compile
         run: cargo build
