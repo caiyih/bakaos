@@ -146,6 +146,7 @@ mod tests {
 
     use address::{VirtualAddress, VirtualPageNum};
     use allocation_abstractions::IFrameAllocator;
+    use constants::ErrNo;
     use hermit_sync::SpinMutex;
     use kernel_abstractions::IKernel;
     use memory_space_abstractions::{MappingAreaAllocation, MemorySpace};
@@ -549,5 +550,34 @@ mod tests {
         let mut rng = rand::rng();
 
         rng.fill(buf);
+    }
+
+    fn test_syscall_nonsense_flags_return_invalid_argument(flags: MemoryMapFlags) {
+        let ctx = setup_syscall_context();
+
+        let ret = ctx.sys_mmap(
+            VirtualAddress::null(),
+            0x1000,
+            MemoryMapProt::READ,
+            flags,
+            0,
+            0,
+        );
+
+        assert_eq!(ret, Err(ErrNo::InvalidArgument));
+    }
+
+    #[test]
+    fn test_syscall_nonsense_flags() {
+        test_syscall_nonsense_flags_return_invalid_argument(MemoryMapFlags::from_bits_retain(
+            0xdeadbeef,
+        ));
+    }
+
+    #[test]
+    fn test_syscall_composite_flags() {
+        test_syscall_nonsense_flags_return_invalid_argument(
+            MemoryMapFlags::SHARED | MemoryMapFlags::PRIVATE,
+        );
     }
 }
