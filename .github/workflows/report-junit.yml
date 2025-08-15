@@ -8,6 +8,7 @@ on:
 permissions:
   contents: read
   actions: read
+  pull-requests: write
   checks: write
 
 jobs:
@@ -33,10 +34,17 @@ jobs:
           github-token: ${{ github.token }}
 
       - name: Annotate CI run with test results
-        uses: Cai1Hsu/test-reporter@main
+        uses: mikepenz/action-junit-report@v5
         with:
-          name: Results
-          path: test-results-*/junit.xml
-          reporter: nextest-junit
-          list-tests: 'failed'
-          list-suites: 'failed'
+          check_name: Test Results
+          report_paths: test-results-*/junit.xml
+          commit: ${{ github.event.workflow_run.head_sha }}
+          include_time_in_summary: true
+          truncate_stack_traces: false
+          check_title_template: "{{SUITE_NAME}}::{{TEST_NAME}}"
+          transformers: |
+            [{"searchValue":"\\","replaceValue":"/"}]
+          detailed_summary: true
+          follow_symlink: true
+          comment: true
+          pr_id: ${{ github.event.workflow_run.pull_requests[0].number }}
