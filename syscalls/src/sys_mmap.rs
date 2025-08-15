@@ -116,7 +116,7 @@ impl SyscallContext {
                 continue;
             }
 
-            if possible_hole.end().end_addr() + SyscallContext::VMA_GAP
+            if possible_hole.end().end_addr() + Self::VMA_GAP
                 <= mapping_range.start().start_addr()
             {
                 return last_hole_start;
