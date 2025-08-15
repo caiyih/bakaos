@@ -59,6 +59,8 @@ jobs:
                     per_page: per_page,
                     page: page,
                     state: "open",
+                    sort: "updated",
+                    direction: "desc",
                 });
 
                 const pr = prs.find(pr => pr.head.sha === head_sha);
