@@ -38,9 +38,13 @@ impl SyscallContext {
             return SyscallError::InvalidArgument;
         }
 
-        if len == 0 || len % constants::PAGE_SIZE != 0 {
+        if len == 0 {
             return SyscallError::InvalidArgument;
         }
+
+        // man page says:
+        // The address addr must be a multiple of the page size (but length need not be).
+        let len = len.div_ceil(constants::PAGE_SIZE) * constants::PAGE_SIZE;
 
         let permissions = Self::prot_to_permissions(prot);
 
@@ -647,12 +651,6 @@ mod tests {
     #[test]
     fn test_syscall_reject_zero_len() {
         test_invalid_len(0);
-    }
-
-    #[test]
-    fn test_syscall_reject_misaligned_len() {
-        test_invalid_len(1);
-        test_invalid_len(4097);
     }
 
     #[test]
