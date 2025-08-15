@@ -38,7 +38,9 @@ impl SyscallContext {
             return SyscallError::InvalidArgument;
         }
 
-        let len = len.next_power_of_two();
+        if len == 0 || len % constants::PAGE_SIZE != 0 {
+            return SyscallError::InvalidArgument;
+        }
 
         let permissions = Self::prot_to_permissions(prot);
 
@@ -625,5 +627,47 @@ mod tests {
         test_syscall_nonsense_flags_return_invalid_argument(
             MemoryMapFlags::SHARED | MemoryMapFlags::PRIVATE,
         );
+    }
+
+    fn test_invalid_len(len: usize) {
+        let ctx = setup_syscall_context();
+
+        let ret = ctx.sys_mmap(
+            VirtualAddress::null(),
+            len,
+            MemoryMapProt::READ,
+            MemoryMapFlags::ANONYMOUS,
+            0,
+            0,
+        );
+
+        assert_eq!(ret, SyscallError::InvalidArgument);
+    }
+
+    #[test]
+    fn test_syscall_reject_zero_len() {
+        test_invalid_len(0);
+    }
+
+    #[test]
+    fn test_syscall_reject_misaligned_len() {
+        test_invalid_len(1);
+        test_invalid_len(4097);
+    }
+
+    #[test]
+    fn test_syscall_can_not_allocate_too_large_len() {
+        let ctx = setup_syscall_context();
+
+        let ret = ctx.sys_mmap(
+            VirtualAddress::null(),
+            usize::MAX & !0xfff,
+            MemoryMapProt::READ | MemoryMapProt::WRITE,
+            MemoryMapFlags::ANONYMOUS,
+            0,
+            0,
+        );
+
+        assert_eq!(ret, SyscallError::CannotAllocateMemory);
     }
 }
