@@ -13,8 +13,6 @@ env:
 
 permissions:
   contents: read
-  actions: read
-  checks: write
 
 jobs:
   test:
@@ -24,8 +22,8 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - { prettyname: Linux, fullname: ubuntu-latest }
-          - { prettyname: Windows, fullname: windows-latest }
+          - { prettyname: linux, fullname: ubuntu-latest }
+          - { prettyname: windows, fullname: windows-latest }
 
     steps:
       - name: Checkout repository
@@ -58,19 +56,10 @@ jobs:
 
       - name: Upload Test Report to artifact
         uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() }}
+        if: ${{ always() }}
         with:
-          name: report-${{ matrix.os.prettyname }}
+          name: test-results-${{ matrix.os.prettyname }}
           path: target/nextest/default/junit.xml
-
-      - name: Annotate CI run with test results 
-        uses: Cai1Hsu/test-reporter@main
-        if: ${{ !cancelled() }}
-        with:
-          name: Results
-          path: "target/nextest/default/junit.xml"
-          reporter: nextest-junit
-          list-tests: 'failed'
 
   coverage:
     name: Coverage
