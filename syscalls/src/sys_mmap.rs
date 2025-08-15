@@ -1,6 +1,6 @@
 use abstractions::IUsizeAlias;
 use address::{
-    IAddressBase, IAlignableAddress, IPageNum, IToPageNum, VirtualAddress, VirtualPageNumRange,
+    IAddressBase, IAlignableAddress, IPageNum, IToPageNum, VirtualAddress, VirtualPageNumRange
 };
 use alloc::vec::Vec;
 use constants::SyscallError;
@@ -101,19 +101,15 @@ impl SyscallContext {
         };
 
         for mapping in mappings.iter() {
-            let range = mapping.range();
+            let mapping_range = mapping.range();
+            let possible_hole = VirtualPageNumRange::from_start_count(last_hole_start.to_ceil_page_num(), len / constants::PAGE_SIZE);
 
-            let start = range.start().start_addr();
-            let end = range.end().end_addr();
-
-            // collision, skips to next hole
-            if last_hole_start >= start || last_hole_start + len <= end {
-                last_hole_start = end + Self::VMA_GAP;
+            if mapping_range.contains(possible_hole.start()) || mapping_range.contains(possible_hole.end()) {
+                last_hole_start = mapping_range.end().end_addr() + Self::VMA_GAP;
                 continue;
             }
 
-            // the hole is big enough
-            if last_hole_start + len <= start {
+            if possible_hole.end() < mapping_range.start() {
                 return last_hole_start;
             }
         }
@@ -242,6 +238,36 @@ mod tests {
         let addr = SyscallContext::sys_mmap_select_addr(&mut mem, VirtualAddress::null(), 0x1000);
 
         assert!(addr > end.end_addr());
+    }
+
+    #[test]
+    fn test_addr_use_hole() {
+        let mut mem = setup_memory_space();
+
+        let first = VirtualPageNumRange::from_start_count(VirtualPageNum::from_usize(0x10), 1);
+        let second = VirtualPageNumRange::from_start_count(VirtualPageNum::from_usize(0x15), 1);
+
+        mem.alloc_and_map_area(MappingArea {
+            range: first,
+            area_type: AreaType::VMA,
+            map_type: MapType::Framed,
+            permissions: GenericMappingFlags::User,
+            allocation: None,
+        });
+
+        mem.alloc_and_map_area(MappingArea {
+            range: second,
+            area_type: AreaType::VMA,
+            map_type: MapType::Framed,
+            permissions: GenericMappingFlags::User,
+            allocation: None,
+        });
+
+        let addr = SyscallContext::sys_mmap_select_addr(&mut mem, VirtualAddress::null(), 0x1000);
+
+        // We want the addr to be between the two ranges
+        assert!(addr > first.end().end_addr());
+        assert!(addr < second.start().start_addr(), "addr: {:?}", addr);
     }
 
     #[test]
