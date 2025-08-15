@@ -116,8 +116,7 @@ impl SyscallContext {
                 continue;
             }
 
-            if possible_hole.end().end_addr() + Self::VMA_GAP
-                <= mapping_range.start().start_addr()
+            if possible_hole.end().end_addr() + Self::VMA_GAP <= mapping_range.start().start_addr()
             {
                 return last_hole_start;
             }
@@ -151,7 +150,6 @@ mod tests {
 
     use address::{VirtualAddress, VirtualPageNum};
     use allocation_abstractions::IFrameAllocator;
-    use constants::ErrNo;
     use hermit_sync::SpinMutex;
     use kernel_abstractions::IKernel;
     use memory_space_abstractions::{MappingAreaAllocation, MemorySpace};
@@ -611,7 +609,7 @@ mod tests {
             0,
         );
 
-        assert_eq!(ret, Err(ErrNo::InvalidArgument));
+        assert_eq!(ret, SyscallError::InvalidArgument);
     }
 
     #[test]
