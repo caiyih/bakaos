@@ -30,6 +30,14 @@ impl SyscallContext {
             return SyscallError::BadAddress;
         }
 
+        if len == 0 {
+            return SyscallError::InvalidArgument;
+        }
+
+        // man page says:
+        // The address addr must be a multiple of the page size (but length need not be).
+        let len = len.div_ceil(constants::PAGE_SIZE) * constants::PAGE_SIZE;
+
         if len > Self::VMA_MAX_LEN {
             return SyscallError::CannotAllocateMemory;
         }
@@ -37,8 +45,6 @@ impl SyscallContext {
         if offset % constants::PAGE_SIZE != 0 {
             return SyscallError::InvalidArgument;
         }
-
-        let len = len.next_power_of_two();
 
         let permissions = Self::prot_to_permissions(prot);
 
@@ -89,31 +95,36 @@ impl SyscallContext {
         addr: VirtualAddress,
         len: usize,
     ) -> VirtualAddress {
+        debug_assert!(len % constants::PAGE_SIZE == 0);
+
         let mut mappings = mem.mappings().iter().collect::<Vec<_>>();
         mappings.sort_by(|lhs, rhs| lhs.range().end().cmp(&rhs.range().end()));
 
         // Try find the first avaliable hole
         let mut last_hole_start = match (addr.is_null(), mappings.len()) {
-            (_, 0) => return Self::VMA_BASE,
+            (false, 0) => return addr,
+            (true, 0) => return Self::VMA_BASE,
             // We start from a mapping's end to avoid overlap with it
             (true, _) => mappings[0].range().end().end_addr() + Self::VMA_GAP,
-            _ => addr,
+            _ => addr, // search from the given address
         };
 
         for mapping in mappings.iter() {
-            let range = mapping.range();
+            let mapping_range = mapping.range();
+            let possible_hole = VirtualPageNumRange::from_start_count(
+                last_hole_start.to_ceil_page_num(),
+                len / constants::PAGE_SIZE,
+            );
 
-            let start = range.start().start_addr();
-            let end = range.end().end_addr();
-
-            // collision, skips to next hole
-            if last_hole_start >= start || last_hole_start + len <= end {
-                last_hole_start = end + Self::VMA_GAP;
+            if mapping_range.contains(possible_hole.start())
+                || mapping_range.contains(possible_hole.end())
+            {
+                last_hole_start = mapping_range.end().end_addr() + Self::VMA_GAP;
                 continue;
             }
 
-            // the hole is big enough
-            if last_hole_start + len <= start {
+            if possible_hole.end().end_addr() + Self::VMA_GAP <= mapping_range.start().start_addr()
+            {
                 return last_hole_start;
             }
         }
@@ -241,6 +252,48 @@ mod tests {
         let addr = SyscallContext::sys_mmap_select_addr(&mut mem, VirtualAddress::null(), 0x1000);
 
         assert!(addr > end.end_addr());
+    }
+
+    #[test]
+    fn test_addr_hole_used() {
+        let mut mem = setup_memory_space();
+
+        // Since the 'end' is exclusive, we actually need to add one to the end address.
+        // | 10: first area start | 11: first area end | 12: gap | 13: hole start | 14: hole end | 15: gap | 16: second area start|
+        let first = VirtualPageNumRange::from_start_count(VirtualPageNum::from_usize(0x10), 1);
+        let second = VirtualPageNumRange::from_start_count(VirtualPageNum::from_usize(0x16), 1);
+
+        mem.alloc_and_map_area(MappingArea {
+            range: first,
+            area_type: AreaType::VMA,
+            map_type: MapType::Framed,
+            permissions: GenericMappingFlags::User,
+            allocation: None,
+        });
+
+        mem.alloc_and_map_area(MappingArea {
+            range: second,
+            area_type: AreaType::VMA,
+            map_type: MapType::Framed,
+            permissions: GenericMappingFlags::User,
+            allocation: None,
+        });
+
+        let addr = SyscallContext::sys_mmap_select_addr(&mut mem, VirtualAddress::null(), 0x1000);
+
+        // We want the addr to be between the two ranges
+        assert!(addr > first.end().end_addr());
+        assert!(addr < second.start().start_addr(), "addr: {:?}", addr);
+
+        assert!(
+            addr.is_page_aligned(),
+            "selected address must be page-aligned"
+        );
+        // Ensure we honor the configured VMA_GAP from the previous mapping
+        assert!(
+            addr >= first.end().end_addr() + SyscallContext::VMA_GAP,
+            "address should be at least VMA_GAP past previous mapping end"
+        );
     }
 
     #[test]
@@ -549,5 +602,70 @@ mod tests {
         let mut rng = rand::rng();
 
         rng.fill(buf);
+    }
+
+    fn test_syscall_nonsense_flags_return_invalid_argument(flags: MemoryMapFlags) {
+        let ctx = setup_syscall_context();
+
+        let ret = ctx.sys_mmap(
+            VirtualAddress::null(),
+            0x1000,
+            MemoryMapProt::READ,
+            flags,
+            0,
+            0,
+        );
+
+        assert_eq!(ret, SyscallError::InvalidArgument);
+    }
+
+    #[test]
+    fn test_syscall_nonsense_flags() {
+        test_syscall_nonsense_flags_return_invalid_argument(MemoryMapFlags::from_bits_retain(
+            0xdeadbeef,
+        ));
+    }
+
+    #[test]
+    fn test_syscall_composite_flags() {
+        test_syscall_nonsense_flags_return_invalid_argument(
+            MemoryMapFlags::SHARED | MemoryMapFlags::PRIVATE,
+        );
+    }
+
+    fn test_invalid_len(len: usize) {
+        let ctx = setup_syscall_context();
+
+        let ret = ctx.sys_mmap(
+            VirtualAddress::null(),
+            len,
+            MemoryMapProt::READ,
+            MemoryMapFlags::ANONYMOUS,
+            0,
+            0,
+        );
+
+        assert_eq!(ret, SyscallError::InvalidArgument);
+    }
+
+    #[test]
+    fn test_syscall_reject_zero_len() {
+        test_invalid_len(0);
+    }
+
+    #[test]
+    fn test_syscall_can_not_allocate_too_large_len() {
+        let ctx = setup_syscall_context();
+
+        let ret = ctx.sys_mmap(
+            VirtualAddress::null(),
+            usize::MAX & !0xfff,
+            MemoryMapProt::READ | MemoryMapProt::WRITE,
+            MemoryMapFlags::ANONYMOUS,
+            0,
+            0,
+        );
+
+        assert_eq!(ret, SyscallError::CannotAllocateMemory);
     }
 }
