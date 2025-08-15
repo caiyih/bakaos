@@ -30,14 +30,6 @@ impl SyscallContext {
             return SyscallError::BadAddress;
         }
 
-        if len > Self::VMA_MAX_LEN {
-            return SyscallError::CannotAllocateMemory;
-        }
-
-        if offset % constants::PAGE_SIZE != 0 {
-            return SyscallError::InvalidArgument;
-        }
-
         if len == 0 {
             return SyscallError::InvalidArgument;
         }
@@ -45,6 +37,14 @@ impl SyscallContext {
         // man page says:
         // The address addr must be a multiple of the page size (but length need not be).
         let len = len.div_ceil(constants::PAGE_SIZE) * constants::PAGE_SIZE;
+
+        if len > Self::VMA_MAX_LEN {
+            return SyscallError::CannotAllocateMemory;
+        }
+
+        if offset % constants::PAGE_SIZE != 0 {
+            return SyscallError::InvalidArgument;
+        }
 
         let permissions = Self::prot_to_permissions(prot);
 
