@@ -96,10 +96,11 @@ impl SyscallContext {
 
         // Try find the first avaliable hole
         let mut last_hole_start = match (addr.is_null(), mappings.len()) {
-            (_, 0) => return Self::VMA_BASE,
+            (false, 0) => return addr,
+            (true, 0) => return Self::VMA_BASE,
             // We start from a mapping's end to avoid overlap with it
             (true, _) => mappings[0].range().end().end_addr() + Self::VMA_GAP,
-            _ => addr,
+            _ => addr, // search from the given address
         };
 
         for mapping in mappings.iter() {
