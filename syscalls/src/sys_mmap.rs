@@ -1,6 +1,6 @@
 use abstractions::IUsizeAlias;
 use address::{
-    IAddressBase, IAlignableAddress, IPageNum, IToPageNum, VirtualAddress, VirtualPageNumRange
+    IAddressBase, IAlignableAddress, IPageNum, IToPageNum, VirtualAddress, VirtualPageNumRange,
 };
 use alloc::vec::Vec;
 use constants::SyscallError;
@@ -89,6 +89,8 @@ impl SyscallContext {
         addr: VirtualAddress,
         len: usize,
     ) -> VirtualAddress {
+        debug_assert!(len % constants::PAGE_SIZE == 0);
+
         let mut mappings = mem.mappings().iter().collect::<Vec<_>>();
         mappings.sort_by(|lhs, rhs| lhs.range().end().cmp(&rhs.range().end()));
 
@@ -102,14 +104,21 @@ impl SyscallContext {
 
         for mapping in mappings.iter() {
             let mapping_range = mapping.range();
-            let possible_hole = VirtualPageNumRange::from_start_count(last_hole_start.to_ceil_page_num(), len / constants::PAGE_SIZE);
+            let possible_hole = VirtualPageNumRange::from_start_count(
+                last_hole_start.to_ceil_page_num(),
+                len / constants::PAGE_SIZE,
+            );
 
-            if mapping_range.contains(possible_hole.start()) || mapping_range.contains(possible_hole.end()) {
+            if mapping_range.contains(possible_hole.start())
+                || mapping_range.contains(possible_hole.end())
+            {
                 last_hole_start = mapping_range.end().end_addr() + Self::VMA_GAP;
                 continue;
             }
 
-            if possible_hole.end() < mapping_range.start() {
+            if possible_hole.end().end_addr() + SyscallContext::VMA_GAP
+                <= mapping_range.start().start_addr()
+            {
                 return last_hole_start;
             }
         }
@@ -241,11 +250,13 @@ mod tests {
     }
 
     #[test]
-    fn test_addr_use_hole() {
+    fn test_addr_hole_used() {
         let mut mem = setup_memory_space();
 
+        // Since the 'end' is exclusive, we actually need to add one to the end address.
+        // | 10: first area start | 11: first area end | 12: gap | 13: hole start | 14: hole end | 15: gap | 16: second area start|
         let first = VirtualPageNumRange::from_start_count(VirtualPageNum::from_usize(0x10), 1);
-        let second = VirtualPageNumRange::from_start_count(VirtualPageNum::from_usize(0x15), 1);
+        let second = VirtualPageNumRange::from_start_count(VirtualPageNum::from_usize(0x16), 1);
 
         mem.alloc_and_map_area(MappingArea {
             range: first,
@@ -268,6 +279,16 @@ mod tests {
         // We want the addr to be between the two ranges
         assert!(addr > first.end().end_addr());
         assert!(addr < second.start().start_addr(), "addr: {:?}", addr);
+
+        assert!(
+            addr.is_page_aligned(),
+            "selected address must be page-aligned"
+        );
+        // Ensure we honor the configured VMA_GAP from the previous mapping
+        assert!(
+            addr >= first.end().end_addr() + SyscallContext::VMA_GAP,
+            "address should be at least VMA_GAP past previous mapping end"
+        );
     }
 
     #[test]
