@@ -24,7 +24,6 @@ mod tests {
     use test_utilities::{kernel::TestKernel, task::TestProcess};
 
     use super::*;
-    use test_log::test;
 
     fn setup_test_task() -> (Arc<dyn ITask>, Arc<dyn IKernel>) {
         let kernel = TestKernel::new().build();

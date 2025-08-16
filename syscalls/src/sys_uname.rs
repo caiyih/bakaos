@@ -129,7 +129,6 @@ mod tests {
     };
 
     use super::*;
-    use test_log::test;
 
     fn setup_test() -> (SyscallContext, Arc<SpinMutex<dyn IMMU>>, Box<UtsName>) {
         let kernel = TestKernel::new().build();

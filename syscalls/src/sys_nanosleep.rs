@@ -73,7 +73,6 @@ mod tests {
     use threading::block_on;
 
     use super::*;
-    use test_log::test;
 
     fn setup_syscall_context() -> (Arc<SpinMutex<dyn IMMU>>, SyscallContext) {
         let kernel = TestKernel::new().build();

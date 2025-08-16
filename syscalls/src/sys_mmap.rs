@@ -167,7 +167,6 @@ mod tests {
     };
 
     use super::*;
-    use test_log::test;
 
     fn setup_kernel_with_memory() -> (
         Arc<dyn IKernel>,
