@@ -69,7 +69,7 @@ jobs:
       matrix:
         os:
           # This workflow only collects coverage, to run on Windows is a waste of resources
-          - { prettyname: Linux, fullname: ubuntu-latest }
+          - { prettyname: linux, fullname: ubuntu-latest }
 
     steps:
       - name: Checkout repository
