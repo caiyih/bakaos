@@ -14,16 +14,24 @@ impl<T> Into<VirtualAddress> for *const T {
     }
 }
 
-impl<T> Into<VirtualAddress> for &[T] {
-    fn into(self) -> VirtualAddress {
-        VirtualAddress::from_ptr(self.as_ptr())
+impl<T> From<&T> for VirtualAddress {
+    default fn from(value: &T) -> Self {
+        VirtualAddress::from_ref(value)
     }
 }
 
-impl<T, const N: usize> Into<VirtualAddress> for &[T; N] {
-    #[inline(always)]
-    fn into(self) -> VirtualAddress {
-        VirtualAddress::from_ptr(self.as_ptr())
+impl<T> From<&T> for VirtualAddress
+where
+    T: core::ops::Deref,
+{
+    default fn from(value: &T) -> Self {
+        VirtualAddress::from_ptr(value.deref() as *const _ as *const ())
+    }
+}
+
+impl<T> From<&[T]> for VirtualAddress {
+    default fn from(value: &[T]) -> Self {
+        value.as_ptr().into()
     }
 }
 
