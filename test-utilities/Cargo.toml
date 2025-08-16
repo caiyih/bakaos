@@ -6,6 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+ctor = "0.5"
+env_logger = "0.11"
 hermit-sync = "0.1.6"
 timing = { path = "../libraries/timing", default-features = false }
 abstractions = { path = "../libraries/abstractions", default-features = false }
@@ -23,5 +25,5 @@ platform-specific = { path = "../libraries/platform-specific", default-features 
 libc = "0.2.174"
 
 [features]
-default = ["std"]
-std = []
+default = ["test_log"]
+test_log = []
