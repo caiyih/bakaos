@@ -6,6 +6,10 @@ fn test_init() {
         .format_source_path(true)
         .format_module_path(false)
         .format_timestamp_micros()
+        // Panic info and stacktrace will be written to stderr
+        // Log to stdout to avoid mixing with panic info
+        .target(env_logger::Target::Stdout)
+        .write_style(env_logger::WriteStyle::Always)
         .is_test(true)
         .try_init();
 }
