@@ -8,9 +8,10 @@ pub struct VirtualAddress(*const ());
 
 impl_IAddress!(VirtualAddress);
 
-impl<T> Into<VirtualAddress> for *const T {
-    fn into(self) -> VirtualAddress {
-        VirtualAddress::from_ptr(self)
+impl<T> From<*const T> for VirtualAddress {
+    #[inline(always)]
+    fn from(value: *const T) -> Self {
+        VirtualAddress::from_ptr(value)
     }
 }
 
@@ -18,6 +19,7 @@ impl<T: ?Sized> From<&T> for VirtualAddress
 where
     T: core::ops::Deref,
 {
+    #[inline(always)]
     default fn from(value: &T) -> Self {
         let inner = core::ops::Deref::deref(value);
 
@@ -26,6 +28,7 @@ where
 }
 
 impl<T: ?Sized> From<&T> for VirtualAddress {
+    #[inline(always)]
     default fn from(value: &T) -> Self {
         VirtualAddress::from_ref(value)
     }
