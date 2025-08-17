@@ -22,7 +22,7 @@ where
         // the below impl for Box<[T]> heavily relies on the layout of [T]
         // although &[T] is equivalent to *const T in the memory layout,
         // it is not a force and explicit rule, this impl is the guarantee
-        let slice = value.deref();
+        let slice = core::ops::Deref::deref(value);
 
         slice.into()
     }
@@ -33,9 +33,9 @@ where
     T: core::ops::Deref,
 {
     default fn from(value: &T) -> Self {
-        let data_ptr = value.deref() as *const _ as *const ();
+        let inner = core::ops::Deref::deref(value);
 
-        VirtualAddress::from_ptr(data_ptr)
+        inner.into()
     }
 }
 
