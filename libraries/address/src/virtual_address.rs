@@ -14,9 +14,23 @@ impl<T> Into<VirtualAddress> for *const T {
     }
 }
 
-impl<T> From<&T> for VirtualAddress {
-    default fn from(value: &T) -> Self {
-        VirtualAddress::from_ref(value)
+impl<T> From<&[T]> for VirtualAddress {
+    default fn from(value: &[T]) -> Self {
+        value.as_ptr().into()
+    }
+}
+
+impl<T, Item> From<&T> for VirtualAddress
+where
+    T: core::ops::Deref<Target = [Item]>,
+{
+    fn from(value: &T) -> Self {
+        // the below impl for Box<[T]> heavily relies on the layout of [T]
+        // although &[T] is equivalent to *const T in the memory layout,
+        // it is not a force and explicit rule, this impl is the guarantee
+        let slice = value.deref();
+
+        slice.into()
     }
 }
 
@@ -25,20 +39,22 @@ where
     T: core::ops::Deref,
 {
     default fn from(value: &T) -> Self {
-        VirtualAddress::from_ptr(value.deref() as *const _ as *const ())
+        let data_ptr = value.deref() as *const _ as *const ();
+
+        VirtualAddress::from_ptr(data_ptr)
     }
 }
 
-impl<T> From<&[T]> for VirtualAddress {
-    default fn from(value: &[T]) -> Self {
-        value.as_ptr().into()
+impl<T> From<&T> for VirtualAddress {
+    default fn from(value: &T) -> Self {
+        VirtualAddress::from_ref(value)
     }
 }
 
 impl VirtualAddress {
     #[inline(always)]
     pub fn from_ref<T>(r: &T) -> VirtualAddress {
-        VirtualAddress::from_ptr(r as *const T)
+        VirtualAddress::from_ptr(r as *const T as *const ())
     }
 
     #[inline(always)]
