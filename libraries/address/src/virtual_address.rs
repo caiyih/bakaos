@@ -14,13 +14,7 @@ impl<T> Into<VirtualAddress> for *const T {
     }
 }
 
-impl<T> From<&[T]> for VirtualAddress {
-    default fn from(value: &[T]) -> Self {
-        value.as_ptr().into()
-    }
-}
-
-impl<T, Item> From<&T> for VirtualAddress
+impl<T: ?Sized, Item> From<&T> for VirtualAddress
 where
     T: core::ops::Deref<Target = [Item]>,
 {
@@ -34,7 +28,7 @@ where
     }
 }
 
-impl<T> From<&T> for VirtualAddress
+impl<T: ?Sized> From<&T> for VirtualAddress
 where
     T: core::ops::Deref,
 {
@@ -45,7 +39,7 @@ where
     }
 }
 
-impl<T> From<&T> for VirtualAddress {
+impl<T: ?Sized> From<&T> for VirtualAddress {
     default fn from(value: &T) -> Self {
         VirtualAddress::from_ref(value)
     }
@@ -53,7 +47,7 @@ impl<T> From<&T> for VirtualAddress {
 
 impl VirtualAddress {
     #[inline(always)]
-    pub fn from_ref<T>(r: &T) -> VirtualAddress {
+    pub fn from_ref<T: ?Sized>(r: &T) -> VirtualAddress {
         VirtualAddress::from_ptr(r as *const T as *const ())
     }
 
