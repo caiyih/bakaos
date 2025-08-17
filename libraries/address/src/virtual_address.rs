@@ -8,29 +8,36 @@ pub struct VirtualAddress(*const ());
 
 impl_IAddress!(VirtualAddress);
 
-impl<T> Into<VirtualAddress> for *const T {
-    fn into(self) -> VirtualAddress {
-        VirtualAddress::from_ptr(self)
-    }
-}
-
-impl<T> Into<VirtualAddress> for &[T] {
-    fn into(self) -> VirtualAddress {
-        VirtualAddress::from_ptr(self.as_ptr())
-    }
-}
-
-impl<T, const N: usize> Into<VirtualAddress> for &[T; N] {
+impl<T> From<*const T> for VirtualAddress {
     #[inline(always)]
-    fn into(self) -> VirtualAddress {
-        VirtualAddress::from_ptr(self.as_ptr())
+    fn from(value: *const T) -> Self {
+        VirtualAddress::from_ptr(value)
+    }
+}
+
+impl<T: ?Sized> From<&T> for VirtualAddress
+where
+    T: core::ops::Deref,
+{
+    #[inline(always)]
+    default fn from(value: &T) -> Self {
+        let inner = core::ops::Deref::deref(value);
+
+        inner.into()
+    }
+}
+
+impl<T: ?Sized> From<&T> for VirtualAddress {
+    #[inline(always)]
+    default fn from(value: &T) -> Self {
+        VirtualAddress::from_ref(value)
     }
 }
 
 impl VirtualAddress {
     #[inline(always)]
-    pub fn from_ref<T>(r: &T) -> VirtualAddress {
-        VirtualAddress::from_ptr(r as *const T)
+    pub fn from_ref<T: ?Sized>(r: &T) -> VirtualAddress {
+        VirtualAddress::from_ptr(r as *const T as *const ())
     }
 
     #[inline(always)]
@@ -67,7 +74,9 @@ impl IToPageNum<VirtualPageNum> for VirtualAddress {}
 
 #[cfg(test)]
 mod virtual_address_tests {
-    use alloc::format;
+    use core::ops::Deref;
+
+    use alloc::{boxed::Box, format, vec};
 
     use super::*;
 
@@ -189,5 +198,105 @@ mod virtual_address_tests {
         let addr = VirtualAddress::from_usize(0x1234);
         assert_eq!(format!("{:?}", addr), "VirtualAddress(0x1234)");
         assert_eq!(format!("{}", addr), "VirtualAddress(0x1234)");
+    }
+
+    #[test]
+    fn test_value_into() {
+        let value: i32 = 42;
+
+        // let addr: VirtualAddress = (&value).into(); // equivalent to
+
+        let addr: VirtualAddress = From::from(&value);
+
+        assert_eq!(addr.as_usize(), &value as *const _ as usize);
+    }
+
+    #[test]
+    fn test_slice_into() {
+        let bytes: &[i32] = [0x12, 0x34, 0x56, 0x78].as_slice();
+
+        let addr: VirtualAddress = bytes.into();
+
+        assert_eq!(addr.as_usize(), bytes.as_ptr() as usize);
+    }
+
+    #[test]
+    fn test_inline_array_ref_into() {
+        let bytes: &[i32; 4] = &[0x12, 0x34, 0x56, 0x78];
+
+        let addr: VirtualAddress = bytes.into();
+
+        assert_eq!(addr.as_usize(), bytes.as_ptr() as usize);
+    }
+
+    #[test]
+    fn test_inline_array_into() {
+        // inline array is basically a big struct
+        let bytes: [i32; 4] = [0x12, 0x34, 0x56, 0x78];
+
+        let addr: VirtualAddress = From::from(&bytes);
+
+        assert_eq!(addr.as_usize(), bytes.as_ptr() as usize);
+    }
+
+    #[test]
+    fn test_boxed_value_into() {
+        let boxed = Box::new(42);
+
+        let addr: VirtualAddress = boxed.as_ref().into();
+
+        assert_eq!(addr.as_usize(), boxed.as_ref() as *const _ as usize);
+    }
+
+    #[test]
+    fn test_boxed_value_from() {
+        let boxed = Box::new(42);
+
+        let addr: VirtualAddress = From::from(&boxed);
+
+        assert_eq!(addr.as_usize(), boxed.as_ref() as *const _ as usize);
+    }
+
+    #[test]
+    fn test_boxed_slice_val_into() {
+        let slice = vec![0x12, 0x34, 0x56, 0x78];
+
+        let boxed: Box<[i32]> = slice.into_boxed_slice();
+
+        let addr: VirtualAddress = boxed.as_ref().into(); // expect addr to be the address of the slice, not the box
+
+        assert_eq!(addr.as_usize(), boxed.deref().as_ptr() as usize);
+    }
+
+    #[test]
+    fn test_boxed_slice_ref_into() {
+        static SLICE: &[i32] = &[0x12, 0x34, 0x56, 0x78];
+
+        let boxed = Box::new(SLICE);
+
+        let addr: VirtualAddress = boxed.as_ref().into(); // expect addr to be the address of the slice's first value
+                                                          // not the box or the boxed reference
+
+        assert_eq!(addr.as_usize(), boxed.deref().as_ptr() as usize);
+    }
+
+    #[test]
+    fn test_boxed_inline_array_into() {
+        let boxed: Box<[i32; 4]> = Box::new([0x12, 0x34, 0x56, 0x78]);
+
+        let addr: VirtualAddress = boxed.as_ref().into();
+
+        assert_eq!(addr.as_usize(), boxed.deref().as_ptr() as usize);
+    }
+
+    #[test]
+    fn test_boxed_inline_array_ref_into() {
+        static ARRAY: [i32; 4] = [0x12, 0x34, 0x56, 0x78];
+
+        let boxed: Box<&[i32; 4]> = Box::new(&ARRAY);
+
+        let addr: VirtualAddress = boxed.as_ref().into();
+
+        assert_eq!(addr.as_usize(), boxed.deref().as_ptr() as usize);
     }
 }
