@@ -14,20 +14,6 @@ impl<T> Into<VirtualAddress> for *const T {
     }
 }
 
-impl<T: ?Sized, Item> From<&T> for VirtualAddress
-where
-    T: core::ops::Deref<Target = [Item]>,
-{
-    fn from(value: &T) -> Self {
-        // the below impl for Box<[T]> heavily relies on the layout of [T]
-        // although &[T] is equivalent to *const T in the memory layout,
-        // it is not a force and explicit rule, this impl is the guarantee
-        let slice = core::ops::Deref::deref(value);
-
-        slice.into()
-    }
-}
-
 impl<T: ?Sized> From<&T> for VirtualAddress
 where
     T: core::ops::Deref,
