@@ -152,4 +152,4 @@ jobs:
             [{"searchValue":"\\\\\\","replaceValue":"/"}]
           detailed_summary: true
           follow_symlink: true
-          comment: true
+          comment: ${{ github.event.pull_request.number != '' }}
