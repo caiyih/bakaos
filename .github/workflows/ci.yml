@@ -153,3 +153,5 @@ jobs:
           detailed_summary: true
           follow_symlink: true
           comment: ${{ github.event.pull_request.number != '' }}
+          annotate_only: true
+
