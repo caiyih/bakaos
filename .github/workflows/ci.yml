@@ -125,6 +125,7 @@ jobs:
     permissions:
       contents: read
       actions: read
+      issues: write
       pull-requests: write
       checks: write
     timeout-minutes: 5
@@ -153,5 +154,4 @@ jobs:
           detailed_summary: true
           follow_symlink: true
           comment: ${{ github.event.pull_request.number != '' }}
-          annotate_only: true
 
