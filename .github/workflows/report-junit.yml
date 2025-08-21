@@ -48,6 +48,7 @@ jobs:
           include_time_in_summary: true
           truncate_stack_traces: false
           check_title_template: "{{SUITE_NAME}}::{{TEST_NAME}}"
+          # regarding the reason of the wird searchValue, see https://github.com/caiyih/bakaos/pull/77
           transformers: |
             [{"searchValue":"\\\\\\","replaceValue":"/"}]
           detailed_summary: true
