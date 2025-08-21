@@ -141,8 +141,15 @@ jobs:
           merge-multiple: false
           github-token: ${{ github.token }}
 
+      - uses: actions/create-github-app-token@v2
+        id: app-token
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
       - name: Annotate CI run with test results
         uses: mikepenz/action-junit-report@v5
+        if: always()
         with:
           check_name: Test Results
           report_paths: test-results-*/junit.xml
@@ -154,4 +161,5 @@ jobs:
           detailed_summary: true
           follow_symlink: true
           comment: ${{ github.event.pull_request.number != '' }}
+          token: ${{ steps.app-token.outputs.token || github.token }}
 
