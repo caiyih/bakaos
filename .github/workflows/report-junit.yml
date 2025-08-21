@@ -45,14 +45,21 @@ jobs:
 
       - name: Generate summary
         run: |
-          SHORT_SHA=$(echo "${{ github.event.workflow_run.head_sha }}" | cut -c1-7)
+          set -euo pipefail
+          HEAD_SHA="${{ github.event.workflow_run.head_sha }}"
+          SHORT_SHA="${HEAD_SHA::7}"
 
-          if [ -n "${{ env.PULL_RQUEST_ID }}" E]; then
-            SUMMARY_TEXT="- commit: [${{ env.SHORT_SHA }}](https://github.com/${{ github.repository }}/pull/${{ env.PULL_REQUEST_ID }}/commits/${{ github.event.workflow_run.head_sha }})"
+          if [ -n "${PULL_REQUEST_ID:-}" ]; then
+            SUMMARY_TEXT="- commit: [${SHORT_SHA}](https://github.com/${{ github.repository }}/pull/${PULL_REQUEST_ID}/commits/${HEAD_SHA})"
           else
-            SUMMARY_TEXT="- commit: [${{ env.SHORT_SHA }}](https://github.com/${{ github.repository }}/commit/${{ github.event.workflow_run.head_sha }})"
+            SUMMARY_TEXT="- commit: [${SHORT_SHA}](https://github.com/${{ github.repository }}/commit/${HEAD_SHA})"
           fi
 
+          {
+            echo "SUMMARY_TEXT<<EOF"
+            echo "${SUMMARY_TEXT}"
+            echo "EOF"
+          } >> "$GITHUB_ENV"
           echo "SUMMARY_TEXT<<EOF" >> $GITHUB_ENV
           echo "$SUMMARY_TEXT" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
