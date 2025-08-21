@@ -37,9 +37,11 @@ jobs:
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
       - name: Fetch pull request id
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
         run: |
-          HEAD_PR=`gh pr list --search "${{ github.event.workflow_run.head_sha }}" --json number --jq '.[0].number'`
-          echo "PULL_REQUEST_ID=$HEAD_PR" >> $GITHUB_ENV
+          HEAD_PR="$(gh pr list -R ${{ github.repository }} --search ${{ github.event.workflow_run.head_sha }} --json number --jq '.[0].number')"
+          echo "PULL_REQUEST_ID=${HEAD_PR}" >> "$GITHUB_ENV"
 
       - name: Annotate CI run with test results
         uses: mikepenz/action-junit-report@v5
