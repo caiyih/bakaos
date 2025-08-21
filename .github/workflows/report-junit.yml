@@ -26,7 +26,7 @@ jobs:
           github-token: ${{ github.token }}
           run-id: ${{ github.event.workflow_run.id }}
           pattern: test-results-*
-          merge-multiple: true
+          merge-multiple: false
 
       - name: Create GitHub App token
         uses: actions/create-github-app-token@v2
