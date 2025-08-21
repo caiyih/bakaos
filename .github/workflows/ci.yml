@@ -150,7 +150,7 @@ jobs:
 
       - name: Annotate CI run with test results
         uses: mikepenz/action-junit-report@v5
-        if: always()
+        if: ${{ always() }}
         with:
           check_name: Test Results
           report_paths: test-results-*/junit.xml
