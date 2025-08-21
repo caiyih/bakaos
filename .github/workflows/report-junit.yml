@@ -43,6 +43,27 @@ jobs:
           HEAD_PR="$(gh pr list -R ${{ github.repository }} --search ${{ github.event.workflow_run.head_sha }} --json number --jq '.[0].number')"
           echo "PULL_REQUEST_ID=${HEAD_PR}" >> "$GITHUB_ENV"
 
+      - name: Generate summary
+        run: |
+          set -euo pipefail
+          HEAD_SHA="${{ github.event.workflow_run.head_sha }}"
+          SHORT_SHA="${HEAD_SHA::7}"
+
+          if [ -n "${PULL_REQUEST_ID:-}" ]; then
+            SUMMARY_TEXT="- commit: [${SHORT_SHA}](https://github.com/${{ github.repository }}/pull/${PULL_REQUEST_ID}/commits/${HEAD_SHA})"
+          else
+            SUMMARY_TEXT="- commit: [${SHORT_SHA}](https://github.com/${{ github.repository }}/commit/${HEAD_SHA})"
+          fi
+
+          {
+            echo "SUMMARY_TEXT<<EOF"
+            echo "${SUMMARY_TEXT}"
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+          echo "SUMMARY_TEXT<<EOF" >> $GITHUB_ENV
+          echo "$SUMMARY_TEXT" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
       - name: Annotate CI run with test results
         uses: mikepenz/action-junit-report@v5
         if: ${{ always() }}
@@ -50,6 +71,7 @@ jobs:
           check_name: Test Results
           report_paths: test-results-*/junit.xml
           commit: ${{ github.event.workflow_run.head_sha }}
+          summary: ${{ env.SUMMARY_TEXT }}
           include_time_in_summary: true
           truncate_stack_traces: false
           check_title_template: "{{SUITE_NAME}}::{{TEST_NAME}}"
