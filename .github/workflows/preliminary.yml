@@ -1,0 +1,68 @@
+name: Preliminary test
+
+on:
+  push:
+    branches:
+      - "**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: 'always'
+  IS_CI_ENVIRONMENT: true
+
+jobs:
+  run:
+    name: Grading
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        architecture:
+          - { triplet: riscv64gc-unknown-none-elf, fullname: riscv64, shortname: rv }
+          - { triplet: loongarch64-unknown-none, fullname: loongarch64, shortname: la }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        env: 
+            TOOLCHAIN_VERSION: nightly-2025-02-01
+        run: |
+          rustup toolchain install $TOOLCHAIN_VERSION --profile minimal
+          rustup default $TOOLCHAIN_VERSION
+          rustup override set $TOOLCHAIN_VERSION
+          rustup target add ${{ matrix.architecture.triplet }}
+          rustup component add llvm-tools
+
+      - uses: taiki-e/cache-cargo-install-action@v2
+        with:
+          tool: cargo-binutils
+
+      - uses: ./.github/workflows/actions/setup-musl
+
+      - name: Build Kernel
+        run: make build ARCH=${{ matrix.architecture.fullname }}
+
+      - uses: ./.github/workflows/actions/setup-qemu
+
+      - name: Download sdcard images
+        run: |
+          wget https://github.com/oscomp/testsuits-for-oskernel/releases/download/${{ vars.TESTSUITS_TAG_VER }}/sdcard-${{ matrix.architecture.shortname }}.img.xz
+
+      - name: Prepare sdcard image
+        run: make _prepare_sdcard ARCH=${{ matrix.architecture.fullname }}
+
+      - name: Run tests
+        timeout-minutes: 5
+        run: make _test_internal ARCH=${{ matrix.architecture.fullname }}
+
+      - name: Visualizing grading result
+        run: make parse
+
+      - name: Create annotation comment
+        run: dotnet run --project KernelAnnotationBot -- -f=output.log -b=results.json --target=${{ matrix.architecture.fullname }} --profile=release --log-level=OFF --title="# **Basic** Test result annotation" --crash-threshold=102
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

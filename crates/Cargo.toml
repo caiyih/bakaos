@@ -1,0 +1,30 @@
+[workspace]
+resolver = "2"
+members = [
+    "drivers",
+    "filesystem",
+    "filesystem-abstractions",
+    "timing",
+    "address",
+    "path",
+    "threading",
+    "constants",
+    "allocation",
+    "abstractions",
+    "tasks",
+    "paging",
+    "unwinding",
+    "rng",
+    "platform-specific",
+    "platform-abstractions",
+    "page_table",
+    "global_heap",
+]
+
+exclude = [
+    "template",
+]
+
+[patch.crates-io]
+# patches LoongArch64 support for https://github.com/japaric/cty
+cty = { git = "https://github.com/neuq-rcore/lwext4_rust.git" }

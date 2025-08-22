@@ -1,0 +1,235 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build Debug (Qemu, RISC-V64)",
+            "type": "shell",
+            "command": "make -C kernel build MODE=debug ARCH=riscv64",
+            "group": "build",
+            "isBackground": false,
+            "presentation": {
+                "focus": true,
+                "showReuseMessage": false,
+                "clear": false
+            },
+            "problemMatcher": "$rustc"
+        },
+        {
+            "label": "Build Release (Qemu, RISC-V64)",
+            "type": "shell",
+            "command": "make -C kernel build MODE=release ARCH=riscv64",
+            "group": "build",
+            "isBackground": false,
+            "presentation": {
+                "focus": true,
+                "showReuseMessage": false,
+                "clear": false
+            },
+            "problemMatcher": "$rustc"
+        },
+        {
+            "label": "Build Debug (Qemu, LoongArch64)",
+            "type": "shell",
+            "command": "make -C kernel build MODE=debug ARCH=loongarch64",
+            "group": "build",
+            "isBackground": false,
+            "presentation": {
+                "focus": true,
+                "showReuseMessage": false,
+                "clear": false
+            },
+            "problemMatcher": "$rustc"
+        },
+        {
+            "label": "Build Release (Qemu, LoongArch64)",
+            "type": "shell",
+            "command": "make -C kernel build MODE=release ARCH=loongarch64",
+            "group": "build",
+            "isBackground": false,
+            "presentation": {
+                "focus": true,
+                "showReuseMessage": false,
+                "clear": false
+            },
+            "problemMatcher": "$rustc"
+        },
+        {
+            "label": "Prepare SD (RISC-V64)",
+            "type": "shell",
+            "command": "make _prepare_sdcard ARCH=riscv64",
+            "group": "none",
+            "isBackground": false,
+        },
+        {
+            "label": "Prepare SD (LoongArch64)",
+            "type": "shell",
+            "command": "make _prepare_sdcard ARCH=loongarch64",
+            "group": "none",
+            "isBackground": false,
+        },
+        {
+            "label": "Debug RISC-V64 (Qemu)",
+            "dependsOrder": "parallel",
+            "dependsOn": [
+                "Build Debug (Qemu, RISC-V64)",
+                "Prepare SD (RISC-V64)"
+            ],
+            "type": "shell",
+            "command": "make -C kernel _debug_internal ARCH=riscv64",
+            "group": "none",
+            "isBackground": true,
+            "presentation": {
+                "focus": true,
+                "showReuseMessage": false,
+                "clear": false
+            },
+            "problemMatcher": [
+                {
+                    "owner": "rust",
+                    "fileLocation": [
+                        "relative",
+                        "${workspaceFolder}"
+                    ],
+                    "background": {
+                        "activeOnStart": true,
+                        "beginsPattern": ".",
+                        "endsPattern": "."
+                    },
+                    "pattern": [
+                        {
+                            "regexp": ".",
+                            "file": 1,
+                            "line": 2,
+                            "column": 3,
+                            "severity": 4,
+                            "message": 5
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "label": "Debug RISC-V64 (Qemu, Release)",
+            "dependsOrder": "parallel",
+            "dependsOn": [
+                "Build Release (Qemu, RISC-V64)",
+                "Prepare SD (RISC-V64)"
+            ],
+            "type": "shell",
+            "command": "make -C kernel _debug_internal ARCH=riscv64",
+            "group": "none",
+            "isBackground": true,
+            "presentation": {
+                "focus": true,
+                "showReuseMessage": false,
+                "clear": false
+            },
+            "problemMatcher": [
+                {
+                    "owner": "rust",
+                    "fileLocation": [
+                        "relative",
+                        "${workspaceFolder}"
+                    ],
+                    "background": {
+                        "activeOnStart": true,
+                        "beginsPattern": ".",
+                        "endsPattern": "."
+                    },
+                    "pattern": [
+                        {
+                            "regexp": ".",
+                            "file": 1,
+                            "line": 2,
+                            "column": 3,
+                            "severity": 4,
+                            "message": 5
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "label": "Debug LoongArch64 (Qemu)",
+            "dependsOrder": "parallel",
+            "dependsOn": [
+                "Build Debug (Qemu, LoongArch64)",
+                "Prepare SD (LoongArch64)"
+            ],
+            "type": "shell",
+            "command": "make -C kernel _debug_internal ARCH=loongarch64",
+            "group": "none",
+            "isBackground": true,
+            "presentation": {
+                "focus": true,
+                "showReuseMessage": false,
+                "clear": false
+            },
+            "problemMatcher": [
+                {
+                    "owner": "rust",
+                    "fileLocation": [
+                        "relative",
+                        "${workspaceFolder}"
+                    ],
+                    "background": {
+                        "activeOnStart": true,
+                        "beginsPattern": ".",
+                        "endsPattern": "."
+                    },
+                    "pattern": [
+                        {
+                            "regexp": ".",
+                            "file": 1,
+                            "line": 2,
+                            "column": 3,
+                            "severity": 4,
+                            "message": 5
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "label": "Debug LoongArch64 (Qemu, Release)",
+            "dependsOrder": "parallel",
+            "dependsOn": [
+                "Build Release (Qemu, LoongArch64)",
+                "Prepare SD (LoongArch64)"
+            ],
+            "type": "shell",
+            "command": "make -C kernel _debug_internal ARCH=loongarch64",
+            "group": "none",
+            "isBackground": true,
+            "presentation": {
+                "focus": true,
+                "showReuseMessage": false,
+                "clear": false
+            },
+            "problemMatcher": [
+                {
+                    "owner": "rust",
+                    "fileLocation": [
+                        "relative",
+                        "${workspaceFolder}"
+                    ],
+                    "background": {
+                        "activeOnStart": true,
+                        "beginsPattern": ".",
+                        "endsPattern": "."
+                    },
+                    "pattern": [
+                        {
+                            "regexp": ".",
+                            "file": 1,
+                            "line": 2,
+                            "column": 3,
+                            "severity": 4,
+                            "message": 5
+                        }
+                    ]
+                }
+            ]
+        },
+    ]
+}

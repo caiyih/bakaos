@@ -1,7 +1,0 @@
-{
-    "rust-analyzer.check.allTargets": false,
-    "rust-analyzer.check.noDefaultFeatures": true,
-    "rust-analyzer.check.features": [
-        "virt"
-    ],
-}

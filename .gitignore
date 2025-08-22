@@ -20,13 +20,35 @@ Cargo.lock
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
+.gdb_history
+
+# Generated during preliminary testing
+kernel-qemu
+sbi-qemu
+sdcard.img
+output.log
+results.json
+__pycache__
+
 .vscode/settings.json
 
-# Build artifacts for test script
-/kernel-*.*
+# We want to ignore the workspace setup script by default
+# So that developers can modify it freely without worrying about git
+SetupRV64Workspace.sh
 
-# Code coverage
-coverage/
-cobertura.xml
-tarpaulin-report.*
-lcov.info
+*.sln
+bin
+obj
+
+# testsuits for 2025 preliminary contest
+sdcard-la.img.zst*
+sdcard-rv.img.zst*
+sdcard-la.img.xz*
+sdcard-rv.img.xz*
+sdcard-la.img.gz*
+sdcard-rv.img.gz*
+sdcard-la.img*
+sdcard-rv.img*
+
+# Build artifacts for test script
+/kernel-*

@@ -1,0 +1,35 @@
+[workspace]
+resolver = "2"
+members = [
+    "kernel",
+    "libraries/timing",
+    "libraries/address",
+    "libraries/path",
+    "libraries/threading",
+    "libraries/constants",
+    "libraries/unwinding",
+    "libraries/allocation",
+    "libraries/memory-space",
+    "libraries/mmu-native",
+    "libraries/global_heap",
+    "libraries/task",
+    "libraries/abstractions",
+    "libraries/kernel-abstractions",
+    "libraries/filesystem-abstractions",
+    "libraries/platform-specific",
+    "libraries/platform-abstractions",
+    "libraries/allocation-abstractions",
+    "libraries/mmu-abstractions",
+    "libraries/memory-space-abstractions",
+    "libraries/mmap-abstractions",
+    "libraries/task-abstractions",
+    "libraries/trap-abstractions",
+]
+
+exclude = [
+    "test-utilities",
+]
+
+[patch.crates-io]
+# patches LoongArch64 support for https://github.com/japaric/cty
+# cty = { git = "https://github.com/neuq-rcore/lwext4_rust.git" }

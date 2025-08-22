@@ -1,0 +1,26 @@
+[package]
+name = "filesystem-abstractions"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bitflags = "2.6.0"
+downcast-rs = { version = "1.2.1", default-features = false }
+timing = { path = "../timing", default-features = false }
+path = { path = "../path", default-features = false }
+constants = { path = "../constants", default-features = false }
+address = { path = "../address", default-features = false }
+rng = { path = "../rng", default-features = false }
+platform-specific = { path = "../platform-specific", default-features = false }
+hermit-sync = "0.1.6"
+lock_api = "0.4.12"
+log = "0.4.27"
+allocation = { path = "../allocation", default-features = false }
+
+[features]
+default = ["no_std"]
+allocation = []
+std = []
+no_std = []

@@ -1,0 +1,29 @@
+[package]
+name = "drivers"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+virtio-drivers = "0.9.0"
+allocation = { path = "../allocation", default-features = false }
+constants = { path = "../constants", default-features = false }
+address = { path = "../address", default-features = false }
+abstractions = { path = "../abstractions", default-features = false }
+log = "0.4.27"
+hermit-sync = "0.1.6"
+filesystem-abstractions = { path = "../filesystem-abstractions", default-features = false }
+timing = { path = "../timing", default-features = false }
+platform-specific = { path = "../platform-specific", default-features = false }
+visionfive2-sd = { git = "https://github.com/neuq-rcore/visionfive2-sd.git", default-features = false, features = ["bequietpls"], optional = true }
+cfg-if = "1.0"
+
+[build-dependencies]
+source-generation = { path = "../../source-generation" }
+
+[features]
+default = ["virt"]
+virt = []
+vf2 = ["visionfive2-sd"]
+2k1000 = []

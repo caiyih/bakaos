@@ -1,0 +1,3 @@
+.disassembled
+qemu_output.log
+linker.ld
