@@ -9,7 +9,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: 'always'
-  TOOLCHAIN_VERSION: 'nightly-2025-02-01'
 
 permissions:
   contents: read
@@ -29,11 +28,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Rust version, profile and target are configured in rust-toolchain.toml
       - name: Install Rust
-        run: |
-          rustup toolchain install ${{ env.TOOLCHAIN_VERSION }} --profile minimal
-          rustup default ${{ env.TOOLCHAIN_VERSION }}
-          rustup override set ${{ env.TOOLCHAIN_VERSION }}
+        run: rustup install
 
       - name: Setup Cargo-binstall
         uses: ./.github/workflows/actions/setup-cargo-binstall
@@ -77,9 +74,7 @@ jobs:
 
       - name: Install Rust
         run: |
-          rustup toolchain install ${{ env.TOOLCHAIN_VERSION }} --profile minimal
-          rustup default ${{ env.TOOLCHAIN_VERSION }}
-          rustup override set ${{ env.TOOLCHAIN_VERSION }}
+          rustup install
 
       - name: Setup Cargo-binstall
         uses: ./.github/workflows/actions/setup-cargo-binstall
