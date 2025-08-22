@@ -1,142 +1,53 @@
-use drivers::current_timespec;
-use log::{debug, info};
+use alloc::sync::Arc;
+use allocation::FrameAllocator;
+use allocation_abstractions::IFrameAllocator;
+use filesystem_abstractions::DirectoryTreeNode;
+use hermit_sync::SpinMutex;
+use kernel_abstractions::{IKernel, IKernelSerial};
+use mmu_abstractions::IMMU;
+use syscalls::SyscallContext;
+use task_abstractions::ITask;
 use timing::TimeSpec;
 
-use crate::statistics::KernelStatistics;
+use crate::serial::KernelSerial;
 
-static mut KERNEL: Option<KernelMetadata> = None;
-
-#[allow(unused)]
-pub fn kernel_metadata() -> &'static KernelMetadata {
-    #[allow(static_mut_refs)]
-    unsafe {
-        KERNEL.as_ref().unwrap()
-    }
+pub(crate) struct Kernel {
+    serial: Arc<KernelSerial>,
+    allocator: Arc<SpinMutex<FrameAllocator>>,
 }
 
-#[allow(static_mut_refs)]
-pub fn init() {
-    unsafe {
-        if KERNEL.is_none() {
-            KERNEL = Some(KernelMetadata::new());
+impl Kernel {
+    pub fn new(serial: Arc<KernelSerial>, allocator: Arc<SpinMutex<FrameAllocator>>) -> Arc<Self> {
+        Arc::new(Self { serial, allocator })
+    }
 
-            print_banner();
-            debug!("Initializing kernel");
-
-            debug!("Kernel initialized successfully");
-
-            let machine = drivers::machine();
-            debug!("  Machine    : {}", machine.name());
-            debug!(
-                "  Frequency  : {} Hz",
-                machine.query_performance_frequency()
-            );
-            debug!("  Memory End : {:#010x}", machine.memory_end());
-
-            for (idx, (start, len)) in machine.mmio().iter().enumerate() {
-                debug!(
-                    "  MMIO[{}]    : {:#010x} - {:#010x}",
-                    idx,
-                    start,
-                    start + len
-                );
-            }
-
-            debug!("  Uptime     : {:.3} ms", machine.machine_uptime());
-
-            display_current_time(0);
+    pub fn create_syscall_contenxt_for(self: &Arc<Self>, task: Arc<dyn ITask>) -> SyscallContext {
+        SyscallContext {
+            task,
+            kernel: self.clone(),
         }
     }
 }
 
-fn print_banner() {
-    info!("\u{1B}[34m⠀⠀⠀⣠⠤⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣀⠀⠀");
-    info!("\u{1B}[34m⠀⠀⡜⠁⠀⠈⢢⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣴⠋⠷⠶⠱⡄");
-    info!("\u{1B}[34m⠀⢸⣸⣿⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⢀⡴⠫⢀⣖⡃⢀⣸⢹");
-    info!("\u{1B}[34m⠀⡇⣿⣿⣶⣤⡀⠀⠀⠙⢆⠀⠀⠀⠀⠀⣠⡪⢀⣤⣾⣿⣿⣿⣿⣸");
-    info!("\u{1B}[34m⠀⡇⠛⠛⠛⢿⣿⣷⣦⣀⠀⣳⣄⠀⢠⣾⠇⣠⣾⣿⣿⣿⣿⣿⣿⣽");
-    info!("\u{1B}[34m⠀⠯⣠⣠⣤⣤⣤⣭⣭⡽⠿⠾⠞⠛⠷⠧⣾⣿⣿⣯⣿⡛⣽⣿⡿⡼");
-    info!("\u{1B}[34m⠀⡇⣿⣿⣿⣿⠟⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠈⠙⠻⣿⣿⣮⡛⢿⠃");
-    info!("\u{1B}[34m⠀⣧⣛⣭⡾⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢿⣿⣷⣎⡇");
-    info!("\u{1B}[34m⠀⡸⣿⡟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⢿⣷⣟⡇");
-    info!("\u{1B}[34m⣜⣿⣿⡧⠀⠀⠀⠀⠀⡀⠀⠀⠀⠀⠀⠀⣄⠀⠀⠀⠀⠀⣸⣿⡜⡄");
-    info!("\u{1B}[34m⠉⠉⢹⡇⠀⠀⠀⢀⣞⠡⠀⠀⠀⠀⠀⠀⡝⣦⠀⠀⠀⠀⢿⣿⣿⣹");
-    info!("\u{1B}[34m⠀⠀⢸⠁⠀⠀⢠⣏⣨⣉⡃⠀⠀⠀⢀⣜⡉⢉⣇⠀⠀⠀⢹⡄⠀⠀");
-    info!("\u{1B}[34m⠀⠀⡾⠄⠀⠀⢸⣾⢏⡍⡏⠑⠆⠀⢿⣻⣿⣿⣿⠀⠀⢰⠈⡇⠀⠀");
-    info!("\u{1B}[34m⠀⢰⢇⢀⣆⠀⢸⠙⠾⠽⠃⠀⠀⠀⠘⠿⡿⠟⢹⠀⢀⡎⠀⡇⠀⠀");
-    info!("\u{1B}[34m⠀⠘⢺⣻⡺⣦⣫⡀⠀⠀⠀⣄⣀⣀⠀⠀⠀⠀⢜⣠⣾⡙⣆⡇⠀⠀");
-    info!("\u{1B}[34m⠀⠀⠀⠙⢿⡿⡝⠿⢧⡢⣠⣤⣍⣀⣤⡄⢀⣞⣿⡿⣻⣿⠞⠀⠀⠀");
-    info!("\u{1B}[34m⠀⠀⠀⢠⠏⠄⠐⠀⣼⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠳⢤⣉⢳⠀⠀⠀");
-    info!("\u{1B}[34m⢀⡠⠖⠉⠀⠀⣠⠇⣿⡿⣿⡿⢹⣿⣿⣿⣿⣧⣠⡀⠀⠈⠉⢢⡀⠀");
-    info!("\u{1B}[34m⢿⠀⠀⣠⠴⣋⡤⠚⠛⠛⠛⠛⠛⠛⠛⠛⠙⠛⠛⢿⣦⣄⠀⢈⡇⠀");
-    info!("\u{1B}[34m⠈⢓⣤⣵⣾⠁⣀⣀⠤⣤⣀⠀⠀⠀⠀⢀⡤⠶⠤⢌⡹⠿⠷⠻⢤⡀");
-    info!("\u{1B}[34m⢰⠋⠈⠉⠘⠋⠁⠀⠀⠈⠙⠳⢄⣀⡴⠉⠀⠀⠀⠀⠙⠂⠀⠀⢀⡇");
-    info!("\u{1B}[34m⢸⡠⡀⠀⠒⠂⠐⠢⠀⣀⠀⠀⠀⠀⠀⢀⠤⠚⠀⠀⢸⣔⢄⠀⢾⠀");
-    info!("\u{1B}[34m⠀⠑⠸⢿⠀⠀⠀⠀⢈⡗⠭⣖⡒⠒⢊⣱⠀⠀⠀⠀⢨⠟⠂⠚⠋⠀");
-    info!("\u{1B}[34m⠀⠀⠀⠘⠦⣄⣀⣠⠞⠀⠀⠀⠈⠉⠉⠀⠳⠤⠤⡤⠞⠀⠀⠀⠀⠀");
-}
-
-pub struct KernelMetadata {
-    statistics: KernelStatistics,
-}
-
-#[allow(unused)]
-impl KernelMetadata {
-    pub fn new() -> Self {
-        Self {
-            statistics: KernelStatistics::new(),
-        }
+impl IKernel for Kernel {
+    fn serial(&self) -> Arc<dyn IKernelSerial> {
+        self.serial.clone()
     }
 
-    pub fn stat(&self) -> &KernelStatistics {
-        &self.statistics
-    }
-}
-
-fn display_current_time(timezone_offset: i64) -> TimeSpec {
-    #[inline(always)]
-    fn is_leap_year(year: i64) -> bool {
-        (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
+    fn fs(&self) -> Arc<SpinMutex<Arc<DirectoryTreeNode>>> {
+        todo!()
     }
 
-    #[inline(always)]
-    fn days_in_month(year: i64, month: u8) -> u8 {
-        const DAYS: [u8; 12] = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-        if month == 2 && is_leap_year(year) {
-            29
-        } else {
-            DAYS[(month - 1) as usize]
-        }
+    fn allocator(&self) -> Arc<SpinMutex<dyn IFrameAllocator>> {
+        self.allocator.clone()
     }
 
-    let time_spec = current_timespec();
-
-    let mut total_seconds = time_spec.tv_sec + timezone_offset * 3600;
-
-    let seconds = (total_seconds % 60) as u8;
-    total_seconds /= 60;
-    let minutes = (total_seconds % 60) as u8;
-    total_seconds /= 60;
-    let hours = (total_seconds % 24) as u8;
-    total_seconds /= 24;
-
-    let mut year = 1970;
-    while total_seconds >= if is_leap_year(year) { 366 } else { 365 } {
-        total_seconds -= if is_leap_year(year) { 366 } else { 365 };
-        year += 1;
+    fn activate_mmu(&self, _pt: &dyn IMMU) {
+        #[cfg_accessible(platform_specific::activate_pt)]
+        platform_specific::activate_pt(_pt.platform_payload())
     }
 
-    let mut month = 1;
-    while total_seconds >= days_in_month(year, month) as i64 {
-        total_seconds -= days_in_month(year, month) as i64;
-        month += 1;
+    fn time(&self) -> TimeSpec {
+        todo!()
     }
-
-    let day = (total_seconds + 1) as u8;
-
-    log::info!(
-        "Welcome, current time is: {year:04}-{month:02}-{day:02} {hours:02}:{minutes:02}:{seconds:02}(UTC+{timezone_offset:02})"
-    );
-
-    time_spec
 }

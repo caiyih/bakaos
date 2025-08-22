@@ -1,0 +1,85 @@
+name: Annotate
+
+on:
+  workflow_run:
+    workflows: ["Continuous Integration"]
+    types:
+      - completed
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  annotate:
+    name: Annotate test results
+    runs-on: ubuntu-latest
+    if: ${{ !cancelled() && github.event.workflow_run.conclusion != 'skipped' }}
+    timeout-minutes: 5
+
+    steps:
+      - name: Download test results
+        uses: actions/download-artifact@v5
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
+          pattern: test-results-*
+          merge-multiple: false
+
+      - name: Create GitHub App token
+        uses: actions/create-github-app-token@v2
+        id: app-token
+        if: ${{ vars.APP_ID != '' }}
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Fetch pull request id
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
+        run: |
+          HEAD_PR="$(gh pr list -R ${{ github.repository }} --search ${{ github.event.workflow_run.head_sha }} --json number --jq '.[0].number')"
+          echo "PULL_REQUEST_ID=${HEAD_PR}" >> "$GITHUB_ENV"
+
+      - name: Generate summary
+        run: |
+          set -euo pipefail
+          HEAD_SHA="${{ github.event.workflow_run.head_sha }}"
+          SHORT_SHA="${HEAD_SHA::7}"
+
+          if [ -n "${PULL_REQUEST_ID:-}" ]; then
+            SUMMARY_TEXT="- commit: [${SHORT_SHA}](https://github.com/${{ github.repository }}/pull/${PULL_REQUEST_ID}/commits/${HEAD_SHA})"
+          else
+            SUMMARY_TEXT="- commit: [${SHORT_SHA}](https://github.com/${{ github.repository }}/commit/${HEAD_SHA})"
+          fi
+
+          {
+            echo "SUMMARY_TEXT<<EOF"
+            echo "${SUMMARY_TEXT}"
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+          echo "SUMMARY_TEXT<<EOF" >> $GITHUB_ENV
+          echo "$SUMMARY_TEXT" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Annotate CI run with test results
+        uses: mikepenz/action-junit-report@v5
+        if: ${{ always() }}
+        with:
+          check_name: Test Results
+          report_paths: test-results-*/junit.xml
+          commit: ${{ github.event.workflow_run.head_sha }}
+          summary: ${{ env.SUMMARY_TEXT }}
+          include_time_in_summary: true
+          truncate_stack_traces: false
+          check_title_template: "{{SUITE_NAME}}::{{TEST_NAME}}"
+          # regarding the the weird searchValue, see https://github.com/caiyih/bakaos/pull/77
+          transformers: |
+            [{"searchValue":"\\\\\\","replaceValue":"/"}]
+          detailed_summary: true
+          follow_symlink: true
+          token: ${{ steps.app-token.outputs.token || github.token }}
+          pr_id: ${{ env.PULL_REQUEST_ID }}
+          comment: ${{ env.PULL_REQUEST_ID != '' }}

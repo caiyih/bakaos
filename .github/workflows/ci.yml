@@ -1,0 +1,118 @@
+name: Continuous Integration
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+on:
+  push:
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: 'always'
+  TOOLCHAIN_VERSION: 'nightly-2025-02-01'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test
+    runs-on: ${{ matrix.os.fullname }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - { prettyname: linux, fullname: ubuntu-latest }
+          - { prettyname: windows, fullname: windows-latest }
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install ${{ env.TOOLCHAIN_VERSION }} --profile minimal
+          rustup default ${{ env.TOOLCHAIN_VERSION }}
+          rustup override set ${{ env.TOOLCHAIN_VERSION }}
+
+      - name: Setup Cargo-binstall
+        uses: ./.github/workflows/actions/setup-cargo-binstall
+
+      - name: Install cargo-nextest
+        shell: bash
+        run: |
+          cargo binstall cargo-nextest
+          cargo nextest --version
+
+      - name: Compile
+        run: cargo nextest run --no-run
+
+      - name: Test
+        env:
+          RUST_LOG: "trace"
+          RUST_BACKTRACE: "1"
+        run: |
+          cargo nextest run --no-fail-fast --hide-progress-bar --success-output immediate --failure-output immediate
+
+      - name: Upload Test Report to artifact
+        uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: test-results-${{ matrix.os.prettyname }}
+          path: target/nextest/default/junit.xml
+
+  coverage:
+    name: Coverage
+    runs-on: ${{ matrix.os.fullname }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          # This workflow only collects coverage, to run on Windows is a waste of resources
+          - { prettyname: linux, fullname: ubuntu-latest }
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install ${{ env.TOOLCHAIN_VERSION }} --profile minimal
+          rustup default ${{ env.TOOLCHAIN_VERSION }}
+          rustup override set ${{ env.TOOLCHAIN_VERSION }}
+
+      - name: Setup Cargo-binstall
+        uses: ./.github/workflows/actions/setup-cargo-binstall
+
+      - name: Install cargo-tarpaulin
+        shell: bash
+        run: |
+          cargo binstall cargo-tarpaulin
+          cargo tarpaulin --version
+
+      - name: Compile
+        run: cargo test --no-run
+
+      - name: Test
+        env:
+          RUST_LOG: "trace"
+        run: |
+          cargo tarpaulin --out Xml --out Html --output-dir . -- --show-output
+
+      - name: Process coverage result
+        run: |
+          mkdir -p coverage
+          cp cobertura.xml coverage/
+          cp tarpaulin-report.html coverage/
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.os.prettyname }}
+          path: coverage
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage/cobertura.xml

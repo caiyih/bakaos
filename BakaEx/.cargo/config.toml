@@ -1,9 +1,0 @@
-[target.riscv64gc-unknown-none-elf]
-rustflags = [
-    "-Clink-arg=-Tlds/rv64.ld", "-Cforce-frame-pointers=yes"
-]
-
-[target.loongarch64-unknown-none]
-rustflags = [
-    "-Clink-arg=-Tlds/la64.ld", "-Cforce-frame-pointers=yes"
-]

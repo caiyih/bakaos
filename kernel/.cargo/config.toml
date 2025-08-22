@@ -1,4 +1,41 @@
-[build]
+[target.riscv64gc-unknown-none-elf]
 rustflags = [
-    "-Clink-arg=-Tlinker.ld", "-Cforce-frame-pointers=yes"
+    "-Clink-arg=-Tlds/rv64.ld", "-Cforce-frame-pointers=yes"
 ]
+
+[target.loongarch64-unknown-none]
+rustflags = [
+    "-Clink-arg=-Tlds/la64.ld", "-Cforce-frame-pointers=yes"
+]
+
+# ------------------------------------------------------------
+#  Virtual Workspace Target Configuration
+# --------------------------- ---------------------------------
+# This is part of the “virtual workspace” mechanism:
+#
+# 1. In the kernel/ directory, we created a separate Cargo workspace,
+#    adding the kernel crate and all its dependencies (via **symbolic links**) to this workspace.
+#
+# 2. This workspace is solely for development and IDE (Rust Analyzer) code completion,
+#    while actual builds and tests are still performed in the real workspace at the repository root directory.
+#
+# 3. To ensure Rust Analyzer uses the correct bare-metal platform configuration when parsing code,
+#    we set the following here:
+#        [build]
+#        target = “riscv64gc-unknown-none-elf”
+#    This ensures that all member crates' cfg macros (e.g., target_arch, target_os)
+#    are inferred based on the RISC-V64 bare-metal platform, preventing incorrect disabled code in smart suggestions.
+#
+# 4. Note:
+#    - This setting only affects cargo commands within the current virtual workspace (kernel/),
+#      and does not affect the real workspace in the repository root directory.
+#    - If you need to switch the language server to another target architecture (e.g., LoongArch),
+#      please modify the target value here.
+#
+# 5. Example:
+#        [build]
+#        target = “loongarch64-unknown-none"
+#
+# ------------------------------------------------------------
+[build]
+target = "riscv64gc-unknown-none-elf"
