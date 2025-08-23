@@ -28,9 +28,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Rust version, profile and target are configured in rust-toolchain.toml
       - name: Install Rust
-        run: rustup install
+        uses: dtolnay/rust-toolchain@master
 
       - name: Setup Cargo-binstall
         uses: ./.github/workflows/actions/setup-cargo-binstall
@@ -73,8 +72,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust
-        run: |
-          rustup install
+        uses: dtolnay/rust-toolchain@master
 
       - name: Setup Cargo-binstall
         uses: ./.github/workflows/actions/setup-cargo-binstall
