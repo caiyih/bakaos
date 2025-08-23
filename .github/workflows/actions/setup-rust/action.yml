@@ -15,11 +15,18 @@ runs:
       shell: bash
       id: rust-channel
       run: |
-        CHANNEL=$(grep -E '^channel\s*=' rust-toolchain.toml | \
-                    sed -E 's/^channel\s*=\s*"([^"]+)"\s*$/\1/' | \
-                    tr -d '[:space:]')
-
-        echo "rust_channel=$CHANNEL" >> $GITHUB_OUTPUT
+        set -Eeuo pipefail
+        
+        # Extract channel from rust-toolchain.toml with robust parsing
+        CHANNEL="$(awk -F= '/^[[:space:]]*channel[[:space:]]*=/ { gsub(/["[:space:]]/,"",$2); print $2; exit }' rust-toolchain.toml)"
+        
+        # Fail fast if we couldn't extract a channel
+        if [[ -z "${CHANNEL:-}" ]]; then
+          echo "::error title=Failed to determine Rust channel::Could not extract channel from rust-toolchain.toml"
+          exit 1
+        fi
+        
+        echo "rust_channel=$CHANNEL" >> "$GITHUB_OUTPUT"
 
     - name: Display install details
       shell: bash
