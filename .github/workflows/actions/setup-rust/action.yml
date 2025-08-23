@@ -15,7 +15,10 @@ runs:
       shell: bash
       id: rust-channel
       run: |
-        CHANNEL=$(grep 'channel' rust-toolchain.toml | sed -E 's/channel\s*=\s*"([^"]+)"/\1/')
+        CHANNEL=$(grep -E '^channel\s*=' rust-toolchain.toml | \
+                    sed -E 's/^channel\s*=\s*"([^"]+)"\s*$/\1/' | \
+                    tr -d '[:space:]')
+
         echo "rust_channel=$CHANNEL" >> $GITHUB_OUTPUT
 
     - name: Display install details
