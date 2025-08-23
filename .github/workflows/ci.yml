@@ -36,6 +36,13 @@ jobs:
         with:
           tool: cargo-nextest
 
+      # rust-toolchain.toml contains components and targets that we don't need for testing
+      # We just simply remove it to avoid installing unnecessary components and targets
+      # This is intended to save time
+      - name: Remove rust-toolchain.toml
+        shell: bash
+        run: rm rust-toolchain.toml
+
       - name: Compile
         run: cargo nextest run --no-run
 
@@ -74,6 +81,10 @@ jobs:
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-tarpaulin
+
+      - name: Remove rust-toolchain.toml
+        shell: bash
+        run: rm rust-toolchain.toml
 
       - name: Compile
         run: cargo test --no-run
