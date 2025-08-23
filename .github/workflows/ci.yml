@@ -70,9 +70,6 @@ jobs:
       - name: Install Rust
         uses: ./.github/workflows/actions/setup-rust
 
-      - name: Setup Cargo-binstall
-        uses: ./.github/workflows/actions/setup-cargo-binstall
-
       - name: Install cargo-tarpaulin
         uses: taiki-e/install-action@v2
         with:
