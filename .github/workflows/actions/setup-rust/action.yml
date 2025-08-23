@@ -1,0 +1,45 @@
+name: Setup Rust
+
+inputs:
+  targets:
+    required: false
+  target:
+    required: false
+  components:
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - name: Extract Rust channel from rust-toolchain.toml
+      shell: bash
+      id: rust-channel
+      run: |
+        set -Eeuo pipefail
+        
+        # Extract channel from rust-toolchain.toml with robust parsing
+        CHANNEL="$(awk -F= '/^[[:space:]]*channel[[:space:]]*=/ { gsub(/["[:space:]]/,"",$2); print $2; exit }' rust-toolchain.toml)"
+        
+        # Fail fast if we couldn't extract a channel
+        if [[ -z "${CHANNEL:-}" ]]; then
+          echo "::error title=Failed to determine Rust channel::Could not extract channel from rust-toolchain.toml"
+          exit 1
+        fi
+        
+        echo "rust_channel=$CHANNEL" >> "$GITHUB_OUTPUT"
+
+    - name: Display install details
+      shell: bash
+      run: |
+        echo "Installing Rust ${{ steps.rust-channel.outputs.rust_channel }}"
+        echo "Targets: ${{ inputs.targets || 'default' }}"
+        echo "Target: ${{ inputs.target || 'default' }}"
+        echo "Components: ${{ inputs.components || 'none' }}"
+
+    - name: Install Rust (with targets and components if provided)
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ steps.rust-channel.outputs.rust_channel }}
+        targets: ${{ inputs.targets || '' }}
+        target: ${{ inputs.target || '' }}
+        components: ${{ inputs.components || '' }}
