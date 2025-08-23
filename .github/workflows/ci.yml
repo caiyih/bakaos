@@ -32,10 +32,9 @@ jobs:
         uses: ./.github/workflows/actions/setup-rust
 
       - name: Install cargo-nextest
-        shell: bash
-        run: |
-          cargo binstall cargo-nextest
-          cargo nextest --version
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
 
       - name: Compile
         run: cargo nextest run --no-run
@@ -75,10 +74,9 @@ jobs:
         uses: ./.github/workflows/actions/setup-cargo-binstall
 
       - name: Install cargo-tarpaulin
-        shell: bash
-        run: |
-          cargo binstall cargo-tarpaulin
-          cargo tarpaulin --version
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-tarpaulin
 
       - name: Compile
         run: cargo test --no-run
