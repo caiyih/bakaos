@@ -28,18 +28,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Rust version, profile and target are configured in rust-toolchain.toml
       - name: Install Rust
-        run: rustup install
-
-      - name: Setup Cargo-binstall
-        uses: ./.github/workflows/actions/setup-cargo-binstall
+        uses: ./.github/workflows/actions/setup-rust
 
       - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
+      # rust-toolchain.toml contains components and targets that we don't need for testing
+      # We just simply remove it to avoid installing unnecessary components and targets
+      # This is intended to save time
+      - name: Remove rust-toolchain.toml
         shell: bash
-        run: |
-          cargo binstall cargo-nextest
-          cargo nextest --version
+        run: rm rust-toolchain.toml
 
       - name: Compile
         run: cargo nextest run --no-run
@@ -73,17 +75,16 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust
-        run: |
-          rustup install
-
-      - name: Setup Cargo-binstall
-        uses: ./.github/workflows/actions/setup-cargo-binstall
+        uses: ./.github/workflows/actions/setup-rust
 
       - name: Install cargo-tarpaulin
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-tarpaulin
+
+      - name: Remove rust-toolchain.toml
         shell: bash
-        run: |
-          cargo binstall cargo-tarpaulin
-          cargo tarpaulin --version
+        run: rm rust-toolchain.toml
 
       - name: Compile
         run: cargo test --no-run
