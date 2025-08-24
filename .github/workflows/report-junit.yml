@@ -45,6 +45,7 @@ jobs:
 
       - name: Generate summary
         id: summary
+        shell: bash
         run: |
           set -euo pipefail
           HEAD_SHA="${{ github.event.workflow_run.head_sha }}"
