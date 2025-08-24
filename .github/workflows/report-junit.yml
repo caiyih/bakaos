@@ -44,25 +44,28 @@ jobs:
           echo "PULL_REQUEST_ID=${HEAD_PR}" >> "$GITHUB_ENV"
 
       - name: Generate summary
+        id: summary
         run: |
           set -euo pipefail
           HEAD_SHA="${{ github.event.workflow_run.head_sha }}"
           SHORT_SHA="${HEAD_SHA::7}"
 
+          SUMMARY_FILE="$(mktemp)"
+
           if [ -n "${PULL_REQUEST_ID:-}" ]; then
-            SUMMARY_TEXT="- commit: [${SHORT_SHA}](https://github.com/${{ github.repository }}/pull/${PULL_REQUEST_ID}/commits/${HEAD_SHA})"
+            echo "- commit: [${SHORT_SHA}](${{ github.server_url }}/${{ github.repository }}/pull/${PULL_REQUEST_ID}/commits/${HEAD_SHA})" >> "$SUMMARY_FILE"
+            echo "- pull request: [#${PULL_REQUEST_ID}](${{ github.server_url }}/${{ github.repository }}/pull/${PULL_REQUEST_ID})" >> "$SUMMARY_FILE"
           else
-            SUMMARY_TEXT="- commit: [${SHORT_SHA}](https://github.com/${{ github.repository }}/commit/${HEAD_SHA})"
+            echo "- commit: [${SHORT_SHA}](${{ github.server_url }}/${{ github.repository }}/commit/${HEAD_SHA})" >> "$SUMMARY_FILE"
           fi
 
+          echo "- [View Result Summary](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> "$SUMMARY_FILE"
+
           {
-            echo "SUMMARY_TEXT<<EOF"
-            echo "${SUMMARY_TEXT}"
+            echo "content<<EOF"
+            cat "$SUMMARY_FILE"
             echo "EOF"
-          } >> "$GITHUB_ENV"
-          echo "SUMMARY_TEXT<<EOF" >> $GITHUB_ENV
-          echo "$SUMMARY_TEXT" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          } >> "$GITHUB_OUTPUT"
 
       - name: Annotate CI run with test results
         uses: mikepenz/action-junit-report@v5
@@ -71,7 +74,7 @@ jobs:
           check_name: Test Results
           report_paths: test-results-*/junit.xml
           commit: ${{ github.event.workflow_run.head_sha }}
-          summary: ${{ env.SUMMARY_TEXT }}
+          summary: ${{ steps.summary.outputs.content }}
           include_time_in_summary: true
           truncate_stack_traces: false
           check_title_template: "{{SUITE_NAME}}::{{TEST_NAME}}"
