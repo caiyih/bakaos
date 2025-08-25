@@ -18,7 +18,7 @@ pub fn set_kernel_trap_handler() {
     unsafe { stvec::write(__on_kernel_trap as usize, stvec::TrapMode::Direct) };
 }
 
-#[naked]
+#[unsafe(naked)]
 #[no_mangle]
 #[link_section = ".text.trampoline_kernel"]
 unsafe extern "C" fn __on_kernel_trap() {

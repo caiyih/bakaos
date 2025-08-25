@@ -1,5 +1,4 @@
 #![no_std]
-#![feature(naked_functions)]
 #![feature(stmt_expr_attributes)]
 
 #[cfg(not(any(target_arch = "riscv64", target_arch = "loongarch64")))]

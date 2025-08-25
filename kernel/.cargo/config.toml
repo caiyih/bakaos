@@ -5,7 +5,8 @@ rustflags = [
 
 [target.loongarch64-unknown-none]
 rustflags = [
-    "-Clink-arg=-Tlds/la64.ld", "-Cforce-frame-pointers=yes"
+    "-Clink-arg=-Tlds/la64.ld", "-Cforce-frame-pointers=yes",
+    "-C", "target-feature=-lsx,-lasx"
 ]
 
 # ------------------------------------------------------------
