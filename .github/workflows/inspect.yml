@@ -26,6 +26,10 @@ jobs:
           target: ${{ matrix.target.triplet }}
           components: 'clippy,rustfmt'
 
+      - name: Remove rust-toolchain.toml
+        shell: bash
+        run: rm rust-toolchain.toml
+
       - name: Compile
         working-directory: ${{ matrix.target.cwd }}
         run: cargo build --target ${{ matrix.target.triplet }}
