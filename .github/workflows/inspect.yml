@@ -1,0 +1,54 @@
+name: Code Inspection
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  bare:
+    name: Bare Metal
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - { prettyname: Cross Platform, triplet: '', cwd: '.' }
+          - { prettyname: RISC-V64, triplet: riscv64gc-unknown-none-elf, cwd: 'kernel' }
+          - { prettyname: LoongArch64, triplet: loongarch64-unknown-none, cwd: 'kernel' }
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Find target triplet
+        shell: bash  
+        run: |
+          set -Eeuo pipefail
+
+          # use host target if no target is specified
+          if [ -z "${{ matrix.target.triplet }}" ]; then
+            TARGET=$(rustc --version --verbose | awk '/host/ {print $2}')
+          else
+            TARGET=${{ matrix.target.triplet }}
+          fi
+
+          echo "Target Triplet: $TARGET"
+          echo "TARGET=$TARGET" >> $GITHUB_ENV
+
+      - name: Install Rust
+        uses: ./.github/workflows/actions/setup-rust
+        with:
+          target: ${{ env.TARGET }}
+          components: 'clippy,rustfmt'
+
+      - name: Compile
+        working-directory: ${{ matrix.target.cwd }}
+        run: cargo build --target ${{ env.TARGET }}
+
+      - name: Inspect
+        working-directory: ${{ matrix.target.cwd }}
+        run: cargo fmt -- --check
+
+      - name: Run Clippy
+        working-directory: ${{ matrix.target.cwd }}
+        run: cargo clippy --target ${{ env.TARGET }} -- -D warnings
