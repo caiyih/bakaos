@@ -3,7 +3,7 @@ use ::core::arch::naked_asm;
 use super::context::init_thread_info;
 use crate::clear_bss;
 
-#[naked]
+#[unsafe(naked)]
 #[no_mangle]
 #[link_section = ".text.entry"]
 #[allow(clippy::missing_safety_doc)]
@@ -39,7 +39,7 @@ pub unsafe extern "C" fn _start() -> ! {
     )
 }
 
-#[naked]
+#[unsafe(naked)]
 #[no_mangle]
 #[link_section = ".text.entry"]
 unsafe extern "C" fn _start_virtualized() -> ! {

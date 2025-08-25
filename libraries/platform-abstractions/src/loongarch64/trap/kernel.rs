@@ -3,7 +3,7 @@ use core::arch::naked_asm;
 use loongArch64::register::estat;
 use platform_specific::TaskTrapContext;
 
-#[naked]
+#[unsafe(naked)]
 #[no_mangle]
 unsafe extern "C" fn __on_kernel_trap() {
     naked_asm!(
