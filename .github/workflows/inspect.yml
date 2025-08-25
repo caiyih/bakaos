@@ -5,8 +5,7 @@ on:
   pull_request:
 
 jobs:
-  bare:
-    name: Bare Metal
+  inspect:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
