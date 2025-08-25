@@ -40,5 +40,5 @@ jobs:
 
       - name: Run Clippy
         working-directory: ${{ matrix.target.cwd }}
-        if: ${{ always() }}
+        if: ${{ !cancelled() }}
         run: cargo clippy --target ${{ matrix.target.triplet }} -- -D warnings
