@@ -14,7 +14,7 @@ $(error "Please specify a valid architecture like `make build ARCH=<arch>` where
 endif
 
 build:
-	cd kernel && cargo +nightly build -Z build-std=core,alloc --target $(TARGET)
+	cd kernel && cargo build -Z build-std=core,alloc --target $(TARGET)
 	cp kernel/target/$(TARGET)/debug/$(OUTPUT) kernel-$(ARCH).bin
 
 run: build
@@ -25,3 +25,4 @@ run: build
 		-smp 1 \
 		-m 1G \
 		-kernel kernel-$(ARCH).bin
+
