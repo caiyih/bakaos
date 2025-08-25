@@ -31,6 +31,7 @@ jobs:
         run: rm rust-toolchain.toml
 
       - name: Compile
+        id: compile
         working-directory: ${{ matrix.target.cwd }}
         run: cargo build --target ${{ matrix.target.triplet }}
 
@@ -40,5 +41,5 @@ jobs:
 
       - name: Run Clippy
         working-directory: ${{ matrix.target.cwd }}
-        if: ${{ !cancelled() }}
+        if: ${{ steps.compile.outcome == 'success' }}
         run: cargo clippy --target ${{ matrix.target.triplet }} -- -D warnings
