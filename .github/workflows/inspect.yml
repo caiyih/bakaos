@@ -1,4 +1,4 @@
-name: Code Inspection
+name: Code Quality
 
 on:
   push:
@@ -6,6 +6,7 @@ on:
 
 jobs:
   inspect:
+    name: Inspect
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
