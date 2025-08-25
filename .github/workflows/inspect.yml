@@ -47,10 +47,9 @@ jobs:
 
       - name: Inspect
         working-directory: ${{ matrix.target.cwd }}
-        continue-on-error: true
         run: cargo fmt -- --check
 
       - name: Run Clippy
         working-directory: ${{ matrix.target.cwd }}
-        continue-on-error: true
+        if: ${{ always() }}
         run: cargo clippy --target ${{ env.TARGET }} -- -D warnings
