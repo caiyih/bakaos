@@ -10,7 +10,7 @@ use trap_abstractions::ITaskTrapContext;
 
 use crate::UserInterrupt;
 
-#[naked]
+#[unsafe(naked)]
 #[no_mangle]
 unsafe extern "C" fn __on_user_trap() {
     naked_asm!(
@@ -95,7 +95,7 @@ unsafe extern "C" fn __on_user_trap() {
     )
 }
 
-#[naked]
+#[unsafe(naked)]
 #[no_mangle]
 pub unsafe extern "C" fn __return_to_user(p_ctx: &mut TaskTrapContext) {
     naked_asm!(

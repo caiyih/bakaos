@@ -22,7 +22,7 @@ fn set_user_trap_handler() {
     unsafe { stvec::write(__on_user_trap as usize, stvec::TrapMode::Direct) };
 }
 
-#[naked]
+#[unsafe(naked)]
 #[no_mangle]
 #[link_section = ".text.trampoline_user"]
 unsafe extern "C" fn __on_user_trap() {
@@ -94,7 +94,7 @@ unsafe extern "C" fn __on_user_trap() {
     );
 }
 
-#[naked]
+#[unsafe(naked)]
 #[no_mangle]
 pub unsafe extern "C" fn __return_to_user(p_ctx: &mut TaskTrapContext) {
     // Layout of TaskTrapContext, see src/tasks/user_task.rs for details:
