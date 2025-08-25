@@ -30,6 +30,8 @@ jobs:
         shell: bash
         run: rm rust-toolchain.toml
 
+      # Some of the libraries requires source generation
+      # We have to compile them so that the required code are generated
       - name: Compile
         id: compile
         working-directory: ${{ matrix.target.cwd }}
