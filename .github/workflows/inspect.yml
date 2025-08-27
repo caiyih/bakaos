@@ -13,8 +13,9 @@ jobs:
       matrix:
         target:
           - { prettyname: Cross Platform, triplet: x86_64-unknown-linux-gnu, cwd: '.' }
-          - { prettyname: RISC-V64, triplet: riscv64gc-unknown-none-elf, cwd: 'kernel' }
-          - { prettyname: LoongArch64, triplet: loongarch64-unknown-none, cwd: 'kernel' }
+          # Temporarily disabled until the kernel does not relies on outside files
+          # - { prettyname: RISC-V64, triplet: riscv64gc-unknown-none-elf, cwd: 'kernel' }
+          # - { prettyname: LoongArch64, triplet: loongarch64-unknown-none, cwd: 'kernel' }
 
     steps:
       - name: Checkout repository
