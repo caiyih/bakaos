@@ -12,6 +12,7 @@ jobs:
       fail-fast: false
       matrix:
         target:
+          # The triplet of cross platform check needs to match `runs-on`
           - { prettyname: Cross Platform, triplet: x86_64-unknown-linux-gnu, cwd: '.' }
           # Temporarily disabled until the kernel does not relies on outside files
           # - { prettyname: RISC-V64, triplet: riscv64gc-unknown-none-elf, cwd: 'kernel' }
