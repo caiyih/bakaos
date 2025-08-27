@@ -35,15 +35,34 @@ jobs:
       # Some of the libraries requires source generation
       # We have to compile them so that the required code are generated
       - name: Compile
-        id: compile
         working-directory: ${{ matrix.target.cwd }}
         run: cargo build --target ${{ matrix.target.triplet }}
 
       - name: Inspect
+        id: inspect
         working-directory: ${{ matrix.target.cwd }}
         run: cargo fmt --all --check
 
-      - name: Run Clippy
+      - name: Lint
+        id: lint
         working-directory: ${{ matrix.target.cwd }}
-        if: ${{ steps.compile.outcome == 'success' }}
+        if: ${{ success() || failure() }}
         run: cargo clippy --target ${{ matrix.target.triplet }} -- -D warnings
+
+      - name: Conclude
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          failed=0
+
+          if [[ "${{ steps.inspect.outcome }}" == "failure" ]]; then
+            echo "Inspect failed"
+            failed=1
+          fi
+
+          if [[ "${{ steps.lint.outcome }}" == "failure" ]]; then
+            echo "Lint failed"
+            failed=1
+          fi
+
+          exit $failed
