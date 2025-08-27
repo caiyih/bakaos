@@ -41,7 +41,7 @@ jobs:
 
       - name: Inspect
         working-directory: ${{ matrix.target.cwd }}
-        run: cargo fmt -- --check
+        run: cargo fmt --all --check
 
       - name: Run Clippy
         working-directory: ${{ matrix.target.cwd }}
