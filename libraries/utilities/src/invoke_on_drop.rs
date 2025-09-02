@@ -9,12 +9,14 @@ pub struct InvokeOnDrop<T, F: FnOnce(T)> {
 }
 
 impl<F: FnOnce(())> InvokeOnDrop<(), F> {
+    #[inline]
     pub fn new(func: F) -> Self {
         Self::transform((), func)
     }
 }
 
 impl<T, F: FnOnce(T)> InvokeOnDrop<T, F> {
+    #[inline]
     pub fn transform(val: T, func: F) -> Self {
         InvokeOnDrop {
             func: ManuallyDrop::new(func),
@@ -54,6 +56,7 @@ impl<T, F: FnOnce(T)> Drop for InvokeOnDrop<T, F> {
 }
 
 impl<T: Copy, F: FnOnce(T)> InvokeOnDrop<T, F> {
+    #[inline]
     pub fn as_val(&self) -> T {
         *self.val
     }
@@ -62,12 +65,14 @@ impl<T: Copy, F: FnOnce(T)> InvokeOnDrop<T, F> {
 impl<F: FnOnce(T), T> Deref for InvokeOnDrop<T, F> {
     type Target = T;
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
         &self.val
     }
 }
 
 impl<T, F: FnOnce(T)> DerefMut for InvokeOnDrop<T, F> {
+    #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.val
     }
