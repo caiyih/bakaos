@@ -87,15 +87,17 @@ mod tests {
 
     #[test]
     fn test_drop_invoked() {
-        let mut called = false;
+        let flag = Arc::new(Mutex::new(false));
 
         {
-            let _ = InvokeOnDrop::new(|_| {
-                called = true;
+            let _called = InvokeOnDrop::new(|_| {
+                *flag.lock().unwrap() = true;
             });
+
+            assert!(!*flag.lock().unwrap());
         }
 
-        assert!(called);
+        assert!(*flag.lock().unwrap());
     }
 
     #[test]
