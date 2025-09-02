@@ -21,6 +21,27 @@ impl<T, F: FnOnce(T)> InvokeOnDrop<T, F> {
             val: ManuallyDrop::new(val),
         }
     }
+
+    /// Deconstructs the `InvokeOnDrop`, cancelling the function
+    pub fn deconstruct(mut self) -> (T, F) {
+        unsafe {
+            let (val, func) = (
+                ManuallyDrop::take(&mut self.val),
+                ManuallyDrop::take(&mut self.func),
+            );
+
+            core::mem::forget(self);
+
+            (val, func)
+        }
+    }
+
+    /// Consume the `InvokeOnDrop`, skip the callback, and drop the inner value immediately.
+    pub fn cancel(mut self) {
+        unsafe { ManuallyDrop::drop(&mut self.val) };
+
+        core::mem::forget(self);
+    }
 }
 
 impl<T, F: FnOnce(T)> Drop for InvokeOnDrop<T, F> {
