@@ -5,9 +5,44 @@ on:
   pull_request:
 
 env:
-  CARGO_TERM_COLOR: 'always'
+  CARGO_TERM_COLOR: "always"
 
 jobs:
+  line-ending:
+    name: Line Ending
+    runs-on: ubuntu-latest
+    steps:
+      - name: Disable Git Line Ending Conversion
+        run: git config --global core.autocrlf false
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Line Ending
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # LICENSE should be excluded
+          rm LICENSE
+
+          FILE=$(mktemp)
+          # Only check tracked text files; exclude LICENSE explicitly.
+          git ls-files -z \
+            | xargs -0 -I{} file --mime "{}" \
+            | grep -vE '/LICENSE:' \
+            | grep -E ':.*(charset=us-ascii|charset=utf-8)' \
+            | cut -d: -f1 \
+            | xargs -I{} file "{}" \
+            | grep -F 'CRLF' \
+            | tee "$FILE" || true
+
+          if [[ -s "$FILE" ]]; then
+            echo "::error::CRLF line endings found:"
+            cat "$FILE"
+            exit 1
+          fi
+
   inspect:
     name: Inspect
     runs-on: ubuntu-latest
@@ -28,7 +63,7 @@ jobs:
         uses: ./.github/workflows/actions/setup-rust
         with:
           target: ${{ matrix.target.triplet }}
-          components: 'clippy,rustfmt'
+          components: "clippy,rustfmt"
 
       - name: Remove rust-toolchain.toml
         shell: bash
