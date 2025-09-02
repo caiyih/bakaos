@@ -21,13 +21,25 @@ jobs:
       - name: Line Ending
         shell: bash
         run: |
+          set -euo pipefail
+
           # LICENSE should be excluded
           rm LICENSE
 
-          CRLF_FILES=$(find . -type f -not -path '*/.git/*' -exec file "{}" ";" | grep -l "CRLF")
-          if [[ -n "$CRLF_FILES" ]]; then
-            echo "CRLF line endings found in the following files:"
-            echo "$CRLF_FILES"
+          FILE=$(mktemp)
+          # Only check tracked text files; exclude LICENSE explicitly.
+          git ls-files -z \
+            | xargs -0 -I{} file --mime "{}" \
+            | grep -vE '/LICENSE:' \
+            | grep -E ':.*(charset=us-ascii|charset=utf-8)' \
+            | cut -d: -f1 \
+            | xargs -I{} file "{}" \
+            | grep -F 'CRLF' \
+            | tee "$FILE" || true
+
+          if [[ -s "$FILE" ]]; then
+            echo "::error::CRLF line endings found:"
+            cat "$FILE"
             exit 1
           fi
 
