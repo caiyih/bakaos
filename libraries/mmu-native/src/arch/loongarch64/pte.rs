@@ -4,9 +4,7 @@ use abstractions::IUsizeAlias;
 use address::PhysicalAddress;
 use mmu_abstractions::GenericMappingFlags;
 
-use crate::{
-    pte::IGenericMappingFlags, IArchPageTableEntry, IArchPageTableEntryBase,
-};
+use crate::{pte::IGenericMappingFlags, IArchPageTableEntry, IArchPageTableEntryBase};
 
 bitflags::bitflags! {
     /// Page-table entry flags.

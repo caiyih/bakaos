@@ -6,7 +6,7 @@ use hermit_sync::SpinMutex;
 use memory_space_abstractions::MemorySpace;
 use mmu_abstractions::IMMU;
 use platform_specific::TaskTrapContext;
-use task_abstractions::{IProcess, ITask, UserTaskStatistics, status::TaskStatus};
+use task_abstractions::{status::TaskStatus, IProcess, ITask, UserTaskStatistics};
 use trap_abstractions::ITaskTrapContext;
 
 pub struct TestTask {

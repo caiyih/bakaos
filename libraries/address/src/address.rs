@@ -6,7 +6,7 @@ use crate::IPageNum;
 
 #[const_trait]
 pub trait IAddressBase:
-    ~const IUsizeAlias + Copy + Clone + PartialEq + PartialOrd + Eq + Ord
+    [const] IUsizeAlias + Copy + Clone + PartialEq + PartialOrd + Eq + Ord
 {
     #[inline(always)]
     fn is_null(self) -> bool {
@@ -68,7 +68,7 @@ pub trait IAlignableAddress: IAddressBase {
 
 #[const_trait]
 pub trait IAddress:
-    ~const IAddressBase + IAlignableAddress + IArithOps + IBitwiseOps + Display
+    [const] IAddressBase + IAlignableAddress + IArithOps + IBitwiseOps + Display
 {
     fn add_n<T>(self, n: usize) -> Self {
         self.add_by(size_of::<T>() * n)
