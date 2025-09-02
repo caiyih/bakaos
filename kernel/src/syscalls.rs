@@ -1,8 +1,8 @@
+use linux_syscalls::{SyscallContext, SyscallResult};
 use platform_specific::{
     syscall_ids::{SYSCALL_ID_EXIT, SYSCALL_ID_WRITE},
     SyscallPayload,
 };
-use syscalls::{SyscallContext, SyscallResult};
 use trap_abstractions::ISyscallPayload;
 
 pub async fn handle_syscall_async(p: &SyscallPayload<'_, &SyscallContext>) -> SyscallResult {
@@ -10,7 +10,7 @@ pub async fn handle_syscall_async(p: &SyscallPayload<'_, &SyscallContext>) -> Sy
 
     macro_rules! syscall {
         ($name:ident, $num_arg:tt) => {
-            syscalls::syscall_internal!($num_arg, $name, ctx, p)
+            linux_syscalls::syscall_internal!($num_arg, $name, ctx, p)
         };
     }
 

@@ -4,8 +4,8 @@ use allocation_abstractions::IFrameAllocator;
 use filesystem_abstractions::DirectoryTreeNode;
 use hermit_sync::SpinMutex;
 use kernel_abstractions::{IKernel, IKernelSerial};
+use linux_syscalls::SyscallContext;
 use mmu_abstractions::IMMU;
-use syscalls::SyscallContext;
 use task_abstractions::ITask;
 use timing::TimeSpec;
 
