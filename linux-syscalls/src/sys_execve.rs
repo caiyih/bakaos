@@ -26,7 +26,7 @@ impl SyscallContext {
         argv: &[&str],
         envp: &[&str],
     ) -> SyscallResult {
-        let process = self.task.process();
+        let process = self.task.linux_process();
 
         let (mmu, alloc) = {
             let mem = process.memory_space().lock();

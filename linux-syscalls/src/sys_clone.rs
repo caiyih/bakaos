@@ -19,7 +19,7 @@ impl SyscallContext {
                 .set_stack_top(stack_top.as_usize());
         }
 
-        let process = self.task.process();
+        let process = self.task.linux_process();
 
         process.push_thread(forked);
 
@@ -55,7 +55,7 @@ mod tests {
 
         assert!(ret.is_ok());
 
-        let process = ctx.task.process();
+        let process = ctx.task.linux_process();
 
         assert_eq!(process.threads().len(), 2);
     }

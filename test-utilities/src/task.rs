@@ -3,6 +3,7 @@ use std::sync::{Arc, Weak};
 
 use filesystem_abstractions::FileDescriptorTable;
 use hermit_sync::SpinMutex;
+use linux_task_abstractions::{ILinuxProcess, ILinuxTask};
 use memory_space_abstractions::MemorySpace;
 use platform_specific::TaskTrapContext;
 use task_abstractions::{status::TaskStatus, IProcess, ITask, UserTaskStatistics};
@@ -11,7 +12,7 @@ use trap_abstractions::ITaskTrapContext;
 pub struct TestTask {
     tid: u32,
     tgid: u32,
-    process: Option<Arc<dyn IProcess>>,
+    process: Option<Arc<dyn ILinuxProcess>>,
     status: SpinMutex<TaskStatus>,
     stats: UserTaskStatistics,
     trap_ctx: UnsafeCell<TaskTrapContext>,
@@ -38,7 +39,7 @@ impl TestTask {
         }
     }
 
-    pub fn build(self) -> Arc<dyn ITask> {
+    pub fn build(self) -> Arc<dyn ILinuxTask> {
         Arc::new(self)
     }
 
@@ -52,7 +53,7 @@ impl TestTask {
         self
     }
 
-    pub fn with_process(mut self, process: Option<Arc<dyn IProcess>>) -> Self {
+    pub fn with_linux_process(mut self, process: Option<Arc<dyn ILinuxProcess>>) -> Self {
         self.process = process;
         self
     }
@@ -77,8 +78,8 @@ impl ITask for TestTask {
         self.tgid
     }
 
-    fn process(&self) -> &std::sync::Arc<dyn task_abstractions::IProcess> {
-        self.process.as_ref().unwrap()
+    fn process(&self) -> std::sync::Arc<dyn task_abstractions::IProcess> {
+        self.process.as_ref().unwrap().clone()
     }
 
     fn status(&self) -> TaskStatus {
@@ -127,6 +128,12 @@ impl ITask for TestTask {
     }
 }
 
+impl ILinuxTask for TestTask {
+    fn linux_process(&self) -> Arc<dyn ILinuxProcess> {
+        self.process.clone().unwrap()
+    }
+}
+
 pub struct TestProcess {
     pub pid: u32,
     pub pgid: u32,
@@ -169,12 +176,14 @@ impl TestProcess {
         callback(self.main_thread.as_mut().unwrap())
     }
 
-    pub fn build(mut self) -> (Arc<dyn IProcess>, Arc<dyn ITask>) {
+    pub fn build(mut self) -> (Arc<dyn ILinuxProcess>, Arc<dyn ILinuxTask>) {
         let main_thread = self.main_thread.take().unwrap();
 
         let process = Arc::new(self);
 
-        let main_thread = main_thread.with_process(Some(process.clone())).build();
+        let main_thread = main_thread
+            .with_linux_process(Some(process.clone()))
+            .build();
 
         process.push_thread(main_thread.clone());
 
@@ -263,12 +272,6 @@ impl IProcess for TestProcess {
         &self.exit_code
     }
 
-    fn execve(&self, _: MemorySpace, _: u32) {
-        unimplemented!(
-            "TestProcess is intended for light-weight mock testing. Use task::Process instead, which also supports unit test"
-        )
-    }
-
     fn alloc_id(&self) -> task_abstractions::TaskId {
         unimplemented!(
             "TestProcess is intended for light-weight mock testing. Use task::Process instead, which also supports unit test"
@@ -277,5 +280,13 @@ impl IProcess for TestProcess {
 
     fn push_thread(&self, task: Arc<dyn ITask>) {
         self.threads.lock().push(task);
+    }
+}
+
+impl ILinuxProcess for TestProcess {
+    fn execve(&self, _: MemorySpace, _: u32) {
+        unimplemented!(
+            "TestProcess is intended for light-weight mock testing. Use task::Process instead, which also supports unit test"
+        )
     }
 }

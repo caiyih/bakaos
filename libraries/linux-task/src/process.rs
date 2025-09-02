@@ -10,15 +10,16 @@ use alloc::{
 use abstractions::operations::IUsizeAlias;
 use filesystem_abstractions::FileDescriptorTable;
 use hermit_sync::SpinMutex;
+use linux_task_abstractions::ILinuxProcess;
 use memory_space::MemorySpaceBuilder;
 use memory_space_abstractions::MemorySpace;
 use mmu_abstractions::IMMU;
 use platform_specific::{ITaskContext, TaskTrapContext};
 use task_abstractions::{IProcess, ITask, ITaskIdAllocator, TaskId};
 
-use crate::{id_allocator::TaskIdAllocator, Task};
+use crate::{id_allocator::TaskIdAllocator, LinuxTask};
 
-pub struct Process {
+pub struct LinuxProcess {
     pid: TaskId,
     pgid: u32,
     id_allocator: Arc<dyn ITaskIdAllocator>,
@@ -32,17 +33,17 @@ pub struct Process {
     exit_code: SpinMutex<Option<u8>>,
 }
 
-unsafe impl Send for Process {}
-unsafe impl Sync for Process {}
+unsafe impl Send for LinuxProcess {}
+unsafe impl Sync for LinuxProcess {}
 
-impl Process {
+impl LinuxProcess {
     #[allow(clippy::new_ret_no_self)]
-    pub fn new(builder: MemorySpaceBuilder, tid: u32) -> Arc<Task> {
+    pub fn new(builder: MemorySpaceBuilder, tid: u32) -> Arc<LinuxTask> {
         let id_allocator = TaskIdAllocator::new(tid);
 
         let tid = id_allocator.clone().alloc();
         let trap_ctx = create_task_context(&builder);
-        let main_thread = Task::new(tid, trap_ctx);
+        let main_thread = LinuxTask::new(tid, trap_ctx);
 
         let pid = id_allocator.clone().alloc();
 
@@ -77,7 +78,7 @@ impl Process {
     }
 }
 
-impl IProcess for Process {
+impl IProcess for LinuxProcess {
     fn pid(&self) -> u32 {
         *self.pid
     }
@@ -118,6 +119,16 @@ impl IProcess for Process {
         &self.exit_code
     }
 
+    fn alloc_id(&self) -> TaskId {
+        self.id_allocator.clone().alloc()
+    }
+
+    fn push_thread(&self, task: Arc<dyn ITask>) {
+        self.threads.lock().push(task);
+    }
+}
+
+impl ILinuxProcess for LinuxProcess {
     fn execve(&self, mem: MemorySpace, calling: u32) {
         *self.mmu.borrow_mut() = mem.mmu().clone();
         *self.memory_space.lock() = mem;
@@ -129,14 +140,6 @@ impl IProcess for Process {
         *threads = vec![calling.clone()];
 
         self.fd_table.lock().clear_exec();
-    }
-
-    fn alloc_id(&self) -> TaskId {
-        self.id_allocator.clone().alloc()
-    }
-
-    fn push_thread(&self, task: Arc<dyn ITask>) {
-        self.threads.lock().push(task);
     }
 }
 
