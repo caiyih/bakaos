@@ -11,6 +11,7 @@ pub mod status;
 mod task_id;
 
 use alloc::{string::String, sync::Arc, vec::Vec};
+use downcast_rs::{impl_downcast, Downcast, DowncastSync};
 use filesystem_abstractions::FileDescriptorTable;
 use hermit_sync::SpinMutex;
 pub use id::*;
@@ -21,7 +22,7 @@ use trap_abstractions::ITaskTrapContext;
 
 use crate::status::TaskStatus;
 
-pub trait IProcess {
+pub trait IProcess: Downcast + DowncastSync {
     fn pid(&self) -> u32;
 
     fn pgid(&self) -> u32;
@@ -40,12 +41,12 @@ pub trait IProcess {
 
     fn exit_code(&self) -> &SpinMutex<Option<u8>>;
 
-    fn execve(&self, mem: MemorySpace, calling: u32);
-
     fn alloc_id(&self) -> TaskId;
 
     fn push_thread(&self, task: Arc<dyn ITask>);
 }
+
+impl_downcast!(sync IProcess);
 
 impl dyn IProcess {
     pub fn mmu(&self) -> Arc<SpinMutex<dyn IMMU>> {
@@ -53,12 +54,12 @@ impl dyn IProcess {
     }
 }
 
-pub trait ITask {
+pub trait ITask: Downcast + DowncastSync {
     fn tid(&self) -> u32;
 
     fn tgid(&self) -> u32;
 
-    fn process(&self) -> &Arc<dyn IProcess>;
+    fn process(&self) -> Arc<dyn IProcess>;
 
     fn status(&self) -> TaskStatus;
 
@@ -81,6 +82,8 @@ pub trait ITask {
 
     fn fork_process(&self) -> Arc<dyn ITask>;
 }
+
+impl_downcast!(sync ITask);
 
 #[derive(Debug, Clone, Default)]
 pub struct UserTaskStatistics {

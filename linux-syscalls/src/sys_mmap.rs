@@ -67,7 +67,9 @@ impl SyscallContext {
             return SyscallError::InvalidArgument;
         }
 
-        let mut mem = self.task.process().memory_space().lock();
+        let process = self.task.process();
+
+        let mut mem = process.memory_space().lock();
 
         addr = Self::sys_mmap_select_addr(&mut mem, addr, len);
 
@@ -431,7 +433,9 @@ mod tests {
 
         let vaddr = VirtualAddress::from_usize(ret.unwrap() as usize);
 
-        let mem = ctx.task.process().memory_space().lock();
+        let process = ctx.task.process();
+
+        let mem = process.memory_space().lock();
 
         let target_mapping = mem
             .mappings()
@@ -468,7 +472,9 @@ mod tests {
 
         let mut buf = create_buffer(len);
 
-        let mmu = ctx.task.process().mmu();
+        let process = ctx.task.process();
+
+        let mmu = process.mmu();
 
         let mut inspected_len = 0;
         let inspect_result = mmu.lock().inspect_framed(vaddr, len, |mem, offset| {
@@ -501,7 +507,9 @@ mod tests {
 
         let buf = create_buffer(len);
 
-        let mmu = ctx.task.process().mmu();
+        let process = ctx.task.process();
+
+        let mmu = process.mmu();
 
         let mut inspected_len = 0;
         let inspect_result = mmu.lock().inspect_framed_mut(vaddr, len, |mem, offset| {
@@ -532,7 +540,9 @@ mod tests {
 
         let vaddr = VirtualAddress::from_usize(ret.unwrap() as usize);
 
-        let mmu = ctx.task.process().mmu();
+        let process = ctx.task.process();
+
+        let mmu = process.mmu();
 
         let inspect_result = mmu.lock().inspect_framed(vaddr, len, |_, _| true);
 
@@ -556,7 +566,8 @@ mod tests {
 
         let vaddr = VirtualAddress::from_usize(ret.unwrap() as usize);
 
-        let mmu = ctx.task.process().mmu();
+        let process = ctx.task.process();
+        let mmu = process.mmu();
 
         let inspect_result = mmu.lock().inspect_framed_mut(vaddr, len, |_, _| true);
 
@@ -584,7 +595,8 @@ mod tests {
 
         fill_buffer_with_random_bytes(&mut random_content);
 
-        let mmu = ctx.task.process().mmu();
+        let process = ctx.task.process();
+        let mmu = process.mmu();
         let mmu = mmu.lock();
 
         mmu.write_bytes(vaddr, &random_content).unwrap();

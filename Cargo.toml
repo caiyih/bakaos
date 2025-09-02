@@ -14,7 +14,7 @@ members = [
     "libraries/allocation",
     "libraries/memory-space",
     "libraries/mmu-native",
-    "libraries/task",
+    "libraries/linux-task",
     "libraries/abstractions",
     "libraries/kernel-abstractions",
     "libraries/filesystem-abstractions",
@@ -24,6 +24,7 @@ members = [
     "libraries/memory-space-abstractions",
     "libraries/mmap-abstractions",
     "libraries/task-abstractions",
+    "libraries/linux-task-abstractions",
     "libraries/trap-abstractions",
 ]
 
