@@ -5,7 +5,7 @@ on:
   pull_request:
 
 env:
-  CARGO_TERM_COLOR: 'always'
+  CARGO_TERM_COLOR: "always"
 
 jobs:
   inspect:
@@ -21,6 +21,9 @@ jobs:
           - { prettyname: LoongArch64, triplet: loongarch64-unknown-none, cwd: 'kernel' }
 
     steps:
+      - name: Disable Git Line Ending Conversion
+        run: git config --global core.autocrlf false
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -28,7 +31,7 @@ jobs:
         uses: ./.github/workflows/actions/setup-rust
         with:
           target: ${{ matrix.target.triplet }}
-          components: 'clippy,rustfmt'
+          components: "clippy,rustfmt"
 
       - name: Remove rust-toolchain.toml
         shell: bash
@@ -59,11 +62,32 @@ jobs:
         if: ${{ success() || failure() }}
         run: cargo clippy --target ${{ matrix.target.triplet }} -- -D warnings
 
+      - name: Line Ending
+        id: line-ending
+        shell: bash
+        if: ${{ always() }}
+        run: |
+          # LICENSE should be excluded
+          rm LICENSE
+
+          FILE=$(mktemp)
+          find . -not -type d -exec file "{}" ";" | grep CRLF | tee $FILE
+
+          if [[ -s $FILE ]]; then
+            echo "::error::CRLF line endings found."
+            exit 1
+          fi
+
       - name: Conclude
         if: ${{ always() }}
         shell: bash
         run: |
           failed=0
+
+          if [[ "${{ steps.line-ending.outcome }}" == "failure" ]]; then
+            echo "Line ending failed"
+            failed=1
+          fi
 
           if [[ "${{ steps.inspect.outcome }}" == "failure" ]]; then
             echo "Inspect failed"
