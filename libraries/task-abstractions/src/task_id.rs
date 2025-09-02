@@ -17,6 +17,11 @@ impl TaskId {
         }
     }
 
+    /// Create a new task id without allocator
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the task id is unique.
     pub unsafe fn new_bypass(id: u32) -> Self {
         Self {
             id,

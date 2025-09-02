@@ -1,3 +1,5 @@
+use core::cell::OnceCell;
+
 use abstractions::IUsizeAlias;
 use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
 
@@ -13,7 +15,7 @@ use mmu_abstractions::{GenericMappingFlags, PageSize, IMMU};
 pub struct MemorySpace {
     mmu: Arc<SpinMutex<dyn IMMU>>,
     mapping_areas: Vec<MappingArea>,
-    attr: MemorySpaceAttribute,
+    attr: OnceCell<MemorySpaceAttribute>,
     allocator: Arc<SpinMutex<dyn IFrameAllocator>>,
 }
 
@@ -119,11 +121,11 @@ impl MemorySpace {
 
 impl MemorySpace {
     pub fn attr(&self) -> &MemorySpaceAttribute {
-        &self.attr
+        self.attr.get().unwrap()
     }
 
     pub fn brk_start(&self) -> VirtualAddress {
-        self.attr.brk_start
+        self.attr().brk_start
     }
 
     pub fn brk_page_range(&self) -> VirtualPageNumRange {
@@ -188,7 +190,7 @@ impl MemorySpace {
         Self {
             mmu,
             mapping_areas: Vec::new(),
-            attr: MemorySpaceAttribute::default(),
+            attr: OnceCell::new(),
             allocator,
         }
     }
@@ -208,12 +210,13 @@ impl MemorySpace {
         }
     }
 
+    /// Initialize the memory space's attribute value
+    ///
+    /// # Safety
+    ///
+    /// The function is NOT thread safe.
     pub unsafe fn init(&mut self, attr: MemorySpaceAttribute) {
-        // ensure that we only initialize the memory space once
-        debug_assert_eq!(self.attr.brk_area_idx, usize::MAX);
-        debug_assert_eq!(self.attr.signal_trampoline, VirtualPageNum::from_usize(0));
-
-        self.attr = attr;
+        self.attr.set(attr).unwrap();
     }
 }
 
@@ -247,7 +250,7 @@ impl MemorySpace {
             }
         }
 
-        this.attr = them.attr;
+        *this.attr.get_mut().unwrap() = *them.attr();
 
         this
     }

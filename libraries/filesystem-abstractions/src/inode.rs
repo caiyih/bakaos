@@ -6,7 +6,7 @@ use downcast_rs::{impl_downcast, Downcast, DowncastSend};
 use crate::{DirectoryEntry, FileStatistics, FileSystemError, FileSystemResult, InodeMetadata};
 
 pub trait IInode: Downcast + DowncastSend + Send + Sync {
-    fn metadata(&self) -> InodeMetadata;
+    fn metadata(&self) -> InodeMetadata<'_>;
 
     fn readat(&self, _offset: usize, _buffer: &mut [u8]) -> FileSystemResult<usize> {
         Err(FileSystemError::NotAFile)

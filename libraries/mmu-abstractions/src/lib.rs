@@ -163,8 +163,11 @@ pub trait IMMU {
     #[deprecated = "Do not use this method, use `map_buffer` from dyn IMMU"]
     fn map_buffer_internal(&self, vaddr: VirtualAddress, len: usize) -> Result<&'_ [u8], MMUError>;
 
+    /// Get a mutable reference to the given memory area.
+    /// The returned slice may not points to vaddr.
     #[doc(hidden)]
     #[deprecated = "Do not use this method, use `map_buffer_mut` from dyn IMMU"]
+    #[allow(clippy::mut_from_ref)]
     fn map_buffer_mut_internal(
         &self,
         vaddr: VirtualAddress,
@@ -201,6 +204,9 @@ pub enum PagingError {
     OutOfMemory,
 }
 
+// cargo clippy keeps complaining about use <XXXX as Into<T>>::into(e) if From is implemented
+// so we use Into over From
+#[allow(clippy::from_over_into)]
 impl Into<MMUError> for PagingError {
     fn into(self) -> MMUError {
         match self {

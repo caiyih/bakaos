@@ -32,7 +32,8 @@ impl SyscallContext {
             yield_now().await;
         }
 
-        let mmu = self.task.process().mmu().lock();
+        let mmu = self.task.process().mmu();
+        let mmu = mmu.lock();
 
         let buf = mmu.map_buffer(buf, count).map_err(|_| ErrNo::BadAddress)?;
 

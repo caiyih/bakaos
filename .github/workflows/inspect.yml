@@ -1,0 +1,78 @@
+name: Code Quality
+
+on:
+  push:
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: 'always'
+
+jobs:
+  inspect:
+    name: Inspect
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          # The triplet of cross platform check needs to match `runs-on`
+          - { prettyname: Cross Platform, triplet: x86_64-unknown-linux-gnu, cwd: '.' }
+          - { prettyname: RISC-V64, triplet: riscv64gc-unknown-none-elf, cwd: 'kernel' }
+          - { prettyname: LoongArch64, triplet: loongarch64-unknown-none, cwd: 'kernel' }
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: ./.github/workflows/actions/setup-rust
+        with:
+          target: ${{ matrix.target.triplet }}
+          components: 'clippy,rustfmt'
+
+      - name: Remove rust-toolchain.toml
+        shell: bash
+        run: rm rust-toolchain.toml
+
+      # This is a workaround to make kernel compile without building a user program.
+      - name: Apply workaround
+        shell: bash
+        run: |
+          cd hello-world
+          touch hello-la
+          touch hello-rv
+
+      # Some of the libraries requires source generation
+      # We have to compile them so that the required code are generated
+      - name: Compile
+        working-directory: ${{ matrix.target.cwd }}
+        run: cargo build --target ${{ matrix.target.triplet }}
+
+      - name: Inspect
+        id: inspect
+        working-directory: ${{ matrix.target.cwd }}
+        run: cargo fmt --all --check
+
+      - name: Lint
+        id: lint
+        working-directory: ${{ matrix.target.cwd }}
+        if: ${{ success() || failure() }}
+        run: cargo clippy --target ${{ matrix.target.triplet }} -- -D warnings
+
+      - name: Conclude
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          failed=0
+
+          if [[ "${{ steps.inspect.outcome }}" == "failure" ]]; then
+            echo "Inspect failed"
+            failed=1
+          fi
+
+          if [[ "${{ steps.lint.outcome }}" == "failure" ]]; then
+            echo "Lint failed"
+            failed=1
+          fi
+
+          exit $failed

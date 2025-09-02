@@ -120,7 +120,7 @@ impl MemorySpaceBuilder {
             elf.init_stack(args, envp);
             Ok(elf)
         } else {
-            return Err("Not a valid executable");
+            Err("Not a valid executable")
         }
     }
 
@@ -511,7 +511,7 @@ impl MemorySpaceBuilder {
 
         // align stack top down to 8 bytes
         self.stack_top = self.stack_top.align_down(8);
-        debug_assert!(self.stack_top.as_usize() % 8 == 0);
+        debug_assert!(self.stack_top.as_usize().is_multiple_of(8));
 
         // Step3: Copy PLATFORM string to the stack
         const PLATFORM: &str = "RISC-V64\0"; // FIXME
@@ -520,7 +520,7 @@ impl MemorySpaceBuilder {
         // Ensure that start address of copied PLATFORM is aligned to 8 bytes
         self.stack_top -= PLATFORM_LEN;
         self.stack_top = self.stack_top.align_down(8);
-        debug_assert!(self.stack_top.as_usize() % 8 == 0);
+        debug_assert!(self.stack_top.as_usize().is_multiple_of(8));
         self.stack_top += PLATFORM_LEN;
 
         for byte in PLATFORM.bytes().rev() {
@@ -534,7 +534,7 @@ impl MemorySpaceBuilder {
 
         // align down to 16 bytes
         self.stack_top = self.stack_top.align_down(16);
-        debug_assert!(self.stack_top.as_usize() % 16 == 0);
+        debug_assert!(self.stack_top.as_usize().is_multiple_of(16));
 
         // Step5: setup aux vector
         self.push(AuxVecEntry::new(AT_NULL, 0));

@@ -16,6 +16,15 @@ pub struct TestKernel {
     pub allocator: Option<Arc<SpinMutex<dyn IFrameAllocator>>>,
 }
 
+unsafe impl Send for TestKernel {}
+unsafe impl Sync for TestKernel {}
+
+impl Default for TestKernel {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TestKernel {
     pub fn new() -> Self {
         Self {
@@ -73,6 +82,12 @@ impl IKernel for TestKernel {
 pub struct TestSerial {
     pub output: SpinMutex<Vec<u8>>,
     pub input: SpinMutex<VecDeque<u8>>,
+}
+
+impl Default for TestSerial {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TestSerial {

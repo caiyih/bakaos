@@ -68,7 +68,7 @@ impl FileMetadata {
         self.open_offset.store(offset, Ordering::Relaxed);
     }
 
-    pub fn flags(&self) -> MutexGuard<RawSpinMutex, OpenFlags> {
+    pub fn flags(&self) -> MutexGuard<'_, RawSpinMutex, OpenFlags> {
         self.open_flags.lock()
     }
 
@@ -210,6 +210,12 @@ impl FileDescriptorTable {
                 }
             }
         }
+    }
+}
+
+impl Default for FileDescriptorTable {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

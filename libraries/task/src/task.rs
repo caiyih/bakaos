@@ -13,6 +13,9 @@ pub struct Task {
     pub(crate) trap_ctx: UnsafeCell<TaskTrapContext>,
 }
 
+unsafe impl Send for Task {}
+unsafe impl Sync for Task {}
+
 impl Task {
     pub(crate) fn new(id: TaskId, trap_ctx: TaskTrapContext) -> Arc<Self> {
         Arc::new(Task {
@@ -41,7 +44,7 @@ impl Default for TaskMutableInner {
 impl Clone for TaskMutableInner {
     fn clone(&self) -> Self {
         Self {
-            status: self.status.clone(),
+            status: self.status,
             stats: UserTaskStatistics::default(),
         }
     }

@@ -40,7 +40,7 @@ impl IFile for TeletypewriterFile {
         let mut bytes_sent = 0;
 
         for c in buf.iter() {
-            if let Err(_) = self.serial.send(*c) {
+            if self.serial.send(*c).is_err() {
                 break;
             }
 
