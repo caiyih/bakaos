@@ -232,10 +232,7 @@ impl MemorySpaceBuilder {
 
             boxed_elf = &mut slice[..len];
 
-            match ElfFile::new(boxed_elf) {
-                Ok(elf) => elf,
-                Err(err) => return Err(err),
-            }
+            ElfFile::new(boxed_elf)?
         };
 
         // No need to check the ELF magic number because it is already checked in `ElfFile::new`
