@@ -62,7 +62,7 @@ impl<T: Copy, F: FnOnce(T)> InvokeOnDrop<T, F> {
     }
 }
 
-impl<F: FnOnce(T), T> Deref for InvokeOnDrop<T, F> {
+impl<T, F: FnOnce(T)> Deref for InvokeOnDrop<T, F> {
     type Target = T;
 
     #[inline]
