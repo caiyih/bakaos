@@ -42,7 +42,7 @@ impl SyscallContext {
             return SyscallError::CannotAllocateMemory;
         }
 
-        if offset % constants::PAGE_SIZE != 0 {
+        if !offset.is_multiple_of(constants::PAGE_SIZE) {
             return SyscallError::InvalidArgument;
         }
 
@@ -95,10 +95,10 @@ impl SyscallContext {
         addr: VirtualAddress,
         len: usize,
     ) -> VirtualAddress {
-        debug_assert!(len % constants::PAGE_SIZE == 0);
+        debug_assert!(len.is_multiple_of(constants::PAGE_SIZE));
 
         let mut mappings = mem.mappings().iter().collect::<Vec<_>>();
-        mappings.sort_by(|lhs, rhs| lhs.range().end().cmp(&rhs.range().end()));
+        mappings.sort_by_key(|lhs| lhs.range().end());
 
         // Try find the first avaliable hole
         let mut last_hole_start = match (addr.is_null(), mappings.len()) {
@@ -468,10 +468,10 @@ mod tests {
 
         let mut buf = create_buffer(len);
 
-        let mmu = ctx.task.process().mmu().lock();
+        let mmu = ctx.task.process().mmu();
 
         let mut inspected_len = 0;
-        let inspect_result = mmu.inspect_framed(vaddr, len, |mem, offset| {
+        let inspect_result = mmu.lock().inspect_framed(vaddr, len, |mem, offset| {
             inspected_len += mem.len();
             buf[offset..offset + mem.len()].copy_from_slice(mem); // we can read from the memory space
 
@@ -501,10 +501,10 @@ mod tests {
 
         let buf = create_buffer(len);
 
-        let mmu = ctx.task.process().mmu().lock();
+        let mmu = ctx.task.process().mmu();
 
         let mut inspected_len = 0;
-        let inspect_result = mmu.inspect_framed_mut(vaddr, len, |mem, offset| {
+        let inspect_result = mmu.lock().inspect_framed_mut(vaddr, len, |mem, offset| {
             inspected_len += mem.len();
             mem.copy_from_slice(&buf[offset..offset + mem.len()]); // we can also write to the memory space
 
@@ -532,9 +532,9 @@ mod tests {
 
         let vaddr = VirtualAddress::from_usize(ret.unwrap() as usize);
 
-        let mmu = ctx.task.process().mmu().lock();
+        let mmu = ctx.task.process().mmu();
 
-        let inspect_result = mmu.inspect_framed(vaddr, len, |_, _| true);
+        let inspect_result = mmu.lock().inspect_framed(vaddr, len, |_, _| true);
 
         assert!(inspect_result.is_err());
     }
@@ -556,9 +556,9 @@ mod tests {
 
         let vaddr = VirtualAddress::from_usize(ret.unwrap() as usize);
 
-        let mmu = ctx.task.process().mmu().lock();
+        let mmu = ctx.task.process().mmu();
 
-        let inspect_result = mmu.inspect_framed_mut(vaddr, len, |_, _| true);
+        let inspect_result = mmu.lock().inspect_framed_mut(vaddr, len, |_, _| true);
 
         assert!(inspect_result.is_err());
     }
@@ -584,7 +584,8 @@ mod tests {
 
         fill_buffer_with_random_bytes(&mut random_content);
 
-        let mmu = ctx.task.process().mmu().lock();
+        let mmu = ctx.task.process().mmu();
+        let mmu = mmu.lock();
 
         mmu.write_bytes(vaddr, &random_content).unwrap();
 

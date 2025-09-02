@@ -34,8 +34,6 @@ pub trait IProcess {
 
     fn memory_space(&self) -> &SpinMutex<MemorySpace>;
 
-    fn mmu(&self) -> &SpinMutex<dyn IMMU>;
-
     fn fd_table(&self) -> &SpinMutex<FileDescriptorTable>;
 
     fn working_directory(&self) -> String;
@@ -47,6 +45,12 @@ pub trait IProcess {
     fn alloc_id(&self) -> TaskId;
 
     fn push_thread(&self, task: Arc<dyn ITask>);
+}
+
+impl dyn IProcess {
+    pub fn mmu(&self) -> Arc<SpinMutex<dyn IMMU>> {
+        self.memory_space().lock().mmu().clone()
+    }
 }
 
 pub trait ITask {
@@ -64,6 +68,13 @@ pub trait ITask {
 
     fn trap_context(&self) -> &dyn ITaskTrapContext;
 
+    /// Get the mutable reference of the task's trap context
+    ///
+    /// # Safety
+    ///
+    /// This method is NOT thread safe.
+    /// The caller must ensure that the task is not running.
+    #[allow(clippy::mut_from_ref)]
     fn trap_context_mut(&self) -> &mut dyn ITaskTrapContext;
 
     fn fork_thread(&self) -> Arc<dyn ITask>;

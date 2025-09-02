@@ -579,7 +579,7 @@ impl Drop for DirectoryTreeNode {
 }
 
 impl DirectoryTreeNode {
-    pub fn metadata(self: &Arc<DirectoryTreeNode>) -> InodeMetadata {
+    pub fn metadata(self: &Arc<DirectoryTreeNode>) -> InodeMetadata<'_> {
         let inner = self.inner.lock();
         let filename = self.name();
 
@@ -1169,7 +1169,7 @@ mod tests {
     }
 
     impl IInode for MockInode {
-        fn metadata(&self) -> InodeMetadata {
+        fn metadata(&self) -> InodeMetadata<'_> {
             InodeMetadata {
                 filename: &self.name,
                 entry_type: DirectoryEntryType::File,

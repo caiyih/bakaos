@@ -13,6 +13,9 @@ pub struct TestMMU {
     mapped: SpinMutex<BTreeMap<VirtualAddress, MappedMemory>>,
 }
 
+unsafe impl Send for TestMMU {}
+unsafe impl Sync for TestMMU {}
+
 struct MappingRecord {
     phys: PhysicalAddress,
     virt: VirtualAddress,
@@ -22,6 +25,7 @@ struct MappingRecord {
 }
 
 impl TestMMU {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(alloc: Arc<SpinMutex<dyn ITestFrameAllocator>>) -> Arc<SpinMutex<dyn IMMU>> {
         Arc::new(SpinMutex::new(Self {
             alloc,
@@ -107,11 +111,11 @@ impl IMMU for TestMMU {
         let mapping = self.query_mapping(vaddr).ok_or(PagingError::NotMapped)?;
         let offset = (vaddr - mapping.virt).as_usize();
 
-        return Ok((
+        Ok((
             mapping.phys + offset,
             mapping.flags,
             PageSize::from(mapping.len),
-        ));
+        ))
     }
 
     fn create_or_update_single(
@@ -263,7 +267,7 @@ impl IMMU for TestMMU {
 
         let ptr= alloc.linear_map(paddr).expect("The test allocator does not support linear mapping. Use contiguous::TestFrameAllocator");
 
-        Ok(unsafe { std::slice::from_raw_parts_mut(ptr as *mut u8, len) })
+        Ok(unsafe { std::slice::from_raw_parts_mut(ptr, len) })
     }
 
     fn platform_payload(&self) -> usize {
@@ -347,19 +351,17 @@ impl IMMU for TestMMU {
             // Sync the mapped memory to the physical memory
             let slice = mapped.slice_mut();
 
-            let _ = self.write_bytes(vaddr, &slice);
+            let _ = self.write_bytes(vaddr, slice);
         }
     }
 }
 
 impl TestMMU {
     fn query_mapping(&self, vaddr: VirtualAddress) -> Option<&MappingRecord> {
-        for mapping in self.mappings.iter() {
-            if mapping.virt <= vaddr && vaddr < mapping.virt + mapping.len {
-                return Some(mapping);
-            }
-        }
-        None
+        self.mappings
+            .iter()
+            .find(|&mapping| mapping.virt <= vaddr && vaddr < mapping.virt + mapping.len)
+            .map(|v| v as _)
     }
 }
 

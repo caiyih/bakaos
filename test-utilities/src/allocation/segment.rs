@@ -13,6 +13,9 @@ pub struct TestFrameAllocator {
     records: BTreeMap<PhysicalAddress, HostMemory>,
 }
 
+unsafe impl Send for TestFrameAllocator {}
+unsafe impl Sync for TestFrameAllocator {}
+
 impl TestFrameAllocator {
     pub fn new() -> Arc<SpinMutex<TestFrameAllocator>> {
         Arc::new(SpinMutex::new(TestFrameAllocator {
@@ -20,6 +23,7 @@ impl TestFrameAllocator {
         }))
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn new_with_mmu() -> (
         Arc<SpinMutex<dyn IFrameAllocator>>,
         Arc<SpinMutex<dyn IMMU>>,
@@ -44,7 +48,7 @@ impl ITestFrameAllocator for TestFrameAllocator {
             }
         }
 
-        return false;
+        false
     }
 
     fn linear_map(&self, _: PhysicalAddress) -> Option<*mut u8> {

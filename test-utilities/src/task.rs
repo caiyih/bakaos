@@ -4,7 +4,6 @@ use std::sync::{Arc, Weak};
 use filesystem_abstractions::FileDescriptorTable;
 use hermit_sync::SpinMutex;
 use memory_space_abstractions::MemorySpace;
-use mmu_abstractions::IMMU;
 use platform_specific::TaskTrapContext;
 use task_abstractions::{status::TaskStatus, IProcess, ITask, UserTaskStatistics};
 use trap_abstractions::ITaskTrapContext;
@@ -16,6 +15,15 @@ pub struct TestTask {
     status: SpinMutex<TaskStatus>,
     stats: UserTaskStatistics,
     trap_ctx: UnsafeCell<TaskTrapContext>,
+}
+
+unsafe impl Send for TestTask {}
+unsafe impl Sync for TestTask {}
+
+impl Default for TestTask {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TestTask {
@@ -132,6 +140,15 @@ pub struct TestProcess {
     pub exit_code: SpinMutex<Option<u8>>,
 }
 
+unsafe impl Send for TestProcess {}
+unsafe impl Sync for TestProcess {}
+
+impl Default for TestProcess {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TestProcess {
     pub fn new() -> TestProcess {
         Self {
@@ -190,12 +207,12 @@ impl TestProcess {
     }
 
     pub fn with_memory_space(mut self, memory_space: Option<MemorySpace>) -> Self {
-        self.memory_space = memory_space.map(|m| SpinMutex::new(m));
+        self.memory_space = memory_space.map(SpinMutex::new);
         self
     }
 
     pub fn with_fd_table(mut self, fd_table: Option<FileDescriptorTable>) -> Self {
-        self.fd_table = fd_table.map(|f| SpinMutex::new(f));
+        self.fd_table = fd_table.map(SpinMutex::new);
         self
     }
 
@@ -244,10 +261,6 @@ impl IProcess for TestProcess {
 
     fn exit_code(&self) -> &SpinMutex<Option<u8>> {
         &self.exit_code
-    }
-
-    fn mmu(&self) -> &SpinMutex<dyn IMMU> {
-        unsafe { &self.memory_space().data_ptr().as_ref().unwrap().mmu() }
     }
 
     fn execve(&self, _: MemorySpace, _: u32) {

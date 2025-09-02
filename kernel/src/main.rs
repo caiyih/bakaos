@@ -86,9 +86,9 @@ fn main(kernel: Arc<Kernel>) -> Result<(), &'static str> {
 
     // activate page tabe for the task
     {
-        let mmu = task.process().mmu().lock();
+        let mmu = task.process().mmu();
 
-        kernel.activate_mmu(mmu.deref());
+        kernel.activate_mmu(mmu.lock().deref());
     }
     let exit_code = block_on!(task_closure);
 
@@ -100,10 +100,10 @@ fn main(kernel: Arc<Kernel>) -> Result<(), &'static str> {
 }
 
 #[cfg(target_arch = "loongarch64")]
-static ELF: &'static [u8] = include_bytes!("../../hello-world/hello-la");
+static ELF: &[u8] = include_bytes!("../../hello-world/hello-la");
 
 #[cfg(target_arch = "riscv64")]
-static ELF: &'static [u8] = include_bytes!("../../hello-world/hello-rv");
+static ELF: &[u8] = include_bytes!("../../hello-world/hello-rv");
 
 fn create_task(kernel: &Kernel) -> Arc<dyn ITask> {
     let mmu: Arc<SpinMutex<dyn IMMU>> =

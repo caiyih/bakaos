@@ -21,12 +21,12 @@ pub mod sys_write;
 pub type SyscallResult = Result<isize, ErrNo>;
 
 pub trait ISyscallResult {
-    fn as_usize(self) -> usize;
+    fn as_usize(&self) -> usize;
 }
 
 impl ISyscallResult for SyscallResult {
-    fn as_usize(self) -> usize {
-        match self {
+    fn as_usize(&self) -> usize {
+        match *self {
             Ok(v) => v as usize,
             Err(e) => e as usize,
         }

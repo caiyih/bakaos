@@ -32,6 +32,9 @@ pub struct Process {
     exit_code: SpinMutex<Option<u8>>,
 }
 
+unsafe impl Send for Process {}
+unsafe impl Sync for Process {}
+
 impl Process {
     #[allow(clippy::new_ret_no_self)]
     pub fn new(builder: MemorySpaceBuilder, tid: u32) -> Arc<Task> {
@@ -113,10 +116,6 @@ impl IProcess for Process {
 
     fn exit_code(&self) -> &SpinMutex<Option<u8>> {
         &self.exit_code
-    }
-
-    fn mmu(&self) -> &SpinMutex<dyn IMMU> {
-        unsafe { self.mmu.as_ptr().as_ref().unwrap() }
     }
 
     fn execve(&self, mem: MemorySpace, calling: u32) {

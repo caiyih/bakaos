@@ -16,6 +16,9 @@ pub struct TestFrameAllocator {
     layout: Layout,
 }
 
+unsafe impl Send for TestFrameAllocator {}
+unsafe impl Sync for TestFrameAllocator {}
+
 impl TestFrameAllocator {
     pub fn new(memory_size: usize) -> Arc<SpinMutex<TestFrameAllocator>> {
         let (native_ptr, layout) = unsafe { alloc_memory(memory_size) };
@@ -32,6 +35,7 @@ impl TestFrameAllocator {
         }))
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn new_with_mmu(
         memory_size: usize,
     ) -> (
@@ -46,7 +50,7 @@ impl TestFrameAllocator {
 
 impl ITestFrameAllocator for TestFrameAllocator {
     fn check_paddr(&self, paddr: PhysicalAddress, len: usize) -> bool {
-        return self.inner.bottom() <= paddr && paddr + len <= self.inner.top();
+        self.inner.bottom() <= paddr && paddr + len <= self.inner.top()
     }
 
     fn linear_map(&self, paddr: PhysicalAddress) -> Option<*mut u8> {

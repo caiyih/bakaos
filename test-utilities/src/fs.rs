@@ -80,7 +80,7 @@ fn to_entry_type(meta: &Metadata) -> DirectoryEntryType {
 }
 
 impl IInode for HostFile {
-    fn metadata(&self) -> InodeMetadata {
+    fn metadata(&self) -> InodeMetadata<'_> {
         let meta = self.inner.lock().metadata().unwrap();
 
         InodeMetadata {

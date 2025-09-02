@@ -27,6 +27,9 @@ where
     _marker: PhantomData<(Arch, PTE)>,
 }
 
+unsafe impl<A: IPageTableArchAttribute, P: IArchPageTableEntry> Send for PageTableNative<A, P> {}
+unsafe impl<A: IPageTableArchAttribute, P: IArchPageTableEntry> Sync for PageTableNative<A, P> {}
+
 struct PageTableAllocation {
     frames: Vec<FrameDesc>,
     allocator: Arc<SpinMutex<dyn IFrameAllocator>>,
@@ -443,6 +446,7 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTableNative<Ar
 
     /// # Safety
     /// This breaks Rust's mutability rule, use it properly
+    #[allow(clippy::mut_from_ref)]
     unsafe fn get_entry_internal(
         &self,
         vaddr: VirtualAddress,

@@ -6,6 +6,13 @@ use address::PhysicalAddress;
 pub struct FrameDesc(pub PhysicalAddress);
 
 impl FrameDesc {
+    /// Create a new frame descriptor
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the frame is allocated.
+    ///
+    /// The caller is responsible for deallocating the frame.
     pub unsafe fn new(addr: PhysicalAddress) -> Self {
         FrameDesc(addr)
     }
@@ -30,6 +37,13 @@ pub struct FrameRangeDesc {
 }
 
 impl FrameRangeDesc {
+    /// Create a new frame range descriptor
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the frames are allocated.
+    ///
+    /// The caller is responsible for deallocating the frames.
     pub unsafe fn new(start: PhysicalAddress, len: usize) -> Self {
         Self {
             range: start..start + len,

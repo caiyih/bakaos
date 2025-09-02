@@ -34,7 +34,7 @@ where
 
 pub trait IAlignableAddress: IAddressBase {
     fn is_aligned(self, align: usize) -> bool {
-        self.as_usize() % align == 0
+        self.as_usize().is_multiple_of(align)
     }
 
     fn is_page_aligned(self) -> bool {
