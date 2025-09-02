@@ -3,6 +3,7 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
+#[must_use = "hold the guard in a local variable to delay the callback until scope exit"]
 pub struct InvokeOnDrop<T, F: FnOnce(T)> {
     func: ManuallyDrop<F>,
     val: ManuallyDrop<T>,
@@ -101,7 +102,7 @@ mod tests {
     fn test_drop_not_invoked() {
         let flag = Arc::new(Mutex::new(false));
 
-        // Do NOT use discard to avoid drop call inlined
+        // Bind to a local so Drop doesn't run before the assertion
         let _unused = InvokeOnDrop::new(|_| {
             *flag.lock().unwrap() = true;
         });
