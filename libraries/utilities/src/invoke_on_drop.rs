@@ -27,23 +27,25 @@ impl<T, F: FnOnce(T)> InvokeOnDrop<T, F> {
 
     /// Deconstructs the `InvokeOnDrop`, cancelling the function
     pub fn deconstruct(mut self) -> (T, F) {
-        unsafe {
-            let (val, func) = (
+        let (val, func) = unsafe {
+            (
                 ManuallyDrop::take(&mut self.val),
                 ManuallyDrop::take(&mut self.func),
-            );
+            )
+        };
 
-            core::mem::forget(self);
+        core::mem::forget(self);
 
-            (val, func)
-        }
+        (val, func)
     }
 
     /// Consume the `InvokeOnDrop`, skip the callback, and drop the inner value immediately.
-    pub fn cancel(mut self) {
-        unsafe { ManuallyDrop::drop(&mut self.val) };
+    pub fn cancel(self) {
+        // use deconstruct to avoid drop being called during unwind
+        let (val, func) = self.deconstruct();
 
-        core::mem::forget(self);
+        drop(val); // val should be dropped before func
+        drop(func);
     }
 }
 
@@ -81,6 +83,7 @@ impl<T, F: FnOnce(T)> DerefMut for InvokeOnDrop<T, F> {
 
 #[cfg(test)]
 mod tests {
+    use core::hint::black_box;
     use std::sync::{Arc, Mutex};
 
     use super::*;
@@ -133,5 +136,23 @@ mod tests {
         *i = 24;
 
         assert_eq!(*i, 24);
+    }
+
+    #[test]
+    fn test_cancel_not_leak() {
+        let x = Arc::new(());
+
+        let cloned = x.clone();
+        let guard = InvokeOnDrop::new(|_| {
+            black_box(cloned);
+        });
+
+        // strong count should be 2
+        assert_eq!(Arc::strong_count(&x), 2);
+
+        guard.cancel();
+
+        // strong count should be 1
+        assert_eq!(Arc::strong_count(&x), 1);
     }
 }
