@@ -92,4 +92,17 @@ mod tests {
         assert_eq!(i.as_val(), 42);
         assert_eq!(*i, 42);
     }
+
+    #[test]
+    fn test_deref() {
+        let mut i = InvokeOnDrop::transform(42, |i| {
+            assert_eq!(i, 24);
+        });
+
+        assert_eq!(*i, 42);
+
+        *i = 24;
+
+        assert_eq!(*i, 24);
+    }
 }
