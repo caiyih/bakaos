@@ -20,12 +20,12 @@ mod tests {
     use std::sync::Arc;
 
     use kernel_abstractions::IKernel;
-    use task_abstractions::ITask;
+    use linux_task_abstractions::ILinuxTask;
     use test_utilities::{kernel::TestKernel, task::TestProcess};
 
     use super::*;
 
-    fn setup_test_task() -> (Arc<dyn ITask>, Arc<dyn IKernel>) {
+    fn setup_test_task() -> (Arc<dyn ILinuxTask>, Arc<dyn IKernel>) {
         let kernel = TestKernel::new().build();
         let (_, task) = TestProcess::new().build();
 

@@ -12,6 +12,7 @@ doctest = false
 [dependencies]
 bitflags = "2.9"
 hermit-sync = "0.1.6"
+downcast-rs = { version = "2.0", default-features = false, features = ["sync"] }
 mmu-abstractions = { path = "../mmu-abstractions", default-features = false }
 trap-abstractions = { path = "../trap-abstractions", default-features = false }
 memory-space-abstractions = { path = "../memory-space-abstractions", default-features = false }

@@ -21,7 +21,8 @@ memory-space = { path = "../libraries/memory-space", default-features = false }
 mmu-abstractions = { path = "../libraries/mmu-abstractions", default-features = false }
 mmap-abstractions = { path = "../libraries/mmap-abstractions", default-features = false }
 allocation-abstractions = { path = "../libraries/allocation-abstractions", default-features = false }
-task = { path = "../libraries/task", default-features = false }
+linux-task = { path = "../libraries/linux-task", default-features = false }
+linux-task-abstractions = { path = "../libraries/linux-task-abstractions", default-features = false }
 platform-specific = { path = "../libraries/platform-specific", default-features = false }
 
 [dev-dependencies]

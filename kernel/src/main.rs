@@ -14,12 +14,13 @@ use allocation::FrameAllocator;
 use hermit_sync::SpinMutex;
 use kernel_abstractions::IKernel;
 use linux_syscalls::{ISyscallResult, SyscallContext};
+use linux_task::LinuxProcess;
+use linux_task_abstractions::ILinuxTask;
 use memory_space::MemorySpaceBuilder;
 use mmu_abstractions::IMMU;
 use mmu_native::PageTable;
 use platform_abstractions::{return_to_user, UserInterrupt};
 use platform_specific::{legacy_println, virt_to_phys, SyscallPayload};
-use task::Process;
 use task_abstractions::ITask;
 use threading::block_on;
 use trap_abstractions::ISyscallPayloadMut;
@@ -105,13 +106,13 @@ static ELF: &[u8] = include_bytes!("../../hello-world/hello-la");
 #[cfg(target_arch = "riscv64")]
 static ELF: &[u8] = include_bytes!("../../hello-world/hello-rv");
 
-fn create_task(kernel: &Kernel) -> Arc<dyn ITask> {
+fn create_task(kernel: &Kernel) -> Arc<dyn ILinuxTask> {
     let mmu: Arc<SpinMutex<dyn IMMU>> =
         Arc::new(SpinMutex::new(PageTable::alloc(kernel.allocator())));
 
     let builder = MemorySpaceBuilder::from_elf(&ELF, "", &mmu, &kernel.allocator()).unwrap();
 
-    let task = Process::new(builder, 0);
+    let task = LinuxProcess::new(builder, 0);
     {
         let process = task.process();
 

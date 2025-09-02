@@ -1,5 +1,5 @@
 [package]
-name = "task"
+name = "linux-task"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 hermit-sync = "0.1.6"
+linux-task-abstractions = { path = "../linux-task-abstractions", default-features = false }
 memory-space-abstractions = { path = "../memory-space-abstractions", default-features = false }
 filesystem-abstractions = { path = "../filesystem-abstractions", default-features = false }
 trap-abstractions = { path = "../trap-abstractions", default-features = false }

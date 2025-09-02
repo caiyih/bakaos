@@ -1,0 +1,15 @@
+[package]
+name = "linux-task-abstractions"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+memory-space-abstractions = { path = "../memory-space-abstractions", default-features = false }
+task-abstractions = { path = "../task-abstractions", default-features = false }
+
+[features]
+default = ["no_std"]
+std = []
+no_std = []

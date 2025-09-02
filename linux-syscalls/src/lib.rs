@@ -5,7 +5,7 @@
 use alloc::sync::Arc;
 use constants::ErrNo;
 use kernel_abstractions::IKernel;
-use task_abstractions::ITask;
+use linux_task_abstractions::ILinuxTask;
 
 extern crate alloc;
 
@@ -34,14 +34,12 @@ impl ISyscallResult for SyscallResult {
 }
 
 pub struct SyscallContext {
-    #[allow(unused)]
-    pub task: Arc<dyn ITask>,
-    #[allow(unused)]
+    pub task: Arc<dyn ILinuxTask>,
     pub kernel: Arc<dyn IKernel>,
 }
 
 impl SyscallContext {
-    pub fn new(task: Arc<dyn ITask>, kernel: Arc<dyn IKernel>) -> SyscallContext {
+    pub fn new(task: Arc<dyn ILinuxTask>, kernel: Arc<dyn IKernel>) -> SyscallContext {
         Self { task, kernel }
     }
 }

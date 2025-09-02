@@ -5,8 +5,8 @@ use filesystem_abstractions::DirectoryTreeNode;
 use hermit_sync::SpinMutex;
 use kernel_abstractions::{IKernel, IKernelSerial};
 use linux_syscalls::SyscallContext;
+use linux_task_abstractions::ILinuxTask;
 use mmu_abstractions::IMMU;
-use task_abstractions::ITask;
 use timing::TimeSpec;
 
 use crate::serial::KernelSerial;
@@ -21,7 +21,10 @@ impl Kernel {
         Arc::new(Self { serial, allocator })
     }
 
-    pub fn create_syscall_contenxt_for(self: &Arc<Self>, task: Arc<dyn ITask>) -> SyscallContext {
+    pub fn create_syscall_contenxt_for(
+        self: &Arc<Self>,
+        task: Arc<dyn ILinuxTask>,
+    ) -> SyscallContext {
         SyscallContext {
             task,
             kernel: self.clone(),

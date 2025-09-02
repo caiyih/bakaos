@@ -5,7 +5,7 @@ use crate::{SyscallContext, SyscallResult};
 impl SyscallContext {
     pub fn sys_exit(&self, code: u8) -> SyscallResult {
         self.task.update_status(TaskStatus::Exited);
-        *self.task.process().exit_code().lock() = Some(code);
+        *self.task.linux_process().exit_code().lock() = Some(code);
 
         Ok(code as isize)
     }
@@ -28,7 +28,7 @@ mod tests {
     fn test_no_exit_code_before_call() {
         let ctx = setup_env();
 
-        assert_eq!(*ctx.task.process().exit_code().lock(), None);
+        assert_eq!(*ctx.task.linux_process().exit_code().lock(), None);
     }
 
     fn test_exit_code_received(exit_code: u8) {
@@ -37,7 +37,10 @@ mod tests {
         let ret = ctx.sys_exit(exit_code);
 
         assert_eq!(ret, Ok(exit_code as isize));
-        assert_eq!(*ctx.task.process().exit_code().lock(), Some(exit_code));
+        assert_eq!(
+            *ctx.task.linux_process().exit_code().lock(),
+            Some(exit_code)
+        );
     }
 
     #[test]

@@ -10,7 +10,9 @@ impl SyscallContext {
         log::debug!("sys_write: fd: {}, buf: {}, count: {}", fd, buf, count);
 
         let file = {
-            let fd_table = self.task.process().fd_table().lock();
+            let process = self.task.linux_process();
+
+            let fd_table = process.fd_table().lock();
 
             fd_table.get(fd).ok_or(ErrNo::BadFileDescriptor)?.clone()
         };
