@@ -67,6 +67,7 @@ mod tests {
         allocation::contiguous::TestFrameAllocator, kernel::TestKernel, task::TestProcess,
     };
     use threading::block_on;
+    use utilities::InvokeOnDrop;
 
     use super::*;
 
@@ -161,6 +162,7 @@ mod tests {
         // Let's allocate a frame and map it to the user memory space
         // We decide to map it to 0x1000000
         let frame = alloc.lock().alloc_frame().unwrap();
+        let frame = InvokeOnDrop::transform(frame, |f| alloc.lock().dealloc(f));
         let ptr = VirtualAddress::from_usize(0x1000000);
         mmu.lock()
             .map_single(
@@ -189,8 +191,6 @@ mod tests {
         assert_eq!(ret, Ok(content.len() as isize));
 
         assert_eq!(test_file.content(), content);
-
-        alloc.lock().dealloc(frame);
     }
 
     #[test]

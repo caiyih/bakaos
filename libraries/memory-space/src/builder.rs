@@ -4,7 +4,7 @@ use address::{
     VirtualPageNum, VirtualPageNumRange,
 };
 use alloc::{string::String, sync::Arc, vec::Vec};
-use allocation_abstractions::{FrameRangeDesc, IFrameAllocator};
+use allocation_abstractions::IFrameAllocator;
 use filesystem_abstractions::{DirectoryTreeNode, IInode};
 use hermit_sync::SpinMutex;
 use log::{debug, warn};
@@ -12,6 +12,7 @@ use memory_space_abstractions::{
     AreaType, MapType, MappingArea, MemorySpace, MemorySpaceAttribute,
 };
 use mmu_abstractions::{GenericMappingFlags, IMMU};
+use utilities::InvokeOnDrop;
 use xmas_elf::ElfFile;
 
 use crate::auxv::*;
@@ -203,17 +204,20 @@ impl MemorySpaceBuilder {
         let mut attr = MemorySpaceAttribute::default();
 
         // see https://github.com/caiyih/bakaos/issues/26
-        let boxed_elf_holding: FrameRangeDesc;
+        let boxed_elf_holding;
 
         let boxed_elf;
 
         let elf_info = {
             let required_frames = elf_data.len().div_ceil(constants::PAGE_SIZE);
 
-            boxed_elf_holding = allocator
+            let frames = allocator
                 .lock()
                 .alloc_contiguous(required_frames)
                 .ok_or("Out of memory")?;
+
+            boxed_elf_holding =
+                InvokeOnDrop::transform(frames, |f| allocator.lock().dealloc_range(f));
 
             let pt = pt.lock();
 
@@ -228,13 +232,7 @@ impl MemorySpaceBuilder {
 
             boxed_elf = &mut slice[..len];
 
-            match ElfFile::new(boxed_elf) {
-                Ok(elf) => elf,
-                Err(err) => {
-                    allocator.lock().dealloc_range(boxed_elf_holding);
-                    return Err(err);
-                }
-            }
+            ElfFile::new(boxed_elf)?
         };
 
         // No need to check the ELF magic number because it is already checked in `ElfFile::new`
@@ -458,7 +456,6 @@ impl MemorySpaceBuilder {
         }
 
         unsafe {
-            allocator.lock().dealloc_range(boxed_elf_holding);
             memory_space.init(attr);
         }
 
