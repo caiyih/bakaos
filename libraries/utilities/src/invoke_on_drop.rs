@@ -4,7 +4,7 @@ use core::{
 };
 
 pub struct InvokeOnDrop<T, F: FnOnce(T)> {
-    func: Option<F>,
+    func: ManuallyDrop<F>,
     val: ManuallyDrop<T>,
 }
 
@@ -17,7 +17,7 @@ impl<F: FnOnce(())> InvokeOnDrop<(), F> {
 impl<T, F: FnOnce(T)> InvokeOnDrop<T, F> {
     pub fn transform(val: T, func: F) -> Self {
         InvokeOnDrop {
-            func: Some(func),
+            func: ManuallyDrop::new(func),
             val: ManuallyDrop::new(val),
         }
     }
@@ -25,11 +25,10 @@ impl<T, F: FnOnce(T)> InvokeOnDrop<T, F> {
 
 impl<T, F: FnOnce(T)> Drop for InvokeOnDrop<T, F> {
     fn drop(&mut self) {
-        if let Some(func) = self.func.take() {
-            func(unsafe { ManuallyDrop::take(&mut self.val) });
-        } else {
-            panic!("InvokeOnDrop dropped without func, perhaps it was already dropped?");
-        }
+        let func = unsafe { ManuallyDrop::take(&mut self.func) };
+        let val = unsafe { ManuallyDrop::take(&mut self.val) };
+
+        func(val);
     }
 }
 
