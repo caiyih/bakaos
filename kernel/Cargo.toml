@@ -18,6 +18,7 @@ allocation-abstractions = { path = "dependencies/libraries/allocation-abstractio
 filesystem-abstractions = { path = "dependencies/libraries/filesystem-abstractions" }
 mmu-abstractions = { path = "dependencies/libraries/mmu-abstractions" }
 task-abstractions = { path = "dependencies/libraries/task-abstractions" }
+linux-task-abstractions = { path = "dependencies/libraries/linux-task-abstractions" }
 linux-task = { path = "dependencies/libraries/linux-task" }
 mmu-native = { path = "dependencies/libraries/mmu-native" }
 threading = { path = "dependencies/libraries/threading" }
