@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+utilities = { path = "../utilities", default-features = false }
 constants = { path = "../constants", default-features = false }
 address = { path = "../address", default-features = false }
 abstractions = { path = "../abstractions", default-features = false }
