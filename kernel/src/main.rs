@@ -7,13 +7,13 @@
 
 use core::{ops::Deref, ptr::addr_of};
 
-use ::syscalls::{ISyscallResult, SyscallContext};
 use abstractions::IUsizeAlias;
 use address::{PhysicalAddress, VirtualAddress, VirtualAddressRange};
 use alloc::sync::Arc;
 use allocation::FrameAllocator;
 use hermit_sync::SpinMutex;
 use kernel_abstractions::IKernel;
+use linux_syscalls::{ISyscallResult, SyscallContext};
 use memory_space::MemorySpaceBuilder;
 use mmu_abstractions::IMMU;
 use mmu_native::PageTable;
