@@ -17,9 +17,8 @@ jobs:
         target:
           # The triplet of cross platform check needs to match `runs-on`
           - { prettyname: Cross Platform, triplet: x86_64-unknown-linux-gnu, cwd: '.' }
-          # Temporarily disabled until the kernel does not relies on outside files
-          # - { prettyname: RISC-V64, triplet: riscv64gc-unknown-none-elf, cwd: 'kernel' }
-          # - { prettyname: LoongArch64, triplet: loongarch64-unknown-none, cwd: 'kernel' }
+          - { prettyname: RISC-V64, triplet: riscv64gc-unknown-none-elf, cwd: 'kernel' }
+          - { prettyname: LoongArch64, triplet: loongarch64-unknown-none, cwd: 'kernel' }
 
     steps:
       - name: Checkout repository
@@ -34,6 +33,14 @@ jobs:
       - name: Remove rust-toolchain.toml
         shell: bash
         run: rm rust-toolchain.toml
+
+      # This is a workaround to make kernel compile without building a user program.
+      - name: Apply workaround
+        shell: bash
+        run: |
+          cd hello-world
+          touch hello-la
+          touch hello-rv
 
       # Some of the libraries requires source generation
       # We have to compile them so that the required code are generated
