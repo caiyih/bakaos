@@ -8,6 +8,29 @@ env:
   CARGO_TERM_COLOR: "always"
 
 jobs:
+  line-ending:
+    name: Line Ending
+    runs-on: ubuntu-latest
+    steps:
+      - name: Disable Git Line Ending Conversion
+        run: git config --global core.autocrlf false
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Line Ending
+        shell: bash
+        run: |
+          # LICENSE should be excluded
+          rm LICENSE
+
+          CRLF_FILES=$(find . -type f -not -path '*/.git/*' -exec file "{}" ";" | grep -l "CRLF")
+          if [[ -n "$CRLF_FILES" ]]; then
+            echo "CRLF line endings found in the following files:"
+            echo "$CRLF_FILES"
+            exit 1
+          fi
+
   inspect:
     name: Inspect
     runs-on: ubuntu-latest
@@ -21,9 +44,6 @@ jobs:
           - { prettyname: LoongArch64, triplet: loongarch64-unknown-none, cwd: 'kernel' }
 
     steps:
-      - name: Disable Git Line Ending Conversion
-        run: git config --global core.autocrlf false
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -62,32 +82,11 @@ jobs:
         if: ${{ success() || failure() }}
         run: cargo clippy --target ${{ matrix.target.triplet }} -- -D warnings
 
-      - name: Line Ending
-        id: line-ending
-        shell: bash
-        if: ${{ always() }}
-        run: |
-          # LICENSE should be excluded
-          rm LICENSE
-
-          FILE=$(mktemp)
-          find . -not -type d -exec file "{}" ";" | grep CRLF | tee $FILE
-
-          if [[ -s $FILE ]]; then
-            echo "::error::CRLF line endings found."
-            exit 1
-          fi
-
       - name: Conclude
         if: ${{ always() }}
         shell: bash
         run: |
           failed=0
-
-          if [[ "${{ steps.line-ending.outcome }}" == "failure" ]]; then
-            echo "Line ending failed"
-            failed=1
-          fi
 
           if [[ "${{ steps.inspect.outcome }}" == "failure" ]]; then
             echo "Inspect failed"
