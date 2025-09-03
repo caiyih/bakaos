@@ -1,3 +1,42 @@
+use core::ops::{Deref, DerefMut};
+
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
+
+pub struct AuxVec {
+    map: BTreeMap<AuxVecKey, usize>,
+}
+
+impl AuxVec {
+    pub fn new() -> Self {
+        Self {
+            map: BTreeMap::new(),
+        }
+    }
+}
+
+impl Deref for AuxVec {
+    type Target = BTreeMap<AuxVecKey, usize>;
+    fn deref(&self) -> &Self::Target {
+        &self.map
+    }
+}
+
+impl DerefMut for AuxVec {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.map
+    }
+}
+
+impl From<AuxVec> for Vec<AuxVecEntry> {
+    fn from(value: AuxVec) -> Self {
+        value
+            .map
+            .into_iter()
+            .map(|(k, v)| AuxVecEntry::new(k, v))
+            .collect()
+    }
+}
+
 #[repr(usize)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[allow(non_camel_case_types)]
