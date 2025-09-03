@@ -343,30 +343,30 @@ impl LinuxLoader {
             phdr = implied_ph + elf_info.header.pt2.ph_offset() as usize
         }
 
-        auxv.push(AuxVecEntry::new(AT_PHDR, phdr.as_usize()));
+        auxv.push(AuxVecEntry::new(AuxVecKey::AT_PHDR, phdr.as_usize()));
         auxv.push(AuxVecEntry::new(
-            AT_PHENT,
+            AuxVecKey::AT_PHENT,
             elf_info.header.pt2.ph_entry_size() as usize,
         ));
         auxv.push(AuxVecEntry::new(
-            AT_PHNUM,
+            AuxVecKey::AT_PHNUM,
             elf_info.header.pt2.ph_count() as usize,
         ));
-        auxv.push(AuxVecEntry::new(AT_PAGESZ, constants::PAGE_SIZE));
-        auxv.push(AuxVecEntry::new(AT_BASE, 0));
-        auxv.push(AuxVecEntry::new(AT_FLAGS, 0));
+        auxv.push(AuxVecEntry::new(AuxVecKey::AT_PAGESZ, constants::PAGE_SIZE));
+        auxv.push(AuxVecEntry::new(AuxVecKey::AT_BASE, 0));
+        auxv.push(AuxVecEntry::new(AuxVecKey::AT_FLAGS, 0));
         auxv.push(AuxVecEntry::new(
-            AT_ENTRY, // always the main program's entry point
+            AuxVecKey::AT_ENTRY, // always the main program's entry point
             elf_info.header.pt2.entry_point() as usize,
         ));
-        auxv.push(AuxVecEntry::new(AT_UID, 0));
-        auxv.push(AuxVecEntry::new(AT_EUID, 0));
-        auxv.push(AuxVecEntry::new(AT_GID, 0));
-        auxv.push(AuxVecEntry::new(AT_EGID, 0));
-        auxv.push(AuxVecEntry::new(AT_HWCAP, 0));
+        auxv.push(AuxVecEntry::new(AuxVecKey::AT_UID, 0));
+        auxv.push(AuxVecEntry::new(AuxVecKey::AT_EUID, 0));
+        auxv.push(AuxVecEntry::new(AuxVecKey::AT_GID, 0));
+        auxv.push(AuxVecEntry::new(AuxVecKey::AT_EGID, 0));
+        auxv.push(AuxVecEntry::new(AuxVecKey::AT_HWCAP, 0));
         // FIXME: Decouple the IMachine to separate crate and load the machine specific values
-        auxv.push(AuxVecEntry::new(AT_CLKTCK, 125000000usize));
-        auxv.push(AuxVecEntry::new(AT_SECURE, 0));
+        auxv.push(AuxVecEntry::new(AuxVecKey::AT_CLKTCK, 125000000usize));
+        auxv.push(AuxVecEntry::new(AuxVecKey::AT_SECURE, 0));
 
         // Reserved for signal trampoline
         max_end_vpn += 1;
@@ -532,10 +532,10 @@ impl LinuxLoader {
         debug_assert!(self.stack_top.as_usize().is_multiple_of(16));
 
         // Step5: setup aux vector
-        self.push(AuxVecEntry::new(AT_NULL, 0));
+        self.push(AuxVecEntry::new(AuxVecKey::AT_NULL, 0));
 
         self.push(aux_random_base);
-        self.push(AT_RANDOM);
+        self.push(AuxVecKey::AT_RANDOM);
 
         // Move auxv out of self
         let auxv = core::mem::take(&mut self.auxv);
@@ -543,7 +543,7 @@ impl LinuxLoader {
         // Push other auxv entries
         for aux in auxv.iter().rev() {
             self.push(aux.value);
-            self.push(aux.key.0);
+            self.push(aux.key);
         }
 
         // Step6: setup envp vector

@@ -1,30 +1,54 @@
-#[repr(transparent)]
+#[repr(usize)]
 #[derive(Debug, Clone, Copy)]
-pub struct AuxVecKey(pub usize);
-
-pub const AT_NULL: AuxVecKey = AuxVecKey(0); // end of vector
-pub const AT_IGNORE: AuxVecKey = AuxVecKey(1); // entry should be ignored
-pub const AT_EXECFD: AuxVecKey = AuxVecKey(2); // file descriptor of program
-pub const AT_NOTELF: AuxVecKey = AuxVecKey(10); // program is not ELF
-pub const AT_PLATFORM: AuxVecKey = AuxVecKey(15); // string identifying CPU for optimizations
-pub const AT_BASE_PLATFORM: AuxVecKey = AuxVecKey(24); // string identifying real platform, may differ from AT_PLATFORM.
-pub const AT_HWCAP2: AuxVecKey = AuxVecKey(26); // extension of AT_HWCAP
-pub const AT_EXECFN: AuxVecKey = AuxVecKey(31); // filename of program
-pub const AT_PHDR: AuxVecKey = AuxVecKey(3); // program headers for program
-pub const AT_PHENT: AuxVecKey = AuxVecKey(4); // size of program header entry
-pub const AT_PHNUM: AuxVecKey = AuxVecKey(5); // number of program headers
-pub const AT_PAGESZ: AuxVecKey = AuxVecKey(6); // system page size
-pub const AT_BASE: AuxVecKey = AuxVecKey(7); // base address of interpreter
-pub const AT_FLAGS: AuxVecKey = AuxVecKey(8); // flags
-pub const AT_ENTRY: AuxVecKey = AuxVecKey(9); // entry point of program
-pub const AT_UID: AuxVecKey = AuxVecKey(11); // real uid
-pub const AT_EUID: AuxVecKey = AuxVecKey(12); // effective uid
-pub const AT_GID: AuxVecKey = AuxVecKey(13); // real gid
-pub const AT_EGID: AuxVecKey = AuxVecKey(14); // effective gid
-pub const AT_HWCAP: AuxVecKey = AuxVecKey(16); // arch dependent hints at CPU capabilities
-pub const AT_CLKTCK: AuxVecKey = AuxVecKey(17); // frequency at which times() increments
-pub const AT_SECURE: AuxVecKey = AuxVecKey(23); // secure mode boolean
-pub const AT_RANDOM: AuxVecKey = AuxVecKey(25); // address of 16 random bytes
+#[allow(non_camel_case_types)]
+pub enum AuxVecKey {
+    /// End of vector
+    AT_NULL = 0,
+    /// Entry should be ignored
+    AT_IGNORE = 1,
+    /// File descriptor of program
+    AT_EXECFD = 2,
+    /// Program headers for program
+    AT_PHDR = 3,
+    /// Size of program header entry
+    AT_PHENT = 4,
+    /// Number of program headers
+    AT_PHNUM = 5,
+    /// System page size
+    AT_PAGESZ = 6,
+    /// Base address of interpreter
+    AT_BASE = 7,
+    /// Flags
+    AT_FLAGS = 8,
+    /// Entry point of program
+    AT_ENTRY = 9,
+    /// Program is not ELF
+    AT_NOTELF = 10,
+    /// Real uid
+    AT_UID = 11,
+    /// Effective uid
+    AT_EUID = 12,
+    /// Real gid
+    AT_GID = 13,
+    /// Effective gid
+    AT_EGID = 14,
+    /// String identifying CPU for optimizations
+    AT_PLATFORM = 15,
+    /// Arch dependent hints at CPU capabilities
+    AT_HWCAP = 16,
+    /// Frequency at which times() increments
+    AT_CLKTCK = 17,
+    /// Secure mode boolean
+    AT_SECURE = 23,
+    /// String identifying real platform, may differ from AT_PLATFORM.
+    AT_BASE_PLATFORM = 24,
+    /// Address of 16 random bytes
+    AT_RANDOM = 25,
+    /// Extension of AT_HWCAP
+    AT_HWCAP2 = 26,
+    /// Filename of program
+    AT_EXECFN = 31,
+}
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
