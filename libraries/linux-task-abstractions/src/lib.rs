@@ -5,7 +5,7 @@ extern crate alloc;
 use core::ops::{Deref, DerefMut};
 
 use alloc::sync::Arc;
-use memory_space_abstractions::MemorySpace;
+use memory_space::MemorySpace;
 use task_abstractions::{IProcess, ITask};
 
 pub trait ILinuxProcess: IProcess {

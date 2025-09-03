@@ -8,7 +8,7 @@ use allocation_abstractions::IFrameAllocator;
 use filesystem_abstractions::{DirectoryTreeNode, IInode};
 use hermit_sync::SpinMutex;
 use log::{debug, warn};
-use memory_space_abstractions::{
+use memory_space::{
     AreaType, MapType, MappingArea, MemorySpace, MemorySpaceAttribute,
 };
 use mmu_abstractions::{GenericMappingFlags, IMMU};

@@ -4,7 +4,7 @@ use address::{
 };
 use alloc::vec::Vec;
 use constants::SyscallError;
-use memory_space_abstractions::{AreaType, MapType, MappingArea, MemorySpace};
+use memory_space::{AreaType, MapType, MappingArea, MemorySpace};
 use mmap_abstractions::{MemoryMapFlags, MemoryMapProt};
 use mmu_abstractions::GenericMappingFlags;
 
@@ -161,7 +161,7 @@ mod tests {
     use allocation_abstractions::IFrameAllocator;
     use hermit_sync::SpinMutex;
     use kernel_abstractions::IKernel;
-    use memory_space_abstractions::{MappingAreaAllocation, MemorySpace};
+    use memory_space::{MappingAreaAllocation, MemorySpace};
     use mmap_abstractions::MemoryMapProt;
     use mmu_abstractions::IMMU;
     use test_utilities::{

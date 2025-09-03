@@ -13,7 +13,7 @@ abstractions = { path = "../abstractions", default-features = false }
 mmu-abstractions = { path = "../mmu-abstractions" }
 allocation-abstractions = { path = "../allocation-abstractions", default-features = false }
 filesystem-abstractions = { path = "../filesystem-abstractions", default-features = false }
-memory-space-abstractions = { path = "../memory-space-abstractions", default-features = false }
+memory-space = { path = "../memory-space", default-features = false }
 
 bitflags = "2.9"
 xmas-elf = "0.10"

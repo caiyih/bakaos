@@ -21,7 +21,7 @@ members = [
     "libraries/platform-specific",
     "libraries/allocation-abstractions",
     "libraries/mmu-abstractions",
-    "libraries/memory-space-abstractions",
+    "libraries/memory-space",
     "libraries/mmap-abstractions",
     "libraries/task-abstractions",
     "libraries/linux-task-abstractions",

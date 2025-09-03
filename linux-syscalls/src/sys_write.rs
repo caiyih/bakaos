@@ -61,7 +61,7 @@ mod tests {
     use filesystem_abstractions::FileDescriptorTable;
     use hermit_sync::SpinMutex;
     use kernel_abstractions::IKernel;
-    use memory_space_abstractions::MemorySpace;
+    use memory_space::MemorySpace;
     use mmu_abstractions::{GenericMappingFlags, PageSize, IMMU};
     use test_utilities::{
         allocation::contiguous::TestFrameAllocator, kernel::TestKernel, task::TestProcess,
