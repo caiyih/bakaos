@@ -7,5 +7,7 @@ extern crate alloc;
 
 pub mod auxv;
 mod loader;
+mod process;
 
 pub use loader::*;
+pub use process::*;
