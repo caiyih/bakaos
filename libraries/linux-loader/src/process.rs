@@ -83,4 +83,16 @@ impl<'a> ProcessContext<'a> {
             self.auxv.insert(*key, *value);
         }
     }
+
+    pub fn merge(
+        &mut self,
+        other: ProcessContext<'a>,
+        override_auxv: bool,
+    ) -> Result<(), ProcessContextError> {
+        self.extend_argv(other.argv)?;
+        self.extend_envp(other.envp)?;
+        self.extend_auxv(other.auxv, override_auxv);
+
+        Ok(())
+    }
 }
