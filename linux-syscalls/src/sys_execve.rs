@@ -1,6 +1,7 @@
 use abstractions::IUsizeAlias;
 use address::VirtualAddress;
 use constants::ErrNo;
+use linux_loader::auxv::AuxVec;
 use linux_loader::{ILoadExecutable, LinuxLoader};
 use platform_specific::ITaskContext;
 use platform_specific::TaskTrapContext;
@@ -38,6 +39,7 @@ impl SyscallContext {
             pathname,
             argv,
             envp,
+            AuxVec::default(),
             self.kernel.fs().lock().clone(),
             mmu,
             alloc,

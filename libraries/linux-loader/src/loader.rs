@@ -23,7 +23,7 @@ pub struct LinuxLoader {
     pub argc: usize,
     pub argv_base: VirtualAddress,
     pub envp_base: VirtualAddress,
-    pub auxv: Vec<AuxVecEntry>,
+    pub auxv: AuxVec,
     pub executable: String,
     pub command_line: Vec<String>,
 }
@@ -95,6 +95,7 @@ impl LinuxLoader {
         path: &str,
         args: &[&str],
         envp: &[&str],
+        auxv: AuxVec,
         fs: Arc<DirectoryTreeNode>,
         pt: Arc<SpinMutex<dyn IMMU>>,
         allocator: Arc<SpinMutex<dyn IFrameAllocator>>,
@@ -114,10 +115,10 @@ impl LinuxLoader {
                 aggregate_args
             };
 
-            shebang.init_stack(&args_boxed, envp);
+            shebang.init_stack(&args_boxed, envp, auxv);
             Ok(shebang)
         } else if let Ok(mut elf) = Self::from_elf(data, path, &pt, &allocator) {
-            elf.init_stack(args, envp);
+            elf.init_stack(args, envp, auxv);
             Ok(elf)
         } else {
             Err("Not a valid executable")
@@ -242,7 +243,7 @@ impl LinuxLoader {
         let mut min_start_vpn = VirtualPageNum::from_usize(usize::MAX);
         let mut max_end_vpn = VirtualPageNum::from_usize(0);
 
-        let mut auxv = Vec::new();
+        let mut auxv = AuxVec::new();
 
         let mut implied_ph = VirtualAddress::null();
         let mut phdr = VirtualAddress::null();
@@ -344,30 +345,19 @@ impl LinuxLoader {
             phdr = implied_ph + elf_info.header.pt2.ph_offset() as usize
         }
 
-        auxv.push(AuxVecEntry::new(AuxVecKey::AT_PHDR, phdr.as_usize()));
-        auxv.push(AuxVecEntry::new(
+        auxv.insert(AuxVecKey::AT_PHDR, phdr.as_usize());
+        auxv.insert(
             AuxVecKey::AT_PHENT,
             elf_info.header.pt2.ph_entry_size() as usize,
-        ));
-        auxv.push(AuxVecEntry::new(
-            AuxVecKey::AT_PHNUM,
-            elf_info.header.pt2.ph_count() as usize,
-        ));
-        auxv.push(AuxVecEntry::new(AuxVecKey::AT_PAGESZ, constants::PAGE_SIZE));
-        auxv.push(AuxVecEntry::new(AuxVecKey::AT_BASE, 0));
-        auxv.push(AuxVecEntry::new(AuxVecKey::AT_FLAGS, 0));
-        auxv.push(AuxVecEntry::new(
+        );
+        auxv.insert(AuxVecKey::AT_PHNUM, elf_info.header.pt2.ph_count() as usize);
+        auxv.insert(AuxVecKey::AT_PAGESZ, constants::PAGE_SIZE);
+        auxv.insert(AuxVecKey::AT_BASE, 0); // FIXME: correct value
+        auxv.insert(AuxVecKey::AT_FLAGS, 0);
+        auxv.insert(
             AuxVecKey::AT_ENTRY, // always the main program's entry point
             elf_info.header.pt2.entry_point() as usize,
-        ));
-        auxv.push(AuxVecEntry::new(AuxVecKey::AT_UID, 0));
-        auxv.push(AuxVecEntry::new(AuxVecKey::AT_EUID, 0));
-        auxv.push(AuxVecEntry::new(AuxVecKey::AT_GID, 0));
-        auxv.push(AuxVecEntry::new(AuxVecKey::AT_EGID, 0));
-        auxv.push(AuxVecEntry::new(AuxVecKey::AT_HWCAP, 0));
-        // FIXME: Decouple the IMachine to separate crate and load the machine specific values
-        auxv.push(AuxVecEntry::new(AuxVecKey::AT_CLKTCK, 125000000usize));
-        auxv.push(AuxVecEntry::new(AuxVecKey::AT_SECURE, 0));
+        );
 
         // Reserved for signal trampoline
         max_end_vpn += 1;
@@ -482,7 +472,7 @@ impl LinuxLoader {
         pt.export(self.stack_top, value).unwrap();
     }
 
-    pub fn init_stack(&mut self, args: &[&str], envp: &[&str]) {
+    pub fn init_stack(&mut self, args: &[&str], envp: &[&str], mut auxv: AuxVec) {
         let mut envps = Vec::new(); // envp pointers
 
         // Step1: Copy envp strings vector to the stack
@@ -538,14 +528,24 @@ impl LinuxLoader {
         self.push(aux_random_base);
         self.push(AuxVecKey::AT_RANDOM);
 
-        // Move auxv out of self
-        let auxv = core::mem::take(&mut self.auxv);
+        // Override the specified aux vector entries
+        for (&key, &val) in self.auxv.iter() {
+            auxv.insert(key, val);
+        }
+
+        self.auxv = auxv;
+
+        // Collects the auxv entries in a specific order
+        let auxv = self.auxv.collect();
 
         // Push other auxv entries
-        for aux in auxv.iter().rev() {
+        for aux in auxv.iter() {
             self.push(aux.value);
             self.push(aux.key);
         }
+
+        // Ensure that the last entry is AT_NULL
+        debug_assert_eq!(*self.auxv.iter().last().unwrap().0, AuxVecKey::AT_NULL);
 
         // Step6: setup envp vector
 
