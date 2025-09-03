@@ -16,7 +16,7 @@ use xmas_elf::ElfFile;
 use crate::auxv::*;
 
 // A data structure to build a memory space that is used to create a new process
-pub struct MemorySpaceBuilder {
+pub struct LinuxLoader {
     pub memory_space: MemorySpace,
     pub entry_pc: VirtualAddress,
     pub stack_top: VirtualAddress,
@@ -29,8 +29,8 @@ pub struct MemorySpaceBuilder {
 }
 
 // Fix that `TaskControlBlock::from(memory_space_builder)` complains `Arc<MemorySpaceBuilder>` is not `Send` and `Sync`
-unsafe impl Sync for MemorySpaceBuilder {}
-unsafe impl Send for MemorySpaceBuilder {}
+unsafe impl Sync for LinuxLoader {}
+unsafe impl Send for LinuxLoader {}
 
 pub trait ILoadExecutable {
     fn read_at(&self, offset: usize, buf: &mut [u8]) -> Result<usize, &'static str>;
@@ -88,7 +88,7 @@ impl ILoadExecutable for Arc<DirectoryTreeNode> {
     }
 }
 
-impl MemorySpaceBuilder {
+impl LinuxLoader {
     pub fn from_raw(
         data: &impl ILoadExecutable,
         path: &str,
@@ -153,7 +153,7 @@ impl MemorySpaceBuilder {
             fs: &Arc<DirectoryTreeNode>,
             pt: &Arc<SpinMutex<dyn IMMU>>,
             allocator: &Arc<SpinMutex<dyn IFrameAllocator>>,
-        ) -> Result<(MemorySpaceBuilder, String), &'static str> {
+        ) -> Result<(LinuxLoader, String), &'static str> {
             let shebang = core::str::from_utf8(shebang).map_err(|_| "Not a valid UTF-8 string")?;
 
             let (path, args) = shebang.split_once(' ').unwrap_or((shebang, ""));
@@ -161,7 +161,7 @@ impl MemorySpaceBuilder {
             let interpreter = fs.open(path, None).map_err(|_| "Interpreter not found")?;
 
             Ok((
-                MemorySpaceBuilder::from_elf(&interpreter, path, pt, allocator)?,
+                LinuxLoader::from_elf(&interpreter, path, pt, allocator)?,
                 String::from(args),
             ))
         }
@@ -457,7 +457,7 @@ impl MemorySpaceBuilder {
             memory_space.init(attr);
         }
 
-        Ok(MemorySpaceBuilder {
+        Ok(LinuxLoader {
             memory_space,
             entry_pc,
             stack_top,

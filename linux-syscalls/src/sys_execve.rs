@@ -1,7 +1,7 @@
 use abstractions::IUsizeAlias;
 use address::VirtualAddress;
 use constants::ErrNo;
-use linux_loader::{ILoadExecutable, MemorySpaceBuilder};
+use linux_loader::{ILoadExecutable, LinuxLoader};
 use platform_specific::ITaskContext;
 use platform_specific::TaskTrapContext;
 use task_abstractions::status::TaskStatus;
@@ -33,7 +33,7 @@ impl SyscallContext {
             (mem.mmu().clone(), mem.allocator().clone())
         };
 
-        let builder = MemorySpaceBuilder::from_raw(
+        let loader = LinuxLoader::from_raw(
             &executable,
             pathname,
             argv,
@@ -46,14 +46,14 @@ impl SyscallContext {
 
         let calling_thread = self.task.tid();
 
-        process.execve(builder.memory_space, calling_thread);
+        process.execve(loader.memory_space, calling_thread);
 
         let trap_ctx = TaskTrapContext::new(
-            builder.entry_pc.as_usize(),
-            builder.stack_top.as_usize(),
-            builder.argc,
-            builder.argv_base.as_usize(),
-            builder.envp_base.as_usize(),
+            loader.entry_pc.as_usize(),
+            loader.stack_top.as_usize(),
+            loader.argc,
+            loader.argv_base.as_usize(),
+            loader.envp_base.as_usize(),
         );
 
         self.task.trap_context_mut().copy_from(&trap_ctx);
