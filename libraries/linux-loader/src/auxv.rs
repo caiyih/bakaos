@@ -13,6 +13,17 @@ impl AuxVec {
             map: BTreeMap::new(),
         }
     }
+
+    /// Collects the aux vector entries in reverse order.
+    ///
+    /// The last entry is guaranteed to be AT_NULL(if present).
+    pub fn collect(&self) -> Vec<AuxVecEntry> {
+        self.map
+            .iter()
+            .rev()
+            .map(|(k, v)| AuxVecEntry { key: *k, value: *v })
+            .collect()
+    }
 }
 
 impl Deref for AuxVec {
@@ -25,16 +36,6 @@ impl Deref for AuxVec {
 impl DerefMut for AuxVec {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.map
-    }
-}
-
-impl From<AuxVec> for Vec<AuxVecEntry> {
-    fn from(value: AuxVec) -> Self {
-        value
-            .map
-            .into_iter()
-            .map(|(k, v)| AuxVecEntry::new(k, v))
-            .collect()
     }
 }
 
@@ -100,5 +101,24 @@ pub struct AuxVecEntry {
 impl AuxVecEntry {
     pub const fn new(key: AuxVecKey, val: usize) -> Self {
         AuxVecEntry { key, value: val }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn test_auxv_AT_NULL_is_last() {
+        let mut auxv = AuxVec::new();
+
+        auxv.insert(AuxVecKey::AT_ENTRY, 0x1000);
+        auxv.insert(AuxVecKey::AT_NULL, 0);
+        auxv.insert(AuxVecKey::AT_ENTRY, 0x1000);
+
+        let auxv_entries: Vec<AuxVecEntry> = auxv.collect();
+
+        assert_eq!(auxv_entries.iter().last().unwrap().key, AuxVecKey::AT_NULL);
     }
 }
