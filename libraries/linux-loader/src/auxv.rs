@@ -8,8 +8,10 @@ pub struct AuxVec {
 }
 
 impl AuxVec {
-    pub fn new() -> Self {
-        Self::default()
+    pub const fn new() -> Self {
+        Self {
+            map: BTreeMap::new(),
+        }
     }
 }
 
