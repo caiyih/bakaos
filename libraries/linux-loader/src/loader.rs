@@ -50,9 +50,10 @@ impl ILoadExecutable for &[u8] {
         }
 
         let end = core::cmp::min(self.len(), offset + buf.len());
-        buf[..end].copy_from_slice(&self[offset..end]);
+        let len = end - offset;
+        buf[..len].copy_from_slice(&self[offset..end]);
 
-        Ok(end - offset)
+        Ok(len)
     }
 
     fn len(&self) -> usize {
