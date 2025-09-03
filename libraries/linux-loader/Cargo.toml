@@ -20,9 +20,6 @@ xmas-elf = "0.10"
 log = "0.4.27"
 hermit-sync = "0.1.6"
 
-[target.'cfg(target_os = "none")'.dependencies]
-platform-specific = { path = "../platform-specific", default-features = false }
-
 [features]
 default = ["no_std"]
 std = []
