@@ -2,15 +2,14 @@ use core::ops::{Deref, DerefMut};
 
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 
+#[derive(Debug, Default, Clone)]
 pub struct AuxVec {
     map: BTreeMap<AuxVecKey, usize>,
 }
 
 impl AuxVec {
     pub fn new() -> Self {
-        Self {
-            map: BTreeMap::new(),
-        }
+        Self::default()
     }
 }
 
