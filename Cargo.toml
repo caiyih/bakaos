@@ -12,7 +12,7 @@ members = [
     "libraries/constants",
     "libraries/unwinding",
     "libraries/allocation",
-    "libraries/memory-space",
+    "libraries/linux-loader",
     "libraries/mmu-native",
     "libraries/linux-task",
     "libraries/abstractions",

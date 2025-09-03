@@ -18,7 +18,7 @@ kernel-abstractions = { path = "../libraries/kernel-abstractions", default-featu
 filesystem-abstractions = { path = "../libraries/filesystem-abstractions", default-features = false }
 task-abstractions = { path = "../libraries/task-abstractions", default-features = false }
 memory-space-abstractions = { path = "../libraries/memory-space-abstractions", default-features = false }
-memory-space = { path = "../libraries/memory-space", default-features = false }
+linux-loader = { path = "../libraries/linux-loader", default-features = false }
 mmu-abstractions = { path = "../libraries/mmu-abstractions", default-features = false }
 mmap-abstractions = { path = "../libraries/mmap-abstractions", default-features = false }
 allocation-abstractions = { path = "../libraries/allocation-abstractions", default-features = false }

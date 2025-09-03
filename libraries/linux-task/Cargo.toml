@@ -13,7 +13,7 @@ filesystem-abstractions = { path = "../filesystem-abstractions", default-feature
 trap-abstractions = { path = "../trap-abstractions", default-features = false }
 task-abstractions = { path = "../task-abstractions", default-features = false }
 mmu-abstractions = { path = "../mmu-abstractions", default-features = false }
-memory-space = { path = "../memory-space", default-features = false }
+linux-loader = { path = "../linux-loader", default-features = false }
 
 address = { path = "../address", default-features = false }
 abstractions = { path = "../abstractions", default-features = false }

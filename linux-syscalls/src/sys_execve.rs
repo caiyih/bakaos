@@ -1,7 +1,7 @@
 use abstractions::IUsizeAlias;
 use address::VirtualAddress;
 use constants::ErrNo;
-use memory_space::{ILoadExecutable, MemorySpaceBuilder};
+use linux_loader::{ILoadExecutable, MemorySpaceBuilder};
 use platform_specific::ITaskContext;
 use platform_specific::TaskTrapContext;
 use task_abstractions::status::TaskStatus;

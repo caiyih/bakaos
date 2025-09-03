@@ -11,7 +11,7 @@ use abstractions::operations::IUsizeAlias;
 use filesystem_abstractions::FileDescriptorTable;
 use hermit_sync::SpinMutex;
 use linux_task_abstractions::ILinuxProcess;
-use memory_space::MemorySpaceBuilder;
+use linux_loader::MemorySpaceBuilder;
 use memory_space_abstractions::MemorySpace;
 use mmu_abstractions::IMMU;
 use platform_specific::{ITaskContext, TaskTrapContext};

@@ -16,7 +16,7 @@ use kernel_abstractions::IKernel;
 use linux_syscalls::{ISyscallResult, SyscallContext};
 use linux_task::LinuxProcess;
 use linux_task_abstractions::ILinuxTask;
-use memory_space::MemorySpaceBuilder;
+use linux_loader::MemorySpaceBuilder;
 use mmu_abstractions::IMMU;
 use mmu_native::PageTable;
 use platform_abstractions::{return_to_user, UserInterrupt};
