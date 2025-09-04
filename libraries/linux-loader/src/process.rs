@@ -61,23 +61,23 @@ impl ProcessContext<'_> {
 
 impl<'a> ProcessContext<'a> {
     /// Extends the argv with the given argv.
-    pub fn extend_argv(&mut self, argv: Vec<Cow<'a, str>>) -> Result<(), ProcessContextError> {
+    pub fn extend_argv(&mut self, argv: &[Cow<'a, str>]) -> Result<(), ProcessContextError> {
         if argv.len() + self.argv.len() > self.limit.argv {
             return Err(ProcessContextError::ArgumentCountExceeded);
         }
 
-        self.argv.extend(argv);
+        self.argv.extend_from_slice(argv);
 
         Ok(())
     }
 
     /// Extends the envp with the given envp.
-    pub fn extend_envp(&mut self, envp: Vec<Cow<'a, str>>) -> Result<(), ProcessContextError> {
+    pub fn extend_envp(&mut self, envp: &[Cow<'a, str>]) -> Result<(), ProcessContextError> {
         if envp.len() + self.envp.len() > self.limit.envp {
             return Err(ProcessContextError::EnvironmentCountExceeded);
         }
 
-        self.envp.extend(envp);
+        self.envp.extend_from_slice(envp);
 
         Ok(())
     }
@@ -100,10 +100,21 @@ impl<'a> ProcessContext<'a> {
         other: ProcessContext<'a>,
         override_auxv: bool,
     ) -> Result<(), ProcessContextError> {
-        self.extend_argv(other.argv)?;
-        self.extend_envp(other.envp)?;
+        self.extend_argv(&other.argv)?;
+        self.extend_envp(&other.envp)?;
         self.extend_auxv(other.auxv, override_auxv);
 
         Ok(())
+    }
+}
+
+impl Default for ProcessContext<'_> {
+    fn default() -> Self {
+        ProcessContext {
+            argv: Vec::new(),
+            envp: Vec::new(),
+            auxv: AuxVec::default(),
+            limit: ProcessContextLengthLimit::Unlimited,
+        }
     }
 }
