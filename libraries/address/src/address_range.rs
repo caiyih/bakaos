@@ -68,19 +68,19 @@ where
         self.start <= addr && addr < self.end
     }
 
-    pub fn contains_range(&self, other: &AddressRange<T>) -> bool {
+    pub fn contains_range(&self, other: AddressRange<T>) -> bool {
         self.start <= other.start && other.end <= self.end
     }
 
-    pub fn contained_by(&self, other: &AddressRange<T>) -> bool {
-        other.contains_range(self)
+    pub fn contained_by(&self, other: AddressRange<T>) -> bool {
+        other.contains_range(*self)
     }
 
-    pub fn intersects(&self, other: &AddressRange<T>) -> bool {
+    pub fn intersects(&self, other: AddressRange<T>) -> bool {
         self.start < other.end && other.start < self.end
     }
 
-    pub fn intersection(&self, other: &AddressRange<T>) -> Option<AddressRange<T>> {
+    pub fn intersection(&self, other: AddressRange<T>) -> Option<AddressRange<T>> {
         if self.intersects(other) {
             Some(AddressRange {
                 start: core::cmp::max(self.start, other.start),
@@ -91,7 +91,7 @@ where
         }
     }
 
-    pub fn union(&self, other: &AddressRange<T>) -> AddressRange<T> {
+    pub fn union(&self, other: AddressRange<T>) -> AddressRange<T> {
         AddressRange {
             start: core::cmp::min(self.start, other.start),
             end: core::cmp::max(self.end, other.end),
