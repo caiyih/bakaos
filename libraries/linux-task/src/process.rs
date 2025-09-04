@@ -143,12 +143,12 @@ impl ILinuxProcess for LinuxProcess {
     }
 }
 
-fn create_task_context(builder: &LinuxLoader) -> TaskTrapContext {
+fn create_task_context(loader: &LinuxLoader) -> TaskTrapContext {
     TaskTrapContext::new(
-        builder.entry_pc.as_usize(),
-        builder.stack_top.as_usize(),
-        builder.argc,
-        builder.argv_base.as_usize(),
-        builder.envp_base.as_usize(),
+        loader.entry_pc.as_usize(),
+        loader.stack_top.as_usize(),
+        loader.ctx.argv.len(),
+        loader.argv_base.as_usize(),
+        loader.envp_base.as_usize(),
     )
 }

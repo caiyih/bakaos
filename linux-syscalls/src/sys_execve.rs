@@ -1,8 +1,7 @@
 use abstractions::IUsizeAlias;
 use address::VirtualAddress;
 use constants::ErrNo;
-use linux_loader::auxv::AuxVec;
-use linux_loader::{ILoadExecutable, LinuxLoader};
+use linux_loader::{ILoadExecutable, LinuxLoader, ProcessContext};
 use platform_specific::ITaskContext;
 use platform_specific::TaskTrapContext;
 use task_abstractions::status::TaskStatus;
@@ -34,12 +33,16 @@ impl SyscallContext {
             (mem.mmu().clone(), mem.allocator().clone())
         };
 
+        let mut process_ctx = ProcessContext::new();
+
+        // FIXME: Pass argv, envp
+
+        // TODO: resolve machine's information and pass it to auxv
+
         let loader = LinuxLoader::from_raw(
             &executable,
             pathname,
-            argv,
-            envp,
-            AuxVec::default(),
+            process_ctx,
             self.kernel.fs().lock().clone(),
             mmu,
             alloc,
@@ -53,7 +56,7 @@ impl SyscallContext {
         let trap_ctx = TaskTrapContext::new(
             loader.entry_pc.as_usize(),
             loader.stack_top.as_usize(),
-            loader.argc,
+            loader.ctx.argv.len(),
             loader.argv_base.as_usize(),
             loader.envp_base.as_usize(),
         );
