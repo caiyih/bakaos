@@ -10,7 +10,7 @@ use log::trace;
 use memory_space::{AreaType, MapType, MappingArea, MemorySpace, MemorySpaceAttribute};
 use mmu_abstractions::{GenericMappingFlags, IMMU};
 use utilities::InvokeOnDrop;
-use xmas_elf::ElfFile;
+use xmas_elf::{program::ProgramHeader, ElfFile};
 
 use crate::{
     auxv::{AuxVec, AuxVecKey},
@@ -149,9 +149,34 @@ impl<'a> LinuxLoader<'a> {
                 None,
             ));
 
-            let data = &boxed_elf[ph.offset() as usize..(ph.offset() + ph.file_size()) as usize];
+            fn copy_elf_segment(
+                elf: &[u8],
+                ph: &ProgramHeader,
+                vaddr: VirtualAddress,
+                mmu: &Arc<SpinMutex<dyn IMMU>>,
+            ) -> Result<(), &'static str> {
+                let file_sz = ph.file_size() as usize;
 
-            mmu.lock().write_bytes(start, data).unwrap();
+                if file_sz > 0 {
+                    let off = ph.offset() as usize;
+                    let end = off
+                        .checked_add(file_sz)
+                        .ok_or_else(|| "ELF segment size overflow")?;
+                    if end > elf.len() {
+                        return Err("ELF segment out of bounds");
+                    }
+                    let data = &elf[off..end];
+                    mmu.lock()
+                        .write_bytes(vaddr, data)
+                        .map_err(|_| "Failed to write segment")?;
+                }
+
+                Ok(())
+            }
+
+            if let Err(msg) = copy_elf_segment(boxed_elf, &ph, start, mmu) {
+                return Err(LoadError::new(msg, ctx));
+            }
         }
 
         for interp in interpreters {
