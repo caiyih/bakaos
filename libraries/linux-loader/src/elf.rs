@@ -12,16 +12,13 @@ use mmu_abstractions::{GenericMappingFlags, IMMU};
 use utilities::InvokeOnDrop;
 use xmas_elf::{program::ProgramHeader, ElfFile};
 
-use crate::{
-    auxv::{AuxVec, AuxVecKey},
-    ILoadExecutable, LinuxLoader, LoadError, ProcessContext,
-};
+use crate::{auxv::AuxVecKey, ILoadExecutable, LinuxLoader, LoadError, ProcessContext};
 
 impl<'a> LinuxLoader<'a> {
     pub fn from_elf(
         elf_data: &impl ILoadExecutable,
         path: &str,
-        ctx: ProcessContext<'a>,
+        mut ctx: ProcessContext<'a>,
         mmu: &Arc<SpinMutex<dyn IMMU>>,
         alloc: &Arc<SpinMutex<dyn IFrameAllocator>>,
     ) -> Result<Self, LoadError<'a>> {
@@ -72,8 +69,6 @@ impl<'a> LinuxLoader<'a> {
 
         let mut min_start_vpn = VirtualPageNum::from_usize(usize::MAX);
         let mut max_end_vpn = VirtualPageNum::from_usize(0);
-
-        let mut auxv = AuxVec::new();
 
         let mut implied_ph = VirtualAddress::null();
         let mut phdr = VirtualAddress::null();
@@ -200,16 +195,17 @@ impl<'a> LinuxLoader<'a> {
             phdr = implied_ph + elf_info.header.pt2.ph_offset() as usize
         }
 
-        auxv.insert(AuxVecKey::AT_PHDR, phdr.as_usize());
-        auxv.insert(
+        ctx.auxv.insert(AuxVecKey::AT_PHDR, phdr.as_usize());
+        ctx.auxv.insert(
             AuxVecKey::AT_PHENT,
             elf_info.header.pt2.ph_entry_size() as usize,
         );
-        auxv.insert(AuxVecKey::AT_PHNUM, elf_info.header.pt2.ph_count() as usize);
-        auxv.insert(AuxVecKey::AT_PAGESZ, constants::PAGE_SIZE);
-        auxv.insert(AuxVecKey::AT_BASE, 0); // FIXME: correct value
-        auxv.insert(AuxVecKey::AT_FLAGS, 0);
-        auxv.insert(
+        ctx.auxv
+            .insert(AuxVecKey::AT_PHNUM, elf_info.header.pt2.ph_count() as usize);
+        ctx.auxv.insert(AuxVecKey::AT_PAGESZ, constants::PAGE_SIZE);
+        ctx.auxv.insert(AuxVecKey::AT_BASE, 0); // FIXME: correct value
+        ctx.auxv.insert(AuxVecKey::AT_FLAGS, 0);
+        ctx.auxv.insert(
             AuxVecKey::AT_ENTRY, // always the main program's entry point
             elf_info.header.pt2.entry_point() as usize,
         );
