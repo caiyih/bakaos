@@ -156,7 +156,7 @@ impl<'a> LinuxLoader<'a> {
                     let off = ph.offset() as usize;
                     let end = off
                         .checked_add(file_sz)
-                        .ok_or_else(|| "ELF segment size overflow")?;
+                        .ok_or("ELF segment size overflow")?;
                     if end > elf.len() {
                         return Err("ELF segment out of bounds");
                     }
