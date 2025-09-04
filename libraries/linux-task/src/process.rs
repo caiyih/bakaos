@@ -10,9 +10,9 @@ use alloc::{
 use abstractions::operations::IUsizeAlias;
 use filesystem_abstractions::FileDescriptorTable;
 use hermit_sync::SpinMutex;
+use linux_loader::LinuxLoader;
 use linux_task_abstractions::ILinuxProcess;
-use memory_space::MemorySpaceBuilder;
-use memory_space_abstractions::MemorySpace;
+use memory_space::MemorySpace;
 use mmu_abstractions::IMMU;
 use platform_specific::{ITaskContext, TaskTrapContext};
 use task_abstractions::{IProcess, ITask, ITaskIdAllocator, TaskId};
@@ -37,8 +37,40 @@ unsafe impl Send for LinuxProcess {}
 unsafe impl Sync for LinuxProcess {}
 
 impl LinuxProcess {
+    /// Create a new Linux process and its initial (main) thread.
+    ///
+    /// This consumes the provided `LinuxLoader`, allocates process and thread IDs,
+    /// builds the main thread's trap context from the loader, registers the kernel
+    /// address space for the process page table, clones the loader's MMU into the
+    /// process, and returns the handle to the main `LinuxTask`. The loader's
+    /// `memory_space` is moved into the new process.
+    ///
+    /// # Parameters
+    ///
+    /// - `builder`: the `LinuxLoader` whose entry, stack, argv/env and memory space
+    ///   are used to initialize the main thread and process. It is consumed.
+    /// - `tid`: an initial task id used to seed the internal `TaskIdAllocator`.
+    ///
+    /// # Returns
+    ///
+    /// An `Arc<LinuxTask>` pointing to the newly created main thread for the process.
+    ///
+    /// # Notes
+    ///
+    /// - The returned `LinuxTask`'s `process` field is populated to reference the
+    ///   newly created process.
+    /// - This function performs platform-specific kernel-area registration for the
+    ///   process page table as a side effect.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // Given a prepared `loader: LinuxLoader` and an initial tid seed:
+    /// // let main_thread = LinuxProcess::new(loader, 1);
+    /// // assert_eq!(main_thread.process().pid(), /* some pid value */);
+    /// ```
     #[allow(clippy::new_ret_no_self)]
-    pub fn new(builder: MemorySpaceBuilder, tid: u32) -> Arc<LinuxTask> {
+    pub fn new(builder: LinuxLoader, tid: u32) -> Arc<LinuxTask> {
         let id_allocator = TaskIdAllocator::new(tid);
 
         let tid = id_allocator.clone().alloc();
@@ -129,6 +161,25 @@ impl IProcess for LinuxProcess {
 }
 
 impl ILinuxProcess for LinuxProcess {
+    /// Replace the process memory image with `mem`, keep only the calling thread, and clear exec-related FD state.
+    ///
+    /// This updates the process's MMU to `mem.mmu()` and replaces the process's owned `MemorySpace` with `mem`.
+    /// It then locates the thread whose `tid()` equals `calling` and replaces the process's thread list with a
+    /// single clone of that thread. Finally, it clears any exec-specific state in the process's file descriptor table.
+    ///
+    /// Panics:
+    /// - Panics if no thread with the given `calling` tid exists in the process (the function uses `unwrap`).
+    ///
+    /// Parameters:
+    /// - `mem`: the new memory space that becomes this process's address space.
+    /// - `calling`: the tid of the thread that should remain as the sole thread after exec.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// // Replace the process image with `new_space`, keeping thread 42 as the only thread:
+    /// // process.execve(new_space, 42);
+    /// ```
     fn execve(&self, mem: MemorySpace, calling: u32) {
         *self.mmu.borrow_mut() = mem.mmu().clone();
         *self.memory_space.lock() = mem;
@@ -143,12 +194,27 @@ impl ILinuxProcess for LinuxProcess {
     }
 }
 
-fn create_task_context(builder: &MemorySpaceBuilder) -> TaskTrapContext {
+/// Build a TaskTrapContext from a LinuxLoader's entry, stack, and argument/environment layout.
+///
+/// The returned TaskTrapContext is initialized using:
+/// - `entry_pc` as the initial program counter,
+/// - `stack_top` as the initial stack pointer,
+/// - the loader's `ctx.argv.len()` as `argc`,
+/// - `argv_base` and `envp_base` as the base addresses for `argv` and `envp`.
+///
+/// # Examples
+///
+/// ```no_run
+/// // Given a prepared `loader: LinuxLoader`, create the initial trap context:
+/// let ctx = create_task_context(&loader);
+/// // `ctx` is ready to be used for a new task's trap frame / bootstrap.
+/// ```
+fn create_task_context(loader: &LinuxLoader) -> TaskTrapContext {
     TaskTrapContext::new(
-        builder.entry_pc.as_usize(),
-        builder.stack_top.as_usize(),
-        builder.argc,
-        builder.argv_base.as_usize(),
-        builder.envp_base.as_usize(),
+        loader.entry_pc.as_usize(),
+        loader.stack_top.as_usize(),
+        loader.ctx.argv.len(),
+        loader.argv_base.as_usize(),
+        loader.envp_base.as_usize(),
     )
 }

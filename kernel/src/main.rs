@@ -13,10 +13,10 @@ use alloc::sync::Arc;
 use allocation::FrameAllocator;
 use hermit_sync::SpinMutex;
 use kernel_abstractions::IKernel;
+use linux_loader::{LinuxLoader, ProcessContext};
 use linux_syscalls::{ISyscallResult, SyscallContext};
 use linux_task::LinuxProcess;
 use linux_task_abstractions::ILinuxTask;
-use memory_space::MemorySpaceBuilder;
 use mmu_abstractions::IMMU;
 use mmu_native::PageTable;
 use platform_abstractions::{return_to_user, UserInterrupt};
@@ -106,13 +106,31 @@ static ELF: &[u8] = include_bytes!("../../hello-world/hello-la");
 #[cfg(target_arch = "riscv64")]
 static ELF: &[u8] = include_bytes!("../../hello-world/hello-rv");
 
+/// Creates and returns a Linux task initialized from the bundled ELF image.
+///
+/// This sets up a new page-table MMU, builds a process memory layout using
+/// `LinuxLoader::from_elf`, constructs a `LinuxProcess`, and installs a
+/// teletypewriter (TTY) on file descriptors 0, 1 and 2 (stdin/stdout/stderr).
+///
+/// The returned value is an `Arc<dyn ILinuxTask>` ready to be activated by the
+/// kernel's MMU and driven by the runtime.
+///
+/// # Examples
+///
+/// ```no_run
+/// // Given a `kernel: Kernel` available in the environment:
+/// // let task = create_task(&kernel);
+/// // // Activate and run the task as appropriate for the platform.
+/// ```
 fn create_task(kernel: &Kernel) -> Arc<dyn ILinuxTask> {
     let mmu: Arc<SpinMutex<dyn IMMU>> =
         Arc::new(SpinMutex::new(PageTable::alloc(kernel.allocator())));
 
-    let builder = MemorySpaceBuilder::from_elf(&ELF, "", &mmu, &kernel.allocator()).unwrap();
+    let ctx = ProcessContext::new();
 
-    let task = LinuxProcess::new(builder, 0);
+    let loader = LinuxLoader::from_elf(&ELF, "", ctx, &mmu, &kernel.allocator()).unwrap();
+
+    let task = LinuxProcess::new(loader, 0);
     {
         let process = task.process();
 
