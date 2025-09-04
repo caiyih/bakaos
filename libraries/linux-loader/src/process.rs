@@ -16,7 +16,7 @@ impl ProcessContextLengthLimit {
     };
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProcessContextError {
     ArgumentCountExceeded,
     EnvironmentCountExceeded,
@@ -116,5 +116,90 @@ impl Default for ProcessContext<'_> {
             auxv: AuxVec::default(),
             limit: ProcessContextLengthLimit::Unlimited,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use alloc::vec;
+
+    use crate::auxv::AuxVecKey;
+
+    use super::*;
+
+    #[test]
+    fn test_length_limit() {
+        let mut ctx = ProcessContext::new_limited(ProcessContextLengthLimit { argv: 5, envp: 5 });
+
+        assert_eq!(
+            ctx.extend_argv(&vec![Cow::from(""); 10]),
+            Err(ProcessContextError::ArgumentCountExceeded)
+        );
+
+        assert_eq!(
+            ctx.extend_envp(&vec![Cow::from(""); 10]),
+            Err(ProcessContextError::EnvironmentCountExceeded)
+        );
+    }
+
+    #[test]
+    fn test_merge_context() {
+        let mut given = ProcessContext::new();
+        given
+            .extend_argv(&[Cow::from("arg1"), Cow::from("arg2")])
+            .unwrap();
+        given
+            .extend_envp(&[Cow::from("env1"), Cow::from("env2")])
+            .unwrap();
+        given.auxv.insert(AuxVecKey::AT_ENTRY, 0x1000);
+
+        let mut ctx = ProcessContext::new();
+        ctx.extend_argv(&[Cow::from("arg3"), Cow::from("arg4")])
+            .unwrap();
+        ctx.extend_envp(&[Cow::from("env3"), Cow::from("env4")])
+            .unwrap();
+        ctx.auxv.insert(AuxVecKey::AT_ENTRY, 0x2000);
+
+        given.merge(ctx, true).unwrap();
+
+        assert_eq!(
+            given.argv,
+            vec![
+                Cow::from("arg1"),
+                Cow::from("arg2"),
+                Cow::from("arg3"),
+                Cow::from("arg4")
+            ]
+        );
+        assert_eq!(
+            given.envp,
+            vec![
+                Cow::from("env1"),
+                Cow::from("env2"),
+                Cow::from("env3"),
+                Cow::from("env4")
+            ]
+        );
+        assert_eq!(given.auxv.get(&AuxVecKey::AT_ENTRY), Some(&0x2000));
+    }
+
+    #[test]
+    fn test_auxv_entry_overwrite() {
+        let mut given = ProcessContext::new();
+
+        given.auxv.insert(AuxVecKey::AT_NULL, 0);
+        given.auxv.insert(AuxVecKey::AT_ENTRY, 0x1000);
+        given.auxv.insert(AuxVecKey::AT_NOTELF, 1);
+
+        let mut ctx = ProcessContext::new();
+        ctx.auxv.insert(AuxVecKey::AT_ENTRY, 0x2000);
+        ctx.auxv.insert(AuxVecKey::AT_NULL, 0x3000);
+        ctx.auxv.insert(AuxVecKey::AT_NOTELF, 0);
+
+        given.merge(ctx, false).unwrap();
+
+        assert_eq!(given.auxv.get(&AuxVecKey::AT_ENTRY), Some(&0x1000));
+        assert_eq!(given.auxv.get(&AuxVecKey::AT_NULL), Some(&0));
+        assert_eq!(given.auxv.get(&AuxVecKey::AT_NOTELF), Some(&1));
     }
 }
