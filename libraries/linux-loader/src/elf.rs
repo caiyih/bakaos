@@ -128,7 +128,7 @@ impl<'a> LinuxLoader<'a> {
                 segment_permissions |= GenericMappingFlags::Readable;
             }
 
-            if ph.flags().is_write() || ph.get_type() == Ok(xmas_elf::program::Type::GnuRelro) {
+            if ph.flags().is_write() {
                 segment_permissions |= GenericMappingFlags::Writable;
             }
 
