@@ -16,9 +16,20 @@ impl ProcessContextLengthLimit {
     };
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum ProcessContextError {
     ArgumentCountExceeded,
     EnvironmentCountExceeded,
+}
+
+#[allow(clippy::from_over_into)]
+impl Into<&'static str> for ProcessContextError {
+    fn into(self) -> &'static str {
+        match self {
+            ProcessContextError::ArgumentCountExceeded => "Argument count exceeded",
+            ProcessContextError::EnvironmentCountExceeded => "Environment count exceeded",
+        }
+    }
 }
 
 pub struct ProcessContext<'a> {
