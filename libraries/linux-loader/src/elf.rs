@@ -107,7 +107,7 @@ impl<'a> LinuxLoader<'a> {
             let mut end = start + ph.mem_size() as usize;
 
             if start.to_floor_page_num().as_usize() == 0 {
-                pie_offset = 4096;
+                pie_offset = constants::PAGE_SIZE;
             }
 
             if pie_offset != 0 {
