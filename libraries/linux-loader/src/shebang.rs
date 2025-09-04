@@ -17,26 +17,18 @@ impl<'a> LinuxLoader<'a> {
     pub fn from_shebang(
         data: &impl ILoadExecutable,
         path: &str,
-        mut ctx: ProcessContext<'a>,
         fs: Arc<DirectoryTreeNode>,
         mmu: &Arc<SpinMutex<dyn IMMU>>,
         alloc: &Arc<SpinMutex<dyn IFrameAllocator>>,
     ) -> Result<Self, LoadError<'a>> {
+        let mut ctx = ProcessContext::default();
+
         let mut header = [0u8; SHEBANG_MAX_LEN + 2];
-        let len = match data.read_at(0, &mut header) {
-            Ok(len) => len,
-            Err(e) => return Err(LoadError::new(e, ctx)),
-        };
+        let len = data.read_at(0, &mut header).map_err(LoadError::new)?;
 
-        let (file, arg) = match Self::parse_header(&header[..len]) {
-            Ok(x) => x,
-            // Can not use map_err to prevent the closure from capturing the ctx
-            Err(e) => return Err(LoadError::new(e, ctx)),
-        };
+        let (file, arg) = Self::parse_header(&header[..len]).map_err(LoadError::new)?;
 
-        if let Err(e) = Self::push_ctx(&mut ctx, file, &arg, path) {
-            return Err(LoadError::new(e, ctx));
-        }
+        Self::push_ctx(&mut ctx, file, &arg, path).map_err(LoadError::new)?;
 
         Self::load_shebang_script(ctx, file, fs, mmu, alloc)
     }
@@ -111,10 +103,9 @@ impl<'a> LinuxLoader<'a> {
         mmu: &Arc<SpinMutex<dyn IMMU>>,
         alloc: &Arc<SpinMutex<dyn IFrameAllocator>>,
     ) -> Result<Self, LoadError<'a>> {
-        let interpreter = match fs.open(file, None).map_err(|_| "Interpreter not found") {
-            Ok(x) => x,
-            Err(_) => return Err(LoadError::new("No such file", ctx)),
-        };
+        let interpreter = fs
+            .open(file, None)
+            .map_err(|_| LoadError::new("No such file"))?;
 
         Self::from_elf(&interpreter, file, ctx, mmu, alloc)
     }

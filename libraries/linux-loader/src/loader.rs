@@ -87,27 +87,41 @@ impl<'a> LinuxLoader<'a> {
         data: &impl ILoadExecutable,
         path: &str,
         ctx: ProcessContext<'a>,
+        auxv_values: AuxVecValues<'a>,
         fs: Arc<DirectoryTreeNode>,
         mmu: Arc<SpinMutex<dyn IMMU>>,
         alloc: Arc<SpinMutex<dyn IFrameAllocator>>,
     ) -> Result<Self, &'static str> {
-        let ctx = match Self::from_shebang(data, path, ctx, fs, &mmu, &alloc) {
-            Ok(shebang) => return Ok(shebang),
+        fn init<'a>(
+            mut loader: LinuxLoader<'a>,
+            ctx: &ProcessContext<'a>,
+            auxv_values: &AuxVecValues<'a>,
+        ) -> Result<LinuxLoader<'a>, &'static str> {
+            loader.init_stack(ctx, auxv_values)?;
+
+            Ok(loader)
+        }
+
+        match Self::from_shebang(data, path, fs, &mmu, &alloc) {
+            Ok(shebang) => return init(shebang, &ctx, &auxv_values),
             Err(e) => {
                 trace!("Failed to load shebang: {}", e.message);
-                e.ctx
             }
         };
 
-        match LinuxLoader::from_elf(data, path, ctx, &mmu, &alloc) {
-            Ok(elf) => return Ok(elf),
+        match LinuxLoader::from_elf(data, path, ProcessContext::default(), &mmu, &alloc) {
+            Ok(elf) => return init(elf, &ctx, &auxv_values),
             Err(e) => trace!("Failed to load elf: {}", e.message),
         }
 
         Err("Not a valid executable")
     }
 
-    pub fn init_stack(&mut self, ctx: ProcessContext<'a>) -> Result<(), &'static str> {
+    pub fn init_stack(
+        &mut self,
+        ctx: &ProcessContext<'a>,
+        auxv_values: &AuxVecValues<'a>,
+    ) -> Result<(), &'static str> {
         self.ctx.merge(ctx, false).map_err(|e| e.into())?;
         self.ctx.auxv.insert(AuxVecKey::AT_NULL, 0);
 
@@ -139,23 +153,33 @@ impl<'a> LinuxLoader<'a> {
         stack_top = stack_top.align_down(8);
         debug_assert!(stack_top.as_usize().is_multiple_of(8));
 
-        // Step3: Copy PLATFORM string to the stack
-        const PLATFORM: &str = "RISC-V64\0"; // FIXME
-        const PLATFORM_LEN: usize = PLATFORM.len();
-
-        // Ensure that start address of copied PLATFORM is aligned to 8 bytes
-        stack_top -= PLATFORM_LEN;
-        stack_top = stack_top.align_down(8);
-        debug_assert!(stack_top.as_usize().is_multiple_of(8));
-        stack_top += PLATFORM_LEN;
-
-        for byte in PLATFORM.bytes().rev() {
-            self.push(byte, &mut stack_top);
+        // Step3: Copy auxv values to stack, such as AT_RANDOM, AT_PLATFORM
+        if let Some(random) = auxv_values.random {
+            self.push(random, &mut stack_top);
+            self.ctx
+                .auxv
+                .insert(AuxVecKey::AT_RANDOM, stack_top.as_usize());
         }
 
-        self.ctx
-            .auxv
-            .insert(AuxVecKey::AT_PLATFORM, stack_top.as_usize());
+        if let Some(platform) = auxv_values.platform {
+            let len = platform.len() + 1; // null terminated
+
+            // Ensure that start address of copied PLATFORM is aligned to 8 bytes
+            stack_top -= len;
+            stack_top = stack_top.align_down(8);
+            debug_assert!(stack_top.as_usize().is_multiple_of(8));
+            stack_top += len;
+
+            self.push(0, &mut stack_top); // ensure null termination
+
+            for byte in platform.bytes().rev() {
+                self.push(byte, &mut stack_top);
+            }
+
+            self.ctx
+                .auxv
+                .insert(AuxVecKey::AT_PLATFORM, stack_top.as_usize());
+        }
 
         // Step4: setup aux vector
 
@@ -222,12 +246,11 @@ impl<'a> LinuxLoader<'a> {
 
 pub struct LoadError<'a> {
     pub message: &'a str,
-    pub ctx: ProcessContext<'a>,
 }
 
 impl<'a> LoadError<'a> {
-    pub fn new(message: &'a str, ctx: ProcessContext<'a>) -> Self {
-        Self { message, ctx }
+    pub fn new(message: &'a str) -> Self {
+        Self { message }
     }
 }
 

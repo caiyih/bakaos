@@ -1,6 +1,7 @@
 use abstractions::IUsizeAlias;
 use address::VirtualAddress;
 use constants::ErrNo;
+use linux_loader::auxv::AuxVecValues;
 use linux_loader::{ILoadExecutable, LinuxLoader, ProcessContext};
 use platform_specific::ITaskContext;
 use platform_specific::TaskTrapContext;
@@ -43,6 +44,7 @@ impl SyscallContext {
             &executable,
             pathname,
             process_ctx,
+            AuxVecValues::default(), // FIXME
             self.kernel.fs().lock().clone(),
             mmu,
             alloc,

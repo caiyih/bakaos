@@ -33,10 +33,10 @@ impl<'a> LinuxLoader<'a> {
         let elf_info = {
             let required_frames = elf_data.len().div_ceil(constants::PAGE_SIZE);
 
-            let frames = match alloc.lock().alloc_contiguous(required_frames) {
-                Some(x) => x,
-                None => return Err(LoadError::new("Out of memory", ctx)),
-            };
+            let frames = alloc
+                .lock()
+                .alloc_contiguous(required_frames)
+                .ok_or(LoadError::new("Out of memory"))?;
 
             boxed_elf_holding = InvokeOnDrop::transform(frames, |f| alloc.lock().dealloc_range(f));
 
@@ -49,17 +49,13 @@ impl<'a> LinuxLoader<'a> {
                 )
                 .unwrap();
 
-            let len = match elf_data.read_at(0, slice) {
-                Ok(x) => x,
-                Err(_) => return Err(LoadError::new("Invalid ELF file", ctx)),
-            };
+            let len = elf_data
+                .read_at(0, slice)
+                .map_err(|_| LoadError::new("Invalid ELF file"))?;
 
             boxed_elf = &mut slice[..len];
 
-            match ElfFile::new(boxed_elf) {
-                Ok(x) => x,
-                Err(_) => return Err(LoadError::new("Invalid ELF file", ctx)),
-            }
+            ElfFile::new(boxed_elf).map_err(|_| LoadError::new("Invalid ELF file"))?
         };
 
         // No need to check the ELF magic number because it is already checked in `ElfFile::new`
@@ -169,9 +165,7 @@ impl<'a> LinuxLoader<'a> {
                 Ok(())
             }
 
-            if let Err(msg) = copy_elf_segment(boxed_elf, &ph, start, mmu) {
-                return Err(LoadError::new(msg, ctx));
-            }
+            copy_elf_segment(boxed_elf, &ph, start, mmu).map_err(LoadError::new)?;
         }
 
         for interp in interpreters {

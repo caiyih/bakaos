@@ -104,6 +104,12 @@ impl AuxVecEntry {
     }
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct AuxVecValues<'a> {
+    pub random: Option<[u8; 16]>,
+    pub platform: Option<&'a str>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -85,7 +85,7 @@ impl<'a> ProcessContext<'a> {
     /// Extends the auxv with the given auxv.
     ///
     /// If `overwrite` is `true`, the existing auxv entries will be overwritten.
-    pub fn extend_auxv(&mut self, auxv: AuxVec, overwrite: bool) {
+    pub fn extend_auxv(&mut self, auxv: &AuxVec, overwrite: bool) {
         for (key, value) in auxv.iter() {
             if !overwrite && self.auxv.contains_key(key) {
                 continue;
@@ -97,12 +97,12 @@ impl<'a> ProcessContext<'a> {
 
     pub fn merge(
         &mut self,
-        other: ProcessContext<'a>,
+        other: &ProcessContext<'a>,
         override_auxv: bool,
     ) -> Result<(), ProcessContextError> {
         self.extend_argv(&other.argv)?;
         self.extend_envp(&other.envp)?;
-        self.extend_auxv(other.auxv, override_auxv);
+        self.extend_auxv(&other.auxv, override_auxv);
 
         Ok(())
     }
@@ -160,7 +160,7 @@ mod tests {
             .unwrap();
         ctx.auxv.insert(AuxVecKey::AT_ENTRY, 0x2000);
 
-        given.merge(ctx, true).unwrap();
+        given.merge(&ctx, true).unwrap();
 
         assert_eq!(
             given.argv,
@@ -196,7 +196,7 @@ mod tests {
         ctx.auxv.insert(AuxVecKey::AT_NULL, 0x3000);
         ctx.auxv.insert(AuxVecKey::AT_NOTELF, 0);
 
-        given.merge(ctx, false).unwrap();
+        given.merge(&ctx, false).unwrap();
 
         assert_eq!(given.auxv.get(&AuxVecKey::AT_ENTRY), Some(&0x1000));
         assert_eq!(given.auxv.get(&AuxVecKey::AT_NULL), Some(&0));
