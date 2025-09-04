@@ -229,7 +229,7 @@ impl<'a> LinuxLoader<'a> {
             GenericMappingFlags::empty(),
             None,
         ));
-        attr.stack_gurad_top =
+        attr.stack_guard_top =
             VirtualAddressRange::from_start_len(max_end_vpn.start_addr(), constants::PAGE_SIZE);
 
         max_end_vpn += 1;
