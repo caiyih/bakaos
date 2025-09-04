@@ -20,15 +20,17 @@ impl<'a> LinuxLoader<'a> {
         fs: Arc<DirectoryTreeNode>,
         mmu: &Arc<SpinMutex<dyn IMMU>>,
         alloc: &Arc<SpinMutex<dyn IFrameAllocator>>,
-    ) -> Result<Self, LoadError<'a>> {
+    ) -> Result<Self, LoadError> {
         let mut ctx = ProcessContext::default();
 
         let mut header = [0u8; SHEBANG_MAX_LEN + 2];
-        let len = data.read_at(0, &mut header).map_err(LoadError::new)?;
+        let len = data
+            .read_at(0, &mut header)
+            .map_err(|_| LoadError::FailedToLoad)?;
 
-        let (file, arg) = Self::parse_header(&header[..len]).map_err(LoadError::new)?;
+        let (file, arg) = Self::parse_header(&header[..len])?;
 
-        Self::push_ctx(&mut ctx, file, &arg, path).map_err(LoadError::new)?;
+        Self::push_ctx(&mut ctx, file, &arg, path)?;
 
         Self::load_shebang_script(ctx, file, fs, mmu, alloc)
     }
@@ -37,9 +39,9 @@ impl<'a> LinuxLoader<'a> {
         c == b'\n' || c == b'\r' || c == b'\0'
     }
 
-    fn parse_header(header: &[u8]) -> Result<(&str, Vec<Cow<'a, str>>), &'static str> {
+    fn parse_header(header: &[u8]) -> Result<(&str, Vec<Cow<'a, str>>), LoadError> {
         if header.len() < 2 || &header[..2] != b"#!" {
-            return Err("Not a shebang");
+            return Err(LoadError::NotShebang);
         }
 
         let end_idx = match header.iter().position(Self::is_end) {
@@ -50,7 +52,7 @@ impl<'a> LinuxLoader<'a> {
         Self::split_file_arg(&header[2..end_idx])
     }
 
-    fn split_file_arg(content: &[u8]) -> Result<(&str, Vec<Cow<'a, str>>), &'static str> {
+    fn split_file_arg(content: &[u8]) -> Result<(&str, Vec<Cow<'a, str>>), LoadError> {
         let index = content.iter().position(|b| *b == b' ');
         let (file, args) = match index {
             Some(index) => (&content[..index], &content[index + 1..]),
@@ -58,10 +60,10 @@ impl<'a> LinuxLoader<'a> {
         };
 
         let file = core::str::from_utf8(file)
-            .map_err(|_| "Invalid shebang string")?
+            .map_err(|_| LoadError::InvalidShebangString)?
             .trim();
         let args = core::str::from_utf8(args)
-            .map_err(|_| "Invalid shebang string")?
+            .map_err(|_| LoadError::InvalidShebangString)?
             .trim();
 
         let args = args
@@ -78,7 +80,7 @@ impl<'a> LinuxLoader<'a> {
         file: &str,
         argv: &[Cow<'a, str>],
         script: &str,
-    ) -> Result<(), &'static str> {
+    ) -> Result<(), LoadError> {
         let mut to_insert = vec![Cow::from(file.to_owned())];
         to_insert.extend_from_slice(argv);
         to_insert.push(Cow::from(script.to_owned()));
@@ -102,10 +104,10 @@ impl<'a> LinuxLoader<'a> {
         fs: Arc<DirectoryTreeNode>,
         mmu: &Arc<SpinMutex<dyn IMMU>>,
         alloc: &Arc<SpinMutex<dyn IFrameAllocator>>,
-    ) -> Result<Self, LoadError<'a>> {
+    ) -> Result<Self, LoadError> {
         let interpreter = fs
             .open(file, None)
-            .map_err(|_| LoadError::new("No such file"))?;
+            .map_err(|_| LoadError::CanNotFindInterpreter)?;
 
         Self::from_elf(&interpreter, file, ctx, mmu, alloc)
     }

@@ -1,6 +1,6 @@
 use alloc::{borrow::Cow, vec::Vec};
 
-use crate::auxv::AuxVec;
+use crate::{auxv::AuxVec, LoadError};
 
 #[derive(Debug, Clone, Copy)]
 pub struct ProcessContextLengthLimit {
@@ -14,22 +14,6 @@ impl ProcessContextLengthLimit {
         argv: usize::MAX,
         envp: usize::MAX,
     };
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ProcessContextError {
-    ArgumentCountExceeded,
-    EnvironmentCountExceeded,
-}
-
-#[allow(clippy::from_over_into)]
-impl Into<&'static str> for ProcessContextError {
-    fn into(self) -> &'static str {
-        match self {
-            ProcessContextError::ArgumentCountExceeded => "Argument count exceeded",
-            ProcessContextError::EnvironmentCountExceeded => "Environment count exceeded",
-        }
-    }
 }
 
 pub struct ProcessContext<'a> {
@@ -61,9 +45,9 @@ impl ProcessContext<'_> {
 
 impl<'a> ProcessContext<'a> {
     /// Extends the argv with the given argv.
-    pub fn extend_argv(&mut self, argv: &[Cow<'a, str>]) -> Result<(), ProcessContextError> {
+    pub fn extend_argv(&mut self, argv: &[Cow<'a, str>]) -> Result<(), LoadError> {
         if argv.len() + self.argv.len() > self.limit.argv {
-            return Err(ProcessContextError::ArgumentCountExceeded);
+            return Err(LoadError::ArgumentCountExceeded);
         }
 
         self.argv.extend_from_slice(argv);
@@ -72,9 +56,9 @@ impl<'a> ProcessContext<'a> {
     }
 
     /// Extends the envp with the given envp.
-    pub fn extend_envp(&mut self, envp: &[Cow<'a, str>]) -> Result<(), ProcessContextError> {
+    pub fn extend_envp(&mut self, envp: &[Cow<'a, str>]) -> Result<(), LoadError> {
         if envp.len() + self.envp.len() > self.limit.envp {
-            return Err(ProcessContextError::EnvironmentCountExceeded);
+            return Err(LoadError::EnvironmentCountExceeded);
         }
 
         self.envp.extend_from_slice(envp);
@@ -99,7 +83,7 @@ impl<'a> ProcessContext<'a> {
         &mut self,
         other: &ProcessContext<'a>,
         override_auxv: bool,
-    ) -> Result<(), ProcessContextError> {
+    ) -> Result<(), LoadError> {
         self.extend_argv(&other.argv)?;
         self.extend_envp(&other.envp)?;
         self.extend_auxv(&other.auxv, override_auxv);
@@ -133,12 +117,12 @@ mod tests {
 
         assert_eq!(
             ctx.extend_argv(&vec![Cow::from(""); 10]),
-            Err(ProcessContextError::ArgumentCountExceeded)
+            Err(LoadError::ArgumentCountExceeded)
         );
 
         assert_eq!(
             ctx.extend_envp(&vec![Cow::from(""); 10]),
-            Err(ProcessContextError::EnvironmentCountExceeded)
+            Err(LoadError::EnvironmentCountExceeded)
         );
     }
 

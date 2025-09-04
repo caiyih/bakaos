@@ -4,7 +4,6 @@ use alloc::{fmt::Debug, string::String, sync::Arc, vec::Vec};
 use allocation_abstractions::IFrameAllocator;
 use filesystem_abstractions::{DirectoryTreeNode, IInode};
 use hermit_sync::SpinMutex;
-use log::trace;
 use memory_space::MemorySpace;
 use mmu_abstractions::IMMU;
 
@@ -91,12 +90,12 @@ impl<'a> LinuxLoader<'a> {
         fs: Arc<DirectoryTreeNode>,
         mmu: Arc<SpinMutex<dyn IMMU>>,
         alloc: Arc<SpinMutex<dyn IFrameAllocator>>,
-    ) -> Result<Self, &'static str> {
+    ) -> Result<Self, LoadError> {
         fn init<'a>(
             mut loader: LinuxLoader<'a>,
             ctx: &ProcessContext<'a>,
             auxv_values: &AuxVecValues<'a>,
-        ) -> Result<LinuxLoader<'a>, &'static str> {
+        ) -> Result<LinuxLoader<'a>, LoadError> {
             loader.init_stack(ctx, auxv_values)?;
 
             Ok(loader)
@@ -104,25 +103,25 @@ impl<'a> LinuxLoader<'a> {
 
         match Self::from_shebang(data, path, fs, &mmu, &alloc) {
             Ok(shebang) => return init(shebang, &ctx, &auxv_values),
-            Err(e) => {
-                trace!("Failed to load shebang: {}", e.message);
-            }
+            Err(e) if e.is_format_determined() => return Err(e),
+            _ => (),
         };
 
         match LinuxLoader::from_elf(data, path, ProcessContext::default(), &mmu, &alloc) {
             Ok(elf) => return init(elf, &ctx, &auxv_values),
-            Err(e) => trace!("Failed to load elf: {}", e.message),
+            Err(e) if e.is_format_determined() => return Err(e),
+            _ => (),
         }
 
-        Err("Not a valid executable")
+        Err(LoadError::NotExecutable)
     }
 
     pub fn init_stack(
         &mut self,
         ctx: &ProcessContext<'a>,
         auxv_values: &AuxVecValues<'a>,
-    ) -> Result<(), &'static str> {
-        self.ctx.merge(ctx, false).map_err(|e| e.into())?;
+    ) -> Result<(), LoadError> {
+        self.ctx.merge(ctx, false)?;
         self.ctx.auxv.insert(AuxVecKey::AT_NULL, 0);
 
         let mut stack_top = self.stack_top;
@@ -244,20 +243,39 @@ impl<'a> LinuxLoader<'a> {
     }
 }
 
-pub struct LoadError<'a> {
-    pub message: &'a str,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LoadError {
+    NotExecutable,
+    OsMismatch,
+    ArchMismatch,
+    InsufficientMemory,
+    UnableToReadExecutable,
+    FailedToLoad,
+    IncompleteExecutable,
+    TooLarge,
+    CanNotFindInterpreter,
+    InvalidShebangString,
+    NotElf,
+    NotShebang,
+    ArgumentCountExceeded,
+    EnvironmentCountExceeded,
 }
 
-impl<'a> LoadError<'a> {
-    pub fn new(message: &'a str) -> Self {
-        Self { message }
-    }
-}
-
-impl Debug for LoadError<'_> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("LoadError")
-            .field("message", &self.message)
-            .finish()
+impl LoadError {
+    pub fn is_format_determined(&self) -> bool {
+        match *self {
+            LoadError::NotExecutable
+            | LoadError::OsMismatch
+            | LoadError::ArchMismatch
+            | LoadError::InsufficientMemory
+            | LoadError::FailedToLoad
+            | LoadError::IncompleteExecutable
+            | LoadError::TooLarge
+            | LoadError::CanNotFindInterpreter
+            | LoadError::InvalidShebangString
+            | LoadError::ArgumentCountExceeded
+            | LoadError::EnvironmentCountExceeded => true,
+            LoadError::UnableToReadExecutable | LoadError::NotElf | LoadError::NotShebang => false,
+        }
     }
 }

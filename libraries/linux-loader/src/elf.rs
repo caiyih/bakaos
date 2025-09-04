@@ -21,7 +21,7 @@ impl<'a> LinuxLoader<'a> {
         mut ctx: ProcessContext<'a>,
         mmu: &Arc<SpinMutex<dyn IMMU>>,
         alloc: &Arc<SpinMutex<dyn IFrameAllocator>>,
-    ) -> Result<Self, LoadError<'a>> {
+    ) -> Result<Self, LoadError> {
         let mut memory_space = MemorySpace::new(mmu.clone(), alloc.clone());
         let mut attr = MemorySpaceAttribute::default();
 
@@ -36,7 +36,7 @@ impl<'a> LinuxLoader<'a> {
             let frames = alloc
                 .lock()
                 .alloc_contiguous(required_frames)
-                .ok_or(LoadError::new("Out of memory"))?;
+                .ok_or(LoadError::InsufficientMemory)?;
 
             boxed_elf_holding = InvokeOnDrop::transform(frames, |f| alloc.lock().dealloc_range(f));
 
@@ -51,11 +51,11 @@ impl<'a> LinuxLoader<'a> {
 
             let len = elf_data
                 .read_at(0, slice)
-                .map_err(|_| LoadError::new("Invalid ELF file"))?;
+                .map_err(|_| LoadError::UnableToReadExecutable)?;
 
             boxed_elf = &mut slice[..len];
 
-            ElfFile::new(boxed_elf).map_err(|_| LoadError::new("Invalid ELF file"))?
+            ElfFile::new(boxed_elf).map_err(|_| LoadError::NotElf)?
         };
 
         // No need to check the ELF magic number because it is already checked in `ElfFile::new`
@@ -145,27 +145,25 @@ impl<'a> LinuxLoader<'a> {
                 ph: &ProgramHeader,
                 vaddr: VirtualAddress,
                 mmu: &Arc<SpinMutex<dyn IMMU>>,
-            ) -> Result<(), &'static str> {
+            ) -> Result<(), LoadError> {
                 let file_sz = ph.file_size() as usize;
 
                 if file_sz > 0 {
                     let off = ph.offset() as usize;
-                    let end = off
-                        .checked_add(file_sz)
-                        .ok_or("ELF segment size overflow")?;
+                    let end = off.checked_add(file_sz).ok_or(LoadError::TooLarge)?;
                     if end > elf.len() {
-                        return Err("ELF segment out of bounds");
+                        return Err(LoadError::IncompleteExecutable);
                     }
                     let data = &elf[off..end];
                     mmu.lock()
                         .write_bytes(vaddr, data)
-                        .map_err(|_| "Failed to write segment")?;
+                        .map_err(|_| LoadError::FailedToLoad)?;
                 }
 
                 Ok(())
             }
 
-            copy_elf_segment(boxed_elf, &ph, start, mmu).map_err(LoadError::new)?;
+            copy_elf_segment(boxed_elf, &ph, start, mmu)?;
         }
 
         for interp in interpreters {
