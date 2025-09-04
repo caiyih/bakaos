@@ -153,6 +153,10 @@ impl<'a> LinuxLoader<'a> {
             self.push(byte, &mut stack_top);
         }
 
+        self.ctx
+            .auxv
+            .insert(AuxVecKey::AT_PLATFORM, stack_top.as_usize());
+
         // Step4: setup aux vector
 
         // Collects the auxv entries in a specific order
