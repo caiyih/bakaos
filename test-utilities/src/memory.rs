@@ -357,6 +357,30 @@ impl IMMU for TestMMU {
             }
         }
     }
+
+    fn map_cross_internal<'a>(
+        &'a mut self,
+        source: &'a dyn IMMU,
+        vaddr: VirtualAddress,
+        len: usize,
+    ) -> Result<&'a [u8], MMUError> {
+        let source = source.downcast_ref::<TestMMU>().unwrap();
+
+        #[allow(deprecated)]
+        source.map_buffer_internal(vaddr, len)
+    }
+
+    fn map_cross_mut_internal<'a>(
+        &'a mut self,
+        source: &'a dyn IMMU,
+        vaddr: VirtualAddress,
+        len: usize,
+    ) -> Result<&'a mut [u8], MMUError> {
+        let source = source.downcast_ref::<TestMMU>().unwrap();
+
+        #[allow(deprecated)]
+        source.map_buffer_mut_internal(vaddr, len, false)
+    }
 }
 
 impl TestMMU {
