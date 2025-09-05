@@ -10,9 +10,9 @@ use alloc::{
 use abstractions::operations::IUsizeAlias;
 use filesystem_abstractions::FileDescriptorTable;
 use hermit_sync::SpinMutex;
+use linux_loader::LinuxLoader;
 use linux_task_abstractions::ILinuxProcess;
-use memory_space::MemorySpaceBuilder;
-use memory_space_abstractions::MemorySpace;
+use memory_space::MemorySpace;
 use mmu_abstractions::IMMU;
 use platform_specific::{ITaskContext, TaskTrapContext};
 use task_abstractions::{IProcess, ITask, ITaskIdAllocator, TaskId};
@@ -38,7 +38,7 @@ unsafe impl Sync for LinuxProcess {}
 
 impl LinuxProcess {
     #[allow(clippy::new_ret_no_self)]
-    pub fn new(builder: MemorySpaceBuilder, tid: u32) -> Arc<LinuxTask> {
+    pub fn new(builder: LinuxLoader, tid: u32) -> Arc<LinuxTask> {
         let id_allocator = TaskIdAllocator::new(tid);
 
         let tid = id_allocator.clone().alloc();
@@ -143,12 +143,12 @@ impl ILinuxProcess for LinuxProcess {
     }
 }
 
-fn create_task_context(builder: &MemorySpaceBuilder) -> TaskTrapContext {
+fn create_task_context(loader: &LinuxLoader) -> TaskTrapContext {
     TaskTrapContext::new(
-        builder.entry_pc.as_usize(),
-        builder.stack_top.as_usize(),
-        builder.argc,
-        builder.argv_base.as_usize(),
-        builder.envp_base.as_usize(),
+        loader.entry_pc.as_usize(),
+        loader.stack_top.as_usize(),
+        loader.ctx.argv.len(),
+        loader.argv_base.as_usize(),
+        loader.envp_base.as_usize(),
     )
 }

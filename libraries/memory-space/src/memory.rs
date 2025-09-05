@@ -25,7 +25,7 @@ pub struct MemorySpaceAttribute {
     pub brk_start: VirtualAddress,
     pub stack_guard_base: VirtualAddressRange,
     pub stack_range: VirtualAddressRange,
-    pub stack_gurad_top: VirtualAddressRange,
+    pub stack_guard_top: VirtualAddressRange,
     pub elf_area: VirtualAddressRange,
     pub signal_trampoline: VirtualPageNum,
 }
@@ -43,7 +43,7 @@ impl Default for MemorySpaceAttribute {
                 VirtualAddress::null(),
                 VirtualAddress::null(),
             ),
-            stack_gurad_top: VirtualAddressRange::from_start_end(
+            stack_guard_top: VirtualAddressRange::from_start_end(
                 VirtualAddress::null(),
                 VirtualAddress::null(),
             ),

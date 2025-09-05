@@ -4,7 +4,7 @@ use std::sync::{Arc, Weak};
 use filesystem_abstractions::FileDescriptorTable;
 use hermit_sync::SpinMutex;
 use linux_task_abstractions::{ILinuxProcess, ILinuxTask};
-use memory_space_abstractions::MemorySpace;
+use memory_space::MemorySpace;
 use platform_specific::TaskTrapContext;
 use task_abstractions::{status::TaskStatus, IProcess, ITask, UserTaskStatistics};
 use trap_abstractions::ITaskTrapContext;

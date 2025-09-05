@@ -15,7 +15,7 @@ use downcast_rs::{impl_downcast, Downcast, DowncastSync};
 use filesystem_abstractions::FileDescriptorTable;
 use hermit_sync::SpinMutex;
 pub use id::*;
-use memory_space_abstractions::MemorySpace;
+use memory_space::MemorySpace;
 use mmu_abstractions::IMMU;
 pub use task_id::*;
 use trap_abstractions::ITaskTrapContext;

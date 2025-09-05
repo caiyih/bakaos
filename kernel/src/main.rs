@@ -13,10 +13,10 @@ use alloc::sync::Arc;
 use allocation::FrameAllocator;
 use hermit_sync::SpinMutex;
 use kernel_abstractions::IKernel;
+use linux_loader::{LinuxLoader, ProcessContext};
 use linux_syscalls::{ISyscallResult, SyscallContext};
 use linux_task::LinuxProcess;
 use linux_task_abstractions::ILinuxTask;
-use memory_space::MemorySpaceBuilder;
 use mmu_abstractions::IMMU;
 use mmu_native::PageTable;
 use platform_abstractions::{return_to_user, UserInterrupt};
@@ -110,9 +110,11 @@ fn create_task(kernel: &Kernel) -> Arc<dyn ILinuxTask> {
     let mmu: Arc<SpinMutex<dyn IMMU>> =
         Arc::new(SpinMutex::new(PageTable::alloc(kernel.allocator())));
 
-    let builder = MemorySpaceBuilder::from_elf(&ELF, "", &mmu, &kernel.allocator()).unwrap();
+    let ctx = ProcessContext::new();
 
-    let task = LinuxProcess::new(builder, 0);
+    let loader = LinuxLoader::from_elf(&ELF, "", ctx, &mmu, &kernel.allocator()).unwrap();
+
+    let task = LinuxProcess::new(loader, 0);
     {
         let process = task.process();
 
