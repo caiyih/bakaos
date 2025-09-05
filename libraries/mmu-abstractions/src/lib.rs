@@ -11,6 +11,7 @@ extern crate alloc;
 
 mod flags;
 
+use downcast_rs::{impl_downcast, Downcast};
 pub use flags::GenericMappingFlags;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -20,6 +21,7 @@ pub enum MMUError {
     AccessFault, // not mapped to a proper frame
     MisalignedAddress,
     Borrowed,
+    CanNotModify,
     PageNotReadable { vaddr: VirtualAddress },
     PageNotWritable { vaddr: VirtualAddress },
 }
@@ -102,7 +104,7 @@ impl dyn IMMU {
     }
 }
 
-pub trait IMMU {
+pub trait IMMU: Downcast {
     fn map_single(
         &mut self,
         vaddr: VirtualAddress,
@@ -159,6 +161,22 @@ pub trait IMMU {
 
     fn write_bytes(&self, vaddr: VirtualAddress, buf: &[u8]) -> Result<(), MMUError>;
 
+    /// Maps a memory area from another MMU.
+    fn map_cross_internal<'a>(
+        &'a mut self,
+        source: &'a dyn IMMU,
+        vaddr: VirtualAddress,
+        len: usize,
+    ) -> Result<&'a [u8], MMUError>;
+
+    /// Maps a mutable memory area from another MMU.
+    fn map_cross_mut_internal<'a>(
+        &'a mut self,
+        source: &'a dyn IMMU,
+        vaddr: VirtualAddress,
+        len: usize,
+    ) -> Result<&'a mut [u8], MMUError>;
+
     #[doc(hidden)]
     #[deprecated = "Do not use this method, use `map_buffer` from dyn IMMU"]
     fn map_buffer_internal(&self, vaddr: VirtualAddress, len: usize) -> Result<&'_ [u8], MMUError>;
@@ -187,6 +205,8 @@ pub trait IMMU {
     #[cfg(not(target_os = "none"))]
     fn unregister_internal(&mut self, vaddr: VirtualAddress);
 }
+
+impl_downcast!(IMMU);
 
 /// The error type for page table operation failures.
 #[derive(Debug, PartialEq, Eq)]

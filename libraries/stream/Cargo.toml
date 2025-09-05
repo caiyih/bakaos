@@ -1,0 +1,22 @@
+[package]
+name = "stream"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+abstractions = { path = "../abstractions", default-features = false }
+address = { path = "../address", default-features = false }
+mmu-abstractions = { path = "../mmu-abstractions", default-features = false }
+
+[dev-dependencies]
+hermit-sync = "0.1.6"
+allocation-abstractions = { path = "../allocation-abstractions" }
+utilities = { path = "../utilities" }
+test-utilities = { path = "../../test-utilities" }
+
+[features]
+default = ["no_std"]
+std = []
+no_std = []

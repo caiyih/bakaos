@@ -54,8 +54,8 @@ mod virtual_address_range_tests {
             VirtualAddress::from_usize(0x2000),
             VirtualAddress::from_usize(0x4000),
         );
-        assert!(range1.intersects(&range2));
-        let intersection = range1.intersection(&range2).unwrap();
+        assert!(range1.intersects(range2));
+        let intersection = range1.intersection(range2).unwrap();
         assert_eq!(intersection.start().as_usize(), 0x2000);
         assert_eq!(intersection.end().as_usize(), 0x3000);
     }
@@ -71,7 +71,7 @@ mod virtual_address_range_tests {
             VirtualAddress::from_usize(0x1500),
             VirtualAddress::from_usize(0x2500),
         );
-        let union = range1.union(&range2);
+        let union = range1.union(range2);
         assert_eq!(union.start().as_usize(), 0x1000);
         assert_eq!(union.end().as_usize(), 0x2500);
     }
@@ -111,8 +111,8 @@ mod virtual_address_range_tests {
             VirtualAddress::from_usize(0x1500),
             VirtualAddress::from_usize(0x1800),
         );
-        assert!(range1.contains_range(&range2));
-        assert!(range2.contained_by(&range1));
+        assert!(range1.contains_range(range2));
+        assert!(range2.contained_by(range1));
     }
 
     // 范围长度测试
