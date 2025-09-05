@@ -19,6 +19,36 @@ impl SyscallContext {
         todo!()
     }
 
+    /// Perform an execve-like replacement of the current task's address space with a new executable.
+    ///
+    /// Attempts to load `executable` at `pathname` into a fresh memory space, replace the process's
+    /// memory space with the loaded image, initialize the task's trap context (entry PC, stack top,
+    /// argv/envp bases and argc), and mark the task Ready. On loader failure this returns
+    /// `ErrNo::ExecFormatError`.
+    ///
+    /// Note: argv and envp parameters are accepted by this function but are currently not wired into
+    /// the loader (FIXME). Auxv values are also supplied as defaults (TODO: populate machine info).
+    ///
+    /// Parameters:
+    /// - `executable`: an object implementing `ILoadExecutable` that provides the raw executable bytes.
+    /// - `pathname`: the path string used for loader semantics and /proc visibility.
+    /// - `argv`: program arguments (currently not forwarded to the loader).
+    /// - `envp`: environment variables (currently not forwarded to the loader).
+    ///
+    /// Returns:
+    /// - `Ok(0)` on success.
+    /// - `Err(ErrNo::ExecFormatError)` if the loader rejects the executable format.
+    ///
+    /// Side effects:
+    /// - Replaces the process memory space via `process.execve(...)`.
+    /// - Updates the task's trap context and status to `TaskStatus::Ready`.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// // Given a `ctx: SyscallContext`, an executable `exe` and path:
+    /// let _ = ctx.sys_execve_internal(exe, "/bin/app", &["app", "--help"], &[]);
+    /// ```
     #[expect(unused)]
     fn sys_execve_internal(
         &self,
