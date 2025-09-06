@@ -1,9 +1,9 @@
 //! # Utilities
 //!
 //! This crate provides utility types and functions for the BakaOS kernel.
-//! 
+//!
 //! ## Features
-//! 
+//!
 //! - **RAII Cleanup**: The [`InvokeOnDrop`] type provides automatic cleanup functionality
 //!   by invoking a closure when the value goes out of scope, ensuring proper resource
 //!   management in no_std environments.
