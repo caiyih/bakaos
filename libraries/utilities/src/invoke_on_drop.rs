@@ -1,3 +1,70 @@
+//! # RAII Cleanup with InvokeOnDrop
+//!
+//! This module provides the [`InvokeOnDrop`] type, a RAII (Resource Acquisition Is Initialization)
+//! guard that automatically executes cleanup code when a value goes out of scope.
+//!
+//! ## Purpose
+//!
+//! In systems programming, especially in kernel development, proper resource management is crucial.
+//! The [`InvokeOnDrop`] type ensures that cleanup operations are automatically performed when values
+//! go out of scope, preventing resource leaks and ensuring deterministic cleanup behavior.
+//!
+//! ## Key Features
+//!
+//! - **Automatic Cleanup**: Executes cleanup functions when the guard is dropped
+//! - **Value Management**: Can manage and provide access to wrapped values
+//! - **Cancellation Support**: Allows cancelling cleanup operations when needed
+//! - **Zero Runtime Cost**: Uses compile-time guarantees with no runtime overhead
+//! - **no_std Compatible**: Works in kernel and embedded environments
+//!
+//! ## Use Cases
+//!
+//! - **Resource Management**: Automatically releasing acquired resources (memory, file handles, locks)
+//! - **Cleanup Operations**: Ensuring cleanup code runs even during early returns or panics
+//! - **Scope Guards**: Implementing defer-like functionality for cleanup tasks
+//! - **Exception Safety**: Maintaining invariants in the presence of panics or early exits
+//!
+//! ## Examples
+//!
+//! ### Basic cleanup operation
+//!
+//! ```
+//! use utilities::InvokeOnDrop;
+//!
+//! fn some_operation() {
+//!     // Setup some resource or state
+//!     let _cleanup_guard = InvokeOnDrop::new(|_| {
+//!         // This cleanup code will run when the function exits,
+//!         // regardless of how it exits (return, panic, etc.)
+//!         println!("Cleaning up resources...");
+//!     });
+//!
+//!     // Do work...
+//!     // Cleanup happens automatically when _cleanup_guard goes out of scope
+//! }
+//! ```
+//!
+//! ### Managing a resource with automatic release
+//!
+//! ```
+//! use utilities::InvokeOnDrop;
+//!
+//! fn process_resource() {
+//!     let resource_id = acquire_some_resource();
+//!     let _guard = InvokeOnDrop::transform(resource_id, |id| {
+//!         release_resource(id);
+//!     });
+//!
+//!     // Use the resource through the guard
+//!     println!("Resource ID: {}", *_guard);
+//!
+//!     // Resource is automatically released when guard goes out of scope
+//! }
+//!
+//! fn acquire_some_resource() -> u32 { 42 }
+//! fn release_resource(id: u32) { /* cleanup logic */ }
+//! ```
+
 use core::{
     mem::ManuallyDrop,
     ops::{Deref, DerefMut},
