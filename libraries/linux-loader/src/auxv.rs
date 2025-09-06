@@ -8,15 +8,36 @@ pub struct AuxVec {
 }
 
 impl AuxVec {
+    /// Creates a new, empty AuxVec.
+    ///
+    /// This constructor is `const` and returns an AuxVec with an empty underlying map.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let aux = AuxVec::new();
+    /// assert!(aux.is_empty());
+    /// ```
     pub const fn new() -> Self {
         Self {
             map: BTreeMap::new(),
         }
     }
 
-    /// Collects the aux vector entries in reverse order.
+    /// Collects the auxiliary vector entries into a Vec in reverse map order.
     ///
-    /// The last entry is guaranteed to be AT_NULL(if present).
+    /// The returned Vec contains `AuxVecEntry` items produced from the internal map;
+    /// iterating in reverse ensures `AT_NULL`, if present, appears as the last element.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut aux = AuxVec::new();
+    /// aux.insert(AuxVecKey::AT_ENTRY, 0x1000);
+    /// aux.insert(AuxVecKey::AT_NULL, 0);
+    /// let entries = aux.collect();
+    /// assert_eq!(entries.last().unwrap().key, AuxVecKey::AT_NULL);
+    /// ```
     pub fn collect(&self) -> Vec<AuxVecEntry> {
         self.map
             .iter()
@@ -28,12 +49,34 @@ impl AuxVec {
 
 impl Deref for AuxVec {
     type Target = BTreeMap<AuxVecKey, usize>;
+    /// Returns a shared reference to the underlying `BTreeMap`, allowing `AuxVec` to be used like a map.
+    ///
+    /// This enables method calls that expect `&BTreeMap<AuxVecKey, usize>` (for example `get`, `contains_key`, iteration).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut aux = AuxVec::new();
+    /// aux.insert(AuxVecKey::AT_ENTRY, 0x1000);
+    /// // `deref` is called implicitly so we can call `get` as if `aux` were a BTreeMap
+    /// assert_eq!(aux.get(&AuxVecKey::AT_ENTRY), Some(&0x1000));
+    /// ```
     fn deref(&self) -> &Self::Target {
         &self.map
     }
 }
 
 impl DerefMut for AuxVec {
+    /// Returns a mutable reference to the underlying `BTreeMap<AuxVecKey, usize>`,
+    /// allowing the `AuxVec` to be used like a map (e.g., insert, remove, clear).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut aux = AuxVec::new();
+    /// aux.insert(AuxVecKey::AT_ENTRY, 0x1000);
+    /// assert_eq!(aux.get(&AuxVecKey::AT_ENTRY), Some(&0x1000));
+    /// ```
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.map
     }
@@ -99,6 +142,15 @@ pub struct AuxVecEntry {
 }
 
 impl AuxVecEntry {
+    /// Creates a new AuxVecEntry from the given auxiliary-vector key and value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let entry = AuxVecEntry::new(AuxVecKey::AT_ENTRY, 0x1000);
+    /// assert_eq!(entry.key, AuxVecKey::AT_ENTRY);
+    /// assert_eq!(entry.value, 0x1000);
+    /// ```
     pub const fn new(key: AuxVecKey, val: usize) -> Self {
         AuxVecEntry { key, value: val }
     }

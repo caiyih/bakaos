@@ -24,6 +24,17 @@ pub struct ProcessContext<'a> {
 }
 
 impl ProcessContext<'_> {
+    /// Creates a new, empty ProcessContext with unlimited argv/envp limits.
+    ///
+    /// The returned context contains empty `argv` and `envp` vectors and an empty `auxv`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let ctx = ProcessContext::new();
+    /// assert!(ctx.argv.is_empty());
+    /// assert!(ctx.envp.is_empty());
+    /// ```
     pub fn new() -> Self {
         Self {
             argv: Vec::new(),
@@ -33,6 +44,22 @@ impl ProcessContext<'_> {
         }
     }
 
+    /// Creates an empty `ProcessContext` constrained by the given length limits.
+    ///
+    /// The returned context has empty `argv`, `envp`, and a new empty `auxv`.
+    /// The provided `limit` controls the maximum number of entries allowed when
+    /// extending `argv` and `envp` (used by `extend_argv` / `extend_envp`).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let limit = ProcessContextLengthLimit { argv: 2, envp: 4 };
+    /// let ctx = ProcessContext::new_limited(limit);
+    /// assert!(ctx.argv.is_empty());
+    /// assert!(ctx.envp.is_empty());
+    /// assert_eq!(ctx.limit.argv, 2);
+    /// assert_eq!(ctx.limit.envp, 4);
+    /// ```
     pub fn new_limited(limit: ProcessContextLengthLimit) -> Self {
         Self {
             argv: Vec::new(),
@@ -44,7 +71,21 @@ impl ProcessContext<'_> {
 }
 
 impl<'a> ProcessContext<'a> {
-    /// Extends the argv with the given argv.
+    /// Appends the provided argument strings to this context's argv, enforcing the configured argv length limit.
+    ///
+    /// If appending would make the total number of arguments exceed `self.limit.argv`, the method returns
+    /// `Err(LoadError::ArgumentCountExceeded)` and does not modify `self.argv`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use alloc::borrow::Cow;
+    ///
+    /// let mut ctx = ProcessContext::new();
+    /// let args = [Cow::Borrowed("arg1"), Cow::Borrowed("arg2")];
+    /// ctx.extend_argv(&args).unwrap();
+    /// assert_eq!(ctx.argv.len(), 2);
+    /// ```
     pub fn extend_argv(&mut self, argv: &[Cow<'a, str>]) -> Result<(), LoadError> {
         if argv.len() + self.argv.len() > self.limit.argv {
             return Err(LoadError::ArgumentCountExceeded);
@@ -55,7 +96,20 @@ impl<'a> ProcessContext<'a> {
         Ok(())
     }
 
-    /// Extends the envp with the given envp.
+    /// Appends the given environment entries to this context, enforcing the configured envp limit.
+    ///
+    /// Extends `self.envp` with the provided slice. If the total number of environment
+    /// entries would exceed `self.limit.envp`, the method returns
+    /// `Err(LoadError::EnvironmentCountExceeded)` and does not modify the context.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut ctx = ProcessContext::new();
+    /// let envs: &[Cow<str>] = &[Cow::Borrowed("KEY=VAL")];
+    /// ctx.extend_envp(envs).unwrap();
+    /// assert_eq!(ctx.envp.len(), 1);
+    /// ```
     pub fn extend_envp(&mut self, envp: &[Cow<'a, str>]) -> Result<(), LoadError> {
         if envp.len() + self.envp.len() > self.limit.envp {
             return Err(LoadError::EnvironmentCountExceeded);
@@ -66,9 +120,26 @@ impl<'a> ProcessContext<'a> {
         Ok(())
     }
 
-    /// Extends the auxv with the given auxv.
+    /// Merge entries from another `AuxVec` into this context's auxiliary vector.
     ///
-    /// If `overwrite` is `true`, the existing auxv entries will be overwritten.
+    /// Entries from `auxv` are inserted into `self.auxv`. If `overwrite` is `false`,
+    /// existing keys in `self.auxv` are preserved and corresponding entries from
+    /// `auxv` are skipped; if `overwrite` is `true`, incoming values replace existing ones.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use alloc::vec::Vec;
+    /// # use crate::auxv::AuxVec;
+    /// # use crate::process::ProcessContext;
+    /// let mut ctx = ProcessContext::new();
+    /// let mut other = AuxVec::default();
+    /// other.insert(1usize, 0x1000usize);
+    ///
+    /// // Insert entries when overwrite is allowed
+    /// ctx.extend_auxv(&other, true);
+    /// assert_eq!(ctx.auxv.get(&1usize), Some(&0x1000usize));
+    /// ```
     pub fn extend_auxv(&mut self, auxv: &AuxVec, overwrite: bool) {
         for (key, value) in auxv.iter() {
             if !overwrite && self.auxv.contains_key(key) {
@@ -79,6 +150,33 @@ impl<'a> ProcessContext<'a> {
         }
     }
 
+    /// Merge another `ProcessContext` into `self`.
+    ///
+    /// Appends `other`'s `argv` and `envp`, enforcing `self.limit` (returns a
+    /// `LoadError` if either would exceed its configured limit). Merges `other`'s
+    /// `auxv` entries; when `override_auxv` is `true` entries from `other` replace
+    /// existing keys, otherwise existing entries are preserved.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err(LoadError::ArgumentCountExceeded)` if the combined `argv` would
+    /// exceed `self.limit.argv`, or `Err(LoadError::EnvironmentCountExceeded)` if
+    /// the combined `envp` would exceed `self.limit.envp`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use alloc::borrow::Cow;
+    ///
+    /// let mut base = ProcessContext::new();
+    /// let mut other = ProcessContext::new();
+    ///
+    /// base.extend_argv(&[Cow::Borrowed("arg1")]).unwrap();
+    /// other.extend_argv(&[Cow::Borrowed("arg2")]).unwrap();
+    ///
+    /// base.merge(&other, true).unwrap();
+    /// assert_eq!(base.argv.len(), 2);
+    /// ```
     pub fn merge(
         &mut self,
         other: &ProcessContext<'a>,
@@ -93,6 +191,18 @@ impl<'a> ProcessContext<'a> {
 }
 
 impl Default for ProcessContext<'_> {
+    /// Returns an empty ProcessContext with no argv/envp entries and unlimited length limits.
+    ///
+    /// The created context has empty `argv` and `envp`, a default `AuxVec`, and `ProcessContextLengthLimit::Unlimited`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let ctx = ProcessContext::default();
+    /// assert!(ctx.argv.is_empty());
+    /// assert!(ctx.envp.is_empty());
+    /// assert_eq!(ctx.limit, ProcessContextLengthLimit::Unlimited);
+    /// ```
     fn default() -> Self {
         ProcessContext {
             argv: Vec::new(),

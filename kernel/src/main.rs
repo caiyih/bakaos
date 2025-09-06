@@ -106,6 +106,21 @@ static ELF: &[u8] = include_bytes!("../../hello-world/hello-la");
 #[cfg(target_arch = "riscv64")]
 static ELF: &[u8] = include_bytes!("../../hello-world/hello-rv");
 
+/// Create and configure a Linux user task from the embedded ELF payload.
+///
+/// This allocates a PageTable-backed MMU, constructs a `LinuxLoader` from the static `ELF` payload
+/// using a fresh `ProcessContext`, and instantiates a `LinuxProcess` (pid 0). It also attaches a
+/// `TeletypewriterFile` (backed by `kernel.serial()`) to file descriptors 0, 1, and 2 (stdin, stdout, stderr).
+///
+/// Returns an `Arc<dyn ILinuxTask>` wrapping the configured process.
+///
+/// # Examples
+///
+/// ```no_run
+/// // `kernel` must be a valid reference to the running Kernel instance.
+/// let kernel: &Kernel = /* obtain kernel reference */ unimplemented!();
+/// let task = create_task(kernel);
+/// ```
 fn create_task(kernel: &Kernel) -> Arc<dyn ILinuxTask> {
     let mmu: Arc<SpinMutex<dyn IMMU>> =
         Arc::new(SpinMutex::new(PageTable::alloc(kernel.allocator())));
