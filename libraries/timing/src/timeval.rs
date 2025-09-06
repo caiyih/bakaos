@@ -33,6 +33,7 @@ pub struct TimeVal {
 }
 
 impl TimeVal {
+    #[inline]
     pub fn new(sec: i64, msec: i64) -> TimeVal {
         TimeVal {
             tv_sec: sec,
@@ -40,6 +41,7 @@ impl TimeVal {
         }
     }
 
+    #[inline]
     pub fn zero() -> TimeVal {
         TimeVal {
             tv_msec: 0,
@@ -72,10 +74,12 @@ impl TimeVal {
         }
     }
 
+    #[inline]
     pub fn total_seconds(&self) -> f64 {
         self.tv_sec as f64 + self.tv_msec as f64 / USEC_PER_SEC as f64
     }
 
+    #[inline]
     pub fn total_milliseconds(&self) -> f64 {
         self.tv_sec as f64 * 1_000.0 + (self.tv_msec as f64 / (USEC_PER_SEC / 1_000) as f64)
     }
@@ -92,26 +96,31 @@ impl TimeVal {
     }
 
     /// Get total microseconds as i64
+    #[inline]
     pub fn total_microseconds(&self) -> i64 {
         self.tv_sec * USEC_PER_SEC + self.tv_msec
     }
 
     /// Get total nanoseconds as i64
+    #[inline]
     pub fn total_nanoseconds(&self) -> i64 {
         self.tv_sec * NSEC_PER_SEC + self.tv_msec * 1_000
     }
 
     /// Check if this TimeVal is zero
+    #[inline]
     pub fn is_zero(&self) -> bool {
         self.tv_sec == 0 && self.tv_msec == 0
     }
 
     /// Check if this TimeVal is positive
+    #[inline]
     pub fn is_positive(&self) -> bool {
         self.tv_sec > 0 || (self.tv_sec == 0 && self.tv_msec > 0)
     }
 
     /// Check if this TimeVal is negative
+    #[inline]
     pub fn is_negative(&self) -> bool {
         self.tv_sec < 0 || (self.tv_sec == 0 && self.tv_msec < 0)
     }
@@ -127,17 +136,20 @@ impl TimeVal {
     }
 
     /// Add seconds to this TimeVal
+    #[inline]
     pub fn add_seconds(&mut self, seconds: i64) {
         self.tv_sec += seconds;
     }
 
     /// Add milliseconds to this TimeVal
+    #[inline]
     pub fn add_milliseconds(&mut self, milliseconds: i64) {
         self.add_usec(milliseconds * 1_000);
     }
 }
 
 impl Default for TimeVal {
+    #[inline]
     fn default() -> Self {
         Self::zero()
     }

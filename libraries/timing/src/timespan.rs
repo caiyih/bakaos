@@ -113,20 +113,24 @@ pub struct TimeSpan {
 
 // Constructors
 impl TimeSpan {
+    #[inline]
     pub fn zero() -> TimeSpan {
         TimeSpan { _ticks: 0 }
     }
 
+    #[inline]
     pub fn max_value() -> TimeSpan {
         TimeSpan { _ticks: MAX_TICKS }
     }
 
+    #[inline]
     pub fn min_value() -> TimeSpan {
         TimeSpan { _ticks: MIN_TICKS }
     }
 
     // The tick is the internal representation of the TimeSpan
     // Not the same as the machine's clock tick
+    #[inline]
     pub fn from_ticks(ticks: i64) -> TimeSpan {
         TimeSpan { _ticks: ticks }
     }
@@ -156,6 +160,7 @@ impl TimeSpan {
         }
     }
 
+    #[inline]
     pub fn from_days_ms(
         days: i32,
         hours: i32,
@@ -166,10 +171,12 @@ impl TimeSpan {
         TimeSpan::from(days, hours, minutes, seconds, milliseconds, 0)
     }
 
+    #[inline]
     pub fn from_days_sec(days: i32, hours: i32, minutes: i32, seconds: i32) -> TimeSpan {
         TimeSpan::from_days_ms(days, hours, minutes, seconds, 0)
     }
 
+    #[inline]
     pub fn from_hours_sec(hours: i32, minutes: i32, seconds: i32) -> TimeSpan {
         TimeSpan::from_days_sec(0, hours, minutes, seconds)
     }
@@ -201,59 +208,71 @@ impl TimeSpan {
 // Properties
 impl TimeSpan {
     // Extract the ticks from the TimeSpan
+    #[inline]
     pub fn ticks(&self) -> i64 {
         self._ticks
     }
 
     // Extract the days from the TimeSpan
+    #[inline]
     pub fn days(&self) -> i32 {
         (self._ticks / TICKS_PER_DAY) as i32
     }
 
     // Extract the hours from the TimeSpan
+    #[inline]
     pub fn hours(&self) -> i32 {
         ((self._ticks / TICKS_PER_HOUR) % 24) as i32
     }
 
     // Extract the minutes from the TimeSpan
+    #[inline]
     pub fn minutes(&self) -> i32 {
         ((self._ticks / TICKS_PER_MINUTE) % 60) as i32
     }
 
     // Extract the seconds from the TimeSpan
+    #[inline]
     pub fn seconds(&self) -> i32 {
         ((self._ticks / TICKS_PER_SECOND) % 60) as i32
     }
 
     // Extract the milliseconds from the TimeSpan
+    #[inline]
     pub fn milliseconds(&self) -> i32 {
         ((self._ticks / TICKS_PER_MILLISECOND) % 1000) as i32
     }
 
     // Extract the microseconds from the TimeSpan
+    #[inline]
     pub fn microseconds(&self) -> i32 {
         (self._ticks / TICKS_PER_MICROSECOND % 1000) as i32
     }
 
     // Extract the nanoseconds within the current microsecond (0..=900, step 100)
+    #[inline]
     pub fn nanoseconds(&self) -> i32 {
         ((self._ticks.rem_euclid(TICKS_PER_MICROSECOND)) * 100) as i32
     }
 }
 
 impl TimeSpan {
+    #[inline]
     pub fn total_days(&self) -> f64 {
         self._ticks as f64 / TICKS_PER_DAY as f64
     }
 
+    #[inline]
     pub fn total_hours(&self) -> f64 {
         self._ticks as f64 / TICKS_PER_HOUR as f64
     }
 
+    #[inline]
     pub fn total_minutes(&self) -> f64 {
         self._ticks as f64 / TICKS_PER_MINUTE as f64
     }
 
+    #[inline]
     pub fn total_seconds(&self) -> f64 {
         self._ticks as f64 / TICKS_PER_SECOND as f64
     }
@@ -272,30 +291,36 @@ impl TimeSpan {
         temp
     }
 
+    #[inline]
     pub fn total_microseconds(&self) -> f64 {
         self._ticks as f64 / TICKS_PER_MICROSECOND as f64
     }
 
+    #[inline]
     pub fn total_nanoseconds(&self) -> f64 {
         self._ticks as f64 * 100.0
     }
 
     /// Check if this TimeSpan is zero
+    #[inline]
     pub fn is_zero(&self) -> bool {
         self._ticks == 0
     }
 
     /// Check if this TimeSpan is positive
+    #[inline]
     pub fn is_positive(&self) -> bool {
         self._ticks > 0
     }
 
     /// Check if this TimeSpan is negative
+    #[inline]
     pub fn is_negative(&self) -> bool {
         self._ticks < 0
     }
 
     /// Get the absolute value of this TimeSpan
+    #[inline]
     pub fn abs(&self) -> TimeSpan {
         if self.is_negative() {
             TimeSpan {
@@ -307,11 +332,13 @@ impl TimeSpan {
     }
 
     /// Add another TimeSpan to this one
+    #[inline]
     pub fn add(&mut self, other: TimeSpan) {
         self._ticks += other._ticks;
     }
 
     /// Subtract another TimeSpan from this one
+    #[inline]
     pub fn subtract(&mut self, other: TimeSpan) {
         self._ticks -= other._ticks;
     }
@@ -329,6 +356,7 @@ impl TimeSpan {
     }
 
     /// Create a TimeSpan from a duration in seconds
+    #[inline]
     pub fn from_seconds_f64(seconds: f64) -> TimeSpan {
         TimeSpan {
             _ticks: (seconds * TICKS_PER_SECOND as f64) as i64,
@@ -336,6 +364,7 @@ impl TimeSpan {
     }
 
     /// Create a TimeSpan from a duration in milliseconds
+    #[inline]
     pub fn from_milliseconds_f64(milliseconds: f64) -> TimeSpan {
         TimeSpan {
             _ticks: (milliseconds * TICKS_PER_MILLISECOND as f64) as i64,
@@ -343,6 +372,7 @@ impl TimeSpan {
     }
 
     /// Create a TimeSpan from a duration in microseconds
+    #[inline]
     pub fn from_microseconds_f64(microseconds: f64) -> TimeSpan {
         TimeSpan {
             _ticks: (microseconds * TICKS_PER_MICROSECOND as f64) as i64,
@@ -353,6 +383,7 @@ impl TimeSpan {
 impl core::ops::Add for TimeSpan {
     type Output = TimeSpan;
 
+    #[inline]
     fn add(self, rhs: TimeSpan) -> TimeSpan {
         TimeSpan {
             _ticks: self._ticks + rhs._ticks,
@@ -361,6 +392,7 @@ impl core::ops::Add for TimeSpan {
 }
 
 impl core::ops::AddAssign for TimeSpan {
+    #[inline]
     fn add_assign(&mut self, rhs: TimeSpan) {
         self._ticks += rhs._ticks;
     }
@@ -369,6 +401,7 @@ impl core::ops::AddAssign for TimeSpan {
 impl core::ops::Sub for TimeSpan {
     type Output = TimeSpan;
 
+    #[inline]
     fn sub(self, rhs: TimeSpan) -> TimeSpan {
         TimeSpan {
             _ticks: self._ticks - rhs._ticks,
@@ -377,6 +410,7 @@ impl core::ops::Sub for TimeSpan {
 }
 
 impl core::ops::SubAssign for TimeSpan {
+    #[inline]
     fn sub_assign(&mut self, rhs: TimeSpan) {
         self._ticks -= rhs._ticks;
     }

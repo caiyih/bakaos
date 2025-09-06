@@ -69,6 +69,7 @@ impl TimeSpec {
     /// let zero = TimeSpec::zero();
     /// assert!(zero.is_zero());
     /// ```
+    #[inline]
     pub fn zero() -> TimeSpec {
         TimeSpec {
             tv_sec: 0,
@@ -129,6 +130,7 @@ impl TimeSpec {
     /// let ts = TimeSpec::new(2, 500_000_000);
     /// assert_eq!(ts.total_seconds(), 2.5);
     /// ```
+    #[inline]
     pub fn total_seconds(&self) -> f64 {
         self.tv_sec as f64 + self.tv_nsec as f64 / NSEC_PER_SEC as f64
     }
@@ -141,6 +143,7 @@ impl TimeSpec {
     /// let ts = TimeSpec::new(1, 500_000_000);
     /// assert_eq!(ts.total_milliseconds(), 1500.0);
     /// ```
+    #[inline]
     pub fn total_milliseconds(&self) -> f64 {
         self.tv_sec as f64 * 1_000.0 + self.tv_nsec as f64 / 1_000_000.0
     }
@@ -176,6 +179,7 @@ impl TimeSpec {
     /// let ts = TimeSpec::new(1, 500_000_000);
     /// assert_eq!(ts.total_nanoseconds(), 1_500_000_000);
     /// ```
+    #[inline]
     pub fn total_nanoseconds(&self) -> i64 {
         self.tv_sec * NSEC_PER_SEC + self.tv_nsec
     }
@@ -188,6 +192,7 @@ impl TimeSpec {
     /// let ts = TimeSpec::new(1, 500_000_000);
     /// assert_eq!(ts.total_microseconds(), 1_500_000.0);
     /// ```
+    #[inline]
     pub fn total_microseconds(&self) -> f64 {
         self.tv_sec as f64 * 1_000_000.0 + self.tv_nsec as f64 / 1_000.0
     }
@@ -202,6 +207,7 @@ impl TimeSpec {
     /// let non_zero = TimeSpec::new(1, 0);
     /// assert!(!non_zero.is_zero());
     /// ```
+    #[inline]
     pub fn is_zero(&self) -> bool {
         self.tv_sec == 0 && self.tv_nsec == 0
     }
@@ -216,6 +222,7 @@ impl TimeSpec {
     /// let zero = TimeSpec::zero();
     /// assert!(!zero.is_positive());
     /// ```
+    #[inline]
     pub fn is_positive(&self) -> bool {
         self.tv_sec > 0 || (self.tv_sec == 0 && self.tv_nsec > 0)
     }
@@ -230,6 +237,7 @@ impl TimeSpec {
     /// let pos = TimeSpec::new(1, 0);
     /// assert!(!pos.is_negative());
     /// ```
+    #[inline]
     pub fn is_negative(&self) -> bool {
         self.tv_sec < 0 || (self.tv_sec == 0 && self.tv_nsec < 0)
     }
@@ -264,6 +272,7 @@ impl TimeSpec {
     /// ts.add_seconds(2);
     /// assert_eq!(ts.tv_sec, 3);
     /// ```
+    #[inline]
     pub fn add_seconds(&mut self, seconds: i64) {
         self.tv_sec += seconds;
     }
@@ -278,6 +287,7 @@ impl TimeSpec {
     /// assert_eq!(ts.tv_sec, 1);
     /// assert_eq!(ts.tv_nsec, 500_000_000);
     /// ```
+    #[inline]
     pub fn add_milliseconds(&mut self, milliseconds: i64) {
         self.add_nanos(milliseconds * 1_000_000);
     }
@@ -292,6 +302,7 @@ impl TimeSpec {
     /// assert_eq!(ts.tv_sec, 1);
     /// assert_eq!(ts.tv_nsec, 500_000_000);
     /// ```
+    #[inline]
     pub fn add_microseconds(&mut self, microseconds: i64) {
         self.add_nanos(microseconds * 1_000);
     }

@@ -3,6 +3,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 // SystemTime conversions
 impl From<SystemTime> for TimeSpec {
+    #[inline]
     fn from(system_time: SystemTime) -> Self {
         match system_time.duration_since(UNIX_EPOCH) {
             Ok(duration) => TimeSpec {
@@ -29,6 +30,7 @@ impl From<SystemTime> for TimeSpec {
 }
 
 impl From<TimeSpec> for SystemTime {
+    #[inline]
     fn from(timespec: TimeSpec) -> Self {
         let total: i128 =
             (timespec.tv_sec as i128) * (NSEC_PER_SEC as i128) + (timespec.tv_nsec as i128);
@@ -41,6 +43,7 @@ impl From<TimeSpec> for SystemTime {
 }
 
 impl From<SystemTime> for TimeVal {
+    #[inline]
     fn from(system_time: SystemTime) -> Self {
         let timespec = TimeSpec::from(system_time);
         timespec.to_timeval()
@@ -48,6 +51,7 @@ impl From<SystemTime> for TimeVal {
 }
 
 impl From<TimeVal> for SystemTime {
+    #[inline]
     fn from(timeval: TimeVal) -> Self {
         let timespec = timeval.to_timespec();
         SystemTime::from(timespec)
@@ -56,6 +60,7 @@ impl From<TimeVal> for SystemTime {
 
 // Duration conversions
 impl From<Duration> for TimeSpec {
+    #[inline]
     fn from(duration: Duration) -> Self {
         TimeSpec {
             tv_sec: duration.as_secs() as i64,
@@ -67,6 +72,7 @@ impl From<Duration> for TimeSpec {
 impl TryFrom<TimeSpec> for Duration {
     type Error = &'static str;
 
+    #[inline]
     fn try_from(timespec: TimeSpec) -> Result<Self, Self::Error> {
         let total: i128 =
             (timespec.tv_sec as i128) * (NSEC_PER_SEC as i128) + (timespec.tv_nsec as i128);
@@ -78,6 +84,7 @@ impl TryFrom<TimeSpec> for Duration {
 }
 
 impl From<Duration> for TimeVal {
+    #[inline]
     fn from(duration: Duration) -> Self {
         let timespec = TimeSpec::from(duration);
         timespec.to_timeval()
@@ -87,6 +94,7 @@ impl From<Duration> for TimeVal {
 impl TryFrom<TimeVal> for Duration {
     type Error = &'static str;
 
+    #[inline]
     fn try_from(timeval: TimeVal) -> Result<Self, Self::Error> {
         let total: i128 = (timeval.tv_sec as i128) * 1_000_000i128 + (timeval.tv_msec as i128);
         if total < 0 {
@@ -97,6 +105,7 @@ impl TryFrom<TimeVal> for Duration {
 }
 
 impl From<Duration> for TimeSpan {
+    #[inline]
     fn from(duration: Duration) -> Self {
         // Convert duration to ticks (100ns units)
         let total_nanos = duration.as_secs() * NSEC_PER_SEC as u64 + duration.subsec_nanos() as u64;
@@ -107,6 +116,7 @@ impl From<Duration> for TimeSpan {
 impl TryFrom<TimeSpan> for Duration {
     type Error = &'static str;
 
+    #[inline]
     fn try_from(timespan: TimeSpan) -> Result<Self, Self::Error> {
         if timespan.is_negative() {
             Err("Cannot convert negative TimeSpan to Duration")
@@ -138,6 +148,7 @@ impl TimeSpan {
 impl std::ops::Neg for TimeSpan {
     type Output = TimeSpan;
 
+    #[inline]
     fn neg(self) -> Self::Output {
         TimeSpan::from_ticks(-self.ticks())
     }
