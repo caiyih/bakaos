@@ -111,7 +111,7 @@ impl<T, F: FnOnce(T)> InvokeOnDrop<T, F> {
     /// let guard = InvokeOnDrop::transform(42, |value| {
     ///     println!("Cleaning up value: {}", value);
     /// });
-    /// 
+    ///
     /// assert_eq!(*guard, 42);
     /// // "Cleaning up value: 42" will be printed when guard goes out of scope
     /// ```
@@ -124,7 +124,7 @@ impl<T, F: FnOnce(T)> InvokeOnDrop<T, F> {
     }
 
     /// Deconstructs the `InvokeOnDrop` guard, returning the value and function without executing cleanup.
-    /// 
+    ///
     /// This method allows you to retrieve the managed value and cleanup function without
     /// triggering the automatic cleanup behavior. This is useful when you want to handle
     /// the cleanup manually or transfer ownership of the value elsewhere.
@@ -186,7 +186,7 @@ impl<T, F: FnOnce(T)> InvokeOnDrop<T, F> {
     /// });
     ///
     /// guard.cancel(); // Cancel the cleanup
-    /// 
+    ///
     /// // flag remains false because cleanup was cancelled
     /// assert!(!*flag.lock().unwrap());
     /// ```
@@ -263,7 +263,7 @@ impl<T: Copy, F: FnOnce(T)> InvokeOnDrop<T, F> {
 /// use utilities::InvokeOnDrop;
 ///
 /// let guard = InvokeOnDrop::transform(String::from("hello"), |_| {});
-/// 
+///
 /// // Can use string methods directly on the guard
 /// assert_eq!(guard.len(), 5);
 /// assert!(guard.contains("ell"));
@@ -291,7 +291,7 @@ impl<T, F: FnOnce(T)> Deref for InvokeOnDrop<T, F> {
 /// let mut guard = InvokeOnDrop::transform(42, |final_value| {
 ///     println!("Final value: {}", final_value);
 /// });
-/// 
+///
 /// *guard = 100; // Modify the managed value
 /// // When guard is dropped, cleanup will receive 100, not 42
 /// ```
