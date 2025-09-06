@@ -1,16 +1,14 @@
-use crate::{TimeSpec, TimeVal, TimeSpan, NSEC_PER_SEC};
-use std::time::{SystemTime, UNIX_EPOCH, Duration, Instant};
+use crate::{TimeSpan, TimeSpec, TimeVal, NSEC_PER_SEC};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 // SystemTime conversions
 impl From<SystemTime> for TimeSpec {
     fn from(system_time: SystemTime) -> Self {
         match system_time.duration_since(UNIX_EPOCH) {
-            Ok(duration) => {
-                TimeSpec {
-                    tv_sec: duration.as_secs() as i64,
-                    tv_nsec: duration.subsec_nanos() as i64,
-                }
-            }
+            Ok(duration) => TimeSpec {
+                tv_sec: duration.as_secs() as i64,
+                tv_nsec: duration.subsec_nanos() as i64,
+            },
             Err(e) => {
                 // Handle time before UNIX_EPOCH
                 let duration = e.duration();
@@ -26,7 +24,8 @@ impl From<SystemTime> for TimeSpec {
 impl From<TimeSpec> for SystemTime {
     fn from(timespec: TimeSpec) -> Self {
         if timespec.tv_sec >= 0 && timespec.tv_nsec >= 0 {
-            UNIX_EPOCH + Duration::from_secs(timespec.tv_sec as u64)
+            UNIX_EPOCH
+                + Duration::from_secs(timespec.tv_sec as u64)
                 + Duration::from_nanos(timespec.tv_nsec as u64)
         } else {
             // Handle negative time (before UNIX_EPOCH)
@@ -66,12 +65,12 @@ impl From<Duration> for TimeSpec {
 
 impl TryFrom<TimeSpec> for Duration {
     type Error = &'static str;
-    
+
     fn try_from(timespec: TimeSpec) -> Result<Self, Self::Error> {
         if timespec.is_negative() {
             Err("Cannot convert negative TimeSpec to Duration")
         } else {
-            Ok(Duration::from_secs(timespec.tv_sec as u64) 
+            Ok(Duration::from_secs(timespec.tv_sec as u64)
                 + Duration::from_nanos(timespec.tv_nsec as u64))
         }
     }
@@ -86,12 +85,12 @@ impl From<Duration> for TimeVal {
 
 impl TryFrom<TimeVal> for Duration {
     type Error = &'static str;
-    
+
     fn try_from(timeval: TimeVal) -> Result<Self, Self::Error> {
         if timeval.is_negative() {
             Err("Cannot convert negative TimeVal to Duration")
         } else {
-            Ok(Duration::from_secs(timeval.tv_sec as u64) 
+            Ok(Duration::from_secs(timeval.tv_sec as u64)
                 + Duration::from_micros(timeval.tv_msec as u64))
         }
     }
@@ -109,7 +108,7 @@ impl From<Duration> for TimeSpan {
 
 impl TryFrom<TimeSpan> for Duration {
     type Error = &'static str;
-    
+
     fn try_from(timespan: TimeSpan) -> Result<Self, Self::Error> {
         if timespan.is_negative() {
             Err("Cannot convert negative TimeSpan to Duration")
@@ -137,16 +136,18 @@ impl TimeSpan {
 // Add negation for TimeSpan
 impl std::ops::Neg for TimeSpan {
     type Output = TimeSpan;
-    
+
     fn neg(self) -> Self::Output {
-        TimeSpan { _ticks: -self._ticks }
+        TimeSpan {
+            _ticks: -self._ticks,
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::{SystemTime, Duration, UNIX_EPOCH};
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
     #[test]
     fn test_systemtime_to_timespec() {
@@ -160,7 +161,8 @@ mod tests {
     fn test_timespec_to_systemtime() {
         let ts = TimeSpec::new(1234567890, 123456789);
         let system_time = SystemTime::from(ts);
-        let expected = UNIX_EPOCH + Duration::from_secs(1234567890) + Duration::from_nanos(123456789);
+        let expected =
+            UNIX_EPOCH + Duration::from_secs(1234567890) + Duration::from_nanos(123456789);
         assert_eq!(system_time, expected);
     }
 

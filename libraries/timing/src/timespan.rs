@@ -77,8 +77,8 @@ const MAX_MILLISECONDS: i64 = MAX_TICKS / TICKS_PER_MILLISECOND;
 // const MAX_DAYS: i64 = MAX_TICKS / TICKS_PER_DAY;
 
 /// A time span structure representing a duration of time.
-/// 
-/// TimeSpan represents a duration of time internally as a number of ticks, 
+///
+/// TimeSpan represents a duration of time internally as a number of ticks,
 /// where each tick equals 100 nanoseconds. This allows for high-precision
 /// time duration calculations and is inspired by .NET's TimeSpan.
 ///
@@ -300,7 +300,9 @@ impl TimeSpan {
     /// Get the absolute value of this TimeSpan
     pub fn abs(&self) -> TimeSpan {
         if self.is_negative() {
-            TimeSpan { _ticks: -self._ticks }
+            TimeSpan {
+                _ticks: -self._ticks,
+            }
         } else {
             *self
         }
@@ -414,12 +416,12 @@ mod test_timespan {
     #[test]
     fn test_from_simple() {
         let ts = TimeSpan::from(1, 2, 3, 4, 5, 6); // 1 day, 2 hours, 3 minutes, 4 seconds, 5 ms, 6 μs
-        // 1 day = 864_000_000_000 ticks
-        // 2 hours = 72_000_000_000 ticks  
-        // 3 minutes = 1_800_000_000 ticks
-        // 4 seconds = 40_000_000 ticks
-        // 5 ms = 50_000 ticks
-        // 6 μs = 60 ticks
+                                                   // 1 day = 864_000_000_000 ticks
+                                                   // 2 hours = 72_000_000_000 ticks
+                                                   // 3 minutes = 1_800_000_000 ticks
+                                                   // 4 seconds = 40_000_000 ticks
+                                                   // 5 ms = 50_000 ticks
+                                                   // 6 μs = 60 ticks
         let expected = 864_000_000_000 + 72_000_000_000 + 1_800_000_000 + 40_000_000 + 50_000 + 60;
         assert_eq!(ts._ticks, expected);
     }
@@ -450,7 +452,7 @@ mod test_timespan {
         let ts1 = TimeSpec::new(10, 500_000_000);
         let ts2 = TimeSpec::new(5, 200_000_000);
         let diff = TimeSpan::from_timespec_diff(&ts1, &ts2);
-        
+
         // Expected: 5.3 seconds = 53_000_000 ticks (5.3 * 10_000_000)
         assert_eq!(diff._ticks, 53_000_000);
     }
@@ -460,8 +462,8 @@ mod test_timespan {
         let tv1 = TimeVal::new(10, 500_000);
         let tv2 = TimeVal::new(5, 200_000);
         let diff = TimeSpan::from_timeval_diff(&tv1, &tv2);
-        
-        // Expected: 5.3 seconds = 53_000_000 ticks (5.3 * 10_000_000) 
+
+        // Expected: 5.3 seconds = 53_000_000 ticks (5.3 * 10_000_000)
         assert_eq!(diff._ticks, 53_000_000);
     }
 
@@ -481,7 +483,7 @@ mod test_timespan {
     fn test_hours() {
         let ts = TimeSpan::from(1, 5, 0, 0, 0, 0);
         assert_eq!(ts.hours(), 5);
-        
+
         // Test hours wrapping (25 hours = 1 day + 1 hour)
         let ts2 = TimeSpan::from(0, 25, 0, 0, 0, 0);
         assert_eq!(ts2.hours(), 1);
@@ -492,7 +494,7 @@ mod test_timespan {
     fn test_minutes() {
         let ts = TimeSpan::from(0, 0, 45, 0, 0, 0);
         assert_eq!(ts.minutes(), 45);
-        
+
         // Test minutes wrapping
         let ts2 = TimeSpan::from(0, 0, 65, 0, 0, 0);
         assert_eq!(ts2.minutes(), 5);
@@ -503,7 +505,7 @@ mod test_timespan {
     fn test_seconds() {
         let ts = TimeSpan::from(0, 0, 0, 30, 0, 0);
         assert_eq!(ts.seconds(), 30);
-        
+
         // Test seconds wrapping
         let ts2 = TimeSpan::from(0, 0, 0, 70, 0, 0);
         assert_eq!(ts2.seconds(), 10);
@@ -514,7 +516,7 @@ mod test_timespan {
     fn test_milliseconds() {
         let ts = TimeSpan::from(0, 0, 0, 0, 500, 0);
         assert_eq!(ts.milliseconds(), 500);
-        
+
         // Test milliseconds wrapping
         let ts2 = TimeSpan::from(0, 0, 0, 0, 1500, 0);
         assert_eq!(ts2.milliseconds(), 500);
@@ -612,7 +614,7 @@ mod test_timespan {
         let ts1 = TimeSpan::from_ticks(1000);
         let ts2 = TimeSpan::from_ticks(1000);
         let ts3 = TimeSpan::from_ticks(2000);
-        
+
         assert_eq!(ts1, ts2);
         assert!(ts1 < ts3);
         assert!(ts3 > ts1);

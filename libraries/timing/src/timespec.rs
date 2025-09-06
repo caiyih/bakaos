@@ -1,8 +1,8 @@
 use crate::{TimeVal, NSEC_PER_SEC};
 
 /// A time specification structure representing time as seconds and nanoseconds.
-/// 
-/// This structure is compatible with the POSIX `timespec` structure and is 
+///
+/// This structure is compatible with the POSIX `timespec` structure and is
 /// commonly used in system programming for high-precision time representation.
 ///
 /// # Examples
@@ -169,7 +169,7 @@ impl TimeSpec {
     }
 
     /// Get total nanoseconds as i64
-    /// 
+    ///
     /// # Examples
     /// ```
     /// use timing::TimeSpec;
@@ -475,7 +475,7 @@ mod test_timespec {
         assert_eq!(ts.tv_sec, 2);
         assert_eq!(ts.tv_nsec, 0);
 
-        let ts2 = TimeSpec::from_ticks(1_500_000, 1_000_000); // 1.5 seconds at 1MHz  
+        let ts2 = TimeSpec::from_ticks(1_500_000, 1_000_000); // 1.5 seconds at 1MHz
         assert_eq!(ts2.tv_sec, 1);
         assert_eq!(ts2.tv_nsec, 500_000_000);
     }
@@ -484,7 +484,7 @@ mod test_timespec {
     fn test_add_nanos_large() {
         let mut time = TimeSpec::new(0, 0);
         time.add_nanos(2_500_000_000); // 2.5 seconds
-        
+
         assert_eq!(time.tv_sec, 2);
         assert_eq!(time.tv_nsec, 500_000_000);
     }
@@ -493,7 +493,7 @@ mod test_timespec {
     fn test_add_nanos_negative_underflow() {
         let mut time = TimeSpec::new(2, 300_000_000);
         time.add_nanos(-2_500_000_000); // -2.5 seconds
-        
+
         assert_eq!(time.tv_sec, -1);
         assert_eq!(time.tv_nsec, 800_000_000);
     }
@@ -508,7 +508,7 @@ mod test_timespec {
     #[test]
     fn test_total_nanoseconds() {
         let time = TimeSpec::new(1, 500_000_000);
-        // 1.5 seconds = 1,500,000,000 nanoseconds  
+        // 1.5 seconds = 1,500,000,000 nanoseconds
         let total_nanos = time.tv_sec as f64 * 1_000_000_000.0 + time.tv_nsec as f64;
         assert_eq!(total_nanos, 1_500_000_000.0);
     }
@@ -518,7 +518,7 @@ mod test_timespec {
         let ts1 = TimeSpec::new(1, 500_000_000);
         let ts2 = TimeSpec::new(1, 500_000_000);
         let ts3 = TimeSpec::new(2, 0);
-        
+
         assert_eq!(ts1, ts2);
         assert!(ts1 < ts3);
         assert!(ts3 > ts1);

@@ -1,7 +1,7 @@
 use crate::{TimeSpec, NSEC_PER_SEC, USEC_PER_SEC};
 /// A time value structure representing time as seconds and microseconds.
-/// 
-/// This structure is compatible with the POSIX `timeval` structure and is 
+///
+/// This structure is compatible with the POSIX `timeval` structure and is
 /// commonly used in system programming for time representation with microsecond precision.
 ///
 /// # Examples
@@ -210,7 +210,7 @@ mod test_timeval {
         assert_eq!(tv.tv_sec, 2);
         assert_eq!(tv.tv_msec, 0);
 
-        let tv2 = TimeVal::from_ticks(1_500_000, 1_000_000); // 1.5 seconds at 1MHz  
+        let tv2 = TimeVal::from_ticks(1_500_000, 1_000_000); // 1.5 seconds at 1MHz
         assert_eq!(tv2.tv_sec, 1);
         assert_eq!(tv2.tv_msec, 500_000);
     }
@@ -241,7 +241,7 @@ mod test_timeval {
     fn test_total_seconds() {
         let tv = TimeVal::new(2, 500_000);
         assert_eq!(tv.total_seconds(), 2.5);
-        
+
         let tv2 = TimeVal::new(0, 250_000);
         assert_eq!(tv2.total_seconds(), 0.25);
     }
@@ -250,7 +250,7 @@ mod test_timeval {
     fn test_total_milliseconds() {
         let tv = TimeVal::new(1, 500_000);
         assert_eq!(tv.total_milliseconds(), 1500.0);
-        
+
         let tv2 = TimeVal::new(0, 250_000);
         assert_eq!(tv2.total_milliseconds(), 250.0);
     }
@@ -310,7 +310,7 @@ mod test_timeval {
         let tv1 = TimeVal::new(1, 500_000);
         let tv2 = TimeVal::new(1, 500_000);
         let tv3 = TimeVal::new(2, 0);
-        
+
         assert_eq!(tv1, tv2);
         assert!(tv1 < tv3);
         assert!(tv3 > tv1);
