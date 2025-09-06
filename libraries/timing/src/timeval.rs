@@ -85,7 +85,10 @@ impl TimeVal {
             (self.tv_sec as i128) * (NSEC_PER_SEC as i128) + (self.tv_msec as i128) * 1_000i128;
         let sec = (total_ns.div_euclid(NSEC_PER_SEC as i128)) as i64;
         let nsec = (total_ns.rem_euclid(NSEC_PER_SEC as i128)) as i64;
-        TimeSpec { tv_sec: sec, tv_nsec: nsec }
+        TimeSpec {
+            tv_sec: sec,
+            tv_nsec: nsec,
+        }
     }
 
     /// Get total microseconds as i64

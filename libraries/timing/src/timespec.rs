@@ -46,7 +46,7 @@ impl TimeSpec {
     /// let ts = TimeSpec::new(10, 500_000_000);
     /// assert_eq!(ts.tv_sec, 10);
     /// assert_eq!(ts.tv_nsec, 500_000_000);
-    /// 
+    ///
     /// // Test normalization
     /// let ts2 = TimeSpec::new(5, 1_500_000_000); // 1.5 extra seconds
     /// assert_eq!(ts2.tv_sec, 6);
@@ -55,7 +55,10 @@ impl TimeSpec {
     pub fn new(sec: i64, nsec: i64) -> TimeSpec {
         let sec = sec + nsec.div_euclid(NSEC_PER_SEC);
         let nsec = nsec.rem_euclid(NSEC_PER_SEC);
-        TimeSpec { tv_sec: sec, tv_nsec: nsec }
+        TimeSpec {
+            tv_sec: sec,
+            tv_nsec: nsec,
+        }
     }
 
     /// Create a TimeSpec representing zero time (0.0 seconds).
@@ -93,7 +96,10 @@ impl TimeSpec {
         let sec = ticks.div_euclid(f);
         let rem = ticks.rem_euclid(f);
         let nsec = ((rem as i128) * (NSEC_PER_SEC as i128) / (f as i128)) as i64;
-        TimeSpec { tv_sec: sec, tv_nsec: nsec }
+        TimeSpec {
+            tv_sec: sec,
+            tv_nsec: nsec,
+        }
     }
 
     /// Add nanoseconds to this TimeSpec, handling overflow correctly.
@@ -243,7 +249,10 @@ impl TimeSpec {
         let total = total.abs();
         let sec = (total / (NSEC_PER_SEC as i128)) as i64;
         let nsec = (total % (NSEC_PER_SEC as i128)) as i64;
-        TimeSpec { tv_sec: sec, tv_nsec: nsec }
+        TimeSpec {
+            tv_sec: sec,
+            tv_nsec: nsec,
+        }
     }
 
     /// Add seconds to this TimeSpec

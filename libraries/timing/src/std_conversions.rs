@@ -13,7 +13,10 @@ impl From<SystemTime> for TimeSpec {
                 // Normalize time before UNIX_EPOCH so tv_nsec ∈ [0, 1e9)
                 let dur = e.duration();
                 if dur.subsec_nanos() == 0 {
-                    TimeSpec { tv_sec: -(dur.as_secs() as i64), tv_nsec: 0 }
+                    TimeSpec {
+                        tv_sec: -(dur.as_secs() as i64),
+                        tv_nsec: 0,
+                    }
                 } else {
                     TimeSpec {
                         tv_sec: -(dur.as_secs() as i64) - 1,
@@ -27,7 +30,8 @@ impl From<SystemTime> for TimeSpec {
 
 impl From<TimeSpec> for SystemTime {
     fn from(timespec: TimeSpec) -> Self {
-        let total: i128 = (timespec.tv_sec as i128) * (NSEC_PER_SEC as i128) + (timespec.tv_nsec as i128);
+        let total: i128 =
+            (timespec.tv_sec as i128) * (NSEC_PER_SEC as i128) + (timespec.tv_nsec as i128);
         if total >= 0 {
             UNIX_EPOCH + Duration::from_nanos(total as u64)
         } else {
@@ -84,8 +88,7 @@ impl TryFrom<TimeVal> for Duration {
     type Error = &'static str;
 
     fn try_from(timeval: TimeVal) -> Result<Self, Self::Error> {
-        let total: i128 =
-            (timeval.tv_sec as i128) * 1_000_000i128 + (timeval.tv_msec as i128);
+        let total: i128 = (timeval.tv_sec as i128) * 1_000_000i128 + (timeval.tv_msec as i128);
         if total < 0 {
             return Err("Cannot convert negative TimeVal to Duration");
         }
