@@ -38,7 +38,7 @@ impl TimeSpec {
     ///
     /// # Arguments
     /// * `sec` - Seconds component
-    /// * `nsec` - Nanoseconds component (will be normalized if >= 1 billion)
+    /// * `nsec` - Nanoseconds component; normalized into [0, NSEC_PER_SEC) via Euclidean division
     ///
     /// # Examples
     /// ```
@@ -46,12 +46,16 @@ impl TimeSpec {
     /// let ts = TimeSpec::new(10, 500_000_000);
     /// assert_eq!(ts.tv_sec, 10);
     /// assert_eq!(ts.tv_nsec, 500_000_000);
+    /// 
+    /// // Test normalization
+    /// let ts2 = TimeSpec::new(5, 1_500_000_000); // 1.5 extra seconds
+    /// assert_eq!(ts2.tv_sec, 6);
+    /// assert_eq!(ts2.tv_nsec, 500_000_000);
     /// ```
     pub fn new(sec: i64, nsec: i64) -> TimeSpec {
-        TimeSpec {
-            tv_sec: sec,
-            tv_nsec: nsec,
-        }
+        let sec = sec + nsec.div_euclid(NSEC_PER_SEC);
+        let nsec = nsec.rem_euclid(NSEC_PER_SEC);
+        TimeSpec { tv_sec: sec, tv_nsec: nsec }
     }
 
     /// Create a TimeSpec representing zero time (0.0 seconds).
@@ -84,13 +88,12 @@ impl TimeSpec {
     /// assert_eq!(ts.tv_nsec, 0);
     /// ```
     pub fn from_ticks(ticks: i64, freq: u64) -> TimeSpec {
-        let sec = ticks / freq as i64;
-        let nsec = (ticks % freq as i64) * NSEC_PER_SEC / freq as i64;
-
-        TimeSpec {
-            tv_sec: sec,
-            tv_nsec: nsec,
-        }
+        assert!(freq > 0, "freq must be > 0");
+        let f = freq as i64;
+        let sec = ticks.div_euclid(f);
+        let rem = ticks.rem_euclid(f);
+        let nsec = ((rem as i128) * (NSEC_PER_SEC as i128) / (f as i128)) as i64;
+        TimeSpec { tv_sec: sec, tv_nsec: nsec }
     }
 
     /// Add nanoseconds to this TimeSpec, handling overflow correctly.
@@ -107,18 +110,9 @@ impl TimeSpec {
     /// assert_eq!(ts.tv_nsec, 200_000_000);
     /// ```
     pub fn add_nanos(&mut self, nanos: i64) {
-        self.tv_sec += nanos / NSEC_PER_SEC;
-        self.tv_nsec += nanos % NSEC_PER_SEC;
-
-        // Handle overflow/underflow for nanoseconds
-        if self.tv_nsec >= NSEC_PER_SEC {
-            self.tv_sec += self.tv_nsec / NSEC_PER_SEC;
-            self.tv_nsec %= NSEC_PER_SEC;
-        } else if self.tv_nsec < 0 {
-            let borrow = (-self.tv_nsec + NSEC_PER_SEC - 1) / NSEC_PER_SEC;
-            self.tv_sec -= borrow;
-            self.tv_nsec += borrow * NSEC_PER_SEC;
-        }
+        let total = self.tv_nsec + nanos;
+        self.tv_sec += total.div_euclid(NSEC_PER_SEC);
+        self.tv_nsec = total.rem_euclid(NSEC_PER_SEC);
     }
 
     /// Get the total time as seconds (with fractional part).
@@ -245,14 +239,11 @@ impl TimeSpec {
     /// assert_eq!(abs_val.tv_nsec, 500_000_000);
     /// ```
     pub fn abs(&self) -> TimeSpec {
-        if self.is_negative() {
-            TimeSpec {
-                tv_sec: -self.tv_sec,
-                tv_nsec: -self.tv_nsec,
-            }
-        } else {
-            *self
-        }
+        let total = (self.tv_sec as i128) * (NSEC_PER_SEC as i128) + (self.tv_nsec as i128);
+        let total = total.abs();
+        let sec = (total / (NSEC_PER_SEC as i128)) as i64;
+        let nsec = (total % (NSEC_PER_SEC as i128)) as i64;
+        TimeSpec { tv_sec: sec, tv_nsec: nsec }
     }
 
     /// Add seconds to this TimeSpec
@@ -502,15 +493,22 @@ mod test_timespec {
     fn test_total_microseconds() {
         let time = TimeSpec::new(1, 500_000_000);
         // 1.5 seconds = 1,500,000 microseconds
-        assert_eq!(time.total_seconds() * 1_000_000.0, 1_500_000.0);
+        assert_eq!(time.total_microseconds(), 1_500_000.0);
     }
 
     #[test]
     fn test_total_nanoseconds() {
         let time = TimeSpec::new(1, 500_000_000);
         // 1.5 seconds = 1,500,000,000 nanoseconds
-        let total_nanos = time.tv_sec as f64 * 1_000_000_000.0 + time.tv_nsec as f64;
-        assert_eq!(total_nanos, 1_500_000_000.0);
+        assert_eq!(time.total_nanoseconds(), 1_500_000_000);
+    }
+
+    #[test]
+    fn test_abs_normalized_negative() {
+        let ts = TimeSpec::new(-1, 200_000_000); // total = -0.8s
+        let abs = ts.abs();
+        assert_eq!(abs.tv_sec, 0);
+        assert_eq!(abs.tv_nsec, 800_000_000);
     }
 
     #[test]

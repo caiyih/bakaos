@@ -81,13 +81,11 @@ impl TimeVal {
     }
 
     pub fn to_timespec(&self) -> TimeSpec {
-        let nsec = self.tv_msec * 1_000;
-        let sec = self.tv_sec + nsec / NSEC_PER_SEC;
-
-        TimeSpec {
-            tv_sec: sec,
-            tv_nsec: nsec % NSEC_PER_SEC,
-        }
+        let total_ns: i128 =
+            (self.tv_sec as i128) * (NSEC_PER_SEC as i128) + (self.tv_msec as i128) * 1_000i128;
+        let sec = (total_ns.div_euclid(NSEC_PER_SEC as i128)) as i64;
+        let nsec = (total_ns.rem_euclid(NSEC_PER_SEC as i128)) as i64;
+        TimeSpec { tv_sec: sec, tv_nsec: nsec }
     }
 
     /// Get total microseconds as i64
@@ -117,13 +115,11 @@ impl TimeVal {
 
     /// Get the absolute value of this TimeVal
     pub fn abs(&self) -> TimeVal {
-        if self.is_negative() {
-            TimeVal {
-                tv_sec: -self.tv_sec,
-                tv_msec: -self.tv_msec,
-            }
-        } else {
-            *self
+        let total: i128 = (self.tv_sec as i128) * (USEC_PER_SEC as i128) + (self.tv_msec as i128);
+        let abs_total = if total < 0 { -total } else { total };
+        TimeVal {
+            tv_sec: (abs_total / (USEC_PER_SEC as i128)) as i64,
+            tv_msec: (abs_total % (USEC_PER_SEC as i128)) as i64,
         }
     }
 
@@ -316,5 +312,20 @@ mod test_timeval {
         assert!(tv3 > tv1);
         assert!(tv1 <= tv2);
         assert!(tv1 >= tv2);
+    }
+
+    #[test]
+    fn test_to_timespec_negative_microseconds() {
+        let tv = TimeVal::new(-1, -500_000); // -1.5 seconds
+        let ts = tv.to_timespec();
+        assert!(ts.tv_nsec >= 0 && ts.tv_nsec < 1_000_000_000); // Normalized
+    }
+
+    #[test]
+    fn test_abs_mixed_sign() {
+        let tv = TimeVal::new(-1, 200_000); // net: -0.8 seconds
+        let abs_tv = tv.abs();
+        assert_eq!(abs_tv.tv_sec, 0);
+        assert_eq!(abs_tv.tv_msec, 800_000);
     }
 }

@@ -10,11 +10,15 @@ impl From<SystemTime> for TimeSpec {
                 tv_nsec: duration.subsec_nanos() as i64,
             },
             Err(e) => {
-                // Handle time before UNIX_EPOCH
-                let duration = e.duration();
-                TimeSpec {
-                    tv_sec: -(duration.as_secs() as i64),
-                    tv_nsec: -(duration.subsec_nanos() as i64),
+                // Normalize time before UNIX_EPOCH so tv_nsec ∈ [0, 1e9)
+                let dur = e.duration();
+                if dur.subsec_nanos() == 0 {
+                    TimeSpec { tv_sec: -(dur.as_secs() as i64), tv_nsec: 0 }
+                } else {
+                    TimeSpec {
+                        tv_sec: -(dur.as_secs() as i64) - 1,
+                        tv_nsec: NSEC_PER_SEC - dur.subsec_nanos() as i64,
+                    }
                 }
             }
         }
@@ -23,18 +27,11 @@ impl From<SystemTime> for TimeSpec {
 
 impl From<TimeSpec> for SystemTime {
     fn from(timespec: TimeSpec) -> Self {
-        if timespec.tv_sec >= 0 && timespec.tv_nsec >= 0 {
-            UNIX_EPOCH
-                + Duration::from_secs(timespec.tv_sec as u64)
-                + Duration::from_nanos(timespec.tv_nsec as u64)
+        let total: i128 = (timespec.tv_sec as i128) * (NSEC_PER_SEC as i128) + (timespec.tv_nsec as i128);
+        if total >= 0 {
+            UNIX_EPOCH + Duration::from_nanos(total as u64)
         } else {
-            // Handle negative time (before UNIX_EPOCH)
-            let total_nanos = timespec.total_nanoseconds();
-            if total_nanos < 0 {
-                UNIX_EPOCH - Duration::from_nanos((-total_nanos) as u64)
-            } else {
-                UNIX_EPOCH + Duration::from_nanos(total_nanos as u64)
-            }
+            UNIX_EPOCH - Duration::from_nanos((-total) as u64)
         }
     }
 }
@@ -67,12 +64,12 @@ impl TryFrom<TimeSpec> for Duration {
     type Error = &'static str;
 
     fn try_from(timespec: TimeSpec) -> Result<Self, Self::Error> {
-        if timespec.is_negative() {
-            Err("Cannot convert negative TimeSpec to Duration")
-        } else {
-            Ok(Duration::from_secs(timespec.tv_sec as u64)
-                + Duration::from_nanos(timespec.tv_nsec as u64))
+        let total: i128 =
+            (timespec.tv_sec as i128) * (NSEC_PER_SEC as i128) + (timespec.tv_nsec as i128);
+        if total < 0 {
+            return Err("Cannot convert negative TimeSpec to Duration");
         }
+        Ok(Duration::from_nanos(total as u64))
     }
 }
 
@@ -87,12 +84,12 @@ impl TryFrom<TimeVal> for Duration {
     type Error = &'static str;
 
     fn try_from(timeval: TimeVal) -> Result<Self, Self::Error> {
-        if timeval.is_negative() {
-            Err("Cannot convert negative TimeVal to Duration")
-        } else {
-            Ok(Duration::from_secs(timeval.tv_sec as u64)
-                + Duration::from_micros(timeval.tv_msec as u64))
+        let total: i128 =
+            (timeval.tv_sec as i128) * 1_000_000i128 + (timeval.tv_msec as i128);
+        if total < 0 {
+            return Err("Cannot convert negative TimeVal to Duration");
         }
+        Ok(Duration::from_micros(total as u64))
     }
 }
 
@@ -100,9 +97,7 @@ impl From<Duration> for TimeSpan {
     fn from(duration: Duration) -> Self {
         // Convert duration to ticks (100ns units)
         let total_nanos = duration.as_secs() * NSEC_PER_SEC as u64 + duration.subsec_nanos() as u64;
-        TimeSpan {
-            _ticks: (total_nanos / 100) as i64,
-        }
+        TimeSpan::from_ticks((total_nanos / 100) as i64)
     }
 }
 
@@ -114,7 +109,10 @@ impl TryFrom<TimeSpan> for Duration {
             Err("Cannot convert negative TimeSpan to Duration")
         } else {
             // Convert ticks (100ns units) back to Duration
-            let total_nanos = timespan._ticks * 100;
+            let total_nanos: i128 = (timespan._ticks as i128) * 100i128;
+            if total_nanos > u64::MAX as i128 {
+                return Err("TimeSpan too large to convert to Duration");
+            }
             Ok(Duration::from_nanos(total_nanos as u64))
         }
     }
@@ -138,9 +136,7 @@ impl std::ops::Neg for TimeSpan {
     type Output = TimeSpan;
 
     fn neg(self) -> Self::Output {
-        TimeSpan {
-            _ticks: -self._ticks,
-        }
+        TimeSpan::from_ticks(-self.ticks())
     }
 }
 

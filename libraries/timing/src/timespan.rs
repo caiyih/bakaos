@@ -27,7 +27,7 @@
     an appropriate custom ILMarshaler to keep WInRT interop scenarios enabled.
 */
 
-use crate::{TimeSpec, TimeVal, NSEC_PER_SEC};
+use crate::{TimeSpec, TimeVal};
 
 // Ticks for TimeSpan per microsecond
 // 10
@@ -179,24 +179,18 @@ impl TimeSpan {
     pub fn from_timespec_diff(lhs: &TimeSpec, rhs: &TimeSpec) -> TimeSpan {
         let diff_sec = lhs.tv_sec - rhs.tv_sec;
         let diff_nsec = lhs.tv_nsec - rhs.tv_nsec;
-
-        let total_microseconds = diff_sec * (TICKS_PER_SECOND / TICKS_PER_MICROSECOND)
-            + diff_nsec / (NSEC_PER_SEC / (TICKS_PER_SECOND / TICKS_PER_MICROSECOND));
-
-        TimeSpan {
-            _ticks: total_microseconds * TICKS_PER_MICROSECOND,
-        }
+        // 1 tick = 100ns
+        let total_ticks = (diff_sec as i128) * (TICKS_PER_SECOND as i128)
+            + (diff_nsec as i128) / 100;
+        TimeSpan { _ticks: total_ticks as i64 }
     }
 
     pub fn from_timeval_diff(lhs: &TimeVal, rhs: &TimeVal) -> TimeSpan {
         let diff_sec = lhs.tv_sec - rhs.tv_sec;
-        let diff_usec = lhs.tv_msec - rhs.tv_msec;
-
-        let total_microseconds = diff_sec * (TICKS_PER_SECOND / TICKS_PER_MICROSECOND) + diff_usec;
-
-        TimeSpan {
-            _ticks: total_microseconds * TICKS_PER_MICROSECOND,
-        }
+        let diff_usec = lhs.tv_msec - rhs.tv_msec; // treated as microseconds
+        let total_ticks = (diff_sec as i128) * (TICKS_PER_SECOND as i128)
+            + (diff_usec as i128) * (TICKS_PER_MICROSECOND as i128);
+        TimeSpan { _ticks: total_ticks as i64 }
     }
 }
 
@@ -237,9 +231,9 @@ impl TimeSpan {
         (self._ticks / TICKS_PER_MICROSECOND % 1000) as i32
     }
 
-    // Extract the nanoseconds from the TimeSpan (0-99, since each tick is 100ns)
+    // Extract the nanoseconds within the current microsecond (0..=900, step 100)
     pub fn nanoseconds(&self) -> i32 {
-        ((self._ticks % TICKS_PER_MICROSECOND) * 100) as i32
+        ((self._ticks.rem_euclid(TICKS_PER_MICROSECOND)) * 100) as i32
     }
 }
 
@@ -575,6 +569,20 @@ mod test_timespan {
     fn test_total_nanoseconds() {
         let ts = TimeSpan::from_ticks(150); // 150 ticks = 15000 nanoseconds
         assert_eq!(ts.total_nanoseconds(), 15000.0);
+    }
+
+    #[test]
+    fn test_nanoseconds_negative() {
+        let ts = TimeSpan::from_ticks(-5);
+        assert_eq!(ts.nanoseconds(), 500);
+    }
+
+    #[test]
+    fn test_from_timespec_diff_sub_micro() {
+        let a = TimeSpec::new(0, 0);
+        let b = TimeSpec::new(0, 900); // 900ns
+        let d = TimeSpan::from_timespec_diff(&a, &b);
+        assert_eq!(d.ticks(), -9); // -900ns = -9 ticks
     }
 
     #[test]
