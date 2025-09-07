@@ -47,6 +47,9 @@ jobs:
       - name: Compile
         run: cargo nextest run --no-run
 
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
       - name: Test
         env:
           RUST_LOG: "trace"

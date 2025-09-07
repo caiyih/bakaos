@@ -142,10 +142,11 @@ mod physical_page_num_tests {
 
     // Clone 和 Copy trait 测试
     #[test]
+    #[allow(clippy::clone_on_copy)]
     fn test_clone_and_copy() {
         let page1 = PhysicalPageNum::from_usize(100);
         let page2 = page1; // Copy
-        let page3 = page1; // Clone
+        let page3 = page1.clone(); // Clone
 
         assert_eq!(page1, page2);
         assert_eq!(page1, page3);

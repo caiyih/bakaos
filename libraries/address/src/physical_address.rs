@@ -146,10 +146,11 @@ mod physical_address_tests {
 
     // Clone 和 Copy trait 测试
     #[test]
+    #[allow(clippy::clone_on_copy)]
     fn test_clone_and_copy() {
         let addr1 = PhysicalAddress::from_usize(0x1000);
         let addr2 = addr1; // Copy
-        let addr3 = addr1; // Clone
+        let addr3 = addr1.clone(); // Clone
 
         assert_eq!(addr1, addr2);
         assert_eq!(addr1, addr3);
