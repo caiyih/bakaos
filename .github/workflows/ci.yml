@@ -9,7 +9,7 @@ on:
   pull_request:
 
 env:
-  CARGO_TERM_COLOR: 'always'
+  CARGO_TERM_COLOR: "always"
 
 permissions:
   contents: read
@@ -31,11 +31,13 @@ jobs:
 
       - name: Install Rust
         uses: ./.github/workflows/actions/setup-rust
+        with:
+          components: llvm-tools-preview
 
-      - name: Install cargo-nextest
+      - name: Install cargo-nextest and cargo-llvm-cov
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-nextest
+          tool: cargo-nextest,cargo-llvm-cov
 
       # rust-toolchain.toml contains components and targets that we don't need for testing
       # We just simply remove it to avoid installing unnecessary components and targets
@@ -44,15 +46,20 @@ jobs:
         shell: bash
         run: rm rust-toolchain.toml
 
-      - name: Compile
-        run: cargo nextest run --no-run
-
       - name: Test
         env:
           RUST_LOG: "trace"
           RUST_BACKTRACE: "1"
+        shell: bash
         run: |
-          cargo nextest run --no-fail-fast --hide-progress-bar --success-output immediate --failure-output immediate
+          cargo llvm-cov nextest \
+            --cobertura \
+            --output-path cobertura.xml \
+            --no-fail-fast \
+            --hide-progress-bar \
+            --success-output never \
+            --failure-output final \
+            --branch
 
       - name: Upload Test Report to artifact
         uses: actions/upload-artifact@v4
@@ -61,55 +68,45 @@ jobs:
           name: test-results-${{ matrix.os.prettyname }}
           path: target/nextest/default/junit.xml
 
-  coverage:
-    name: Coverage
-    runs-on: ${{ matrix.os.fullname }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          # This workflow only collects coverage, to run on Windows is a waste of resources
-          - { prettyname: linux, fullname: ubuntu-latest }
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: coverage-${{ matrix.os.prettyname }}
+          path: cobertura.xml
+
+  codecov:
+    name: Codecov
+    runs-on: ubuntu-latest
+    needs: [test]
 
     steps:
+      # Codecov requires source code
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: ./.github/workflows/actions/setup-rust
-
-      - name: Install cargo-tarpaulin
-        uses: taiki-e/install-action@v2
+      - name: Download coverage artifacts
+        uses: actions/download-artifact@v4
         with:
-          tool: cargo-tarpaulin
+          pattern: coverage-*
+          merge-multiple: false
 
-      - name: Remove rust-toolchain.toml
-        shell: bash
-        run: rm rust-toolchain.toml
-
-      - name: Compile
-        run: cargo test --no-run
-
-      - name: Test
-        env:
-          RUST_LOG: "trace"
-        run: |
-          cargo tarpaulin --out Xml --out Html --output-dir . -- --show-output
-
-      - name: Process coverage result
-        run: |
-          mkdir -p coverage
-          cp cobertura.xml coverage/
-          cp tarpaulin-report.html coverage/
-
-      - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
+      - name: Download test results
+        uses: actions/download-artifact@v5
         with:
-          name: coverage-${{ matrix.os.prettyname }}
-          path: coverage
+          pattern: test-results-*
+          merge-multiple: false
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: coverage/cobertura.xml
+          files: coverage-*/cobertura.xml
+          report_type: coverage
+
+      - name: Upload test results to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: test-results-*/junit.xml
+          report_type: test_results
