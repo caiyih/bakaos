@@ -90,17 +90,18 @@ jobs:
           pattern: coverage-*
           merge-multiple: false
 
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: coverage-*/cobertura.xml
-
       - name: Download test results
         uses: actions/download-artifact@v5
         with:
           pattern: test-results-*
           merge-multiple: false
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage-*/cobertura.xml
+          report_type: coverage
 
       - name: Upload test results to Codecov
         uses: codecov/codecov-action@v5
