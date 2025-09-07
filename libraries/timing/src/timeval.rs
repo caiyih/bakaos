@@ -110,6 +110,8 @@ pub struct TimeVal {
 
 impl TimeVal {
     /// Create a new TimeVal with the given seconds and microseconds.
+    /// This constructor normalizes `tv_usec` into the POSIX range [0, 999_999]
+    /// by carrying/borrowing into `tv_sec` as needed.
     ///
     /// # Arguments
     /// * `sec` - Seconds component
@@ -125,10 +127,47 @@ impl TimeVal {
     /// ```
     #[inline]
     pub fn new(sec: i64, usec: i64) -> TimeVal {
+        let mut s = sec + usec.div_euclid(USEC_PER_SEC);
+        let mut us = usec.rem_euclid(USEC_PER_SEC);
+        if us < 0 {
+            // rem_euclid ensures 0..USEC_PER_SEC-1, so this branch shouldn't happen,
+            // but keep it defensive in case of future changes.
+            s -= 1;
+            us += USEC_PER_SEC;
+        }
+        TimeVal {
+            tv_sec: s,
+            tv_usec: us,
+        }
+    }
+
+    /// Create a TimeVal without normalizing `tv_usec`.
+    /// The caller must ensure `tv_usec` is within [0, 999_999] if required.
+    ///
+    /// # Arguments
+    /// * `sec` - Seconds component
+    /// * `usec` - Microseconds component (typically 0-999,999 for normalized values)
+    #[inline]
+    pub fn new_unchecked(sec: i64, usec: i64) -> TimeVal {
         TimeVal {
             tv_sec: sec,
             tv_usec: usec,
         }
+    }
+
+    /// Check if this TimeVal has a normalized microsecond field in [0, 999_999].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use timing::TimeVal;
+    ///
+    /// assert!(TimeVal::new(1, 500_000).is_posix());
+    /// assert!(!TimeVal::new_unchecked(1, 1_000_000).is_posix());
+    /// ```
+    #[inline]
+    pub fn is_posix(&self) -> bool {
+        self.tv_usec >= 0 && self.tv_usec < USEC_PER_SEC
     }
 
     /// Create a TimeVal representing zero time.
