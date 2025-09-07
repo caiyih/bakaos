@@ -157,7 +157,7 @@ impl TimeSpec {
     /// Note: This represents duration semantics, not absolute time
     #[inline]
     pub fn from_instant_elapsed(instant: Instant) -> Self {
-        Duration::from(instant.elapsed()).into()
+        instant.elapsed().into()
     }
 
     /// Convert this TimeSpec to a Duration and add it to an Instant
@@ -174,7 +174,7 @@ impl TimeVal {
     /// Note: This represents duration semantics, not absolute time
     #[inline]
     pub fn from_instant_elapsed(instant: Instant) -> Self {
-        Duration::from(instant.elapsed()).into()
+        instant.elapsed().into()
     }
 
     /// Convert this TimeVal to a Duration and add it to an Instant
