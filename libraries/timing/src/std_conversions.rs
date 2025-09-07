@@ -96,7 +96,7 @@ impl TryFrom<TimeVal> for Duration {
 
     #[inline]
     fn try_from(timeval: TimeVal) -> Result<Self, Self::Error> {
-        let total: i128 = (timeval.tv_sec as i128) * 1_000_000i128 + (timeval.tv_msec as i128);
+        let total: i128 = (timeval.tv_sec as i128) * 1_000_000i128 + (timeval.tv_usec as i128);
         if total < 0 {
             return Err("Cannot convert negative TimeVal to Duration");
         }

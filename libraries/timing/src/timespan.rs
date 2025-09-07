@@ -196,7 +196,7 @@ impl TimeSpan {
 
     pub fn from_timeval_diff(lhs: &TimeVal, rhs: &TimeVal) -> TimeSpan {
         let diff_sec = lhs.tv_sec - rhs.tv_sec;
-        let diff_usec = lhs.tv_msec - rhs.tv_msec; // treated as microseconds
+        let diff_usec = lhs.tv_usec - rhs.tv_usec; // treated as microseconds
         let total_ticks = (diff_sec as i128) * (TICKS_PER_SECOND as i128)
             + (diff_usec as i128) * (TICKS_PER_MICROSECOND as i128);
         TimeSpan {

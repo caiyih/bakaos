@@ -197,15 +197,15 @@ impl TimeSpec {
     /// let ts = TimeSpec::new(1, 500_000_000);
     /// let tv = ts.to_timeval();
     /// assert_eq!(tv.tv_sec, 1);
-    /// assert_eq!(tv.tv_msec, 500_000);
+    /// assert_eq!(tv.tv_usec, 500_000);
     /// ```
     pub fn to_timeval(&self) -> TimeVal {
         let sec = self.tv_sec + self.tv_nsec / NSEC_PER_SEC;
-        let msec = self.tv_nsec % NSEC_PER_SEC / 1_000;
+        let usec = self.tv_nsec % NSEC_PER_SEC / 1_000;
 
         TimeVal {
             tv_sec: sec,
-            tv_msec: msec,
+            tv_usec: usec,
         }
     }
 
@@ -499,7 +499,7 @@ mod test_timespec {
             timeval,
             crate::TimeVal {
                 tv_sec: 2,
-                tv_msec: 500_000,
+                tv_usec: 500_000,
             }
         );
     }

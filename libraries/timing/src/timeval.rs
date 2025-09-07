@@ -29,64 +29,64 @@ pub struct TimeVal {
     /// Seconds component of the time
     pub tv_sec: i64,
     /// Microseconds component of the time (0-999,999)
-    pub tv_msec: i64,
+    pub tv_usec: i64,
 }
 
 impl TimeVal {
     #[inline]
-    pub fn new(sec: i64, msec: i64) -> TimeVal {
+    pub fn new(sec: i64, usec: i64) -> TimeVal {
         TimeVal {
             tv_sec: sec,
-            tv_msec: msec,
+            tv_usec: usec,
         }
     }
 
     #[inline]
     pub fn zero() -> TimeVal {
         TimeVal {
-            tv_msec: 0,
+            tv_usec: 0,
             tv_sec: 0,
         }
     }
 
     pub fn from_ticks(ticks: i64, freq: u64) -> TimeVal {
         let sec = ticks / freq as i64;
-        let msec = (ticks % freq as i64) * USEC_PER_SEC / freq as i64;
+        let usec = (ticks % freq as i64) * USEC_PER_SEC / freq as i64;
 
         TimeVal {
             tv_sec: sec,
-            tv_msec: msec,
+            tv_usec: usec,
         }
     }
 
     pub fn add_usec(&mut self, usec: i64) {
         self.tv_sec += usec / USEC_PER_SEC;
-        self.tv_msec += usec % USEC_PER_SEC;
+        self.tv_usec += usec % USEC_PER_SEC;
 
         // Handle overflow/underflow for microseconds
-        if self.tv_msec >= USEC_PER_SEC {
-            self.tv_sec += self.tv_msec / USEC_PER_SEC;
-            self.tv_msec %= USEC_PER_SEC;
-        } else if self.tv_msec < 0 {
-            let borrow = (-self.tv_msec + USEC_PER_SEC - 1) / USEC_PER_SEC;
+        if self.tv_usec >= USEC_PER_SEC {
+            self.tv_sec += self.tv_usec / USEC_PER_SEC;
+            self.tv_usec %= USEC_PER_SEC;
+        } else if self.tv_usec < 0 {
+            let borrow = (-self.tv_usec + USEC_PER_SEC - 1) / USEC_PER_SEC;
             self.tv_sec -= borrow;
-            self.tv_msec += borrow * USEC_PER_SEC;
+            self.tv_usec += borrow * USEC_PER_SEC;
         }
     }
 
     #[inline]
     pub fn total_seconds(&self) -> f64 {
-        self.tv_sec as f64 + self.tv_msec as f64 / USEC_PER_SEC as f64
+        self.tv_sec as f64 + self.tv_usec as f64 / USEC_PER_SEC as f64
     }
 
     #[inline]
     pub fn total_milliseconds(&self) -> f64 {
-        self.tv_sec as f64 * 1_000.0 + (self.tv_msec as f64 / (USEC_PER_SEC / 1_000) as f64)
+        self.tv_sec as f64 * 1_000.0 + (self.tv_usec as f64 / (USEC_PER_SEC / 1_000) as f64)
     }
 
     pub fn to_timespec(&self) -> TimeSpec {
         let total_ns: i128 =
-            (self.tv_sec as i128) * (NSEC_PER_SEC as i128) + (self.tv_msec as i128) * 1_000i128;
+            (self.tv_sec as i128) * (NSEC_PER_SEC as i128) + (self.tv_usec as i128) * 1_000i128;
         let sec = (total_ns.div_euclid(NSEC_PER_SEC as i128)) as i64;
         let nsec = (total_ns.rem_euclid(NSEC_PER_SEC as i128)) as i64;
         TimeSpec {
@@ -98,40 +98,40 @@ impl TimeVal {
     /// Get total microseconds as i64
     #[inline]
     pub fn total_microseconds(&self) -> i64 {
-        self.tv_sec * USEC_PER_SEC + self.tv_msec
+        self.tv_sec * USEC_PER_SEC + self.tv_usec
     }
 
     /// Get total nanoseconds as i64
     #[inline]
     pub fn total_nanoseconds(&self) -> i64 {
-        self.tv_sec * NSEC_PER_SEC + self.tv_msec * 1_000
+        self.tv_sec * NSEC_PER_SEC + self.tv_usec * 1_000
     }
 
     /// Check if this TimeVal is zero
     #[inline]
     pub fn is_zero(&self) -> bool {
-        self.tv_sec == 0 && self.tv_msec == 0
+        self.tv_sec == 0 && self.tv_usec == 0
     }
 
     /// Check if this TimeVal is positive
     #[inline]
     pub fn is_positive(&self) -> bool {
-        self.tv_sec > 0 || (self.tv_sec == 0 && self.tv_msec > 0)
+        self.tv_sec > 0 || (self.tv_sec == 0 && self.tv_usec > 0)
     }
 
     /// Check if this TimeVal is negative
     #[inline]
     pub fn is_negative(&self) -> bool {
-        self.tv_sec < 0 || (self.tv_sec == 0 && self.tv_msec < 0)
+        self.tv_sec < 0 || (self.tv_sec == 0 && self.tv_usec < 0)
     }
 
     /// Get the absolute value of this TimeVal
     pub fn abs(&self) -> TimeVal {
-        let total: i128 = (self.tv_sec as i128) * (USEC_PER_SEC as i128) + (self.tv_msec as i128);
+        let total: i128 = (self.tv_sec as i128) * (USEC_PER_SEC as i128) + (self.tv_usec as i128);
         let abs_total = if total < 0 { -total } else { total };
         TimeVal {
             tv_sec: (abs_total / (USEC_PER_SEC as i128)) as i64,
-            tv_msec: (abs_total % (USEC_PER_SEC as i128)) as i64,
+            tv_usec: (abs_total % (USEC_PER_SEC as i128)) as i64,
         }
     }
 
@@ -160,7 +160,7 @@ impl core::ops::Add for TimeVal {
 
     fn add(self, rhs: Self) -> Self::Output {
         let mut time = self;
-        time.add_usec(rhs.tv_msec);
+        time.add_usec(rhs.tv_usec);
         time.tv_sec += rhs.tv_sec;
         time
     }
@@ -169,7 +169,7 @@ impl core::ops::Add for TimeVal {
 impl core::ops::AddAssign for TimeVal {
     fn add_assign(&mut self, rhs: Self) {
         self.tv_sec += rhs.tv_sec;
-        self.add_usec(rhs.tv_msec);
+        self.add_usec(rhs.tv_usec);
     }
 }
 
@@ -179,7 +179,7 @@ impl core::ops::Sub for TimeVal {
     fn sub(self, rhs: Self) -> Self::Output {
         let mut time = self;
         time.tv_sec -= rhs.tv_sec;
-        time.add_usec(-rhs.tv_msec);
+        time.add_usec(-rhs.tv_usec);
         time
     }
 }
@@ -187,7 +187,7 @@ impl core::ops::Sub for TimeVal {
 impl core::ops::SubAssign for TimeVal {
     fn sub_assign(&mut self, rhs: Self) {
         self.tv_sec -= rhs.tv_sec;
-        self.add_usec(-rhs.tv_msec);
+        self.add_usec(-rhs.tv_usec);
     }
 }
 
@@ -199,14 +199,14 @@ mod test_timeval {
     fn test_new() {
         let tv = TimeVal::new(10, 500_000);
         assert_eq!(tv.tv_sec, 10);
-        assert_eq!(tv.tv_msec, 500_000);
+        assert_eq!(tv.tv_usec, 500_000);
     }
 
     #[test]
     fn test_zero() {
         let tv = TimeVal::zero();
         assert_eq!(tv.tv_sec, 0);
-        assert_eq!(tv.tv_msec, 0);
+        assert_eq!(tv.tv_usec, 0);
     }
 
     #[test]
@@ -219,11 +219,11 @@ mod test_timeval {
     fn test_from_ticks() {
         let tv = TimeVal::from_ticks(2_000_000, 1_000_000); // 2 seconds at 1MHz
         assert_eq!(tv.tv_sec, 2);
-        assert_eq!(tv.tv_msec, 0);
+        assert_eq!(tv.tv_usec, 0);
 
         let tv2 = TimeVal::from_ticks(1_500_000, 1_000_000); // 1.5 seconds at 1MHz
         assert_eq!(tv2.tv_sec, 1);
-        assert_eq!(tv2.tv_msec, 500_000);
+        assert_eq!(tv2.tv_usec, 500_000);
     }
 
     #[test]
@@ -231,13 +231,13 @@ mod test_timeval {
         let mut tv = TimeVal::new(1, 500_000);
         tv.add_usec(500_000);
         assert_eq!(tv.tv_sec, 2);
-        assert_eq!(tv.tv_msec, 0);
+        assert_eq!(tv.tv_usec, 0);
 
         // Test negative addition
         let mut tv2 = TimeVal::new(2, 300_000);
         tv2.add_usec(-500_000);
         assert_eq!(tv2.tv_sec, 1);
-        assert_eq!(tv2.tv_msec, 800_000);
+        assert_eq!(tv2.tv_usec, 800_000);
     }
 
     #[test]
@@ -245,7 +245,7 @@ mod test_timeval {
         let mut tv = TimeVal::new(0, 800_000);
         tv.add_usec(300_000);
         assert_eq!(tv.tv_sec, 1);
-        assert_eq!(tv.tv_msec, 100_000);
+        assert_eq!(tv.tv_usec, 100_000);
     }
 
     #[test]
@@ -286,7 +286,7 @@ mod test_timeval {
         let tv2 = TimeVal::new(2, 800_000);
         let result = tv1 + tv2;
         assert_eq!(result.tv_sec, 4);
-        assert_eq!(result.tv_msec, 100_000);
+        assert_eq!(result.tv_usec, 100_000);
     }
 
     #[test]
@@ -295,7 +295,7 @@ mod test_timeval {
         let tv2 = TimeVal::new(0, 800_000);
         tv1 += tv2;
         assert_eq!(tv1.tv_sec, 2);
-        assert_eq!(tv1.tv_msec, 100_000);
+        assert_eq!(tv1.tv_usec, 100_000);
     }
 
     #[test]
@@ -304,7 +304,7 @@ mod test_timeval {
         let tv2 = TimeVal::new(1, 800_000);
         let result = tv1 - tv2;
         assert_eq!(result.tv_sec, 1);
-        assert_eq!(result.tv_msec, 400_000);
+        assert_eq!(result.tv_usec, 400_000);
     }
 
     #[test]
@@ -313,7 +313,7 @@ mod test_timeval {
         let tv2 = TimeVal::new(1, 800_000);
         tv1 -= tv2;
         assert_eq!(tv1.tv_sec, 1);
-        assert_eq!(tv1.tv_msec, 400_000);
+        assert_eq!(tv1.tv_usec, 400_000);
     }
 
     #[test]
@@ -341,6 +341,6 @@ mod test_timeval {
         let tv = TimeVal::new(-1, 200_000); // net: -0.8 seconds
         let abs_tv = tv.abs();
         assert_eq!(abs_tv.tv_sec, 0);
-        assert_eq!(abs_tv.tv_msec, 800_000);
+        assert_eq!(abs_tv.tv_usec, 800_000);
     }
 }
