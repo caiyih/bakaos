@@ -46,9 +46,6 @@ jobs:
         shell: bash
         run: rm rust-toolchain.toml
 
-      - name: Compile
-        run: cargo nextest run --no-run
-
       - name: Test
         env:
           RUST_LOG: "trace"
