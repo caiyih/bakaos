@@ -86,30 +86,8 @@ jobs:
           pattern: coverage-*
           merge-multiple: false
 
-      - name: Install dotnet-coverage
-        run: dotnet tool install --global dotnet-coverage
-
-      - name: Merge coverage
-        run: |
-          dotnet-coverage merge coverage-*/cobertura.xml \
-            --output cobertura.xml \
-            --output-format cobertura \
-            --log-level Verbose
-
-      - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
-        # Only upload the merged coverage file when the workflow is running in debug mode
-        # see https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#runner-context
-        if: ${{ runner.debug == '1' }}
-        with:
-          name: coverage-merged
-          path: cobertura.xml
-
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: cobertura.xml
-          # Downloaded coverage reports are merged with the uploaded ones
-          # We dont want to upload them
-          disable_search: true
