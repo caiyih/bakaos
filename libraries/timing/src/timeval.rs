@@ -167,9 +167,11 @@ impl TimeVal {
     /// ```
     pub fn from_ticks(ticks: i64, freq: u64) -> TimeVal {
         assert!(freq > 0, "Frequency cannot be zero");
-        let sec = ticks / freq as i64;
-        let usec = (ticks % freq as i64) * USEC_PER_SEC / freq as i64;
-
+        let t = ticks as i128;
+        let f = freq as i128;
+        let sec = t.div_euclid(f) as i64;
+        let rem = t.rem_euclid(f);
+        let usec = (rem * (USEC_PER_SEC as i128) / f) as i64;
         TimeVal {
             tv_sec: sec,
             tv_usec: usec,
@@ -199,10 +201,8 @@ impl TimeVal {
     /// assert_eq!(tv2.tv_usec, 800_000);
     /// ```
     pub fn add_usec(&mut self, usec: i64) {
-        self.tv_sec += usec / USEC_PER_SEC;
-        self.tv_usec += usec % USEC_PER_SEC;
-
-        // Handle overflow/underflow for microseconds
+        self.tv_sec += usec.div_euclid(USEC_PER_SEC);
+        self.tv_usec += usec.rem_euclid(USEC_PER_SEC);
         if self.tv_usec >= USEC_PER_SEC {
             self.tv_sec += self.tv_usec / USEC_PER_SEC;
             self.tv_usec %= USEC_PER_SEC;
@@ -289,9 +289,16 @@ impl TimeVal {
     /// assert_eq!(span.total_seconds(), 1.5);
     /// ```
     pub fn to_timespan(&self) -> TimeSpan {
-        // Convert to total nanoseconds, then to TimeSpan ticks (100ns units)
-        let total_nanos = self.tv_sec * NSEC_PER_SEC + self.tv_usec * 1_000;
-        let ticks = total_nanos / 100; // 100 nanoseconds per tick
+        let total_nanos =
+            (self.tv_sec as i128) * (NSEC_PER_SEC as i128) + (self.tv_usec as i128) * 1_000;
+        let ticks128 = total_nanos / 100; // 100ns per tick
+        let ticks = if ticks128 > i64::MAX as i128 {
+            i64::MAX
+        } else if ticks128 < i64::MIN as i128 {
+            i64::MIN
+        } else {
+            ticks128 as i64
+        };
         TimeSpan::from_ticks(ticks)
     }
 

@@ -188,20 +188,22 @@ impl TimeSpan {
         milliseconds: i32,
         microseconds: i32,
     ) -> TimeSpan {
-        let total_microseconds = days as i64 * (TICKS_PER_DAY / TICKS_PER_MICROSECOND)
-            + hours as i64 * (TICKS_PER_HOUR / TICKS_PER_MICROSECOND)
-            + minutes as i64 * (TICKS_PER_MINUTE / TICKS_PER_MICROSECOND)
-            + seconds as i64 * (TICKS_PER_SECOND / TICKS_PER_MICROSECOND)
-            + milliseconds as i64 * (TICKS_PER_MILLISECOND / TICKS_PER_MICROSECOND)
-            + microseconds as i64;
+        let to_us = |ticks_per_unit: i64, v: i32| -> i128 {
+            (v as i128) * ((ticks_per_unit / TICKS_PER_MICROSECOND) as i128)
+        };
+        let total_us: i128 = to_us(TICKS_PER_DAY, days)
+            + to_us(TICKS_PER_HOUR, hours)
+            + to_us(TICKS_PER_MINUTE, minutes)
+            + to_us(TICKS_PER_SECOND, seconds)
+            + to_us(TICKS_PER_MILLISECOND, milliseconds)
+            + (microseconds as i128);
 
-        // FIXME: This panics the kernel!
-        if !(MIN_MICROSECONDS..=MAX_MICROSECONDS).contains(&total_microseconds) {
-            panic!("Overflow or underflow");
-        }
-
+        // Clamp to avoid kernel panic on overflow. Alternative: return Result.
+        let total_us = total_us
+            .max(MIN_MICROSECONDS as i128)
+            .min(MAX_MICROSECONDS as i128);
         TimeSpan {
-            _ticks: total_microseconds * TICKS_PER_MICROSECOND,
+            _ticks: (total_us * TICKS_PER_MICROSECOND as i128) as i64,
         }
     }
 
@@ -714,9 +716,11 @@ mod test_timespan {
     }
 
     #[test]
-    #[should_panic]
-    fn test_from_overflow() {
-        // This should panic due to overflow during calculation
-        TimeSpan::from(i32::MAX, i32::MAX, i32::MAX, i32::MAX, i32::MAX, i32::MAX);
+    fn test_from_overflow_saturates() {
+        // Previously panicked; now clamps to max
+        let ts = TimeSpan::from(i32::MAX, i32::MAX, i32::MAX, i32::MAX, i32::MAX, i32::MAX);
+        // Clamped to the largest multiple of tick (100ns) per microsecond (10) <= i64::MAX
+        let expected = (i64::MAX / 10) * 10;
+        assert_eq!(ts._ticks, expected);
     }
 }

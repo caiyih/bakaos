@@ -97,7 +97,7 @@ impl TimeSpec {
     ///
     /// # Arguments
     /// * `sec` - Seconds component
-    /// * `nsec` - Nanoseconds component; normalized into [0, NSEC_PER_SEC) via Euclidean division
+    /// * `nsec` - Nanoseconds component (not normalized; may be outside [0, NSEC_PER_SEC))
     ///
     /// # Safety
     /// This function does not check whether the provided values are valid.
@@ -378,7 +378,9 @@ impl TimeSpec {
     /// ```
     #[inline]
     pub fn add_milliseconds(&mut self, milliseconds: i64) {
-        self.add_nanos(milliseconds * 1_000_000);
+        let nanos = (milliseconds as i128) * 1_000_000i128;
+        let nanos = nanos.clamp(i64::MIN as i128, i64::MAX as i128) as i64;
+        self.add_nanos(nanos);
     }
 
     /// Add microseconds to this TimeSpec
@@ -393,7 +395,9 @@ impl TimeSpec {
     /// ```
     #[inline]
     pub fn add_microseconds(&mut self, microseconds: i64) {
-        self.add_nanos(microseconds * 1_000);
+        let nanos = (microseconds as i128) * 1_000i128;
+        let nanos = nanos.clamp(i64::MIN as i128, i64::MAX as i128) as i64;
+        self.add_nanos(nanos);
     }
 }
 

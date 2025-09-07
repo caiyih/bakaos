@@ -107,9 +107,16 @@ impl TryFrom<TimeVal> for Duration {
 impl From<Duration> for TimeSpan {
     #[inline]
     fn from(duration: Duration) -> Self {
-        // Convert duration to ticks (100ns units)
-        let total_nanos = duration.as_secs() * NSEC_PER_SEC as u64 + duration.subsec_nanos() as u64;
-        TimeSpan::from_ticks((total_nanos / 100) as i64)
+        // Convert to ticks (100ns) without overflow
+        let secs_ticks = (duration.as_secs() as u128) * 10_000_000u128;
+        let nanos_ticks = (duration.subsec_nanos() as u128) / 100u128;
+        let total_ticks = secs_ticks + nanos_ticks;
+        let ticks_i64 = if total_ticks > i64::MAX as u128 {
+            i64::MAX
+        } else {
+            total_ticks as i64
+        };
+        TimeSpan::from_ticks(ticks_i64)
     }
 }
 
@@ -122,7 +129,7 @@ impl TryFrom<TimeSpan> for Duration {
             Err("Cannot convert negative TimeSpan to Duration")
         } else {
             // Convert ticks (100ns units) back to Duration
-            let total_nanos: i128 = (timespan._ticks as i128) * 100i128;
+            let total_nanos: i128 = (timespan.ticks() as i128) * 100i128;
             if total_nanos > u64::MAX as i128 {
                 return Err("TimeSpan too large to convert to Duration");
             }

@@ -40,7 +40,7 @@
 //! ## Feature Flags
 //!
 //! - `std`: Enables conversions to/from standard library time types
-//! - `no_std`: Default feature for no-std environments
+//! - `no_std`: Build without the standard library (enabled when the `std` feature is not set)
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
