@@ -289,9 +289,10 @@ mod tests {
     fn test_instant_elapsed() {
         let instant = std::time::Instant::now();
         std::thread::sleep(Duration::from_millis(1)); // Sleep for at least 1ms
-        let elapsed_timespan = TimeSpan::from_instant_elapsed(instant);
-        let elapsed_timespec = TimeSpec::from_instant_elapsed(instant);
-        let elapsed_timeval = TimeVal::from_instant_elapsed(instant);
+        let duration = instant.elapsed(); // avoid call elapsed multiple times to keep result same
+        let elapsed_timespan: TimeSpan = duration.into();
+        let elapsed_timespec: TimeSpec = duration.into();
+        let elapsed_timeval: TimeVal = duration.into();
 
         // All should represent positive elapsed time
         assert!(elapsed_timespan.is_positive());
