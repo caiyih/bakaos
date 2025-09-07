@@ -387,18 +387,18 @@ mod tests_module {
 
         let mut ctx = SourceGenerationContext::new(gen_dir.clone(), false);
 
-        ctx.register_export_symbol("api".into(), SymbolExportType::Mod, true)
+        ctx.register_export_symbol("api", SymbolExportType::Mod, true)
             .unwrap();
 
         ctx.register_export_symbol(
-            "api::v1".into(),
+            "api::v1",
             SymbolExportType::Use { as_name: None },
             true,
         )
         .unwrap();
 
         ctx.register_export_symbol(
-            "api::internal".into(),
+            "api::internal",
             SymbolExportType::Use {
                 as_name: Some("internal_api".into()),
             },
@@ -434,14 +434,14 @@ use crate::generated::api::internal as internal_api;",
 
         let mut ctx = SourceGenerationContext::new(gen_dir.clone(), false);
 
-        ctx.register_export_symbol("zeta".into(), SymbolExportType::Mod, true)
+        ctx.register_export_symbol("zeta", SymbolExportType::Mod, true)
             .unwrap();
-        ctx.register_export_symbol("alpha".into(), SymbolExportType::Mod, true)
+        ctx.register_export_symbol("alpha", SymbolExportType::Mod, true)
             .unwrap();
-        ctx.register_export_symbol("beta".into(), SymbolExportType::Use { as_name: None }, true)
+        ctx.register_export_symbol("beta", SymbolExportType::Use { as_name: None }, true)
             .unwrap();
         ctx.register_export_symbol(
-            "gamma".into(),
+            "gamma",
             SymbolExportType::Use {
                 as_name: Some("g".into()),
             },
@@ -480,10 +480,10 @@ use crate::generated::gamma as g;",
         let tmp_dir = tempdir().unwrap();
         let mut ctx = SourceGenerationContext::new(tmp_dir.path().to_path_buf(), false);
 
-        ctx.register_export_symbol("dup".into(), SymbolExportType::Mod, true)
+        ctx.register_export_symbol("dup", SymbolExportType::Mod, true)
             .unwrap();
 
-        let result = ctx.register_export_symbol("dup".into(), SymbolExportType::Mod, true);
+        let result = ctx.register_export_symbol("dup", SymbolExportType::Mod, true);
         assert_eq!(result, Err(SourceGenerationError::SymbolAlreadyRegistered));
     }
 
@@ -492,12 +492,12 @@ use crate::generated::gamma as g;",
         let tmp_dir = tempdir().unwrap();
         let mut ctx = SourceGenerationContext::new(tmp_dir.path().to_path_buf(), false);
 
-        ctx.register_export_symbol("same".into(), SymbolExportType::Mod, true)
+        ctx.register_export_symbol("same", SymbolExportType::Mod, true)
             .unwrap();
 
         // different type (Use instead of Mod)
         let result = ctx.register_export_symbol(
-            "same".into(),
+            "same",
             SymbolExportType::Use { as_name: None },
             true,
         );
@@ -513,7 +513,7 @@ use crate::generated::gamma as g;",
         let mut ctx = SourceGenerationContext::new(gen_dir.clone(), false);
 
         // No explicit "mod", only "use"
-        ctx.register_export_symbol("api".into(), SymbolExportType::Use { as_name: None }, true)
+        ctx.register_export_symbol("api", SymbolExportType::Use { as_name: None }, true)
             .unwrap();
 
         ctx.generate_mod_rs().unwrap();
@@ -540,12 +540,12 @@ mod tests_supress_lint {
 
         let mut ctx = SourceGenerationContext::new(gen_dir.clone(), true); // enable lint suppression
 
-        ctx.register_export_symbol("internal".into(), SymbolExportType::Mod, false)
+        ctx.register_export_symbol("internal", SymbolExportType::Mod, false)
             .unwrap();
-        ctx.register_export_symbol("api".into(), SymbolExportType::Mod, true)
+        ctx.register_export_symbol("api", SymbolExportType::Mod, true)
             .unwrap();
         ctx.register_export_symbol(
-            "internal::helper".into(),
+            "internal::helper",
             SymbolExportType::Use {
                 as_name: Some("helper".into()),
             },

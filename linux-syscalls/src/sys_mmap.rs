@@ -170,12 +170,14 @@ mod tests {
 
     use super::*;
 
-    fn setup_kernel_with_memory() -> (
+    type KernelSetup = (
         Arc<dyn IKernel>,
         Arc<SpinMutex<dyn IFrameAllocator>>,
         Arc<SpinMutex<dyn IMMU>>,
-    ) {
-        const MEMORY_RANGE: usize = 1 * 1024 * 1024 * 1024; // 1 GB
+    );
+
+    fn setup_kernel_with_memory() -> KernelSetup {
+        const MEMORY_RANGE: usize = 1024 * 1024 * 1024; // 1 GB
 
         let (alloc, mmu) = TestFrameAllocator::new_with_mmu(MEMORY_RANGE);
 
@@ -446,11 +448,7 @@ mod tests {
     }
 
     fn create_buffer(len: usize) -> Vec<u8> {
-        let mut buf = Vec::with_capacity(len);
-
-        buf.resize(len, 0);
-
-        buf
+        vec![0; len]
     }
 
     #[test]
