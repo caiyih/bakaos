@@ -1,4 +1,35 @@
-use crate::{TimeVal, NSEC_PER_SEC};
+//! TimeSpec - POSIX-compatible time instant representation
+//!
+//! This module provides the `TimeSpec` structure for representing time instants
+//! with nanosecond precision, compatible with the POSIX `timespec` structure.
+//!
+//! # Time Instant vs Duration Semantics
+//!
+//! `TimeSpec` represents a **time instant** (point in time), not a duration.
+//! For duration operations, consider using `TimeSpan` instead. However, arithmetic
+//! operations between `TimeSpec` instances are provided for convenience:
+//!
+//! - `TimeSpec + TimeSpec` = `TimeSpec` (semantically questionable, but allowed)
+//! - `TimeSpec - TimeSpec` = `TimeSpec` (can represent duration-like difference)
+//! - Use `to_timespan()` method to convert to proper duration representation
+//!
+//! # Examples
+//!
+//! ```
+//! use timing::{TimeSpec, TimeSpan};
+//!
+//! // Creating time instants
+//! let instant1 = TimeSpec::new(10, 500_000_000);  // 10.5 seconds
+//! let instant2 = TimeSpec::new(5, 250_000_000);   // 5.25 seconds
+//!
+//! // Converting to duration for semantic clarity
+//! let duration = instant1.to_timespan();
+//!
+//! // Computing differences (results in time difference)
+//! let diff = instant1 - instant2;  // 5.25 seconds difference
+//! ```
+
+use crate::{TimeSpan, TimeVal, NSEC_PER_SEC};
 
 /// A time specification structure representing time as seconds and nanoseconds.
 ///
@@ -209,6 +240,26 @@ impl TimeSpec {
         }
     }
 
+    /// Convert this TimeSpec to a TimeSpan for duration-based operations.
+    ///
+    /// This method treats the TimeSpec as a duration relative to zero time,
+    /// which is semantically appropriate for operations like `sys_nanosleep`
+    /// that accept time instant types to represent durations.
+    ///
+    /// # Examples
+    /// ```
+    /// use timing::TimeSpec;
+    /// let ts = TimeSpec::new(1, 500_000_000);  // 1.5 seconds
+    /// let span = ts.to_timespan();
+    /// assert_eq!(span.total_seconds(), 1.5);
+    /// ```
+    pub fn to_timespan(&self) -> TimeSpan {
+        // Convert to total nanoseconds, then to TimeSpan ticks (100ns units)
+        let total_nanos = self.tv_sec * NSEC_PER_SEC + self.tv_nsec;
+        let ticks = total_nanos / 100; // 100 nanoseconds per tick
+        TimeSpan::from_ticks(ticks)
+    }
+
     /// Get total nanoseconds as i64
     ///
     /// # Examples
@@ -346,6 +397,19 @@ impl TimeSpec {
     }
 }
 
+/// Addition operator for TimeSpec.
+///
+/// **Semantic Note**: Adding two time instants is semantically questionable.
+/// Consider whether you actually want to add a duration to an instant instead.
+/// For duration-based arithmetic, use `TimeSpan` or convert via `to_timespan()`.
+///
+/// # Examples
+/// ```
+/// use timing::TimeSpec;
+/// let ts1 = TimeSpec::new(1, 500_000_000);
+/// let ts2 = TimeSpec::new(2, 250_000_000);
+/// let sum = ts1 + ts2;  // 3.75 seconds total
+/// ```
 impl core::ops::Add<TimeSpec> for TimeSpec {
     type Output = TimeSpec;
 
@@ -364,6 +428,25 @@ impl core::ops::AddAssign<TimeSpec> for TimeSpec {
     }
 }
 
+/// Subtraction operator for TimeSpec.
+///
+/// **Semantic Note**: This operation computes the difference between two time instants,
+/// which can represent a duration. The result is technically a TimeSpec but represents
+/// a time difference. For proper duration semantics, consider using:
+/// ```
+/// # use timing::{TimeSpec, TimeSpan};
+/// let instant1 = TimeSpec::new(3, 500_000_000);
+/// let instant2 = TimeSpec::new(1, 250_000_000);
+/// let duration = (instant1 - instant2).to_timespan();
+/// ```
+///
+/// # Examples
+/// ```
+/// use timing::TimeSpec;
+/// let ts1 = TimeSpec::new(3, 500_000_000);
+/// let ts2 = TimeSpec::new(1, 250_000_000);
+/// let diff = ts1 - ts2;  // 2.25 seconds difference
+/// ```
 impl core::ops::Sub<TimeSpec> for TimeSpec {
     type Output = TimeSpec;
 

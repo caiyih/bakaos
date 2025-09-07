@@ -27,6 +27,51 @@
     an appropriate custom ILMarshaler to keep WInRT interop scenarios enabled.
 */
 
+//! TimeSpan - High-precision duration representation
+//!
+//! This module provides the `TimeSpan` structure for representing time durations
+//! with high precision using a tick-based internal representation (100 nanoseconds per tick).
+//! It is inspired by .NET's TimeSpan and provides proper duration semantics.
+//!
+//! # Duration Semantics vs Time Instants
+//!
+//! `TimeSpan` represents a **duration** of time, not a time instant. This makes it
+//! semantically appropriate for:
+//! - Time differences between instants
+//! - Delays and timeouts
+//! - Time intervals and periods
+//! - Arithmetic operations between durations
+//!
+//! Unlike `TimeSpec` and `TimeVal` which represent time instants, `TimeSpan` arithmetic
+//! operations are semantically clear:
+//! - `TimeSpan + TimeSpan` = `TimeSpan` (add durations)
+//! - `TimeSpan - TimeSpan` = `TimeSpan` (subtract durations)
+//!
+//! # Precision and Range
+//!
+//! - **Internal representation**: 64-bit ticks (100 nanoseconds per tick)
+//! - **Precision**: 100 nanoseconds (0.1 microseconds)
+//! - **Range**: Approximately ±292,471 years
+//!
+//! # Examples
+//!
+//! ```
+//! use timing::{TimeSpan, TimeSpec, TimeVal};
+//!
+//! // Create durations
+//! let duration1 = TimeSpan::from_seconds_f64(1.5);           // 1.5 seconds
+//! let duration2 = TimeSpan::from_milliseconds_f64(750.0);    // 0.75 seconds
+//!
+//! // Duration arithmetic (semantically correct)
+//! let total = duration1 + duration2;  // 2.25 seconds
+//! let diff = duration1 - duration2;   // 0.75 seconds
+//!
+//! // Create from time instant differences
+//! let instant1 = TimeSpec::new(10, 500_000_000);
+//! let instant2 = TimeSpec::new(8, 250_000_000);
+//! let duration_from_diff = TimeSpan::from_timespec_diff(&instant1, &instant2);
+//! ```
+
 use crate::{TimeSpec, TimeVal};
 
 // Ticks for TimeSpan per microsecond
