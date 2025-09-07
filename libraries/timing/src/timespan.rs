@@ -27,7 +27,52 @@
     an appropriate custom ILMarshaler to keep WInRT interop scenarios enabled.
 */
 
-use crate::{TimeSpec, TimeVal, NSEC_PER_SEC};
+//! TimeSpan - High-precision duration representation
+//!
+//! This module provides the `TimeSpan` structure for representing time durations
+//! with high precision using a tick-based internal representation (100 nanoseconds per tick).
+//! It is inspired by .NET's TimeSpan and provides proper duration semantics.
+//!
+//! # Duration Semantics vs Time Instants
+//!
+//! `TimeSpan` represents a **duration** of time, not a time instant. This makes it
+//! semantically appropriate for:
+//! - Time differences between instants
+//! - Delays and timeouts
+//! - Time intervals and periods
+//! - Arithmetic operations between durations
+//!
+//! Unlike `TimeSpec` and `TimeVal` which represent time instants, `TimeSpan` arithmetic
+//! operations are semantically clear:
+//! - `TimeSpan + TimeSpan` = `TimeSpan` (add durations)
+//! - `TimeSpan - TimeSpan` = `TimeSpan` (subtract durations)
+//!
+//! # Precision and Range
+//!
+//! - **Internal representation**: 64-bit ticks (100 nanoseconds per tick)
+//! - **Precision**: 100 nanoseconds (0.1 microseconds)
+//! - **Range**: Approximately ±292,471 years
+//!
+//! # Examples
+//!
+//! ```
+//! use timing::{TimeSpan, TimeSpec, TimeVal};
+//!
+//! // Create durations
+//! let duration1 = TimeSpan::from_seconds_f64(1.5);           // 1.5 seconds
+//! let duration2 = TimeSpan::from_milliseconds_f64(750.0);    // 0.75 seconds
+//!
+//! // Duration arithmetic (semantically correct)
+//! let total = duration1 + duration2;  // 2.25 seconds
+//! let diff = duration1 - duration2;   // 0.75 seconds
+//!
+//! // Create from time instant differences
+//! let instant1 = TimeSpec::new(10, 500_000_000);
+//! let instant2 = TimeSpec::new(8, 250_000_000);
+//! let duration_from_diff = TimeSpan::from_timespec_diff(&instant1, &instant2);
+//! ```
+
+use crate::{TimeSpec, TimeVal};
 
 // Ticks for TimeSpan per microsecond
 // 10
@@ -76,28 +121,61 @@ const MAX_MILLISECONDS: i64 = MAX_TICKS / TICKS_PER_MILLISECOND;
 // const MIN_DAYS: i64 = MIN_TICKS / TICKS_PER_DAY;
 // const MAX_DAYS: i64 = MAX_TICKS / TICKS_PER_DAY;
 
+/// A time span structure representing a duration of time.
+///
+/// TimeSpan represents a duration of time internally as a number of ticks,
+/// where each tick equals 100 nanoseconds. This allows for high-precision
+/// time duration calculations and is inspired by .NET's TimeSpan.
+///
+/// A TimeSpan can be positive or negative, representing forward or backward
+/// time durations respectively.
+///
+/// # Examples
+///
+/// ```
+/// use timing::TimeSpan;
+///
+/// // Create a TimeSpan representing 1 hour, 30 minutes, 45 seconds
+/// let ts = TimeSpan::from_hours_sec(1, 30, 45);
+/// assert_eq!(ts.hours(), 1);
+/// assert_eq!(ts.minutes(), 30);
+/// assert_eq!(ts.seconds(), 45);
+///
+/// // Create from floating point seconds
+/// let ts2 = TimeSpan::from_seconds_f64(1.5);
+/// assert_eq!(ts2.total_seconds(), 1.5);
+///
+/// // Arithmetic operations
+/// let sum = ts + ts2;
+/// assert!(sum.total_seconds() > 5400.0); // > 1.5 hours
+/// ```
 #[repr(C)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TimeSpan {
+    /// Internal representation in ticks (100ns units)
     pub _ticks: i64,
 }
 
 // Constructors
 impl TimeSpan {
+    #[inline]
     pub fn zero() -> TimeSpan {
         TimeSpan { _ticks: 0 }
     }
 
+    #[inline]
     pub fn max_value() -> TimeSpan {
         TimeSpan { _ticks: MAX_TICKS }
     }
 
+    #[inline]
     pub fn min_value() -> TimeSpan {
         TimeSpan { _ticks: MIN_TICKS }
     }
 
     // The tick is the internal representation of the TimeSpan
     // Not the same as the machine's clock tick
+    #[inline]
     pub fn from_ticks(ticks: i64) -> TimeSpan {
         TimeSpan { _ticks: ticks }
     }
@@ -110,23 +188,26 @@ impl TimeSpan {
         milliseconds: i32,
         microseconds: i32,
     ) -> TimeSpan {
-        let total_microseconds = days as i64 * (TICKS_PER_DAY / TICKS_PER_MICROSECOND)
-            + hours as i64 * (TICKS_PER_HOUR / TICKS_PER_MICROSECOND)
-            + minutes as i64 * (TICKS_PER_MINUTE / TICKS_PER_MICROSECOND)
-            + seconds as i64 * (TICKS_PER_SECOND / TICKS_PER_MICROSECOND)
-            + milliseconds as i64 * (TICKS_PER_MILLISECOND / TICKS_PER_MICROSECOND)
-            + microseconds as i64;
+        let to_us = |ticks_per_unit: i64, v: i32| -> i128 {
+            (v as i128) * ((ticks_per_unit / TICKS_PER_MICROSECOND) as i128)
+        };
+        let total_us: i128 = to_us(TICKS_PER_DAY, days)
+            + to_us(TICKS_PER_HOUR, hours)
+            + to_us(TICKS_PER_MINUTE, minutes)
+            + to_us(TICKS_PER_SECOND, seconds)
+            + to_us(TICKS_PER_MILLISECOND, milliseconds)
+            + (microseconds as i128);
 
-        // FIXME: This panics the kernel!
-        if !(MIN_MICROSECONDS..=MAX_MICROSECONDS).contains(&total_microseconds) {
-            panic!("Overflow or underflow");
-        }
-
+        // Clamp to avoid kernel panic on overflow. Alternative: return Result.
+        let total_us = total_us
+            .max(MIN_MICROSECONDS as i128)
+            .min(MAX_MICROSECONDS as i128);
         TimeSpan {
-            _ticks: total_microseconds * TICKS_PER_MICROSECOND,
+            _ticks: (total_us * TICKS_PER_MICROSECOND as i128) as i64,
         }
     }
 
+    #[inline]
     pub fn from_days_ms(
         days: i32,
         hours: i32,
@@ -137,10 +218,12 @@ impl TimeSpan {
         TimeSpan::from(days, hours, minutes, seconds, milliseconds, 0)
     }
 
+    #[inline]
     pub fn from_days_sec(days: i32, hours: i32, minutes: i32, seconds: i32) -> TimeSpan {
         TimeSpan::from_days_ms(days, hours, minutes, seconds, 0)
     }
 
+    #[inline]
     pub fn from_hours_sec(hours: i32, minutes: i32, seconds: i32) -> TimeSpan {
         TimeSpan::from_days_sec(0, hours, minutes, seconds)
     }
@@ -150,23 +233,21 @@ impl TimeSpan {
     pub fn from_timespec_diff(lhs: &TimeSpec, rhs: &TimeSpec) -> TimeSpan {
         let diff_sec = lhs.tv_sec - rhs.tv_sec;
         let diff_nsec = lhs.tv_nsec - rhs.tv_nsec;
-
-        let total_microseconds = diff_sec * (TICKS_PER_SECOND / TICKS_PER_MICROSECOND)
-            + diff_nsec / (NSEC_PER_SEC / (TICKS_PER_SECOND / TICKS_PER_MICROSECOND));
-
+        // 1 tick = 100ns
+        let total_ticks =
+            (diff_sec as i128) * (TICKS_PER_SECOND as i128) + (diff_nsec as i128) / 100;
         TimeSpan {
-            _ticks: total_microseconds * TICKS_PER_MICROSECOND,
+            _ticks: total_ticks as i64,
         }
     }
 
     pub fn from_timeval_diff(lhs: &TimeVal, rhs: &TimeVal) -> TimeSpan {
         let diff_sec = lhs.tv_sec - rhs.tv_sec;
-        let diff_usec = lhs.tv_msec - rhs.tv_msec;
-
-        let total_microseconds = diff_sec * (TICKS_PER_SECOND / TICKS_PER_MICROSECOND) + diff_usec;
-
+        let diff_usec = lhs.tv_usec - rhs.tv_usec; // treated as microseconds
+        let total_ticks = (diff_sec as i128) * (TICKS_PER_SECOND as i128)
+            + (diff_usec as i128) * (TICKS_PER_MICROSECOND as i128);
         TimeSpan {
-            _ticks: total_microseconds * TICKS_PER_MICROSECOND,
+            _ticks: total_ticks as i64,
         }
     }
 }
@@ -174,59 +255,71 @@ impl TimeSpan {
 // Properties
 impl TimeSpan {
     // Extract the ticks from the TimeSpan
+    #[inline]
     pub fn ticks(&self) -> i64 {
         self._ticks
     }
 
     // Extract the days from the TimeSpan
+    #[inline]
     pub fn days(&self) -> i32 {
         (self._ticks / TICKS_PER_DAY) as i32
     }
 
     // Extract the hours from the TimeSpan
+    #[inline]
     pub fn hours(&self) -> i32 {
         ((self._ticks / TICKS_PER_HOUR) % 24) as i32
     }
 
     // Extract the minutes from the TimeSpan
+    #[inline]
     pub fn minutes(&self) -> i32 {
         ((self._ticks / TICKS_PER_MINUTE) % 60) as i32
     }
 
     // Extract the seconds from the TimeSpan
+    #[inline]
     pub fn seconds(&self) -> i32 {
         ((self._ticks / TICKS_PER_SECOND) % 60) as i32
     }
 
     // Extract the milliseconds from the TimeSpan
+    #[inline]
     pub fn milliseconds(&self) -> i32 {
         ((self._ticks / TICKS_PER_MILLISECOND) % 1000) as i32
     }
 
     // Extract the microseconds from the TimeSpan
+    #[inline]
     pub fn microseconds(&self) -> i32 {
         (self._ticks / TICKS_PER_MICROSECOND % 1000) as i32
     }
 
-    // Extract the total days from the TimeSpan
+    // Extract the nanoseconds within the current microsecond (0..=900, step 100)
+    #[inline]
     pub fn nanoseconds(&self) -> i32 {
-        (self._ticks % TICKS_PER_MICROSECOND % 100) as i32
+        ((self._ticks.rem_euclid(TICKS_PER_MICROSECOND)) * 100) as i32
     }
 }
 
 impl TimeSpan {
+    #[inline]
     pub fn total_days(&self) -> f64 {
         self._ticks as f64 / TICKS_PER_DAY as f64
     }
 
+    #[inline]
     pub fn total_hours(&self) -> f64 {
         self._ticks as f64 / TICKS_PER_HOUR as f64
     }
 
+    #[inline]
     pub fn total_minutes(&self) -> f64 {
         self._ticks as f64 / TICKS_PER_MINUTE as f64
     }
 
+    #[inline]
     pub fn total_seconds(&self) -> f64 {
         self._ticks as f64 / TICKS_PER_SECOND as f64
     }
@@ -245,18 +338,75 @@ impl TimeSpan {
         temp
     }
 
+    #[inline]
     pub fn total_microseconds(&self) -> f64 {
         self._ticks as f64 / TICKS_PER_MICROSECOND as f64
     }
 
+    #[inline]
     pub fn total_nanoseconds(&self) -> f64 {
         self._ticks as f64 * 100.0
+    }
+
+    /// Check if this TimeSpan is zero
+    #[inline]
+    pub fn is_zero(&self) -> bool {
+        self._ticks == 0
+    }
+
+    /// Check if this TimeSpan is positive
+    #[inline]
+    pub fn is_positive(&self) -> bool {
+        self._ticks > 0
+    }
+
+    /// Check if this TimeSpan is negative
+    #[inline]
+    pub fn is_negative(&self) -> bool {
+        self._ticks < 0
+    }
+
+    /// Get the absolute value of this TimeSpan
+    #[inline]
+    pub fn abs(&self) -> TimeSpan {
+        if self.is_negative() {
+            TimeSpan {
+                _ticks: -self._ticks,
+            }
+        } else {
+            *self
+        }
+    }
+
+    /// Create a TimeSpan from a duration in seconds
+    #[inline]
+    pub fn from_seconds_f64(seconds: f64) -> TimeSpan {
+        TimeSpan {
+            _ticks: (seconds * TICKS_PER_SECOND as f64) as i64,
+        }
+    }
+
+    /// Create a TimeSpan from a duration in milliseconds
+    #[inline]
+    pub fn from_milliseconds_f64(milliseconds: f64) -> TimeSpan {
+        TimeSpan {
+            _ticks: (milliseconds * TICKS_PER_MILLISECOND as f64) as i64,
+        }
+    }
+
+    /// Create a TimeSpan from a duration in microseconds
+    #[inline]
+    pub fn from_microseconds_f64(microseconds: f64) -> TimeSpan {
+        TimeSpan {
+            _ticks: (microseconds * TICKS_PER_MICROSECOND as f64) as i64,
+        }
     }
 }
 
 impl core::ops::Add for TimeSpan {
     type Output = TimeSpan;
 
+    #[inline]
     fn add(self, rhs: TimeSpan) -> TimeSpan {
         TimeSpan {
             _ticks: self._ticks + rhs._ticks,
@@ -265,6 +415,7 @@ impl core::ops::Add for TimeSpan {
 }
 
 impl core::ops::AddAssign for TimeSpan {
+    #[inline]
     fn add_assign(&mut self, rhs: TimeSpan) {
         self._ticks += rhs._ticks;
     }
@@ -273,6 +424,7 @@ impl core::ops::AddAssign for TimeSpan {
 impl core::ops::Sub for TimeSpan {
     type Output = TimeSpan;
 
+    #[inline]
     fn sub(self, rhs: TimeSpan) -> TimeSpan {
         TimeSpan {
             _ticks: self._ticks - rhs._ticks,
@@ -281,7 +433,312 @@ impl core::ops::Sub for TimeSpan {
 }
 
 impl core::ops::SubAssign for TimeSpan {
+    #[inline]
     fn sub_assign(&mut self, rhs: TimeSpan) {
         self._ticks -= rhs._ticks;
+    }
+}
+
+impl core::ops::Mul<f64> for TimeSpan {
+    type Output = TimeSpan;
+
+    #[inline]
+    fn mul(self, rhs: f64) -> TimeSpan {
+        TimeSpan {
+            _ticks: (self._ticks as f64 * rhs) as i64,
+        }
+    }
+}
+
+impl core::ops::MulAssign<f64> for TimeSpan {
+    #[inline]
+    fn mul_assign(&mut self, rhs: f64) {
+        self._ticks = (self._ticks as f64 * rhs) as i64;
+    }
+}
+
+impl core::ops::Div<f64> for TimeSpan {
+    type Output = TimeSpan;
+
+    #[inline]
+    fn div(self, rhs: f64) -> TimeSpan {
+        if rhs == 0.0 {
+            return self;
+        }
+        TimeSpan {
+            _ticks: (self._ticks as f64 / rhs) as i64,
+        }
+    }
+}
+
+impl core::ops::DivAssign<f64> for TimeSpan {
+    #[inline]
+    fn div_assign(&mut self, rhs: f64) {
+        if rhs == 0.0 {
+            return;
+        }
+        self._ticks = (self._ticks as f64 / rhs) as i64;
+    }
+}
+
+#[cfg(test)]
+mod test_timespan {
+    use super::TimeSpan;
+    use crate::{TimeSpec, TimeVal};
+
+    #[test]
+    fn test_zero() {
+        let ts = TimeSpan::zero();
+        assert_eq!(ts._ticks, 0);
+    }
+
+    #[test]
+    fn test_max_value() {
+        let ts = TimeSpan::max_value();
+        assert_eq!(ts._ticks, i64::MAX);
+    }
+
+    #[test]
+    fn test_min_value() {
+        let ts = TimeSpan::min_value();
+        assert_eq!(ts._ticks, i64::MIN);
+    }
+
+    #[test]
+    fn test_from_ticks() {
+        let ts = TimeSpan::from_ticks(1000);
+        assert_eq!(ts._ticks, 1000);
+    }
+
+    #[test]
+    fn test_from_simple() {
+        let ts = TimeSpan::from(1, 2, 3, 4, 5, 6); // 1 day, 2 hours, 3 minutes, 4 seconds, 5 ms, 6 μs
+                                                   // 1 day = 864_000_000_000 ticks
+                                                   // 2 hours = 72_000_000_000 ticks
+                                                   // 3 minutes = 1_800_000_000 ticks
+                                                   // 4 seconds = 40_000_000 ticks
+                                                   // 5 ms = 50_000 ticks
+                                                   // 6 μs = 60 ticks
+        let expected = 864_000_000_000 + 72_000_000_000 + 1_800_000_000 + 40_000_000 + 50_000 + 60;
+        assert_eq!(ts._ticks, expected);
+    }
+
+    #[test]
+    fn test_from_days_ms() {
+        let ts = TimeSpan::from_days_ms(1, 1, 1, 1, 1);
+        let expected_ts = TimeSpan::from(1, 1, 1, 1, 1, 0);
+        assert_eq!(ts._ticks, expected_ts._ticks);
+    }
+
+    #[test]
+    fn test_from_days_sec() {
+        let ts = TimeSpan::from_days_sec(1, 1, 1, 1);
+        let expected_ts = TimeSpan::from_days_ms(1, 1, 1, 1, 0);
+        assert_eq!(ts._ticks, expected_ts._ticks);
+    }
+
+    #[test]
+    fn test_from_hours_sec() {
+        let ts = TimeSpan::from_hours_sec(2, 30, 45);
+        let expected_ts = TimeSpan::from_days_sec(0, 2, 30, 45);
+        assert_eq!(ts._ticks, expected_ts._ticks);
+    }
+
+    #[test]
+    fn test_from_timespec_diff() {
+        let ts1 = TimeSpec::new(10, 500_000_000);
+        let ts2 = TimeSpec::new(5, 200_000_000);
+        let diff = TimeSpan::from_timespec_diff(&ts1, &ts2);
+
+        // Expected: 5.3 seconds = 53_000_000 ticks (5.3 * 10_000_000)
+        assert_eq!(diff._ticks, 53_000_000);
+    }
+
+    #[test]
+    fn test_from_timeval_diff() {
+        let tv1 = TimeVal::new(10, 500_000);
+        let tv2 = TimeVal::new(5, 200_000);
+        let diff = TimeSpan::from_timeval_diff(&tv1, &tv2);
+
+        // Expected: 5.3 seconds = 53_000_000 ticks (5.3 * 10_000_000)
+        assert_eq!(diff._ticks, 53_000_000);
+    }
+
+    #[test]
+    fn test_ticks() {
+        let ts = TimeSpan::from_ticks(12345);
+        assert_eq!(ts.ticks(), 12345);
+    }
+
+    #[test]
+    fn test_days() {
+        let ts = TimeSpan::from(2, 0, 0, 0, 0, 0);
+        assert_eq!(ts.days(), 2);
+    }
+
+    #[test]
+    fn test_hours() {
+        let ts = TimeSpan::from(1, 5, 0, 0, 0, 0);
+        assert_eq!(ts.hours(), 5);
+
+        // Test hours wrapping (25 hours = 1 day + 1 hour)
+        let ts2 = TimeSpan::from(0, 25, 0, 0, 0, 0);
+        assert_eq!(ts2.hours(), 1);
+        assert_eq!(ts2.days(), 1);
+    }
+
+    #[test]
+    fn test_minutes() {
+        let ts = TimeSpan::from(0, 0, 45, 0, 0, 0);
+        assert_eq!(ts.minutes(), 45);
+
+        // Test minutes wrapping
+        let ts2 = TimeSpan::from(0, 0, 65, 0, 0, 0);
+        assert_eq!(ts2.minutes(), 5);
+        assert_eq!(ts2.hours(), 1);
+    }
+
+    #[test]
+    fn test_seconds() {
+        let ts = TimeSpan::from(0, 0, 0, 30, 0, 0);
+        assert_eq!(ts.seconds(), 30);
+
+        // Test seconds wrapping
+        let ts2 = TimeSpan::from(0, 0, 0, 70, 0, 0);
+        assert_eq!(ts2.seconds(), 10);
+        assert_eq!(ts2.minutes(), 1);
+    }
+
+    #[test]
+    fn test_milliseconds() {
+        let ts = TimeSpan::from(0, 0, 0, 0, 500, 0);
+        assert_eq!(ts.milliseconds(), 500);
+
+        // Test milliseconds wrapping
+        let ts2 = TimeSpan::from(0, 0, 0, 0, 1500, 0);
+        assert_eq!(ts2.milliseconds(), 500);
+        assert_eq!(ts2.seconds(), 1);
+    }
+
+    #[test]
+    fn test_microseconds() {
+        let ts = TimeSpan::from(0, 0, 0, 0, 0, 750);
+        assert_eq!(ts.microseconds(), 750);
+    }
+
+    #[test]
+    fn test_nanoseconds() {
+        let ts = TimeSpan::from_ticks(5); // 5 ticks = 500 nanoseconds (5 * 100)
+        assert_eq!(ts.nanoseconds(), 500);
+    }
+
+    #[test]
+    fn test_total_days() {
+        let ts = TimeSpan::from(2, 12, 0, 0, 0, 0); // 2.5 days
+        assert_eq!(ts.total_days(), 2.5);
+    }
+
+    #[test]
+    fn test_total_hours() {
+        let ts = TimeSpan::from(0, 2, 30, 0, 0, 0); // 2.5 hours
+        assert_eq!(ts.total_hours(), 2.5);
+    }
+
+    #[test]
+    fn test_total_minutes() {
+        let ts = TimeSpan::from(0, 0, 2, 30, 0, 0); // 2.5 minutes
+        assert_eq!(ts.total_minutes(), 2.5);
+    }
+
+    #[test]
+    fn test_total_seconds() {
+        let ts = TimeSpan::from(0, 0, 0, 2, 500, 0); // 2.5 seconds
+        assert_eq!(ts.total_seconds(), 2.5);
+    }
+
+    #[test]
+    fn test_total_milliseconds() {
+        let ts = TimeSpan::from(0, 0, 0, 1, 500, 0); // 1.5 seconds = 1500 ms
+        assert_eq!(ts.total_milliseconds(), 1500.0);
+    }
+
+    #[test]
+    fn test_total_microseconds() {
+        let ts = TimeSpan::from(0, 0, 0, 0, 1, 500); // 1500 microseconds
+        assert_eq!(ts.total_microseconds(), 1500.0);
+    }
+
+    #[test]
+    fn test_total_nanoseconds() {
+        let ts = TimeSpan::from_ticks(150); // 150 ticks = 15000 nanoseconds
+        assert_eq!(ts.total_nanoseconds(), 15000.0);
+    }
+
+    #[test]
+    fn test_nanoseconds_negative() {
+        let ts = TimeSpan::from_ticks(-5);
+        assert_eq!(ts.nanoseconds(), 500);
+    }
+
+    #[test]
+    fn test_from_timespec_diff_sub_micro() {
+        let a = TimeSpec::new(0, 0);
+        let b = TimeSpec::new(0, 900); // 900ns
+        let d = TimeSpan::from_timespec_diff(&a, &b);
+        assert_eq!(d.ticks(), -9); // -900ns = -9 ticks
+    }
+
+    #[test]
+    fn test_add() {
+        let ts1 = TimeSpan::from_ticks(1000);
+        let ts2 = TimeSpan::from_ticks(500);
+        let result = ts1 + ts2;
+        assert_eq!(result._ticks, 1500);
+    }
+
+    #[test]
+    fn test_add_assign() {
+        let mut ts1 = TimeSpan::from_ticks(1000);
+        let ts2 = TimeSpan::from_ticks(500);
+        ts1 += ts2;
+        assert_eq!(ts1._ticks, 1500);
+    }
+
+    #[test]
+    fn test_sub() {
+        let ts1 = TimeSpan::from_ticks(1000);
+        let ts2 = TimeSpan::from_ticks(300);
+        let result = ts1 - ts2;
+        assert_eq!(result._ticks, 700);
+    }
+
+    #[test]
+    fn test_sub_assign() {
+        let mut ts1 = TimeSpan::from_ticks(1000);
+        let ts2 = TimeSpan::from_ticks(300);
+        ts1 -= ts2;
+        assert_eq!(ts1._ticks, 700);
+    }
+
+    #[test]
+    fn test_comparison() {
+        let ts1 = TimeSpan::from_ticks(1000);
+        let ts2 = TimeSpan::from_ticks(1000);
+        let ts3 = TimeSpan::from_ticks(2000);
+
+        assert_eq!(ts1, ts2);
+        assert!(ts1 < ts3);
+        assert!(ts3 > ts1);
+        assert!(ts1 <= ts2);
+        assert!(ts1 >= ts2);
+    }
+
+    #[test]
+    fn test_from_overflow_saturates() {
+        // Previously panicked; now clamps to max
+        let ts = TimeSpan::from(i32::MAX, i32::MAX, i32::MAX, i32::MAX, i32::MAX, i32::MAX);
+        // Clamped to the largest multiple of tick (100ns) per microsecond (10) <= i64::MAX
+        let expected = (i64::MAX / 10) * 10;
+        assert_eq!(ts._ticks, expected);
     }
 }
