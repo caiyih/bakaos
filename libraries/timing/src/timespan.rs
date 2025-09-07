@@ -378,30 +378,6 @@ impl TimeSpan {
         }
     }
 
-    /// Add another TimeSpan to this one
-    #[inline]
-    pub fn add(&mut self, other: TimeSpan) {
-        self._ticks += other._ticks;
-    }
-
-    /// Subtract another TimeSpan from this one
-    #[inline]
-    pub fn subtract(&mut self, other: TimeSpan) {
-        self._ticks -= other._ticks;
-    }
-
-    /// Multiply this TimeSpan by a scalar
-    pub fn multiply(&mut self, factor: f64) {
-        self._ticks = (self._ticks as f64 * factor) as i64;
-    }
-
-    /// Divide this TimeSpan by a scalar
-    pub fn divide(&mut self, divisor: f64) {
-        if divisor != 0.0 {
-            self._ticks = (self._ticks as f64 / divisor) as i64;
-        }
-    }
-
     /// Create a TimeSpan from a duration in seconds
     #[inline]
     pub fn from_seconds_f64(seconds: f64) -> TimeSpan {
@@ -460,6 +436,48 @@ impl core::ops::SubAssign for TimeSpan {
     #[inline]
     fn sub_assign(&mut self, rhs: TimeSpan) {
         self._ticks -= rhs._ticks;
+    }
+}
+
+impl core::ops::Mul<f64> for TimeSpan {
+    type Output = TimeSpan;
+
+    #[inline]
+    fn mul(self, rhs: f64) -> TimeSpan {
+        TimeSpan {
+            _ticks: (self._ticks as f64 * rhs) as i64,
+        }
+    }
+}
+
+impl core::ops::MulAssign<f64> for TimeSpan {
+    #[inline]
+    fn mul_assign(&mut self, rhs: f64) {
+        self._ticks = (self._ticks as f64 * rhs) as i64;
+    }
+}
+
+impl core::ops::Div<f64> for TimeSpan {
+    type Output = TimeSpan;
+
+    #[inline]
+    fn div(self, rhs: f64) -> TimeSpan {
+        if rhs == 0.0 {
+            return self;
+        }
+        TimeSpan {
+            _ticks: (self._ticks as f64 / rhs) as i64,
+        }
+    }
+}
+
+impl core::ops::DivAssign<f64> for TimeSpan {
+    #[inline]
+    fn div_assign(&mut self, rhs: f64) {
+        if rhs == 0.0 {
+            return;
+        }
+        self._ticks = (self._ticks as f64 / rhs) as i64;
     }
 }
 
