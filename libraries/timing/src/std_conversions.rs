@@ -135,12 +135,54 @@ impl TryFrom<TimeSpan> for Duration {
 // But we can create TimeSpan from the difference between two Instants
 impl TimeSpan {
     /// Create a TimeSpan from the duration between two Instants
+    #[inline]
     pub fn from_instant_diff(later: Instant, earlier: Instant) -> TimeSpan {
         if later >= earlier {
             <TimeSpan as From<Duration>>::from(later.duration_since(earlier))
         } else {
             -<TimeSpan as From<Duration>>::from(earlier.duration_since(later))
         }
+    }
+
+    /// Create a TimeSpan from the elapsed time since an Instant
+    #[inline]
+    pub fn from_instant_elapsed(instant: Instant) -> TimeSpan {
+        <TimeSpan as From<Duration>>::from(instant.elapsed())
+    }
+}
+
+// Add utility methods to work with Instant
+impl TimeSpec {
+    /// Create a TimeSpec representing the elapsed time since an Instant
+    /// Note: This represents duration semantics, not absolute time
+    #[inline]
+    pub fn from_instant_elapsed(instant: Instant) -> Self {
+        Duration::from(instant.elapsed()).into()
+    }
+
+    /// Convert this TimeSpec to a Duration and add it to an Instant
+    /// This is useful when TimeSpec represents a duration (e.g., for sys_nanosleep)
+    #[inline]
+    pub fn add_to_instant(&self, instant: Instant) -> Result<Instant, &'static str> {
+        let duration = Duration::try_from(*self)?;
+        Ok(instant + duration)
+    }
+}
+
+impl TimeVal {
+    /// Create a TimeVal representing the elapsed time since an Instant
+    /// Note: This represents duration semantics, not absolute time
+    #[inline]
+    pub fn from_instant_elapsed(instant: Instant) -> Self {
+        Duration::from(instant.elapsed()).into()
+    }
+
+    /// Convert this TimeVal to a Duration and add it to an Instant
+    /// This is useful when TimeVal represents a duration
+    #[inline]
+    pub fn add_to_instant(&self, instant: Instant) -> Result<Instant, &'static str> {
+        let duration = Duration::try_from(*self)?;
+        Ok(instant + duration)
     }
 }
 
@@ -164,7 +206,27 @@ mod tests {
         let now = UNIX_EPOCH + Duration::from_secs(1234567890) + Duration::from_nanos(123456789);
         let ts = TimeSpec::from(now);
         assert_eq!(ts.tv_sec, 1234567890);
-        assert_eq!(ts.tv_nsec, 123456789);
+
+        // On Windows, SystemTime precision is limited to ~100ns intervals (system tick resolution)
+        // So we need to be more tolerant of precision differences
+        #[cfg(windows)]
+        {
+            // Windows typically has 100ns precision, so check within that tolerance
+            let expected = 123456789;
+            let tolerance = 100; // 100ns tolerance
+            assert!(
+                (ts.tv_nsec - expected).abs() <= tolerance,
+                "Expected nanoseconds within {}ns of {}, got {}",
+                tolerance,
+                expected,
+                ts.tv_nsec
+            );
+        }
+
+        #[cfg(not(windows))]
+        {
+            assert_eq!(ts.tv_nsec, 123456789);
+        }
     }
 
     #[test]
@@ -221,6 +283,57 @@ mod tests {
         assert!(diff.is_positive());
         assert!(diff.total_milliseconds() >= 100.0);
         assert!(diff.total_milliseconds() < 101.0); // Should be close to 100ms
+    }
+
+    #[test]
+    fn test_instant_elapsed() {
+        let instant = std::time::Instant::now();
+        std::thread::sleep(Duration::from_millis(1)); // Sleep for at least 1ms
+        let elapsed_timespan = TimeSpan::from_instant_elapsed(instant);
+        let elapsed_timespec = TimeSpec::from_instant_elapsed(instant);
+        let elapsed_timeval = TimeVal::from_instant_elapsed(instant);
+
+        // All should represent positive elapsed time
+        assert!(elapsed_timespan.is_positive());
+        assert!(elapsed_timespec.tv_sec >= 0);
+        assert!(elapsed_timeval.tv_sec >= 0);
+
+        // Should be roughly consistent with each other (within precision differences)
+        let timespan_micros = elapsed_timespan.total_microseconds();
+        let timespec_micros =
+            elapsed_timespec.tv_sec as f64 * 1_000_000.0 + elapsed_timespec.tv_nsec as f64 / 1000.0;
+        let timeval_micros =
+            elapsed_timeval.tv_sec as f64 * 1_000_000.0 + elapsed_timeval.tv_usec as f64;
+
+        // Should be within reasonable tolerance (accounting for different precisions)
+        assert!((timespan_micros - timespec_micros).abs() < 10.0); // Within 10 microseconds
+        assert!((timespan_micros - timeval_micros).abs() < 10.0); // Within 10 microseconds
+    }
+
+    #[test]
+    fn test_add_to_instant() {
+        let base_instant = std::time::Instant::now();
+
+        // Test TimeSpec add_to_instant
+        let timespec = TimeSpec::new(1, 500_000_000); // 1.5 seconds
+        let new_instant = timespec.add_to_instant(base_instant).unwrap();
+        let diff = new_instant.duration_since(base_instant);
+        assert_eq!(diff.as_secs(), 1);
+        assert_eq!(diff.subsec_nanos(), 500_000_000);
+
+        // Test TimeVal add_to_instant
+        let timeval = TimeVal::new(2, 250_000); // 2.25 seconds
+        let new_instant = timeval.add_to_instant(base_instant).unwrap();
+        let diff = new_instant.duration_since(base_instant);
+        assert_eq!(diff.as_secs(), 2);
+        assert_eq!(diff.subsec_micros(), 250_000);
+
+        // Test negative values fail
+        let negative_timespec = TimeSpec::new(-1, 0);
+        assert!(negative_timespec.add_to_instant(base_instant).is_err());
+
+        let negative_timeval = TimeVal::new(-1, 0);
+        assert!(negative_timeval.add_to_instant(base_instant).is_err());
     }
 
     #[test]
