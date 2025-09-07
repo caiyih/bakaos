@@ -61,6 +61,44 @@ impl TimeSpec {
         }
     }
 
+    /// Create a new TimeSpec with the given seconds and nanoseconds, without checking for validity
+    /// or normalization.
+    ///
+    /// # Arguments
+    /// * `sec` - Seconds component
+    /// * `nsec` - Nanoseconds component; normalized into [0, NSEC_PER_SEC) via Euclidean division
+    ///
+    /// # Safety
+    /// This function does not check whether the provided values are valid.
+    /// It is the caller's responsibility to ensure that the values are within the allowed range.
+    #[inline]
+    pub const fn new_unchecked(sec: i64, nsec: i64) -> TimeSpec {
+        TimeSpec {
+            tv_sec: sec,
+            tv_nsec: nsec,
+        }
+    }
+
+    /// Check whether this TimeSpec represents a POSIX time specification.
+    ///
+    /// # Returns
+    /// `true` if the time specification is valid, `false` otherwise.
+    ///
+    /// # Examples
+    /// ```
+    /// use timing::TimeSpec;
+    ///
+    /// let ts = TimeSpec::new_unchecked(1, 2_000_000_000);
+    /// assert!(!ts.is_posix());
+    ///
+    /// let ts = TimeSpec::new(1, 2_000_000_000); // Normalized internally
+    /// assert!(ts.is_posix());
+    /// ```
+    #[inline]
+    pub fn is_posix(&self) -> bool {
+        self.tv_sec >= 0 && self.tv_nsec >= 0 && self.tv_nsec < NSEC_PER_SEC
+    }
+
     /// Create a TimeSpec representing zero time (0.0 seconds).
     ///
     /// # Examples
