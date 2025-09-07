@@ -58,7 +58,8 @@ jobs:
             --no-fail-fast \
             --hide-progress-bar \
             --success-output never \
-            --failure-output final
+            --failure-output final \
+            --branch
 
       - name: Upload Test Report to artifact
         uses: actions/upload-artifact@v4
