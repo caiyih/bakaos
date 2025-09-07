@@ -7,7 +7,7 @@ edition = "2021"
 log = "0.4"
 hermit-sync = "0.1.6"
 linux-syscalls = { path = "dependencies/linux-syscalls" }
-timing = { path = "dependencies/libraries/timing" }
+timing = { path = "dependencies/libraries/timing", default-features = false }
 kernel-abstractions = { path = "dependencies/libraries/kernel-abstractions" }
 trap-abstractions = { path = "dependencies/libraries/trap-abstractions" }
 platform-abstractions = { path = "dependencies/libraries/platform-abstractions" }
