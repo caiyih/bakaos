@@ -145,7 +145,7 @@ mod physical_page_num_tests {
     fn test_clone_and_copy() {
         let page1 = PhysicalPageNum::from_usize(100);
         let page2 = page1; // Copy
-        let page3 = page1.clone(); // Clone
+        let page3 = page1; // Clone
 
         assert_eq!(page1, page2);
         assert_eq!(page1, page3);

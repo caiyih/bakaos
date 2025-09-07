@@ -390,12 +390,8 @@ mod tests_module {
         ctx.register_export_symbol("api", SymbolExportType::Mod, true)
             .unwrap();
 
-        ctx.register_export_symbol(
-            "api::v1",
-            SymbolExportType::Use { as_name: None },
-            true,
-        )
-        .unwrap();
+        ctx.register_export_symbol("api::v1", SymbolExportType::Use { as_name: None }, true)
+            .unwrap();
 
         ctx.register_export_symbol(
             "api::internal",
@@ -496,11 +492,8 @@ use crate::generated::gamma as g;",
             .unwrap();
 
         // different type (Use instead of Mod)
-        let result = ctx.register_export_symbol(
-            "same",
-            SymbolExportType::Use { as_name: None },
-            true,
-        );
+        let result =
+            ctx.register_export_symbol("same", SymbolExportType::Use { as_name: None }, true);
         assert!(result.is_ok());
     }
 

@@ -16,7 +16,7 @@ mod physical_address_tests {
 
     use super::*;
 
-    const VIRT_ADDR_OFFSET: usize = 0xFFFF_FFc0_0000_0000;
+    const VIRT_ADDR_OFFSET: usize = 0xFFFF_FFC0_0000_0000;
 
     impl const IConvertablePhysicalAddress for PhysicalAddress {
         fn to_high_virtual(&self) -> VirtualAddress {
@@ -149,7 +149,7 @@ mod physical_address_tests {
     fn test_clone_and_copy() {
         let addr1 = PhysicalAddress::from_usize(0x1000);
         let addr2 = addr1; // Copy
-        let addr3 = addr1.clone(); // Clone
+        let addr3 = addr1; // Clone
 
         assert_eq!(addr1, addr2);
         assert_eq!(addr1, addr3);
