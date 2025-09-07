@@ -46,20 +46,24 @@ jobs:
         shell: bash
         run: rm rust-toolchain.toml
 
-      - name: Test
+      - name: Compile and Test
         env:
           RUST_LOG: "trace"
           RUST_BACKTRACE: "1"
         shell: bash
         run: |
           cargo llvm-cov nextest \
-            --cobertura \
-            --output-path cobertura.xml \
+            --no-report \
             --no-fail-fast \
             --hide-progress-bar \
             --success-output never \
             --failure-output final \
             --branch
+
+      - name: Generate coverage report
+        # Allows coverage report to be generated even if tests fail
+        if: ${{ always() }}
+        run: cargo llvm-cov report --cobertura --output-path cobertura.xml
 
       - name: Upload Test Report to artifact
         uses: actions/upload-artifact@v4
