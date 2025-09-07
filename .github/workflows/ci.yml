@@ -94,4 +94,17 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: cobertura.xml
+          files: coverage-*/cobertura.xml
+
+      - name: Download test results
+        uses: actions/download-artifact@v5
+        with:
+          pattern: test-results-*
+          merge-multiple: false
+
+      - name: Upload test results to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: test-results-*/junit.xml
+          report_type: test_results
