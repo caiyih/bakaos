@@ -80,6 +80,10 @@ jobs:
     needs: [test]
 
     steps:
+      # Codecov requires source code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Download coverage artifacts
         uses: actions/download-artifact@v4
         with:
