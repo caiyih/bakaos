@@ -37,6 +37,26 @@ unsafe impl Send for LinuxProcess {}
 unsafe impl Sync for LinuxProcess {}
 
 impl LinuxProcess {
+    /// Create a new process and its main thread.
+    ///
+    /// Initializes process state from the given `LinuxLoader` (memory space, MMU, entry point and stack),
+    /// allocates a process id and a main thread id, registers the kernel area for the process page table,
+    /// sets the created `LinuxProcess` into the main thread's process pointer, and returns the main thread.
+    ///
+    /// Parameters:
+    /// - `builder`: the `LinuxLoader` that provides the initial memory space and execution context.
+    /// - `tid`: the base value of task id, this is ususally 0 as this method is mostly used for creating the initial process.
+    ///
+    /// Returns:
+    /// An `Arc<LinuxTask>` representing the main thread of the newly created process.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// // `loader` must be prepared with a valid memory space and entry/stack information.
+    /// let loader: LinuxLoader = /* ... */ unimplemented!();
+    /// let main_thread = LinuxProcess::new(loader, 0);
+    /// ```
     #[allow(clippy::new_ret_no_self)]
     pub fn new(builder: LinuxLoader, tid: u32) -> Arc<LinuxTask> {
         let id_allocator = TaskIdAllocator::new(tid);
@@ -129,6 +149,11 @@ impl IProcess for LinuxProcess {
 }
 
 impl ILinuxProcess for LinuxProcess {
+    /// Replace the process address space with `mem` and constrain execution to the calling thread.
+    ///
+    /// Replaces the process MMU and memory space with those from `mem`, removes all threads except the
+    /// thread whose `tid` equals `calling`, and clears the file-descriptor table's exec state.
+    /// Panics if no thread with id `calling` exists.
     fn execve(&self, mem: MemorySpace, calling: u32) {
         *self.mmu.borrow_mut() = mem.mmu().clone();
         *self.memory_space.lock() = mem;

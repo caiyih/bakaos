@@ -1,22 +1,63 @@
+//! Auxiliary Vector related types
+
 use core::ops::{Deref, DerefMut};
 
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 
+/// Represents a key value pair collection of auxiliary vector entries.
+/// It provides methods for inserting and retrieving auxiliary vector entries.
+///
+/// # Examples
+///
+/// ```
+/// use linux_loader::auxv::{AuxVec, AuxVecKey};
+///
+/// let mut aux = AuxVec::new();
+/// aux.insert(AuxVecKey::AT_ENTRY, 0x1000);
+/// aux.insert(AuxVecKey::AT_NULL, 0);
+/// assert_eq!(aux.get(&AuxVecKey::AT_ENTRY), Some(&0x1000));
+/// assert_eq!(aux.get(&AuxVecKey::AT_NULL), Some(&0));
+/// ```
 #[derive(Debug, Default, Clone)]
 pub struct AuxVec {
     map: BTreeMap<AuxVecKey, usize>,
 }
 
 impl AuxVec {
+    /// Creates a new, empty AuxVec.
+    ///
+    /// This constructor is `const` and returns an AuxVec with an empty underlying map.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use linux_loader::auxv::AuxVec;
+    ///
+    /// let aux = AuxVec::new();
+    /// assert!(aux.is_empty());
+    /// ```
     pub const fn new() -> Self {
         Self {
             map: BTreeMap::new(),
         }
     }
 
-    /// Collects the aux vector entries in reverse order.
+    /// Collects the auxiliary vector entries into a Vec in reverse map order.
     ///
-    /// The last entry is guaranteed to be AT_NULL(if present).
+    /// The returned Vec contains `AuxVecEntry` items produced from the internal map;
+    /// iterating in reverse ensures `AT_NULL`, if present, appears as the last element.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use linux_loader::auxv::{AuxVec, AuxVecKey};
+    ///
+    /// let mut aux = AuxVec::new();
+    /// aux.insert(AuxVecKey::AT_ENTRY, 0x1000);
+    /// aux.insert(AuxVecKey::AT_NULL, 0);
+    /// let entries = aux.collect();
+    /// assert_eq!(entries.last().unwrap().key, AuxVecKey::AT_NULL);
+    /// ```
     pub fn collect(&self) -> Vec<AuxVecEntry> {
         self.map
             .iter()
@@ -28,17 +69,60 @@ impl AuxVec {
 
 impl Deref for AuxVec {
     type Target = BTreeMap<AuxVecKey, usize>;
+    /// Returns a shared reference to the underlying `BTreeMap`, allowing `AuxVec` to be used like a map.
+    ///
+    /// This enables method calls that expect `&BTreeMap<AuxVecKey, usize>` (for example `get`, `contains_key`, iteration).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use linux_loader::auxv::{AuxVec, AuxVecKey};
+    ///
+    /// let mut aux = AuxVec::new();
+    /// aux.insert(AuxVecKey::AT_ENTRY, 0x1000);
+    /// // `deref` is called implicitly so we can call `get` as if `aux` were a BTreeMap
+    /// assert_eq!(aux.get(&AuxVecKey::AT_ENTRY), Some(&0x1000));
+    /// ```
     fn deref(&self) -> &Self::Target {
         &self.map
     }
 }
 
 impl DerefMut for AuxVec {
+    /// Returns a mutable reference to the underlying `BTreeMap<AuxVecKey, usize>`,
+    /// allowing the `AuxVec` to be used like a map (e.g., insert, remove, clear).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use linux_loader::auxv::{AuxVec, AuxVecKey};
+    ///
+    /// let mut aux = AuxVec::new();
+    /// aux.insert(AuxVecKey::AT_ENTRY, 0x1000);
+    /// assert_eq!(aux.get(&AuxVecKey::AT_ENTRY), Some(&0x1000));
+    /// ```
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.map
     }
 }
 
+/// Represents an auxiliary vector entry key.
+///
+/// The `AuxVecKey` enum defines the keys used in the auxiliary vector,
+/// which is a collection of key-value pairs passed to a new process by the kernel.
+///
+/// # Examples
+///
+/// ```
+/// use linux_loader::auxv::AuxVecKey;
+///
+/// let key = AuxVecKey::AT_ENTRY;
+/// assert_eq!(key as usize, 9);
+/// ```
+///
+/// # See Also
+///
+/// - [getauxval](https://man7.org/linux/man-pages/man3/getauxval.3.html)
 #[repr(usize)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[allow(non_camel_case_types)]
@@ -99,11 +183,23 @@ pub struct AuxVecEntry {
 }
 
 impl AuxVecEntry {
+    /// Creates a new AuxVecEntry from the given auxiliary-vector key and value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use linux_loader::auxv::{AuxVecEntry, AuxVecKey};
+    ///
+    /// let entry = AuxVecEntry::new(AuxVecKey::AT_ENTRY, 0x1000);
+    /// assert_eq!(entry.key, AuxVecKey::AT_ENTRY);
+    /// assert_eq!(entry.value, 0x1000);
+    /// ```
     pub const fn new(key: AuxVecKey, val: usize) -> Self {
         AuxVecEntry { key, value: val }
     }
 }
 
+/// Some common auxiliary vector values set by the kernel.
 #[derive(Debug, Default, Clone)]
 pub struct AuxVecValues<'a> {
     pub random: Option<[u8; 16]>,

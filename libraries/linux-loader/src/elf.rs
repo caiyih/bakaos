@@ -12,11 +12,45 @@ use mmu_abstractions::{GenericMappingFlags, IMMU};
 use utilities::InvokeOnDrop;
 use xmas_elf::{program::ProgramHeader, ElfFile};
 
-use crate::{auxv::AuxVecKey, ILoadExecutable, LinuxLoader, LoadError, ProcessContext};
+use crate::{auxv::AuxVecKey, IExecSource, LinuxLoader, LoadError, ProcessContext};
 
 impl<'a> LinuxLoader<'a> {
+    /// Load an ELF executable into a newly created MemorySpace and return a configured LinuxLoader.
+    ///
+    /// This:
+    /// - allocates contiguous physical frames, copies the ELF bytes into them, and parses the ELF;
+    /// - maps PT_LOAD segments into the process address space (with permissions derived from segment flags),
+    ///   tracking the loaded ELF area and PHDR location (or deriving it from the ELF header);
+    /// - populates the process auxiliary vector (AT_PHDR, AT_PHENT, AT_PHNUM, AT_PAGESZ, AT_BASE, AT_FLAGS, AT_ENTRY);
+    /// - reserves a signal trampoline page and sets up stack regions (guard base, user stack, guard top) and a brk area;
+    /// - computes the program entry point (accounting for PIE offset when applicable) and initializes the MemorySpace with the collected attributes.
+    ///
+    /// Notes:
+    /// - The function will consume and return the provided ProcessContext in the resulting LinuxLoader.
+    /// - `mmu` and `alloc` are used to allocate and map memory; they are not documented here as generic services.
+    /// - MemorySpace::init is called unsafely to finalize the layout.
+    ///
+    /// Errors:
+    /// - Returns Err(LoadError::InsufficientMemory) if contiguous frames cannot be allocated for the ELF.
+    /// - Returns Err(LoadError::UnableToReadExecutable) if reading the executable into memory fails.
+    /// - Returns Err(LoadError::NotElf) if the ELF parser rejects the data.
+    /// - Returns Err(LoadError::TooLarge) or Err(LoadError::IncompleteExecutable) for invalid segment sizes/offsets.
+    /// - Returns Err(LoadError::FailedToLoad) if writing segment bytes into the MMU fails.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// use std::sync::Arc;
+    /// use linux_loader::{LinuxLoader, ProcessContext, IExecSource, IMMU, IFrameAllocator};
+    /// # // The following is illustrative; real types and setup are required to run.
+    /// let elf: &dyn IExecSource = /* ... */;
+    /// let ctx = ProcessContext::default();
+    /// let mmu: Arc<_> = /* MMU instance */;
+    /// let alloc: Arc<_> = /* frame allocator */;
+    /// let loader = LinuxLoader::from_elf(elf, "/bin/app", ctx, &mmu, &alloc).expect("failed to load ELF");
+    /// ```
     pub fn from_elf(
-        elf_data: &impl ILoadExecutable,
+        elf_data: &impl IExecSource,
         path: &str,
         mut ctx: ProcessContext<'a>,
         mmu: &Arc<SpinMutex<dyn IMMU>>,
