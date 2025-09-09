@@ -10,6 +10,8 @@ use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 /// # Examples
 ///
 /// ```
+/// use linux_loader::auxv::{AuxVec, AuxVecKey};
+/// 
 /// let mut aux = AuxVec::new();
 /// aux.insert(AuxVecKey::AT_ENTRY, 0x1000);
 /// aux.insert(AuxVecKey::AT_NULL, 0);
@@ -29,6 +31,8 @@ impl AuxVec {
     /// # Examples
     ///
     /// ```
+    /// use linux_loader::auxv::AuxVec;
+    /// 
     /// let aux = AuxVec::new();
     /// assert!(aux.is_empty());
     /// ```
@@ -46,6 +50,8 @@ impl AuxVec {
     /// # Examples
     ///
     /// ```
+    /// use linux_loader::auxv::{AuxVec, AuxVecKey};
+    /// 
     /// let mut aux = AuxVec::new();
     /// aux.insert(AuxVecKey::AT_ENTRY, 0x1000);
     /// aux.insert(AuxVecKey::AT_NULL, 0);
@@ -70,6 +76,8 @@ impl Deref for AuxVec {
     /// # Examples
     ///
     /// ```
+    /// use linux_loader::auxv::{AuxVec, AuxVecKey};
+    /// 
     /// let mut aux = AuxVec::new();
     /// aux.insert(AuxVecKey::AT_ENTRY, 0x1000);
     /// // `deref` is called implicitly so we can call `get` as if `aux` were a BTreeMap
@@ -87,6 +95,8 @@ impl DerefMut for AuxVec {
     /// # Examples
     ///
     /// ```
+    /// use linux_loader::auxv::{AuxVec, AuxVecKey};
+    /// 
     /// let mut aux = AuxVec::new();
     /// aux.insert(AuxVecKey::AT_ENTRY, 0x1000);
     /// assert_eq!(aux.get(&AuxVecKey::AT_ENTRY), Some(&0x1000));
@@ -104,6 +114,8 @@ impl DerefMut for AuxVec {
 /// # Examples
 ///
 /// ```
+/// use linux_loader::auxv::AuxVecKey;
+/// 
 /// let key = AuxVecKey::AT_ENTRY;
 /// assert_eq!(key as usize, 9);
 /// ```
@@ -176,6 +188,8 @@ impl AuxVecEntry {
     /// # Examples
     ///
     /// ```
+    /// use linux_loader::auxv::{AuxVecEntry, AuxVecKey};
+    /// 
     /// let entry = AuxVecEntry::new(AuxVecKey::AT_ENTRY, 0x1000);
     /// assert_eq!(entry.key, AuxVecKey::AT_ENTRY);
     /// assert_eq!(entry.value, 0x1000);

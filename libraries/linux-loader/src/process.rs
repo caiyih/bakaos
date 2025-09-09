@@ -2,7 +2,7 @@ use alloc::{borrow::Cow, vec::Vec};
 
 use crate::{auxv::AuxVec, LoadError};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ProcessContextLengthLimit {
     pub argv: usize,
     pub envp: usize,
@@ -31,6 +31,8 @@ impl ProcessContext<'_> {
     /// # Examples
     ///
     /// ```
+    /// use linux_loader::ProcessContext;
+    ///
     /// let ctx = ProcessContext::new();
     /// assert!(ctx.argv.is_empty());
     /// assert!(ctx.envp.is_empty());
@@ -53,6 +55,8 @@ impl ProcessContext<'_> {
     /// # Examples
     ///
     /// ```
+    /// use linux_loader::{ProcessContext, ProcessContextLengthLimit};
+    ///
     /// let limit = ProcessContextLengthLimit { argv: 2, envp: 4 };
     /// let ctx = ProcessContext::new_limited(limit);
     /// assert!(ctx.argv.is_empty());
@@ -79,7 +83,8 @@ impl<'a> ProcessContext<'a> {
     /// # Examples
     ///
     /// ```
-    /// use alloc::borrow::Cow;
+    /// use std::borrow::Cow;
+    /// use linux_loader::ProcessContext;
     ///
     /// let mut ctx = ProcessContext::new();
     /// let args = [Cow::Borrowed("arg1"), Cow::Borrowed("arg2")];
@@ -105,6 +110,9 @@ impl<'a> ProcessContext<'a> {
     /// # Examples
     ///
     /// ```
+    /// use std::borrow::Cow;
+    /// use linux_loader::{ProcessContext, LoadError};
+    ///
     /// let mut ctx = ProcessContext::new();
     /// let envs: &[Cow<str>] = &[Cow::Borrowed("KEY=VAL")];
     /// ctx.extend_envp(envs).unwrap();
@@ -129,16 +137,17 @@ impl<'a> ProcessContext<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use alloc::vec::Vec;
-    /// # use crate::auxv::AuxVec;
-    /// # use crate::process::ProcessContext;
+    /// use std::vec::Vec;
+    /// use linux_loader::auxv::{AuxVec, AuxVecKey};
+    /// use linux_loader::ProcessContext;
+    ///
     /// let mut ctx = ProcessContext::new();
     /// let mut other = AuxVec::default();
-    /// other.insert(1usize, 0x1000usize);
+    /// other.insert(AuxVecKey::AT_ENTRY, 0x1000);
     ///
     /// // Insert entries when overwrite is allowed
     /// ctx.extend_auxv(&other, true);
-    /// assert_eq!(ctx.auxv.get(&1usize), Some(&0x1000usize));
+    /// assert_eq!(ctx.auxv.get(&AuxVecKey::AT_ENTRY), Some(&0x1000));
     /// ```
     pub fn extend_auxv(&mut self, auxv: &AuxVec, overwrite: bool) {
         for (key, value) in auxv.iter() {
@@ -166,7 +175,8 @@ impl<'a> ProcessContext<'a> {
     /// # Examples
     ///
     /// ```
-    /// use alloc::borrow::Cow;
+    /// use std::borrow::Cow;
+    /// use linux_loader::ProcessContext;
     ///
     /// let mut base = ProcessContext::new();
     /// let mut other = ProcessContext::new();
@@ -198,6 +208,8 @@ impl Default for ProcessContext<'_> {
     /// # Examples
     ///
     /// ```
+    /// use linux_loader::{ProcessContext, ProcessContextLengthLimit};
+    ///
     /// let ctx = ProcessContext::default();
     /// assert!(ctx.argv.is_empty());
     /// assert!(ctx.envp.is_empty());

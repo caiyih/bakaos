@@ -24,22 +24,26 @@ pub struct LinuxLoader<'a> {
 unsafe impl Sync for LinuxLoader<'_> {}
 unsafe impl Send for LinuxLoader<'_> {}
 
-pub trait ILoadExecutable {
+/// Represent a random-readable executable file source
+pub trait IExecSource {
     fn read_at(&self, offset: usize, buf: &mut [u8]) -> Result<usize, &'static str>;
 
     fn len(&self) -> usize;
 
     /// Returns true if the executable source has zero length.
     ///
-    /// This is the default implementation of `is_empty` for `ILoadExecutable` and
+    /// This is the default implementation of `is_empty` for `IExecSource` and
     /// simply checks whether `len()` is 0.
     ///
     /// # Examples
     ///
     /// ```
     /// // For an implementor, the default can be used:
+    /// use linux_loader::IExecSource;
+    ///
     /// struct EmptySource;
-    /// impl ILoadExecutable for EmptySource {
+    ///
+    /// impl IExecSource for EmptySource {
     ///     fn read_at(&self, _offset: usize, _buf: &mut [u8]) -> Result<usize, &'static str> { Ok(0) }
     ///     fn len(&self) -> usize { 0 }
     /// }
@@ -52,7 +56,7 @@ pub trait ILoadExecutable {
     }
 }
 
-impl ILoadExecutable for &[u8] {
+impl IExecSource for &[u8] {
     /// Reads up to `buf.len()` bytes from this byte slice starting at `offset` into `buf`.
     ///
     /// Returns the number of bytes copied. If `offset` is past the end of the slice, returns `Ok(0)`.
@@ -60,6 +64,8 @@ impl ILoadExecutable for &[u8] {
     /// # Examples
     ///
     /// ```
+    /// use linux_loader::IExecSource;
+    ///
     /// let data: &[u8] = b"hello";
     /// let mut buf = [0u8; 3];
     /// let n = data.read_at(1, &mut buf).unwrap();
@@ -91,7 +97,7 @@ impl ILoadExecutable for &[u8] {
     }
 }
 
-impl ILoadExecutable for dyn IInode {
+impl IExecSource for dyn IInode {
     /// Read up to `buf.len()` bytes from the inode at `offset`.
     ///
     /// Delegates to the inode's `readat` method and maps any read error to the static
@@ -99,7 +105,7 @@ impl ILoadExecutable for dyn IInode {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// # // pseudo-code: `inode` must implement `IInode` and be in scope as a trait object
     /// # let inode: &dyn IInode = /* ... */;
     /// let mut buf = [0u8; 16];
@@ -116,9 +122,11 @@ impl ILoadExecutable for dyn IInode {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
+    /// use linux_loader::IExecSource;
+    ///
     /// // Given an object `inode` that implements `IInode`:
-    /// let size = (inode as &dyn ILoadExecutable).len();
+    /// let size = (inode as &dyn IExecSource).len();
     /// ```
     fn len(&self) -> usize {
         let this = self as &dyn IInode;
@@ -127,7 +135,7 @@ impl ILoadExecutable for dyn IInode {
     }
 }
 
-impl ILoadExecutable for Arc<DirectoryTreeNode> {
+impl IExecSource for Arc<DirectoryTreeNode> {
     /// Reads up to `buf.len()` bytes from this directory node starting at `offset` into `buf`.
     ///
     /// Returns the number of bytes actually read on success. Any underlying read error is
@@ -135,7 +143,9 @@ impl ILoadExecutable for Arc<DirectoryTreeNode> {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
+    /// use linux_loader::IExecSource;
+    ///
     /// // Assume `node` is an `Arc<DirectoryTreeNode>` previously opened and populated.
     /// let mut buf = [0u8; 16];
     /// let n = node.read_at(0, &mut buf).expect("read failed");
@@ -149,12 +159,12 @@ impl ILoadExecutable for Arc<DirectoryTreeNode> {
 
     /// Returns the total size (in bytes) of the underlying directory-tree node.
     ///
-    /// This is the length used by ILoadExecutable to represent how many bytes the
+    /// This is the length used by IExecSource to represent how many bytes the
     /// executable source contains.
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// // `node` is an `Arc<DirectoryTreeNode>`
     /// let size = node.len();
     /// assert_eq!(size, node.metadata().size);
@@ -188,7 +198,7 @@ impl<'a> LinuxLoader<'a> {
     /// // let loader = LinuxLoader::from_raw(&buf, &path, ctx, auxv_values, fs, mmu, alloc)?;
     /// ```
     pub fn from_raw(
-        data: &impl ILoadExecutable,
+        data: &impl IExecSource,
         path: &str,
         ctx: ProcessContext<'a>,
         auxv_values: AuxVecValues<'a>,
@@ -229,18 +239,6 @@ impl<'a> LinuxLoader<'a> {
     /// to reflect the constructed stack layout and `self.ctx` is merged with the provided `ctx`.
     ///
     /// Returns `Err(LoadError)` if merging the context or any memory writes required to build the stack fail.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use crate::{LinuxLoader, ProcessContext, AuxVecValues};
-    /// # fn example(mut loader: LinuxLoader) -> Result<(), crate::LoadError> {
-    /// let ctx = ProcessContext::default();
-    /// let auxv = AuxVecValues::default();
-    /// loader.init_stack(&ctx, &auxv)?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn init_stack(
         &mut self,
         ctx: &ProcessContext<'a>,
@@ -410,6 +408,8 @@ impl LoadError {
     /// # Examples
     ///
     /// ```
+    /// use linux_loader::LoadError;
+    ///
     /// assert!(LoadError::NotExecutable.is_format_determined());
     /// assert!(!LoadError::NotElf.is_format_determined());
     /// ```

@@ -12,7 +12,7 @@ use mmu_abstractions::{GenericMappingFlags, IMMU};
 use utilities::InvokeOnDrop;
 use xmas_elf::{program::ProgramHeader, ElfFile};
 
-use crate::{auxv::AuxVecKey, ILoadExecutable, LinuxLoader, LoadError, ProcessContext};
+use crate::{auxv::AuxVecKey, IExecSource, LinuxLoader, LoadError, ProcessContext};
 
 impl<'a> LinuxLoader<'a> {
     /// Load an ELF executable into a newly created MemorySpace and return a configured LinuxLoader.
@@ -39,18 +39,18 @@ impl<'a> LinuxLoader<'a> {
     ///
     /// # Examples
     ///
-    /// ```
-    /// # use std::sync::Arc;
-    /// # use some_crate::{LinuxLoader, ProcessContext, ILoadExecutable, IMMU, IFrameAllocator};
+    /// ```ignore
+    /// use std::sync::Arc;
+    /// use linux_loader::{LinuxLoader, ProcessContext, IExecSource, IMMU, IFrameAllocator};
     /// # // The following is illustrative; real types and setup are required to run.
-    /// let elf: &dyn ILoadExecutable = /* ... */;
+    /// let elf: &dyn IExecSource = /* ... */;
     /// let ctx = ProcessContext::default();
     /// let mmu: Arc<_> = /* MMU instance */;
     /// let alloc: Arc<_> = /* frame allocator */;
     /// let loader = LinuxLoader::from_elf(elf, "/bin/app", ctx, &mmu, &alloc).expect("failed to load ELF");
     /// ```
     pub fn from_elf(
-        elf_data: &impl ILoadExecutable,
+        elf_data: &impl IExecSource,
         path: &str,
         mut ctx: ProcessContext<'a>,
         mmu: &Arc<SpinMutex<dyn IMMU>>,

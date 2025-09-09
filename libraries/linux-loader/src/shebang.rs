@@ -9,7 +9,7 @@ use filesystem_abstractions::DirectoryTreeNode;
 use hermit_sync::SpinMutex;
 use mmu_abstractions::IMMU;
 
-use crate::{auxv::AuxVecKey, ILoadExecutable, LinuxLoader, LoadError, ProcessContext};
+use crate::{auxv::AuxVecKey, IExecSource, LinuxLoader, LoadError, ProcessContext};
 
 const SHEBANG_MAX_LEN: usize = 127;
 
@@ -33,7 +33,7 @@ impl<'a> LinuxLoader<'a> {
     /// // let loader = LinuxLoader::from_shebang(&executable_data, "/tmp/script.sh", fs, &mmu, &alloc)?;
     /// ```
     pub fn from_shebang(
-        data: &impl ILoadExecutable,
+        data: &impl IExecSource,
         path: &str,
         fs: Arc<DirectoryTreeNode>,
         mmu: &Arc<SpinMutex<dyn IMMU>>,
@@ -56,15 +56,6 @@ impl<'a> LinuxLoader<'a> {
     /// Returns true if the given byte represents end-of-line or string termination.
     ///
     /// Recognized terminators: newline (`\n`), carriage return (`\r`), and NUL (`\0`).
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// assert!(is_end(&b'\n'));
-    /// assert!(is_end(&b'\r'));
-    /// assert!(is_end(&b'\0'));
-    /// assert!(!is_end(&b' '));
-    /// ```
     fn is_end(&c: &u8) -> bool {
         c == b'\n' || c == b'\r' || c == b'\0'
     }
@@ -74,14 +65,6 @@ impl<'a> LinuxLoader<'a> {
     /// Returns the interpreter file path and a vector of arguments (as `Cow<str>`).
     /// Returns `LoadError::NotShebang` if the slice does not start with `#!`.
     /// Other `LoadError` variants may be returned if parsing/UTF-8 decoding fails.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// let (file, args) = LinuxLoader::parse_header(b"#!/bin/sh\n").unwrap();
-    /// assert_eq!(file, "/bin/sh");
-    /// assert!(args.is_empty());
-    /// ```
     fn parse_header(header: &[u8]) -> Result<(&str, Vec<Cow<'a, str>>), LoadError> {
         if header.len() < 2 || &header[..2] != b"#!" {
             return Err(LoadError::NotShebang);
@@ -107,27 +90,6 @@ impl<'a> LinuxLoader<'a> {
     ///
     /// Returns `Err(LoadError::InvalidShebangString)` if either the file or args
     /// are not valid UTF-8.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use std::borrow::Cow;
-    ///
-    /// // simple interpreter with one flag
-    /// let (file, args) = split_file_arg(b"/bin/sh -x").unwrap();
-    /// assert_eq!(file, "/bin/sh");
-    /// assert_eq!(args, vec![Cow::from("-x")]);
-    ///
-    /// // no args
-    /// let (file, args) = split_file_arg(b"/usr/bin/env").unwrap();
-    /// assert_eq!(file, "/usr/bin/env");
-    /// assert!(args.is_empty());
-    ///
-    /// // multiple spaces and trailing whitespace are trimmed/ignored
-    /// let (file, args) = split_file_arg(b"/bin/sh   -e  -c  ").unwrap();
-    /// assert_eq!(file, "/bin/sh");
-    /// assert_eq!(args, vec![Cow::from("-e"), Cow::from("-c")]);
-    /// ```
     fn split_file_arg(content: &[u8]) -> Result<(&str, Vec<Cow<'a, str>>), LoadError> {
         let index = content.iter().position(|b| *b == b' ');
         let (file, args) = match index {
@@ -156,28 +118,6 @@ impl<'a> LinuxLoader<'a> {
     /// The resulting argv will have the interpreter `file` followed by `argv` elements, then `script`,
     /// then the original entries that were previously in `ctx.argv`.
     /// Also inserts AT_NOTELF=1 into `ctx.auxv` to indicate the image being executed is not an ELF binary.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use alloc::borrow::Cow;
-    ///
-    /// // assume ProcessContext has a public `argv: Vec<Cow<'_, str>>` and `auxv` behaves like a map
-    /// let mut ctx = ProcessContext::default();
-    /// ctx.argv.extend([Cow::from("orig0"), Cow::from("orig1")]);
-    ///
-    /// let interp = "/bin/sh";
-    /// let interp_args: Vec<Cow<'_, str>> = vec![Cow::from("-x")];
-    /// let script = "/home/script.sh";
-    ///
-    /// push_ctx(&mut ctx, interp, &interp_args, script).unwrap();
-    ///
-    /// // After call: ["/bin/sh", "-x", "/home/script.sh", "orig0", "orig1"]
-    /// assert_eq!(ctx.argv[0], Cow::from("/bin/sh"));
-    /// assert_eq!(ctx.argv[1], Cow::from("-x"));
-    /// assert_eq!(ctx.argv[2], Cow::from("/home/script.sh"));
-    /// assert_eq!(ctx.auxv.get(&AuxVecKey::AT_NOTELF), Some(&1));
-    /// ```
     fn push_ctx(
         ctx: &mut ProcessContext<'a>,
         file: &str,
@@ -211,13 +151,6 @@ impl<'a> LinuxLoader<'a> {
     /// # Errors
     ///
     /// Returns `LoadError::CanNotFindInterpreter` when the interpreter file cannot be opened by `fs`.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// // Given a prepared `ctx`, filesystem `fs`, `mmu`, and `alloc`:
-    /// // let loader = LinuxLoader::load_shebang_script(ctx, "/bin/sh", fs, &mmu, &alloc)?;
-    /// ```
     fn load_shebang_script(
         ctx: ProcessContext<'a>,
         file: &str,

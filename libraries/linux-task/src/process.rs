@@ -52,7 +52,7 @@ impl LinuxProcess {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// // `loader` must be prepared with a valid memory space and entry/stack information.
     /// let loader: LinuxLoader = /* ... */ unimplemented!();
     /// let main_thread = LinuxProcess::new(loader, 0);
@@ -154,13 +154,6 @@ impl ILinuxProcess for LinuxProcess {
     /// Replaces the process MMU and memory space with those from `mem`, removes all threads except the
     /// thread whose `tid` equals `calling`, and clears the file-descriptor table's exec state.
     /// Panics if no thread with id `calling` exists.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// // Replace process address space and keep only the caller thread
-    /// process.execve(new_mem_space, caller_tid);
-    /// ```
     fn execve(&self, mem: MemorySpace, calling: u32) {
         *self.mmu.borrow_mut() = mem.mmu().clone();
         *self.memory_space.lock() = mem;

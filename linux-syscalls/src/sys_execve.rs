@@ -45,7 +45,7 @@ impl SyscallContext {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// // Given a `ctx: SyscallContext`, an executable `exe` and path:
     /// let _ = ctx.sys_execve_internal(exe, "/bin/app", &["app", "--help"], &[]);
     /// ```
