@@ -3,14 +3,14 @@ use alloc::{borrow::Cow, vec::Vec};
 use crate::{auxv::AuxVec, LoadError};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ProcessContextLengthLimit {
+pub struct ProcessContextLimit {
     pub argv: usize,
     pub envp: usize,
 }
 
-impl ProcessContextLengthLimit {
+impl ProcessContextLimit {
     #[allow(non_upper_case_globals)]
-    pub const Unlimited: ProcessContextLengthLimit = ProcessContextLengthLimit {
+    pub const Unlimited: ProcessContextLimit = ProcessContextLimit {
         argv: usize::MAX,
         envp: usize::MAX,
     };
@@ -20,7 +20,7 @@ pub struct ProcessContext<'a> {
     pub argv: Vec<Cow<'a, str>>,
     pub envp: Vec<Cow<'a, str>>,
     pub auxv: AuxVec,
-    pub limit: ProcessContextLengthLimit,
+    pub limit: ProcessContextLimit,
 }
 
 impl ProcessContext<'_> {
@@ -42,7 +42,7 @@ impl ProcessContext<'_> {
             argv: Vec::new(),
             envp: Vec::new(),
             auxv: AuxVec::new(),
-            limit: ProcessContextLengthLimit::Unlimited,
+            limit: ProcessContextLimit::Unlimited,
         }
     }
 
@@ -55,16 +55,16 @@ impl ProcessContext<'_> {
     /// # Examples
     ///
     /// ```
-    /// use linux_loader::{ProcessContext, ProcessContextLengthLimit};
+    /// use linux_loader::{ProcessContext, ProcessContextLimit};
     ///
-    /// let limit = ProcessContextLengthLimit { argv: 2, envp: 4 };
+    /// let limit = ProcessContextLimit { argv: 2, envp: 4 };
     /// let ctx = ProcessContext::new_limited(limit);
     /// assert!(ctx.argv.is_empty());
     /// assert!(ctx.envp.is_empty());
     /// assert_eq!(ctx.limit.argv, 2);
     /// assert_eq!(ctx.limit.envp, 4);
     /// ```
-    pub fn new_limited(limit: ProcessContextLengthLimit) -> Self {
+    pub fn new_limited(limit: ProcessContextLimit) -> Self {
         Self {
             argv: Vec::new(),
             envp: Vec::new(),
@@ -203,24 +203,24 @@ impl<'a> ProcessContext<'a> {
 impl Default for ProcessContext<'_> {
     /// Returns an empty ProcessContext with no argv/envp entries and unlimited length limits.
     ///
-    /// The created context has empty `argv` and `envp`, a default `AuxVec`, and `ProcessContextLengthLimit::Unlimited`.
+    /// The created context has empty `argv` and `envp`, a default `AuxVec`, and `ProcessContextLimit::Unlimited`.
     ///
     /// # Examples
     ///
     /// ```
-    /// use linux_loader::{ProcessContext, ProcessContextLengthLimit};
+    /// use linux_loader::{ProcessContext, ProcessContextLimit};
     ///
     /// let ctx = ProcessContext::default();
     /// assert!(ctx.argv.is_empty());
     /// assert!(ctx.envp.is_empty());
-    /// assert_eq!(ctx.limit, ProcessContextLengthLimit::Unlimited);
+    /// assert_eq!(ctx.limit, ProcessContextLimit::Unlimited);
     /// ```
     fn default() -> Self {
         ProcessContext {
             argv: Vec::new(),
             envp: Vec::new(),
             auxv: AuxVec::default(),
-            limit: ProcessContextLengthLimit::Unlimited,
+            limit: ProcessContextLimit::Unlimited,
         }
     }
 }
@@ -235,7 +235,7 @@ mod tests {
 
     #[test]
     fn test_length_limit() {
-        let mut ctx = ProcessContext::new_limited(ProcessContextLengthLimit { argv: 5, envp: 5 });
+        let mut ctx = ProcessContext::new_limited(ProcessContextLimit { argv: 5, envp: 5 });
 
         assert_eq!(
             ctx.extend_argv(&vec![Cow::from(""); 10]),
