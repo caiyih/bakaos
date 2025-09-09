@@ -597,6 +597,67 @@ macro_rules! impl_stream {
 }
 
 impl_stream!(MemoryStream);
+impl_stream!(MemoryStreamMut); // TODO: require mutable MMU to enforce RW rules
+
+impl MemoryStreamMut<'_> {
+    #[inline]
+    fn write_slice_internal<T>(
+        &mut self,
+        len: usize,
+        move_cursor: bool,
+    ) -> Result<&mut [T], MMUError> {
+        let (mut ptr, len) = self.inspect_slice_internal(len, MemoryAccess::Write, move_cursor)?;
+        Ok(unsafe { core::slice::from_raw_parts_mut(ptr.as_mut(), len) })
+    }
+
+    /// Write a slice of `T` to the stream and move the cursor.
+    ///
+    /// # Arguments
+    ///
+    /// * `len` - The number of `T` to write.
+    ///
+    /// # Returns
+    ///
+    /// The mutable slice of `T` written to the stream.
+    pub fn write_slice<T>(&mut self, len: usize) -> Result<&mut [T], MMUError> {
+        self.write_slice_internal(len, true)
+    }
+
+    /// Write a slice of `T` to the stream without touching the cursor.
+    ///
+    /// # Arguments
+    ///
+    /// * `len` - The number of `T` to write.
+    ///
+    /// # Returns
+    ///
+    /// The mutable slice of `T` written to the stream.
+    pub fn pwrite_slice<T>(&mut self, len: usize) -> Result<&mut [T], MMUError> {
+        self.write_slice_internal(len, false)
+    }
+
+    /// Write a `T` to the stream and move the cursor.
+    ///
+    /// # Returns
+    ///
+    /// The mutable reference of `T` written to the stream.
+    #[inline]
+    pub fn write<T>(&mut self) -> Result<&mut T, MMUError> {
+        let r = self.write_slice_internal::<T>(1, true)?;
+        Ok(unsafe { r.get_unchecked_mut(0) })
+    }
+
+    /// Write a `T` to the stream without touching the cursor.
+    ///
+    /// # Returns
+    ///
+    /// The mutable reference of `T` written to the stream.
+    #[inline]
+    pub fn pwrite<T>(&mut self) -> Result<&mut T, MMUError> {
+        let r = self.write_slice_internal::<T>(1, false)?;
+        Ok(unsafe { r.get_unchecked_mut(0) })
+    }
+}
 
 #[inline(always)]
 const fn flags_to_access(flags: GenericMappingFlags) -> MemoryAccess {
