@@ -1091,8 +1091,6 @@ mod tests {
             stream.seek(Whence::Set(base + 8));
             let slice2 = stream.read_slice::<i32>(2).unwrap();
             assert_eq!(slice2, [3, 4]);
-
-            stream.sync();
         });
     }
 
@@ -1560,9 +1558,6 @@ mod tests {
             stream.seek(Whence::Set(base + 8));
             let read_slice2 = stream.read_slice::<i32>(2).unwrap();
             assert_eq!(read_slice2, [3, 4]);
-
-            // Sync should clean up all buffers
-            stream.sync();
         });
     }
 
@@ -1636,8 +1631,6 @@ mod tests {
                 for i in 0..100 {
                     *stream.write::<i32>().unwrap() = i;
                 }
-
-                stream.sync();
             }
 
             // Verify the written data after dropping the stream
