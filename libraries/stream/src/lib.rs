@@ -35,7 +35,7 @@ impl IMMUStreamExt for dyn IMMU {
         cursor: VirtualAddress,
         keep_buffer: bool,
     ) -> MemoryStream<'a> {
-        MemoryStream::new_cross(self, Some(src), cursor, keep_buffer)
+        MemoryStream::new_cross(self, src, cursor, keep_buffer)
     }
 }
 
@@ -137,16 +137,13 @@ macro_rules! impl_stream {
             ///   will be unmap when the stream is dropped.
             pub fn new_cross(
                 mmu: &'a mut dyn IMMU,
-                cross: Option<&'a dyn IMMU>,
+                cross: &'a dyn IMMU,
                 cursor: VirtualAddress,
                 keep_buffer: bool,
             ) -> Self {
-                let mmu = match cross {
-                    Some(cross) => MmuComposition::Cross {
-                        mmu: UnsafeCell::new(mmu),
-                        src: cross,
-                    },
-                    None => MmuComposition::Single(mmu),
+                let mmu = MmuComposition::Cross {
+                    mmu: UnsafeCell::new(mmu),
+                    src: cross,
                 };
 
                 Self {
@@ -1301,7 +1298,7 @@ mod tests {
         cursor: VirtualAddress,
         keep_buffer: bool,
     ) -> MemoryStreamMut<'a> {
-        MemoryStreamMut::new_cross(mmu, Some(src), cursor, keep_buffer)
+        MemoryStreamMut::new_cross(mmu, src, cursor, keep_buffer)
     }
 
     // MemoryStreamMut Write Tests
