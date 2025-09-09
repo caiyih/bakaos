@@ -347,13 +347,7 @@ impl<Arch: IPageTableArchAttribute + 'static, PTE: IArchPageTableEntry + 'static
         Ok(unsafe { core::slice::from_raw_parts_mut(vaddr.as_mut_ptr(), len) })
     }
 
-    fn unmap_buffer(&self, vaddr: VirtualAddress) {
-        let mut cross = self.allocation.as_ref().unwrap().cross_mappings.lock();
-
-        if let Some(_window) = cross.remove(vaddr) {
-            // TODO: unmap from page table
-        }
-    }
+    fn unmap_buffer(&self, _vaddr: VirtualAddress) {}
 
     fn map_cross_internal<'a>(
         &'a mut self,
@@ -488,6 +482,16 @@ impl<Arch: IPageTableArchAttribute + 'static, PTE: IArchPageTableEntry + 'static
             }
 
             checking += sz;
+        }
+    }
+
+    fn unmap_cross(&mut self, _source: &dyn IMMU, vaddr: VirtualAddress) {
+        let mut cross = self.allocation.as_ref().unwrap().cross_mappings.lock();
+
+        if let Some(window) = cross.remove(vaddr) {
+            drop(cross);
+
+            self.unmap_single(window.vaddr).ok();
         }
     }
 }

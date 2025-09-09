@@ -195,6 +195,8 @@ pub trait IMMU: Downcast {
 
     fn unmap_buffer(&self, vaddr: VirtualAddress);
 
+    fn unmap_cross(&mut self, source: &dyn IMMU, vaddr: VirtualAddress);
+
     fn platform_payload(&self) -> usize;
 
     #[doc(hidden)]

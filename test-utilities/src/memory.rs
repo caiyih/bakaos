@@ -381,6 +381,12 @@ impl IMMU for TestMMU {
         #[allow(deprecated)]
         source.map_buffer_mut_internal(vaddr, len, false)
     }
+
+    fn unmap_cross(&mut self, source: &dyn IMMU, vaddr: VirtualAddress) {
+        let source = source.downcast_ref::<TestMMU>().unwrap();
+
+        source.unmap_buffer(vaddr);
+    }
 }
 
 impl TestMMU {
