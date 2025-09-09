@@ -1287,4 +1287,398 @@ mod tests {
             assert_eq!(stream.read_slice::<i32>(2).unwrap(), [9, 10]);
         });
     }
+
+    // Helper functions for MemoryStreamMut tests
+    fn create_memory_stream_mut(
+        mmu: &mut dyn IMMU,
+        cursor: VirtualAddress,
+        keep_buffer: bool,
+    ) -> MemoryStreamMut<'_> {
+        MemoryStreamMut::new(mmu, cursor, keep_buffer)
+    }
+
+    fn create_cross_memory_stream_mut<'a>(
+        mmu: &'a mut dyn IMMU,
+        src: &'a dyn IMMU,
+        cursor: VirtualAddress,
+        keep_buffer: bool,
+    ) -> MemoryStreamMut<'a> {
+        MemoryStreamMut::new_cross(mmu, Some(src), cursor, keep_buffer)
+    }
+
+    // MemoryStreamMut Write Tests
+
+    #[test]
+    fn test_memory_stream_mut_creation() {
+        test_scene(|mmu, base, _len| {
+            let mut mmu = mmu.lock();
+
+            let stream = create_memory_stream_mut(&mut *mmu, base, false);
+            assert_eq!(stream.cursor(), base);
+            drop(stream);
+
+            let stream_with_keep = create_memory_stream_mut(&mut *mmu, base, true);
+            assert_eq!(stream_with_keep.cursor(), base);
+        });
+    }
+
+    #[test]
+    fn test_basic_write() {
+        test_scene(|mmu, base, _len| {
+            let mut mmu = mmu.lock();
+
+            let mut stream = create_memory_stream_mut(&mut *mmu, base, false);
+
+            // Test write single value
+            *stream.write::<i32>().unwrap() = 42;
+            assert_eq!(stream.cursor(), base + 4);
+
+            // Reset cursor and test pwrite (doesn't move cursor)
+            stream.seek(Whence::Set(base));
+            *stream.pwrite::<i32>().unwrap() = 24;
+            assert_eq!(stream.cursor(), base);
+
+            // Verify immediate read works
+            let read_val = *stream.read::<i32>().unwrap();
+            assert_eq!(read_val, 24);
+
+            // Write another value and read it
+            *stream.write::<i32>().unwrap() = 99;
+            stream.seek(Whence::Set(base + 4));
+            let read_val2 = *stream.read::<i32>().unwrap();
+            assert_eq!(read_val2, 99);
+        });
+    }
+
+    #[test]
+    fn test_write_slice() {
+        test_scene(|mmu, base, _len| {
+            let mut mmu = mmu.lock();
+
+            let mut stream = create_memory_stream_mut(&mut *mmu, base, false);
+
+            // Test write slice
+            let slice = stream.write_slice::<i32>(4).unwrap();
+            slice[0] = 1;
+            slice[1] = 2;
+            slice[2] = 3;
+            slice[3] = 4;
+
+            assert_eq!(stream.cursor(), base + 16);
+
+            // Test pwrite slice (doesn't move cursor)
+            stream.seek(Whence::Set(base + 16));
+            let slice2 = stream.pwrite_slice::<i32>(2).unwrap();
+            slice2[0] = 5;
+            slice2[1] = 6;
+            assert_eq!(stream.cursor(), base + 16);
+
+            // Verify the written values by reading them back
+            stream.seek(Whence::Set(base));
+            let read_slice = stream.read_slice::<i32>(4).unwrap();
+            assert_eq!(read_slice, [1, 2, 3, 4]);
+
+            stream.seek(Whence::Set(base + 16));
+            let read_slice2 = stream.read_slice::<i32>(2).unwrap();
+            assert_eq!(read_slice2, [5, 6]);
+        });
+    }
+
+    #[test]
+    fn test_write_different_types() {
+        test_scene(|mmu, base, _len| {
+            let mut mmu = mmu.lock();
+
+            let mut stream = create_memory_stream_mut(&mut *mmu, base, false);
+
+            // Write different types
+            *stream.write::<u8>().unwrap() = 0xAB;
+
+            stream.seek(Whence::Set(base + 4));
+            *stream.write::<u16>().unwrap() = 0x1234;
+
+            stream.seek(Whence::Set(base + 8));
+            *stream.write::<u32>().unwrap() = 0x12345678;
+
+            stream.seek(Whence::Set(base + 16));
+            *stream.write::<u64>().unwrap() = 0x123456789ABCDEF0;
+
+            // Verify the written values by reading them back
+            stream.seek(Whence::Set(base));
+            assert_eq!(*stream.read::<u8>().unwrap(), 0xAB);
+
+            stream.seek(Whence::Set(base + 4));
+            assert_eq!(*stream.read::<u16>().unwrap(), 0x1234);
+
+            stream.seek(Whence::Set(base + 8));
+            assert_eq!(*stream.read::<u32>().unwrap(), 0x12345678);
+
+            stream.seek(Whence::Set(base + 16));
+            assert_eq!(*stream.read::<u64>().unwrap(), 0x123456789ABCDEF0);
+        });
+    }
+    #[test]
+    fn test_write_and_read_mixed() {
+        test_scene(|mmu, base, _len| {
+            let mut mmu = mmu.lock();
+
+            let mut stream = create_memory_stream_mut(&mut *mmu, base, false);
+
+            // Write some data
+            let write_slice = stream.write_slice::<i32>(4).unwrap();
+            write_slice[0] = 10;
+            write_slice[1] = 20;
+            write_slice[2] = 30;
+            write_slice[3] = 40;
+
+            // Read back the data using the same stream (should work since MemoryStreamMut supports read)
+            stream.seek(Whence::Set(base));
+            let read_slice = stream.read_slice::<i32>(4).unwrap();
+            assert_eq!(read_slice, [10, 20, 30, 40]);
+
+            // Test individual read/write operations
+            stream.seek(Whence::Set(base));
+            assert_eq!(*stream.read::<i32>().unwrap(), 10);
+            *stream.write::<i32>().unwrap() = 100;
+
+            stream.seek(Whence::Set(base + 4));
+            assert_eq!(*stream.read::<i32>().unwrap(), 100);
+        });
+    }
+
+    #[test]
+    fn test_write_large_data() {
+        test_scene(|mmu, base, len| {
+            let mut mmu = mmu.lock();
+
+            let data_size = (len / 4).min(1000); // Limit to reasonable size
+            let mut stream = create_memory_stream_mut(&mut *mmu, base, false);
+
+            // Write large amount of data
+            let slice = stream.write_slice::<i32>(data_size).unwrap();
+            for (i, val) in slice.iter_mut().enumerate() {
+                *val = i as i32;
+            }
+
+            // Verify the data by reading it back
+            stream.seek(Whence::Set(base));
+            let read_slice = stream.read_slice::<i32>(data_size).unwrap();
+            for (i, val) in read_slice.iter().enumerate() {
+                assert_eq!(*val, i as i32);
+            }
+        });
+    }
+
+    #[test]
+    fn test_write_empty_slice() {
+        test_scene(|mmu, base, _len| {
+            let mut mmu = mmu.lock();
+
+            let mut stream = create_memory_stream_mut(&mut *mmu, base, false);
+
+            // Write empty slice should succeed
+            let slice = stream.write_slice::<i32>(0).unwrap();
+            assert_eq!(slice.len(), 0);
+            assert_eq!(stream.cursor(), base); // Cursor shouldn't move
+
+            // pwrite empty slice should also succeed
+            let slice2 = stream.pwrite_slice::<i32>(0).unwrap();
+            assert_eq!(slice2.len(), 0);
+            assert_eq!(stream.cursor(), base);
+        });
+    }
+
+    #[test]
+    fn test_write_misaligned_address() {
+        test_scene(|mmu, base, _len| {
+            let mut mmu = mmu.lock();
+
+            let mut stream = create_memory_stream_mut(&mut *mmu, base + 1, false);
+
+            // Writing to misaligned address should fail
+            let result = stream.write::<i32>();
+            assert!(matches!(result, Err(MMUError::MisalignedAddress)));
+
+            let result = stream.write_slice::<i32>(1);
+            assert!(matches!(result, Err(MMUError::MisalignedAddress)));
+        });
+    }
+
+    #[test]
+    fn test_write_readonly_memory() {
+        test_scene_readonly(|mmu, base, _len| {
+            let mut mmu = mmu.lock();
+
+            let mut stream = create_memory_stream_mut(&mut *mmu, base, false);
+
+            // Writing to read-only memory should fail
+            let result = stream.write::<i32>();
+            assert!(matches!(result, Err(MMUError::PageNotWritable { .. })));
+
+            let result = stream.write_slice::<i32>(1);
+            assert!(matches!(result, Err(MMUError::PageNotWritable { .. })));
+        });
+    }
+
+    #[test]
+    fn test_write_invalid_address() {
+        test_scene(|mmu, base, _len| {
+            let mut mmu = mmu.lock();
+
+            let mut stream = create_memory_stream_mut(&mut *mmu, base, false);
+
+            // Seek to invalid address
+            stream.seek(Whence::Set(VirtualAddress::from_usize(0x10000000)));
+
+            let result = stream.write::<i32>();
+            assert!(matches!(result, Err(MMUError::InvalidAddress)));
+        });
+    }
+
+    #[test]
+    fn test_write_buffer_keep_functionality() {
+        test_scene(|mmu, base, _len| {
+            let mut mmu = mmu.lock();
+
+            let mut stream = create_memory_stream_mut(&mut *mmu, base, true);
+
+            // Write data in multiple chunks
+            let slice1 = stream.write_slice::<i32>(2).unwrap();
+            slice1[0] = 1;
+            slice1[1] = 2;
+
+            stream.seek(Whence::Set(base + 8));
+            let slice2 = stream.write_slice::<i32>(2).unwrap();
+            slice2[0] = 3;
+            slice2[1] = 4;
+
+            // Verify data by reading back
+            stream.seek(Whence::Set(base));
+            let read_slice1 = stream.read_slice::<i32>(2).unwrap();
+            assert_eq!(read_slice1, [1, 2]);
+
+            stream.seek(Whence::Set(base + 8));
+            let read_slice2 = stream.read_slice::<i32>(2).unwrap();
+            assert_eq!(read_slice2, [3, 4]);
+
+            // Sync should clean up all buffers
+            stream.sync();
+        });
+    }
+
+    #[test]
+    fn test_cross_mmu_write() {
+        let (alloc1, mmu1) = create_alloc_mmu();
+        let (alloc2, mmu2) = create_alloc_mmu();
+
+        let frames1 = alloc1.lock().alloc_contiguous(5).unwrap();
+        let frames1 = InvokeOnDrop::transform(frames1, |f| alloc1.lock().dealloc_range(f));
+        let frames2 = alloc2.lock().alloc_contiguous(5).unwrap();
+        let frames2 = InvokeOnDrop::transform(frames2, |f| alloc2.lock().dealloc_range(f));
+
+        let len1 = frames1.end.as_usize() - frames1.start.as_usize();
+        let len2 = frames2.end.as_usize() - frames2.start.as_usize();
+
+        let page_size1 = len1 / 5;
+        let page_size2 = len2 / 5;
+        let base1 = VirtualAddress::from_usize(0x10000);
+        let base2 = VirtualAddress::from_usize(0x20000);
+
+        for i in 0..5 {
+            mmu1.lock()
+                .map_single(
+                    base1 + i * page_size1,
+                    frames1.start + i * page_size1,
+                    PageSize::from(page_size1),
+                    GenericMappingFlags::User
+                        | GenericMappingFlags::Readable
+                        | GenericMappingFlags::Writable,
+                )
+                .unwrap();
+        }
+
+        for i in 0..5 {
+            mmu2.lock()
+                .map_single(
+                    base2 + i * page_size2,
+                    frames2.start + i * page_size2,
+                    PageSize::from(page_size2),
+                    GenericMappingFlags::User
+                        | GenericMappingFlags::Readable
+                        | GenericMappingFlags::Writable,
+                )
+                .unwrap();
+        }
+
+        // Write to mmu1 memory via mmu2 (cross-MMU write)
+        let mmu1_ref = mmu1.lock();
+        let mut mmu2_guard = mmu2.lock();
+        let mut stream = create_cross_memory_stream_mut(&mut *mmu2_guard, &*mmu1_ref, base1, false);
+
+        *stream.write::<i32>().unwrap() = 42;
+
+        // Verify the write
+        stream.sync();
+        drop(stream);
+        drop(mmu2_guard);
+        assert_eq!(mmu1_ref.import::<i32>(base1).unwrap(), 42);
+    }
+
+    #[test]
+    fn test_consecutive_writes() {
+        test_scene(|mmu, base, _len| {
+            let mut mmu = mmu.lock();
+
+            {
+                let mut stream = create_memory_stream_mut(&mut *mmu, base, false);
+
+                // Write consecutive values
+                for i in 0..100 {
+                    *stream.write::<i32>().unwrap() = i;
+                }
+
+                stream.sync();
+            }
+
+            // Verify the written data after dropping the stream
+            for i in 0..100 {
+                let val = mmu.import::<i32>(base + i * 4).unwrap();
+                assert_eq!(val, i as i32);
+            }
+        });
+    }
+
+    #[test]
+    fn test_mixed_write_operations() {
+        test_scene(|mmu, base, _len| {
+            let mut mmu = mmu.lock();
+
+            let mut stream = create_memory_stream_mut(&mut *mmu, base, false);
+
+            // Mix different write operations
+            *stream.write::<i32>().unwrap() = 1;
+
+            let slice = stream.write_slice::<i32>(3).unwrap();
+            slice[0] = 2;
+            slice[1] = 3;
+            slice[2] = 4;
+
+            *stream.write::<i32>().unwrap() = 5;
+
+            let slice2 = stream.write_slice::<i32>(2).unwrap();
+            slice2[0] = 6;
+            slice2[1] = 7;
+
+            *stream.write::<i32>().unwrap() = 8;
+
+            let slice3 = stream.write_slice::<i32>(2).unwrap();
+            slice3[0] = 9;
+            slice3[1] = 10;
+
+            // Verify all the data
+            stream.seek(Whence::Set(base));
+            let result = stream.read_slice::<i32>(10).unwrap();
+            assert_eq!(result, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+        });
+    }
 }
