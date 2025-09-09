@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-memory-space-abstractions = { path = "../memory-space-abstractions", default-features = false }
+memory-space = { path = "../memory-space", default-features = false }
 task-abstractions = { path = "../task-abstractions", default-features = false }
 
 [features]

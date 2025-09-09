@@ -65,7 +65,7 @@ mod tests {
     use address::IAddressBase;
     use alloc::sync::Arc;
     use hermit_sync::SpinMutex;
-    use memory_space_abstractions::MemorySpace;
+    use memory_space::MemorySpace;
     use mmu_abstractions::IMMU;
     use test_utilities::{
         allocation::segment::TestFrameAllocator, kernel::TestKernel, task::TestProcess,
@@ -150,7 +150,12 @@ mod tests {
 
     #[test]
     fn test_syscall_nsec_too_large() {
-        let req = TimeSpec::new(0, 1_000_000_000);
+        // Create an invalid TimeSpec directly without normalization
+        // This bypasses TimeSpec::new() which would normalize the value
+        let req = TimeSpec {
+            tv_sec: 0,
+            tv_nsec: 1_000_000_000, // Invalid: should be < 1_000_000_000
+        };
 
         test_syscall_invalid_argument(req);
     }

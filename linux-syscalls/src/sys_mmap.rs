@@ -4,7 +4,7 @@ use address::{
 };
 use alloc::vec::Vec;
 use constants::SyscallError;
-use memory_space_abstractions::{AreaType, MapType, MappingArea, MemorySpace};
+use memory_space::{AreaType, MapType, MappingArea, MemorySpace};
 use mmap_abstractions::{MemoryMapFlags, MemoryMapProt};
 use mmu_abstractions::GenericMappingFlags;
 
@@ -161,7 +161,7 @@ mod tests {
     use allocation_abstractions::IFrameAllocator;
     use hermit_sync::SpinMutex;
     use kernel_abstractions::IKernel;
-    use memory_space_abstractions::{MappingAreaAllocation, MemorySpace};
+    use memory_space::{MappingAreaAllocation, MemorySpace};
     use mmap_abstractions::MemoryMapProt;
     use mmu_abstractions::IMMU;
     use test_utilities::{
@@ -170,12 +170,14 @@ mod tests {
 
     use super::*;
 
-    fn setup_kernel_with_memory() -> (
+    type KernelSetup = (
         Arc<dyn IKernel>,
         Arc<SpinMutex<dyn IFrameAllocator>>,
         Arc<SpinMutex<dyn IMMU>>,
-    ) {
-        const MEMORY_RANGE: usize = 1 * 1024 * 1024 * 1024; // 1 GB
+    );
+
+    fn setup_kernel_with_memory() -> KernelSetup {
+        const MEMORY_RANGE: usize = 1024 * 1024 * 1024; // 1 GB
 
         let (alloc, mmu) = TestFrameAllocator::new_with_mmu(MEMORY_RANGE);
 
@@ -446,11 +448,7 @@ mod tests {
     }
 
     fn create_buffer(len: usize) -> Vec<u8> {
-        let mut buf = Vec::with_capacity(len);
-
-        buf.resize(len, 0);
-
-        buf
+        vec![0; len]
     }
 
     #[test]

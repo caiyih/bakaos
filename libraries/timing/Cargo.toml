@@ -8,6 +8,6 @@ edition = "2021"
 [dependencies]
 
 [features]
-default = ["no_std"]
+default = ["std"]
 std = []
 no_std = []

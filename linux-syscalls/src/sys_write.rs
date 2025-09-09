@@ -61,7 +61,7 @@ mod tests {
     use filesystem_abstractions::FileDescriptorTable;
     use hermit_sync::SpinMutex;
     use kernel_abstractions::IKernel;
-    use memory_space_abstractions::MemorySpace;
+    use memory_space::MemorySpace;
     use mmu_abstractions::{GenericMappingFlags, PageSize, IMMU};
     use test_utilities::{
         allocation::contiguous::TestFrameAllocator, kernel::TestKernel, task::TestProcess,
@@ -105,12 +105,14 @@ mod tests {
         }
     }
 
-    fn setup_kernel_with_memory() -> (
+    type KernelSetup = (
         Arc<dyn IKernel>,
         Arc<SpinMutex<dyn IFrameAllocator>>,
         Arc<SpinMutex<dyn IMMU>>,
-    ) {
-        const MEMORY_RANGE: usize = 1 * 1024 * 1024 * 1024; // 1 GB
+    );
+
+    fn setup_kernel_with_memory() -> KernelSetup {
+        const MEMORY_RANGE: usize = 1024 * 1024 * 1024; // 1 GB
 
         let (alloc, mmu) = TestFrameAllocator::new_with_mmu(MEMORY_RANGE);
 

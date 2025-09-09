@@ -25,12 +25,31 @@ pub struct MemorySpaceAttribute {
     pub brk_start: VirtualAddress,
     pub stack_guard_base: VirtualAddressRange,
     pub stack_range: VirtualAddressRange,
-    pub stack_gurad_top: VirtualAddressRange,
+    pub stack_guard_top: VirtualAddressRange,
     pub elf_area: VirtualAddressRange,
     pub signal_trampoline: VirtualPageNum,
 }
 
 impl Default for MemorySpaceAttribute {
+    /// Creates a default MemorySpaceAttribute with all address ranges set to null and numeric fields set to sentinel values.
+    ///
+    /// The returned value is suitable as an uninitialized placeholder:
+    /// - `brk_area_idx` is `usize::MAX` (indicating no brk area assigned),
+    /// - `brk_start`, `stack_guard_base`, `stack_range`, `stack_guard_top`, and `elf_area` are all empty/null ranges,
+    /// - `signal_trampoline` is `0`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use abstractions::IUsizeAlias;
+    /// use address::IAddressBase;
+    /// use memory_space::MemorySpaceAttribute;
+    ///
+    /// let attr = MemorySpaceAttribute::default();
+    /// assert_eq!(attr.brk_area_idx, usize::MAX);
+    /// assert!(attr.brk_start.is_null());
+    /// assert_eq!(attr.signal_trampoline.as_usize(), 0);
+    /// ```
     fn default() -> Self {
         Self {
             brk_area_idx: usize::MAX,
@@ -43,7 +62,7 @@ impl Default for MemorySpaceAttribute {
                 VirtualAddress::null(),
                 VirtualAddress::null(),
             ),
-            stack_gurad_top: VirtualAddressRange::from_start_end(
+            stack_guard_top: VirtualAddressRange::from_start_end(
                 VirtualAddress::null(),
                 VirtualAddress::null(),
             ),

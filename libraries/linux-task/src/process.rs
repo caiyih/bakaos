@@ -10,9 +10,9 @@ use alloc::{
 use abstractions::operations::IUsizeAlias;
 use filesystem_abstractions::FileDescriptorTable;
 use hermit_sync::SpinMutex;
+use linux_loader::LinuxLoader;
 use linux_task_abstractions::ILinuxProcess;
-use memory_space::MemorySpaceBuilder;
-use memory_space_abstractions::MemorySpace;
+use memory_space::MemorySpace;
 use mmu_abstractions::IMMU;
 use platform_specific::{ITaskContext, TaskTrapContext};
 use task_abstractions::{IProcess, ITask, ITaskIdAllocator, TaskId};
@@ -37,8 +37,28 @@ unsafe impl Send for LinuxProcess {}
 unsafe impl Sync for LinuxProcess {}
 
 impl LinuxProcess {
+    /// Create a new process and its main thread.
+    ///
+    /// Initializes process state from the given `LinuxLoader` (memory space, MMU, entry point and stack),
+    /// allocates a process id and a main thread id, registers the kernel area for the process page table,
+    /// sets the created `LinuxProcess` into the main thread's process pointer, and returns the main thread.
+    ///
+    /// Parameters:
+    /// - `builder`: the `LinuxLoader` that provides the initial memory space and execution context.
+    /// - `tid`: the base value of task id, this is ususally 0 as this method is mostly used for creating the initial process.
+    ///
+    /// Returns:
+    /// An `Arc<LinuxTask>` representing the main thread of the newly created process.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// // `loader` must be prepared with a valid memory space and entry/stack information.
+    /// let loader: LinuxLoader = /* ... */ unimplemented!();
+    /// let main_thread = LinuxProcess::new(loader, 0);
+    /// ```
     #[allow(clippy::new_ret_no_self)]
-    pub fn new(builder: MemorySpaceBuilder, tid: u32) -> Arc<LinuxTask> {
+    pub fn new(builder: LinuxLoader, tid: u32) -> Arc<LinuxTask> {
         let id_allocator = TaskIdAllocator::new(tid);
 
         let tid = id_allocator.clone().alloc();
@@ -129,6 +149,11 @@ impl IProcess for LinuxProcess {
 }
 
 impl ILinuxProcess for LinuxProcess {
+    /// Replace the process address space with `mem` and constrain execution to the calling thread.
+    ///
+    /// Replaces the process MMU and memory space with those from `mem`, removes all threads except the
+    /// thread whose `tid` equals `calling`, and clears the file-descriptor table's exec state.
+    /// Panics if no thread with id `calling` exists.
     fn execve(&self, mem: MemorySpace, calling: u32) {
         *self.mmu.borrow_mut() = mem.mmu().clone();
         *self.memory_space.lock() = mem;
@@ -143,12 +168,12 @@ impl ILinuxProcess for LinuxProcess {
     }
 }
 
-fn create_task_context(builder: &MemorySpaceBuilder) -> TaskTrapContext {
+fn create_task_context(loader: &LinuxLoader) -> TaskTrapContext {
     TaskTrapContext::new(
-        builder.entry_pc.as_usize(),
-        builder.stack_top.as_usize(),
-        builder.argc,
-        builder.argv_base.as_usize(),
-        builder.envp_base.as_usize(),
+        loader.entry_pc.as_usize(),
+        loader.stack_top.as_usize(),
+        loader.ctx.argv.len(),
+        loader.argv_base.as_usize(),
+        loader.envp_base.as_usize(),
     )
 }

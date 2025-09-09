@@ -122,7 +122,7 @@ mod tests {
 
     use abstractions::IUsizeAlias;
     use hermit_sync::SpinMutex;
-    use memory_space_abstractions::MemorySpace;
+    use memory_space::MemorySpace;
     use mmu_abstractions::IMMU;
     use test_utilities::{
         allocation::segment::TestFrameAllocator, kernel::TestKernel, task::TestProcess,
