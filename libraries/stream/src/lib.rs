@@ -522,9 +522,9 @@ macro_rules! impl_stream {
             /// If you accessed the memory without this MemoryStream,
             /// Call this method to sync states.
             pub fn sync(&mut self) {
-                if let Some(mut buffer_keep) = core::mem::take(&mut self.buffer_keep) {
-                    while let Some(cursor) = buffer_keep.pop() {
-                        self.unmap(cursor);
+                if let Some(buffer_keep) = core::mem::take(&mut self.buffer_keep) {
+                    for vaddr in buffer_keep.iter() {
+                        self.unmap(*vaddr);
                     }
                 } else {
                     self.unmap_current();
