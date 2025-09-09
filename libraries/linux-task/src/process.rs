@@ -45,7 +45,7 @@ impl LinuxProcess {
     ///
     /// Parameters:
     /// - `builder`: the `LinuxLoader` that provides the initial memory space and execution context.
-    /// - `tid`: seed used to construct the task id allocator (commonly an initial hart or caller ID).
+    /// - `tid`: the base value of task id, this is ususally 0 as this method is mostly used for creating the initial process.
     ///
     /// Returns:
     /// An `Arc<LinuxTask>` representing the main thread of the newly created process.
