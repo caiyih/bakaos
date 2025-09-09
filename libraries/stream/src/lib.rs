@@ -1,3 +1,66 @@
+//! # Stream Library
+//!
+//! This library provides memory stream abstractions for efficient memory access through MMU (Memory Management Unit) interfaces.
+//! It offers both read-only and read-write streaming capabilities with automatic buffer management and cross-MMU support.
+//!
+//! ## Features
+//!
+//! - **Memory Streaming**: Efficient streaming read/write operations on virtual memory
+//! - **Buffer Management**: Automatic mapping and unmapping of memory buffers with optional buffer keeping
+//! - **Cross-MMU Support**: Ability to read from one MMU context and write to another
+//! - **Type Safety**: Generic read/write operations with proper alignment checking
+//! - **Unsized Data Support**: Reading variable-length data with custom termination conditions
+//!
+//! ## Basic Usage
+//!
+//! ### Reading from Memory
+//!
+//! ```rust,ignore
+//! use stream::{IMMUStreamExt, MemoryStream};
+//! use address::VirtualAddress;
+//!
+//! // Create a read-only memory stream
+//! let stream = mmu.create_stream(VirtualAddress::from_usize(0x1000), false);
+//!
+//! // Read a single value
+//! let value: &i32 = stream.read()?;
+//!
+//! // Read a slice of values
+//! let slice: &[i32] = stream.read_slice(10)?;
+//! ```
+//!
+//! ### Writing to Memory
+//!
+//! ```rust,ignore
+//! use stream::{IMMUStreamExt, MemoryStreamMut};
+//! use address::VirtualAddress;
+//!
+//! // Create a read-write memory stream
+//! let mut stream = mmu.create_stream_mut(VirtualAddress::from_usize(0x1000), false);
+//!
+//! // Write a single value
+//! *stream.write::<i32>()? = 42;
+//!
+//! // Write a slice of values
+//! let slice = stream.write_slice::<i32>(10)?;
+//! slice[0] = 1;
+//! slice[1] = 2;
+//! ```
+//!
+//! ### Cross-MMU Operations
+//!
+//! ```rust,ignore
+//! // Read from src_mmu and write to dest_mmu
+//! let stream = dest_mmu.create_cross_stream(&src_mmu, cursor, false);
+//! ```
+//!
+//! ## Buffer Management
+//!
+//! The library supports two buffer management modes:
+//!
+//! - **Immediate Unmapping** (`keep_buffer = false`): Buffers are unmapped when the cursor moves outside the current page
+//! - **Deferred Unmapping** (`keep_buffer = true`): Buffers are kept until the stream is dropped or explicitly synced
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "std")]
@@ -13,9 +76,52 @@ use alloc::vec::Vec;
 
 use mmu_abstractions::{GenericMappingFlags, MMUError, PageSize, IMMU};
 
+/// Extension trait for MMU interfaces to create memory streams.
+///
+/// This trait extends the `IMMU` interface with convenient methods for creating
+/// memory streams for reading and writing operations. It provides both single-MMU
+/// and cross-MMU streaming capabilities.
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// use stream::IMMUStreamExt;
+/// use address::VirtualAddress;
+///
+/// // Create a read-only stream
+/// let stream = mmu.create_stream(VirtualAddress::from_usize(0x1000), false);
+///
+/// // Create a read-write stream
+/// let mut_stream = mmu.create_stream_mut(VirtualAddress::from_usize(0x1000), true);
+/// ```
 pub trait IMMUStreamExt: IMMU {
+    /// Creates a read-only memory stream.
+    ///
+    /// # Arguments
+    ///
+    /// * `cursor` - The initial virtual address to start reading from
+    /// * `keep_buffer` - Whether to keep mapped buffers until stream is dropped
+    ///
+    /// # Returns
+    ///
+    /// A new `MemoryStream` instance for reading operations
     fn create_stream<'a>(&'a self, cursor: VirtualAddress, keep_buffer: bool) -> MemoryStream<'a>;
 
+    /// Creates a cross-MMU read-only memory stream.
+    ///
+    /// This allows reading from one MMU context (`src`) while using another MMU
+    /// context (`self`) for mapping operations. Useful for copying data between
+    /// different address spaces.
+    ///
+    /// # Arguments
+    ///
+    /// * `src` - The source MMU to read from
+    /// * `cursor` - The initial virtual address in the source MMU
+    /// * `keep_buffer` - Whether to keep mapped buffers until stream is dropped
+    ///
+    /// # Returns
+    ///
+    /// A new `MemoryStream` instance for cross-MMU reading operations
     fn create_cross_stream<'a>(
         &'a mut self,
         src: &'a dyn IMMU,
@@ -23,12 +129,37 @@ pub trait IMMUStreamExt: IMMU {
         keep_buffer: bool,
     ) -> MemoryStream<'a>;
 
+    /// Creates a read-write memory stream.
+    ///
+    /// # Arguments
+    ///
+    /// * `cursor` - The initial virtual address to start from
+    /// * `keep_buffer` - Whether to keep mapped buffers until stream is dropped
+    ///
+    /// # Returns
+    ///
+    /// A new `MemoryStreamMut` instance for reading and writing operations
     fn create_stream_mut<'a>(
         &'a self,
         cursor: VirtualAddress,
         keep_buffer: bool,
     ) -> MemoryStreamMut<'a>;
 
+    /// Creates a cross-MMU read-write memory stream.
+    ///
+    /// This allows reading from one MMU context (`src`) and writing to another MMU
+    /// context (`self`). Useful for memory copying and transformation operations
+    /// between different address spaces.
+    ///
+    /// # Arguments
+    ///
+    /// * `src` - The source MMU to read from
+    /// * `cursor` - The initial virtual address in the source MMU
+    /// * `keep_buffer` - Whether to keep mapped buffers until stream is dropped
+    ///
+    /// # Returns
+    ///
+    /// A new `MemoryStreamMut` instance for cross-MMU operations
     fn create_cross_stream_mut<'a>(
         &'a mut self,
         src: &'a dyn IMMU,
@@ -68,34 +199,106 @@ impl IMMUStreamExt for dyn IMMU {
     }
 }
 
+/// Specifies the position for seek operations in memory streams.
+///
+/// This enum is used with the `seek` method to control how the stream cursor
+/// is positioned. It provides both absolute and relative positioning capabilities.
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// use stream::Whence;
+/// use address::VirtualAddress;
+///
+/// // Seek to absolute address
+/// stream.seek(Whence::Set(VirtualAddress::from_usize(0x2000)));
+///
+/// // Seek forward by 100 bytes
+/// stream.seek(Whence::Offset(100));
+///
+/// // Seek backward by 50 bytes
+/// stream.seek(Whence::Offset(-50));
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Whence {
+    /// Set the cursor to an absolute virtual address.
+    ///
+    /// The cursor will be positioned exactly at the specified address,
+    /// regardless of its current position.
     Set(VirtualAddress),
+
+    /// Move the cursor by a relative offset from its current position.
+    ///
+    /// Positive values move the cursor forward, negative values move it backward.
+    /// The offset is specified in bytes.
     Offset(isize),
 }
 
+/// Represents the access permissions for memory operations.
+///
+/// This enum is used internally to track and validate memory access permissions
+/// when mapping pages. It ensures that read/write operations are performed only
+/// on appropriately mapped memory regions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum MemoryAccess {
+    /// No access permissions
     None = 0,
+    /// Read-only access
     Read = 1,
+    /// Read and write access
     Write = 2,
 }
 
+/// Result of checking whether a memory window can be reused or needs remapping.
+///
+/// This enum is returned by internal window checking logic to determine
+/// the most efficient way to handle memory access requests.
 enum WindowCheckResult {
+    /// The current window can be reused for the requested operation
     Reuse,
+    /// The window needs to be remapped with the specified parameters
+    /// (access_level, base_address, size, has_overlaps)
     Remap(MemoryAccess, VirtualAddress, PageSize, bool),
 }
 
+/// Manages the current memory window and cursor position for a stream.
+///
+/// This structure tracks the stream's current position and any mapped
+/// memory window. It provides methods for cursor manipulation and
+/// window management.
 struct MemoryWindow {
+    /// Current cursor position in virtual memory
     cursor: VirtualAddress,
+    /// Currently mapped memory window, if any
     window: Option<MappedWindow>,
 }
 
 impl MemoryWindow {
+    /// Advances the cursor by the specified number of bytes.
+    ///
+    /// This is a convenience method that combines seeking with an offset
+    /// and returning the new cursor position.
+    ///
+    /// # Arguments
+    ///
+    /// * `len` - Number of bytes to skip forward
+    ///
+    /// # Returns
+    ///
+    /// The new cursor position after skipping
     pub fn skip(&mut self, len: usize) -> VirtualAddress {
         self.seek(Whence::Offset(len as isize))
     }
 
+    /// Moves the cursor to a new position based on the given seek operation.
+    ///
+    /// # Arguments
+    ///
+    /// * `whence` - The seek operation to perform
+    ///
+    /// # Returns
+    ///
+    /// The new cursor position after seeking
     pub fn seek(&mut self, whence: Whence) -> VirtualAddress {
         let target = match whence {
             Whence::Set(offset) => offset,
@@ -110,26 +313,73 @@ impl MemoryWindow {
     }
 }
 
+/// Represents a currently mapped memory window.
+///
+/// This structure contains the details of a mapped memory region,
+/// including its base address, mapped pointer, size, and access permissions.
+/// It's used internally to track active memory mappings.
 struct MappedWindow {
+    /// Base virtual address of the mapped window
     base: VirtualAddress,
+    /// Pointer to the mapped memory region
     ptr: NonNull<u8>,
+    /// Length of the mapped region in bytes
     len: usize,
+    /// Access permissions for this mapped region
     access: MemoryAccess,
 }
 
+/// Represents different MMU composition modes for memory streams.
+///
+/// This enum handles both single-MMU operations and cross-MMU operations
+/// where data is read from one MMU context and potentially written to another.
 enum MmuComposition<'a> {
+    /// Single MMU operation - both source and destination use the same MMU
     Single(&'a dyn IMMU),
+    /// Cross-MMU operation - separate MMUs for mapping and source operations
     Cross {
+        /// The MMU used for mapping operations (destination)
         mmu: UnsafeCell<&'a mut dyn IMMU>,
+        /// The MMU used as the source for read operations
         src: &'a dyn IMMU,
     },
 }
 
 macro_rules! impl_stream {
-    ($type:tt) => {
+    ($type:tt, $(#[$attr:meta])*) => {
+        $(#[$attr])*
+        ///
+        /// # Type Parameters
+        ///
+        /// The actual type (`MemoryStream` or `MemoryStreamMut`) determines the
+        /// available operations:
+        /// - `MemoryStream`: Read-only operations
+        /// - `MemoryStreamMut`: Read and write operations
+        ///
+        /// # Buffer Management
+        ///
+        /// The stream supports two buffer management modes:
+        /// - **Immediate**: Buffers are unmapped when cursor moves outside current page
+        /// - **Deferred**: Buffers are kept until stream drop or explicit sync
+        ///
+        /// # Examples
+        ///
+        /// ```rust,ignore
+        /// // Create a stream and read data
+        /// let mut stream = mmu.create_stream(base_addr, false);
+        /// let value: &i32 = stream.read()?;
+        /// let slice: &[i32] = stream.read_slice(10)?;
+        ///
+        /// // Skip ahead and read more
+        /// stream.skip(100);
+        /// let another_value: &u64 = stream.read()?;
+        /// ```
         pub struct $type<'a> {
+            /// The MMU composition (single or cross-MMU)
             mmu: MmuComposition<'a>,
+            /// Internal memory window management
             inner: UnsafeCell<MemoryWindow>,
+            /// Optional buffer tracking for deferred unmapping
             buffer_keep: Option<Vec<VirtualAddress>>,
         }
 
@@ -661,10 +911,33 @@ macro_rules! impl_stream {
     };
 }
 
-impl_stream!(MemoryStream);
-impl_stream!(MemoryStreamMut); // TODO: require mutable MMU to enforce RW rules
+impl_stream!(MemoryStream,
+    /// A read-only memory stream for efficient sequential memory access.
+    ///
+    /// `MemoryStream` provides read-only access to virtual memory through an MMU interface.
+    /// It supports both single-MMU and cross-MMU operations, automatic buffer management,
+    /// and type-safe memory access with proper alignment checking.
+);
 
-impl MemoryStreamMut<'_> {
+impl_stream!(MemoryStreamMut,
+    /// A read-write memory stream for efficient sequential memory access and modification.
+    ///
+    /// `MemoryStreamMut` extends `MemoryStream` with write capabilities, allowing both
+    /// reading from and writing to virtual memory. It maintains all the features of
+    /// `MemoryStream` while adding type-safe write operations.
+); // TODO: require mutable MMU to enforce RW rules
+
+impl<'a> MemoryStreamMut<'a> {
+    /// Internal method for writing slices with cursor movement control.
+    ///
+    /// # Arguments
+    ///
+    /// * `len` - The number of elements to write
+    /// * `move_cursor` - Whether to move the cursor after writing
+    ///
+    /// # Returns
+    ///
+    /// A mutable slice for writing data
     #[inline]
     fn write_slice_internal<T>(
         &mut self,
@@ -724,6 +997,18 @@ impl MemoryStreamMut<'_> {
     }
 }
 
+/// Converts generic mapping flags to internal memory access representation.
+///
+/// This function translates MMU mapping flags into the internal `MemoryAccess`
+/// enum used for permission checking and buffer management.
+///
+/// # Arguments
+///
+/// * `flags` - The generic mapping flags from the MMU
+///
+/// # Returns
+///
+/// The corresponding `MemoryAccess` level
 #[inline(always)]
 const fn flags_to_access(flags: GenericMappingFlags) -> MemoryAccess {
     let mut access = MemoryAccess::None;
@@ -739,6 +1024,21 @@ const fn flags_to_access(flags: GenericMappingFlags) -> MemoryAccess {
     access
 }
 
+/// Validates that the existing access level is sufficient for the required operation.
+///
+/// This function checks whether a memory region with existing access permissions
+/// can satisfy a requested access level. It returns an appropriate error if
+/// the permissions are insufficient.
+///
+/// # Arguments
+///
+/// * `vaddr` - The virtual address being accessed (for error reporting)
+/// * `existing` - The current access level available
+/// * `required` - The access level required for the operation
+///
+/// # Returns
+///
+/// `Ok(())` if access is sufficient, or an appropriate `MMUError` if not
 #[inline(always)]
 fn ensure_access(
     vaddr: VirtualAddress,
