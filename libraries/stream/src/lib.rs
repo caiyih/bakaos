@@ -409,6 +409,11 @@ macro_rules! impl_stream {
 
                         let size = size.as_usize();
 
+                        // I don't know if we should use the checking functions's access permission.
+                        // This allows we map the buffer with write permission if we are using read on a mut stream,
+                        // prevent remap as much as possible.
+                        // But this prevents the compiler from inlining and dead code elimination.
+                        // I'll keep this for now, as remap is general of low frequency.
                         #[allow(deprecated)]
                         let s = match access {
                             MemoryAccess::Read => self.mmu_map_buffer(base, size)?,
