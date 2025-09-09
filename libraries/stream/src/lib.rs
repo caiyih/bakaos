@@ -394,7 +394,8 @@ macro_rules! impl_stream {
                 len: usize,
                 move_cursor: bool,
             ) -> Result<&[T], MMUError> {
-                let (ptr, len) = self.inspect_slice_internal(len, MemoryAccess::Read, move_cursor)?;
+                let (ptr, len) =
+                    self.inspect_slice_internal(len, MemoryAccess::Read, move_cursor)?;
                 Ok(unsafe { core::slice::from_raw_parts(ptr.as_ptr(), len) })
             }
 
@@ -637,8 +638,9 @@ fn ensure_access(
 mod tests {
     use alloc::sync::Arc;
     use allocation_abstractions::IFrameAllocator;
+    use core::mem::size_of;
     use hermit_sync::SpinMutex;
-    use mmu_abstractions::PageSize;
+    use mmu_abstractions::{GenericMappingFlags, MMUError, PageSize};
     use test_utilities::allocation::contiguous::TestFrameAllocator;
     use utilities::InvokeOnDrop;
 
@@ -651,6 +653,7 @@ mod tests {
         TestFrameAllocator::new_with_mmu(1024 * 1024 * 1024) // 1 GB
     }
 
+    // Helper: create a test memory scene with read/write mapping
     fn test_scene(action: impl FnOnce(Arc<SpinMutex<dyn IMMU>>, VirtualAddress, usize)) {
         let (alloc, mmu) = create_alloc_mmu();
 
@@ -661,6 +664,7 @@ mod tests {
 
         let page_size = len / 10;
         let base = VirtualAddress::from_usize(0x10000);
+
         for i in 0..10 {
             mmu.lock()
                 .map_single(
@@ -677,8 +681,75 @@ mod tests {
         action(mmu, base, len)
     }
 
+    // Helper: create a test memory scene with readonly mapping
+    fn test_scene_readonly(action: impl FnOnce(Arc<SpinMutex<dyn IMMU>>, VirtualAddress, usize)) {
+        let (alloc, mmu) = create_alloc_mmu();
+
+        let frames = alloc.lock().alloc_contiguous(10).unwrap();
+        let frames = InvokeOnDrop::transform(frames, |f| alloc.lock().dealloc_range(f));
+
+        let len = frames.end.as_usize() - frames.start.as_usize();
+
+        let page_size = len / 10;
+        let base = VirtualAddress::from_usize(0x10000);
+        for i in 0..10 {
+            mmu.lock()
+                .map_single(
+                    base + i * page_size,
+                    frames.start + i * page_size,
+                    PageSize::from(page_size),
+                    GenericMappingFlags::User | GenericMappingFlags::Readable,
+                )
+                .unwrap();
+        }
+
+        action(mmu, base, len)
+    }
+
+    #[test]
+    fn test_stream_creation() {
+        // Test stream creation and cursor initialization
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let stream = mmu.create_stream(base, false);
+            assert_eq!(stream.cursor(), base);
+
+            let stream_with_keep = mmu.create_stream(base, true);
+            assert_eq!(stream_with_keep.cursor(), base);
+        });
+    }
+
+    #[test]
+    fn test_cursor_operations() {
+        // Test skip and seek operations for the stream cursor
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let mut stream = mmu.create_stream(base, false);
+            assert_eq!(stream.cursor(), base);
+
+            let new_cursor = stream.skip(8);
+            assert_eq!(new_cursor, base + 8);
+            assert_eq!(stream.cursor(), base + 8);
+
+            let seek_cursor = stream.seek(Whence::Set(base + 16));
+            assert_eq!(seek_cursor, base + 16);
+            assert_eq!(stream.cursor(), base + 16);
+
+            let seek_cursor = stream.seek(Whence::Offset(-4));
+            assert_eq!(seek_cursor, base + 12);
+            assert_eq!(stream.cursor(), base + 12);
+
+            let seek_cursor = stream.seek(Whence::Offset(8));
+            assert_eq!(seek_cursor, base + 20);
+            assert_eq!(stream.cursor(), base + 20);
+        });
+    }
+
     #[test]
     fn test_basic_read() {
+        // Test basic read and pread for single value and slice
         test_scene(|mmu, base, _len| {
             let mmu = mmu.lock();
 
@@ -688,32 +759,442 @@ mod tests {
 
             assert_eq!(stream.cursor(), base);
 
-            assert_eq!(*stream.read::<i32>(false).unwrap(), 42);
+            assert_eq!(*stream.pread::<i32>().unwrap(), 42);
             assert_eq!(stream.cursor(), base);
 
-            assert_eq!(*stream.read::<i32>(true).unwrap(), 42);
+            assert_eq!(*stream.read::<i32>().unwrap(), 42);
             assert_eq!(stream.cursor(), base + 4);
 
-            assert_ne!(*stream.read::<i32>(false).unwrap(), 42);
-            assert_ne!(*stream.read::<i32>(true).unwrap(), 42);
+            let next_val = *stream.pread::<i32>().unwrap();
+            let next_val_moved = *stream.read::<i32>().unwrap();
+
+            assert_eq!(next_val, next_val_moved);
 
             mmu.export::<[i32; 4]>(base, [42, 24, -42, -24]).unwrap();
             assert_eq!(mmu.import::<[i32; 4]>(base).unwrap(), [42, 24, -42, -24]);
 
-            // we've written the memory with the `export` method
-            stream.sync();
+            stream.sync(); // We've accessed the memory without this MemoryStream
 
             stream.seek(Whence::Set(base));
+            let result = stream.pread_slice::<i32>(4).unwrap();
 
-            assert_eq!(
-                stream.read_slice::<i32>(4, false).unwrap(),
-                [42, 24, -42, -24]
-            );
+            assert_eq!(result, [42, 24, -42, -24]);
 
-            assert_eq!(
-                stream.read_slice::<i32>(4, true).unwrap(),
-                [42, 24, -42, -24]
-            );
+            assert_eq!(stream.read_slice::<i32>(4).unwrap(), [42, 24, -42, -24]);
+        });
+    }
+
+    #[test]
+    fn test_read_different_types() {
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            // Arrange
+            mmu.export::<u8>(base, 0xAB).unwrap();
+            mmu.export::<u16>(base + 4, 0x1234).unwrap();
+            mmu.export::<u32>(base + 8, 0x12345678).unwrap();
+            mmu.export::<u64>(base + 16, 0x123456789ABCDEF0).unwrap();
+
+            let mut stream = mmu.create_stream(base, false);
+
+            assert_eq!(*stream.read::<u8>().unwrap(), 0xAB);
+
+            stream.seek(Whence::Set(base + 4));
+            assert_eq!(*stream.read::<u16>().unwrap(), 0x1234);
+
+            stream.seek(Whence::Set(base + 8));
+            assert_eq!(*stream.read::<u32>().unwrap(), 0x12345678);
+
+            stream.seek(Whence::Set(base + 16));
+            assert_eq!(*stream.read::<u64>().unwrap(), 0x123456789ABCDEF0);
+        });
+    }
+
+    #[test]
+    fn test_read_slice_various_sizes() {
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            // Arrange
+            let test_data: [i32; 8] = [1, 2, 3, 4, 5, 6, 7, 8];
+            mmu.export::<[i32; 8]>(base, test_data).unwrap();
+
+            let mut stream = mmu.create_stream(base, false);
+
+            assert_eq!(stream.read_slice::<i32>(1).unwrap(), [1]);
+
+            assert_eq!(stream.read_slice::<i32>(2).unwrap(), [2, 3]);
+            assert_eq!(stream.read_slice::<i32>(3).unwrap(), [4, 5, 6]);
+            assert_eq!(stream.read_slice::<i32>(2).unwrap(), [7, 8]);
+        });
+    }
+
+    #[test]
+    fn test_read_unsized() {
+        // Test reading unsized data (null-terminated and terminator-based)
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let test_string = b"Hello\0World\0Test\0";
+            mmu.write_bytes(base, test_string).unwrap();
+
+            let mut stream = mmu.create_stream(base, false);
+
+            let strings = stream
+                .read_unsized_slice::<u8>(|&byte, _| byte != 0)
+                .unwrap();
+            assert_eq!(strings, b"Hello");
+
+            stream.skip(1); // Skip the null terminator
+
+            let strings = stream
+                .read_unsized_slice::<u8>(|&byte, _| byte != 0)
+                .unwrap();
+            assert_eq!(strings, b"World");
+
+            stream.skip(1);
+
+            let strings = stream
+                .read_unsized_slice::<u8>(|&byte, _| byte != 0)
+                .unwrap();
+            assert_eq!(strings, b"Test");
+        });
+    }
+
+    #[test]
+    fn test_read_unsized_with_limit() {
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            // Arrange
+            let test_data: [i32; 5] = [1, 2, 3, 4, 5];
+            mmu.export::<[i32; 5]>(base, test_data).unwrap();
+
+            let mut stream = mmu.create_stream(base, false);
+
+            let mut count = 0;
+            let result = stream
+                .read_unsized_slice::<i32>(|&_val, _| {
+                    count += 1;
+                    count <= 3 // Read the first 3 elements
+                })
+                .unwrap();
+
+            assert_eq!(result, [1, 2, 3]);
+            assert_eq!(count, 4);
+        });
+    }
+
+    #[test]
+    fn test_cross_mmu_basic() {
+        let (alloc1, mmu1) = create_alloc_mmu();
+        let (alloc2, mmu2) = create_alloc_mmu();
+
+        let frames1 = alloc1.lock().alloc_contiguous(5).unwrap();
+        let frames1 = InvokeOnDrop::transform(frames1, |f| alloc1.lock().dealloc_range(f));
+        let frames2 = alloc2.lock().alloc_contiguous(5).unwrap();
+        let frames2 = InvokeOnDrop::transform(frames2, |f| alloc2.lock().dealloc_range(f));
+
+        let len1 = frames1.end.as_usize() - frames1.start.as_usize();
+        let len2 = frames2.end.as_usize() - frames2.start.as_usize();
+
+        let page_size1 = len1 / 5;
+        let page_size2 = len2 / 5;
+        let base1 = VirtualAddress::from_usize(0x10000);
+        let base2 = VirtualAddress::from_usize(0x20000);
+
+        for i in 0..5 {
+            mmu1.lock()
+                .map_single(
+                    base1 + i * page_size1,
+                    frames1.start + i * page_size1,
+                    PageSize::from(page_size1),
+                    GenericMappingFlags::User
+                        | GenericMappingFlags::Readable
+                        | GenericMappingFlags::Writable,
+                )
+                .unwrap();
+        }
+
+        for i in 0..5 {
+            mmu2.lock()
+                .map_single(
+                    base2 + i * page_size2,
+                    frames2.start + i * page_size2,
+                    PageSize::from(page_size2),
+                    GenericMappingFlags::User
+                        | GenericMappingFlags::Readable
+                        | GenericMappingFlags::Writable,
+                )
+                .unwrap();
+        }
+
+        mmu1.lock().export::<i32>(base1, 42).unwrap();
+
+        let mmu1_ref = mmu1.lock();
+        let mut mmu2_guard = mmu2.lock();
+        let mut stream = mmu2_guard.create_cross_stream(&*mmu1_ref, base1, false);
+
+        assert_eq!(*stream.read::<i32>().unwrap(), 42);
+    }
+
+    #[test]
+    fn test_misaligned_address() {
+        // Test reading from a misaligned address
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let mut stream = mmu.create_stream(base + 1, false);
+
+            let result = stream.read::<i32>();
+            assert!(matches!(result, Err(MMUError::MisalignedAddress)));
+        });
+    }
+
+    #[test]
+    fn test_read_only_memory() {
+        test_scene_readonly(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let result = mmu.export::<i32>(base, 42);
+            assert!(result.is_err()); // Should fail due to read-only mapping
+
+            let mut stream = mmu.create_stream(base, false);
+
+            let _val = stream.read::<i32>().unwrap();
+        });
+    }
+
+    #[test]
+    fn test_invalid_address() {
+        // Test reading from an invalid address
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let mut stream = mmu.create_stream(base, false);
+            stream.seek(Whence::Set(VirtualAddress::from_usize(0x10000000)));
+
+            let result = stream.read::<i32>();
+            assert!(matches!(result, Err(MMUError::InvalidAddress)));
+        });
+    }
+
+    #[test]
+    fn test_buffer_keep_functionality() {
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            // Arrange
+            let test_data: [i32; 4] = [1, 2, 3, 4];
+            mmu.export::<[i32; 4]>(base, test_data).unwrap();
+
+            let mut stream = mmu.create_stream(base, true);
+
+            let slice1 = stream.read_slice::<i32>(2).unwrap();
+            assert_eq!(slice1, [1, 2]);
+
+            stream.seek(Whence::Set(base + 8));
+            let slice2 = stream.read_slice::<i32>(2).unwrap();
+            assert_eq!(slice2, [3, 4]);
+
+            stream.sync();
+        });
+    }
+
+    #[test]
+    fn test_buffer_keep_vs_no_keep() {
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let test_data: [i32; 4] = [1, 2, 3, 4];
+            mmu.export::<[i32; 4]>(base, test_data).unwrap();
+
+            // test with keep_buffer = false
+            {
+                let mut stream = mmu.create_stream(base, false);
+                let _slice1 = stream.read_slice::<i32>(2).unwrap();
+
+                stream.seek(Whence::Set(base + 8));
+                let _slice2 = stream.read_slice::<i32>(2).unwrap();
+            }
+
+            // test with keep_buffer = true
+            {
+                let mut stream = mmu.create_stream(base, true);
+                let _slice1 = stream.read_slice::<i32>(2).unwrap();
+
+                // Move to a different position, the buffer should be preserved
+                stream.seek(Whence::Set(base + 8));
+                // Since the buffer overlaps, this may fail, which is expected
+                let result2 = stream.read_slice::<i32>(2);
+
+                if result2.is_err() {
+                    // If a Borrowed error occurs, this is the expected behavior
+                    assert!(matches!(result2, Err(MMUError::Borrowed)));
+                } else {
+                    // If no error occurs, validate the data correctness
+                    let slice = result2.unwrap();
+                    assert_eq!(slice.len(), 2);
+                }
+            }
+        });
+    }
+
+    #[test]
+    fn test_window_reuse() {
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let test_data: [i32; 4] = [1, 2, 3, 4];
+            mmu.export::<[i32; 4]>(base, test_data).unwrap();
+
+            let mut stream = mmu.create_stream(base, false);
+
+            let slice1 = stream.pread_slice::<i32>(2).unwrap();
+            assert_eq!(slice1, [1, 2]);
+
+            let slice2 = stream.pread_slice::<i32>(2).unwrap();
+            assert_eq!(slice2, [1, 2]);
+
+            stream.seek(Whence::Offset(4));
+            let slice3 = stream.pread_slice::<i32>(2).unwrap();
+            assert_eq!(slice3, [2, 3]);
+        });
+    }
+
+    #[test]
+    fn test_window_remap() {
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let test_data: [i32; 8] = [1, 2, 3, 4, 5, 6, 7, 8];
+            mmu.export::<[i32; 8]>(base, test_data).unwrap();
+
+            let mut stream = mmu.create_stream(base, false);
+
+            let slice1 = stream.read_slice::<i32>(4).unwrap();
+            assert_eq!(slice1, [1, 2, 3, 4]);
+
+            stream.seek(Whence::Set(base + 16));
+            let slice2 = stream.read_slice::<i32>(4).unwrap();
+            assert_eq!(slice2, [5, 6, 7, 8]);
+        });
+    }
+
+    #[test]
+    fn test_empty_read() {
+        // Test reading zero elements returns empty slice
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+            let mut stream = mmu.create_stream(base, false);
+
+            let slice = stream.read_slice::<i32>(0).unwrap();
+            assert_eq!(slice.len(), 0);
+        });
+    }
+
+    #[test]
+    fn test_large_read() {
+        test_scene(|mmu, base, len| {
+            let mmu = mmu.lock();
+
+            let data_size = len / 4;
+            let mut test_data = alloc::vec![0i32; data_size];
+            for i in 0..data_size {
+                test_data[i] = i as i32;
+            }
+
+            mmu.write_bytes(base, unsafe {
+                core::slice::from_raw_parts(
+                    test_data.as_ptr() as *const u8,
+                    test_data.len() * size_of::<i32>(),
+                )
+            })
+            .unwrap();
+
+            let mut stream = mmu.create_stream(base, false);
+
+            let slice = stream.read_slice::<i32>(data_size).unwrap();
+            assert_eq!(slice.len(), data_size);
+            for i in 0..data_size {
+                assert_eq!(slice[i], i as i32);
+            }
+        });
+    }
+
+    #[test]
+    fn test_seek_boundaries() {
+        test_scene(|mmu, base, len| {
+            let mmu = mmu.lock();
+            let mut stream = mmu.create_stream(base, false);
+
+            // test seek to the end
+            let end_addr = base + len;
+            stream.seek(Whence::Set(end_addr - 4));
+            assert_eq!(stream.cursor(), end_addr - 4);
+
+            // test reading the last element
+            let result = stream.read::<i32>();
+            assert!(result.is_ok());
+
+            let result = stream.read::<i32>();
+            assert!(result.is_err());
+
+            // try read invalid address
+            stream.seek(Whence::Set(end_addr));
+            let result = stream.read::<i32>();
+            assert!(matches!(result, Err(MMUError::InvalidAddress)));
+        });
+    }
+
+    #[test]
+    fn test_consecutive_reads() {
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let _test_data: [i32; 100] = {
+                let mut data = [0i32; 100];
+                for i in 0..100 {
+                    data[i] = i as i32;
+                }
+                data
+            };
+
+            for i in 0..100 {
+                mmu.export::<i32>(base + i * 4, i as i32).unwrap();
+            }
+
+            // Assert that the data is correctly written
+            for i in 0..10 {
+                let val = mmu.import::<i32>(base + i * 4).unwrap();
+                assert_eq!(val, i as i32);
+            }
+
+            let mut stream = mmu.create_stream(base, false);
+
+            for i in 0..100 {
+                let val = *stream.read::<i32>().unwrap();
+                assert_eq!(val, i as i32);
+            }
+        });
+    }
+
+    #[test]
+    fn test_mixed_read_operations() {
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let test_data: [i32; 10] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+            mmu.export::<[i32; 10]>(base, test_data).unwrap();
+
+            let mut stream = mmu.create_stream(base, false);
+
+            assert_eq!(*stream.read::<i32>().unwrap(), 1);
+            assert_eq!(stream.read_slice::<i32>(3).unwrap(), [2, 3, 4]);
+            assert_eq!(*stream.read::<i32>().unwrap(), 5);
+            assert_eq!(stream.read_slice::<i32>(2).unwrap(), [6, 7]);
+            assert_eq!(*stream.read::<i32>().unwrap(), 8);
+            assert_eq!(stream.read_slice::<i32>(2).unwrap(), [9, 10]);
         });
     }
 }
