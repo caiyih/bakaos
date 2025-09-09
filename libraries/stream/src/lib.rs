@@ -326,9 +326,9 @@ macro_rules! impl_stream {
                 move_cursor: bool,
             ) -> Result<&[T], MMUError> {
                 let bytes = len.checked_mul(size_of::<T>()).unwrap();
-                let cursor = self.inner().cursor;
+                let cursor = self.cursor();
 
-                if (self.inner().cursor.as_usize() % align_of::<T>()) != 0 {
+                if (cursor.as_usize() % align_of::<T>()) != 0 {
                     return Err(MMUError::MisalignedAddress);
                 }
 
@@ -414,8 +414,12 @@ macro_rules! impl_stream {
                 mut callback: impl FnMut(&T, usize) -> bool,
                 move_cursor: bool,
             ) -> Result<&[T], MMUError> {
-                let cursor = self.inner().cursor;
+                let cursor = self.cursor();
                 let size = core::mem::size_of::<T>();
+
+                if cursor.as_usize() % core::mem::align_of::<T>() != 0 {
+                    return Err(MMUError::MisalignedAddress);
+                }
 
                 assert!(size > 0);
 
