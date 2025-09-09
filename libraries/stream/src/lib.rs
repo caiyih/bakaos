@@ -13,7 +13,7 @@ use alloc::vec::Vec;
 
 use mmu_abstractions::{GenericMappingFlags, MMUError, PageSize, IMMU};
 
-pub trait IMMUStreamExt {
+pub trait IMMUStreamExt: IMMU {
     fn create_stream<'a>(&'a self, cursor: VirtualAddress, keep_buffer: bool) -> MemoryStream<'a>;
 
     fn create_cross_stream<'a>(
@@ -22,10 +22,23 @@ pub trait IMMUStreamExt {
         cursor: VirtualAddress,
         keep_buffer: bool,
     ) -> MemoryStream<'a>;
+
+    fn create_stream_mut<'a>(
+        &'a self,
+        cursor: VirtualAddress,
+        keep_buffer: bool,
+    ) -> MemoryStreamMut<'a>;
+
+    fn create_cross_stream_mut<'a>(
+        &'a mut self,
+        src: &'a dyn IMMU,
+        cursor: VirtualAddress,
+        keep_buffer: bool,
+    ) -> MemoryStreamMut<'a>;
 }
 
 impl IMMUStreamExt for dyn IMMU {
-    fn create_stream(&self, cursor: VirtualAddress, keep_buffer: bool) -> MemoryStream<'_> {
+    fn create_stream<'a>(&'a self, cursor: VirtualAddress, keep_buffer: bool) -> MemoryStream<'a> {
         MemoryStream::new(self, cursor, keep_buffer)
     }
 
@@ -36,6 +49,22 @@ impl IMMUStreamExt for dyn IMMU {
         keep_buffer: bool,
     ) -> MemoryStream<'a> {
         MemoryStream::new_cross(self, src, cursor, keep_buffer)
+    }
+    fn create_stream_mut<'a>(
+        &'a self,
+        cursor: VirtualAddress,
+        keep_buffer: bool,
+    ) -> MemoryStreamMut<'a> {
+        MemoryStreamMut::new(self, cursor, keep_buffer)
+    }
+
+    fn create_cross_stream_mut<'a>(
+        &'a mut self,
+        src: &'a dyn IMMU,
+        cursor: VirtualAddress,
+        keep_buffer: bool,
+    ) -> MemoryStreamMut<'a> {
+        MemoryStreamMut::new_cross(self, src, cursor, keep_buffer)
     }
 }
 
