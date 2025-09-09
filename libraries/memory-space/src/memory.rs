@@ -44,7 +44,7 @@ impl Default for MemorySpaceAttribute {
     /// use abstractions::IUsizeAlias;
     /// use address::IAddressBase;
     /// use memory_space::MemorySpaceAttribute;
-    /// 
+    ///
     /// let attr = MemorySpaceAttribute::default();
     /// assert_eq!(attr.brk_area_idx, usize::MAX);
     /// assert!(attr.brk_start.is_null());
