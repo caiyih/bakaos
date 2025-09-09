@@ -175,17 +175,6 @@ impl ILinuxProcess for LinuxProcess {
     }
 }
 
-/// Build a TaskTrapContext for a new task from the given LinuxLoader.
-///
-/// Creates a TaskTrapContext initialized with the loader's entry PC, initial
-/// stack top, argument count, argv base, and envp base.
-///
-/// # Examples
-///
-/// ```ignore
-/// // Given a prepared `loader: LinuxLoader`:
-/// let ctx = create_task_context(&loader);
-/// ```
 fn create_task_context(loader: &LinuxLoader) -> TaskTrapContext {
     TaskTrapContext::new(
         loader.entry_pc.as_usize(),
