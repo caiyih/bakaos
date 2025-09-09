@@ -443,11 +443,11 @@ mod tests {
 
     use super::*;
 
-    fn create_alloc_mmu() -> (
-        Arc<SpinMutex<dyn IFrameAllocator>>,
-        Arc<SpinMutex<dyn IMMU>>,
-    ) {
-        TestFrameAllocator::new_with_mmu(1 * 1024 * 1024 * 1024)
+    type Alloc = Arc<SpinMutex<dyn IFrameAllocator>>;
+    type Mmu = Arc<SpinMutex<dyn IMMU>>;
+
+    fn create_alloc_mmu() -> (Alloc, Mmu) {
+        TestFrameAllocator::new_with_mmu(1024 * 1024 * 1024) // 1 GB
     }
 
     fn test_scene(action: impl FnOnce(Arc<SpinMutex<dyn IMMU>>, VirtualAddress, usize)) {
