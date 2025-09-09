@@ -526,9 +526,11 @@ macro_rules! impl_stream {
                     for vaddr in buffer_keep.iter() {
                         self.unmap(*vaddr);
                     }
-                } else {
-                    self.unmap_current();
                 }
+
+                // There's no side effect if we unmap a not existing buffer
+                // So we can just call it
+                self.unmap_current();
             }
 
             #[inline]
