@@ -14,12 +14,28 @@ use alloc::vec::Vec;
 use mmu_abstractions::{GenericMappingFlags, MMUError, PageSize, IMMU};
 
 pub trait IMMUStreamExt {
-    fn create_stream(&self, cursor: VirtualAddress, keep_buffer: bool) -> MemoryStream<'_>;
+    fn create_stream<'a>(&'a self, cursor: VirtualAddress, keep_buffer: bool) -> MemoryStream<'a>;
+
+    fn create_cross_stream<'a>(
+        &'a mut self,
+        src: &'a dyn IMMU,
+        cursor: VirtualAddress,
+        keep_buffer: bool,
+    ) -> MemoryStream<'a>;
 }
 
 impl IMMUStreamExt for dyn IMMU {
     fn create_stream(&self, cursor: VirtualAddress, keep_buffer: bool) -> MemoryStream<'_> {
         MemoryStream::new(self, cursor, keep_buffer)
+    }
+
+    fn create_cross_stream<'a>(
+        &'a mut self,
+        src: &'a dyn IMMU,
+        cursor: VirtualAddress,
+        keep_buffer: bool,
+    ) -> MemoryStream<'a> {
+        MemoryStream::new_cross(self, Some(src), cursor, keep_buffer)
     }
 }
 
@@ -73,9 +89,17 @@ struct MappedWindow {
 }
 
 pub struct MemoryStream<'a> {
-    mmu: &'a dyn IMMU,
+    mmu: MmuComposition<'a>,
     inner: UnsafeCell<MemoryWindow>,
     buffer_keep: Option<Vec<VirtualAddress>>,
+}
+
+enum MmuComposition<'a> {
+    Single(&'a dyn IMMU),
+    Cross {
+        mmu: UnsafeCell<&'a mut dyn IMMU>,
+        src: &'a dyn IMMU,
+    },
 }
 
 macro_rules! impl_stream {
@@ -92,6 +116,40 @@ macro_rules! impl_stream {
             ///   will be unmap when the stream is dropped.
             pub fn new(mmu: &'a dyn IMMU, cursor: VirtualAddress, keep_buffer: bool) -> Self {
                 Self {
+                    mmu: MmuComposition::Single(mmu),
+                    inner: UnsafeCell::new(MemoryWindow {
+                        cursor,
+                        window: None,
+                    }),
+                    buffer_keep: if keep_buffer { Some(Vec::new()) } else { None },
+                }
+            }
+
+            /// Create a new memory stream reader with cross MMU.
+            ///
+            /// # Arguments
+            ///
+            /// * `mmu` - The MMU to use.
+            /// * `cross` - The cross MMU to use.
+            /// * `cursor` - The initial cursor.
+            /// * `keep_buffer` - Whether to keep the mapped buffer. if false, the mapped buffer
+            ///   will be unmap when the cursor moves outside current page. if true, the mapped buffer
+            ///   will be unmap when the stream is dropped.
+            pub fn new_cross(
+                mmu: &'a mut dyn IMMU,
+                cross: Option<&'a dyn IMMU>,
+                cursor: VirtualAddress,
+                keep_buffer: bool,
+            ) -> Self {
+                let mmu = match cross {
+                    Some(cross) => MmuComposition::Cross {
+                        mmu: UnsafeCell::new(mmu),
+                        src: cross,
+                    },
+                    None => MmuComposition::Single(mmu),
+                };
+
+                Self {
                     mmu,
                     inner: UnsafeCell::new(MemoryWindow {
                         cursor,
@@ -103,6 +161,30 @@ macro_rules! impl_stream {
         }
 
         impl $type<'_> {
+            #[inline]
+            fn source(&self) -> &dyn IMMU {
+                match self.mmu {
+                    MmuComposition::Single(mmu) => mmu,
+                    MmuComposition::Cross { src, .. } => src,
+                }
+            }
+
+            #[inline]
+            fn mmu_map_buffer(
+                &self,
+                cursor: VirtualAddress,
+                len: usize,
+            ) -> Result<&[u8], MMUError> {
+                match &self.mmu {
+                    #[allow(deprecated)]
+                    MmuComposition::Single(mmu) => mmu.map_buffer_internal(cursor, len),
+                    MmuComposition::Cross { mmu, ref src } => {
+                        let mmu = unsafe { mmu.get().as_mut().unwrap() };
+                        mmu.map_cross_internal(*src, cursor, len)
+                    }
+                }
+            }
+
             #[inline(always)]
             fn inner(&self) -> &MemoryWindow {
                 unsafe { self.inner.get().as_ref().unwrap() }
@@ -149,7 +231,7 @@ macro_rules! impl_stream {
             pub fn sync(&mut self) {
                 if let Some(mut buffer_keep) = core::mem::take(&mut self.buffer_keep) {
                     while let Some(cursor) = buffer_keep.pop() {
-                        self.mmu.unmap_buffer(cursor);
+                        self.source().unmap_buffer(cursor);
                     }
                 } else {
                     self.unmap_current();
@@ -158,7 +240,7 @@ macro_rules! impl_stream {
 
             fn unmap_current(&self) {
                 if let Some(window) = self.inner_mut().window.take() {
-                    self.mmu.unmap_buffer(window.base);
+                    self.source().unmap_buffer(window.base);
                 }
             }
 
@@ -199,7 +281,8 @@ macro_rules! impl_stream {
                 let mut total_size = PageSize::from(0);
 
                 while cur < end {
-                    let (_pa, flags, size) = self.mmu.query_virtual(cur).map_err(|e| e.into())?;
+                    let (_pa, flags, size) =
+                        self.source().query_virtual(cur).map_err(|e| e.into())?;
 
                     access = access.min(flags_to_access(flags));
 
@@ -266,14 +349,8 @@ macro_rules! impl_stream {
                         }
 
                         #[allow(deprecated)]
-                        let s = self.mmu.map_buffer_internal(base, size.as_usize())?;
+                        let s = self.mmu_map_buffer(base, size.as_usize())?;
                         let t_ptr = s.as_ptr() as *const T;
-
-                        if let Some(buffer_keep) = &mut self.buffer_keep {
-                            buffer_keep.push(cursor);
-                        } else {
-                            self.unmap_current();
-                        }
 
                         self.inner_mut().window = Some(MappedWindow {
                             base: self.inner().cursor,
@@ -281,6 +358,12 @@ macro_rules! impl_stream {
                             len: s.len(),
                             access,
                         });
+
+                        if let Some(buffer_keep) = &mut self.buffer_keep {
+                            buffer_keep.push(cursor);
+                        } else {
+                            self.unmap_current();
+                        }
 
                         unsafe { core::slice::from_raw_parts(t_ptr, len) }
                     }
@@ -302,9 +385,10 @@ macro_rules! impl_stream {
             /// # Remarks
             ///
             /// Note that the returned references may not be continuously if you call this method in a row.
+            #[inline]
             pub fn read<T>(&mut self, move_cursor: bool) -> Result<&T, MMUError> {
                 let r = self.read_slice::<T>(1, move_cursor)?;
-                Ok(&r[0])
+                Ok(unsafe { r.get_unchecked(0) })
             }
 
             /// Read a unsized type from the stream.
@@ -335,7 +419,7 @@ macro_rules! impl_stream {
                 let pending =
                     unsafe { core::slice::from_raw_parts_mut(tmp.as_mut_ptr() as *mut u8, size) };
 
-                self.mmu
+                self.source()
                     .inspect_framed_internal(cursor, usize::MAX, &mut |bytes, _| {
                         let mut i = 0;
 
@@ -367,7 +451,14 @@ macro_rules! impl_stream {
                 // FIXME: checks if there's overlap with existing window
 
                 #[allow(deprecated)]
-                let slice_bytes = self.mmu.map_buffer_internal(cursor, total_bytes)?;
+                let slice_bytes = {
+                    let slice = self.mmu_map_buffer(cursor, total_bytes)?;
+
+                    // the mapped slice's lifetime is bound to the page table
+                    // Rust compiler thinks we can't mutate the slice as there's a immutable page table reference
+                    // This is idiot, same lifetime doesn't mean we are accessing the same value.
+                    unsafe { core::slice::from_raw_parts(slice.as_ptr(), slice.len()) }
+                };
 
                 if let Some(buffer_keep) = &mut self.buffer_keep {
                     buffer_keep.push(cursor);
@@ -383,9 +474,7 @@ macro_rules! impl_stream {
                     access: MemoryAccess::Read,
                 });
 
-                if (slice_bytes.as_ptr() as usize) % core::mem::align_of::<T>() != 0 {
-                    return Err(MMUError::MisalignedAddress);
-                }
+                debug_assert!(slice_bytes.as_ptr() as usize % core::mem::align_of::<T>() == 0);
 
                 let slice =
                     unsafe { core::slice::from_raw_parts(slice_bytes.as_ptr() as *const T, len) };
