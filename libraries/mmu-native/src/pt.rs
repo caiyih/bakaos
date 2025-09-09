@@ -72,7 +72,7 @@ impl CrossMappingAllocator {
     pub fn remove(&mut self, vaddr: VirtualAddress) -> Option<CrossMappingWindow> {
         let mut target = None;
         for w in self.windows.iter() {
-            if !w.vaddr_range().contains(vaddr) {
+            if w.vaddr_range().contains(vaddr) {
                 target = Some(w.clone());
                 break;
             }
