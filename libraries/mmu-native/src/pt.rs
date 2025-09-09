@@ -448,7 +448,7 @@ impl<Arch: IPageTableArchAttribute + 'static, PTE: IArchPageTableEntry + 'static
         let mut phys = Vec::new();
 
         loop {
-            let (phy, permission, sz) = source.query_virtual(vaddr).map_err(|e| e.into())?;
+            let (phy, permission, sz) = source.query_virtual(checking).map_err(|e| e.into())?;
 
             ensure_permission(vaddr, permission, true)?;
             phys.push((phy, sz));
