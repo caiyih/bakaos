@@ -321,11 +321,12 @@ macro_rules! impl_stream {
             /// * `len` - The number of `T` to read.
             /// * `move_cursor` - Whether to move the cursor after reading.
             #[inline]
-            fn read_slice_internal<T>(
+            fn inspect_slice_internal<T>(
                 &mut self,
                 len: usize,
+                access: MemoryAccess,
                 move_cursor: bool,
-            ) -> Result<&[T], MMUError> {
+            ) -> Result<(NonNull<T>, usize), MMUError> {
                 let bytes = len.checked_mul(size_of::<T>()).unwrap();
                 let cursor = self.cursor();
 
@@ -333,15 +334,15 @@ macro_rules! impl_stream {
                     return Err(MMUError::MisalignedAddress);
                 }
 
-                let slice = match self.check_full_range(cursor, bytes, MemoryAccess::Read)? {
-                    WindowCheckResult::Reuse if len == 0 => &[],
+                let slice = match self.check_full_range(cursor, bytes, access)? {
+                    WindowCheckResult::Reuse if len == 0 => (NonNull::dangling(), 0),
                     WindowCheckResult::Reuse => {
                         let window = self.inner().window.as_ref().unwrap();
 
                         let offset = cursor.as_usize() - window.base.as_usize();
-                        let ptr = unsafe { window.ptr.as_ptr().add(offset) as *const T };
+                        let ptr = unsafe { window.ptr.add(offset).cast() };
 
-                        unsafe { core::slice::from_raw_parts(ptr, len) }
+                        (ptr, len)
                     }
                     WindowCheckResult::Remap(access, base, size, overlaps) => {
                         match (overlaps, self.buffer_keep.is_some()) {
@@ -354,7 +355,7 @@ macro_rules! impl_stream {
 
                         #[allow(deprecated)]
                         let s = self.mmu_map_buffer(base, size)?;
-                        let t_ptr = s.as_ptr() as *const T;
+                        let ptr = s.as_ptr() as *mut u8;
 
                         if let Some(buffer_keep) = &mut self.buffer_keep {
                             buffer_keep.push(cursor);
@@ -362,9 +363,11 @@ macro_rules! impl_stream {
                             self.unmap_current();
                         }
 
+                        let ptr = NonNull::new(ptr).unwrap();
+
                         self.inner_mut().window = Some(MappedWindow {
                             base,
-                            ptr: NonNull::new(t_ptr as *mut u8).unwrap(),
+                            ptr,
                             len: size,
                             access,
                         });
@@ -374,7 +377,7 @@ macro_rules! impl_stream {
                         let idx = (self.cursor().as_usize() - base.as_usize())
                             / core::mem::size_of::<T>();
 
-                        unsafe { core::slice::from_raw_parts(t_ptr.add(idx), len) }
+                        (unsafe { ptr.cast().add(idx) }, len)
                     }
                 };
 
@@ -383,6 +386,16 @@ macro_rules! impl_stream {
                 }
 
                 Ok(slice)
+            }
+
+            #[inline]
+            fn read_slice_internal<T>(
+                &mut self,
+                len: usize,
+                move_cursor: bool,
+            ) -> Result<&[T], MMUError> {
+                let (ptr, len) = self.inspect_slice_internal(len, MemoryAccess::Read, move_cursor)?;
+                Ok(unsafe { core::slice::from_raw_parts(ptr.as_ptr(), len) })
             }
 
             /// Read a slice of `T` from the stream, and move the cursor.
