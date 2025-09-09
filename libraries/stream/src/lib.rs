@@ -772,7 +772,7 @@ macro_rules! impl_stream {
                 Ok(unsafe { r.get_unchecked(0) })
             }
 
-            /// Read a unsized type from the stream.
+            /// Read a variable-length sequence of T from the stream.
             ///
             /// # Arguments
             ///
@@ -872,7 +872,7 @@ macro_rules! impl_stream {
                 Ok(slice)
             }
 
-            /// Read a unsized type from the stream.
+            /// Read a variable-length sequence of T from the stream and move the cursor.
             ///
             /// # Arguments
             ///
@@ -888,7 +888,7 @@ macro_rules! impl_stream {
                 self.read_unsized_internal(callback, true)
             }
 
-            /// Read a unsized type from the stream without touching the cursor.
+            /// Read a variable-length sequence of T from the stream without touching the cursor.
             ///
             /// # Arguments
             ///
