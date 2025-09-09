@@ -150,7 +150,12 @@ mod tests {
 
     #[test]
     fn test_syscall_nsec_too_large() {
-        let req = TimeSpec::new(0, 1_000_000_000);
+        // Create an invalid TimeSpec directly without normalization
+        // This bypasses TimeSpec::new() which would normalize the value
+        let req = TimeSpec {
+            tv_sec: 0,
+            tv_nsec: 1_000_000_000, // Invalid: should be < 1_000_000_000
+        };
 
         test_syscall_invalid_argument(req);
     }

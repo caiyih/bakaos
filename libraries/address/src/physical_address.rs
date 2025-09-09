@@ -16,7 +16,7 @@ mod physical_address_tests {
 
     use super::*;
 
-    const VIRT_ADDR_OFFSET: usize = 0xFFFF_FFc0_0000_0000;
+    const VIRT_ADDR_OFFSET: usize = 0xFFFF_FFC0_0000_0000;
 
     impl const IConvertablePhysicalAddress for PhysicalAddress {
         fn to_high_virtual(&self) -> VirtualAddress {
@@ -146,6 +146,7 @@ mod physical_address_tests {
 
     // Clone 和 Copy trait 测试
     #[test]
+    #[allow(clippy::clone_on_copy)]
     fn test_clone_and_copy() {
         let addr1 = PhysicalAddress::from_usize(0x1000);
         let addr2 = addr1; // Copy
