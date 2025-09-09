@@ -1312,36 +1312,18 @@ mod tests {
         });
     }
 
-    // Helper functions for MemoryStreamMut tests
-    fn create_memory_stream_mut(
-        mmu: &mut dyn IMMU,
-        cursor: VirtualAddress,
-        keep_buffer: bool,
-    ) -> MemoryStreamMut<'_> {
-        MemoryStreamMut::new(mmu, cursor, keep_buffer)
-    }
-
-    fn create_cross_memory_stream_mut<'a>(
-        mmu: &'a mut dyn IMMU,
-        src: &'a dyn IMMU,
-        cursor: VirtualAddress,
-        keep_buffer: bool,
-    ) -> MemoryStreamMut<'a> {
-        MemoryStreamMut::new_cross(mmu, src, cursor, keep_buffer)
-    }
-
     // MemoryStreamMut Write Tests
 
     #[test]
     fn test_memory_stream_mut_creation() {
         test_scene(|mmu, base, _len| {
-            let mut mmu = mmu.lock();
+            let mmu = mmu.lock();
 
-            let stream = create_memory_stream_mut(&mut *mmu, base, false);
+            let stream = mmu.create_stream_mut(base, false);
             assert_eq!(stream.cursor(), base);
             drop(stream);
 
-            let stream_with_keep = create_memory_stream_mut(&mut *mmu, base, true);
+            let stream_with_keep = mmu.create_stream_mut(base, true);
             assert_eq!(stream_with_keep.cursor(), base);
         });
     }
@@ -1349,9 +1331,9 @@ mod tests {
     #[test]
     fn test_basic_write() {
         test_scene(|mmu, base, _len| {
-            let mut mmu = mmu.lock();
+            let mmu = mmu.lock();
 
-            let mut stream = create_memory_stream_mut(&mut *mmu, base, false);
+            let mut stream = mmu.create_stream_mut(base, false);
 
             // Test write single value
             *stream.write::<i32>().unwrap() = 42;
@@ -1377,9 +1359,9 @@ mod tests {
     #[test]
     fn test_write_slice() {
         test_scene(|mmu, base, _len| {
-            let mut mmu = mmu.lock();
+            let mmu = mmu.lock();
 
-            let mut stream = create_memory_stream_mut(&mut *mmu, base, false);
+            let mut stream = mmu.create_stream_mut(base, false);
 
             // Test write slice
             let slice = stream.write_slice::<i32>(4).unwrap();
@@ -1411,9 +1393,9 @@ mod tests {
     #[test]
     fn test_write_different_types() {
         test_scene(|mmu, base, _len| {
-            let mut mmu = mmu.lock();
+            let mmu = mmu.lock();
 
-            let mut stream = create_memory_stream_mut(&mut *mmu, base, false);
+            let mut stream = mmu.create_stream_mut(base, false);
 
             // Write different types
             *stream.write::<u8>().unwrap() = 0xAB;
@@ -1444,9 +1426,9 @@ mod tests {
     #[test]
     fn test_write_and_read_mixed() {
         test_scene(|mmu, base, _len| {
-            let mut mmu = mmu.lock();
+            let mmu = mmu.lock();
 
-            let mut stream = create_memory_stream_mut(&mut *mmu, base, false);
+            let mut stream = mmu.create_stream_mut(base, false);
 
             // Write some data
             let write_slice = stream.write_slice::<i32>(4).unwrap();
@@ -1473,10 +1455,10 @@ mod tests {
     #[test]
     fn test_write_large_data() {
         test_scene(|mmu, base, len| {
-            let mut mmu = mmu.lock();
+            let mmu = mmu.lock();
 
             let data_size = (len / 4).min(1000); // Limit to reasonable size
-            let mut stream = create_memory_stream_mut(&mut *mmu, base, false);
+            let mut stream = mmu.create_stream_mut(base, false);
 
             // Write large amount of data
             let slice = stream.write_slice::<i32>(data_size).unwrap();
@@ -1496,9 +1478,9 @@ mod tests {
     #[test]
     fn test_write_empty_slice() {
         test_scene(|mmu, base, _len| {
-            let mut mmu = mmu.lock();
+            let mmu = mmu.lock();
 
-            let mut stream = create_memory_stream_mut(&mut *mmu, base, false);
+            let mut stream = mmu.create_stream_mut(base, false);
 
             // Write empty slice should succeed
             let slice = stream.write_slice::<i32>(0).unwrap();
@@ -1515,9 +1497,9 @@ mod tests {
     #[test]
     fn test_write_misaligned_address() {
         test_scene(|mmu, base, _len| {
-            let mut mmu = mmu.lock();
+            let mmu = mmu.lock();
 
-            let mut stream = create_memory_stream_mut(&mut *mmu, base + 1, false);
+            let mut stream = mmu.create_stream_mut(base + 1, false);
 
             // Writing to misaligned address should fail
             let result = stream.write::<i32>();
@@ -1531,9 +1513,9 @@ mod tests {
     #[test]
     fn test_write_readonly_memory() {
         test_scene_readonly(|mmu, base, _len| {
-            let mut mmu = mmu.lock();
+            let mmu = mmu.lock();
 
-            let mut stream = create_memory_stream_mut(&mut *mmu, base, false);
+            let mut stream = mmu.create_stream_mut(base, false);
 
             // Writing to read-only memory should fail
             let result = stream.write::<i32>();
@@ -1547,9 +1529,9 @@ mod tests {
     #[test]
     fn test_write_invalid_address() {
         test_scene(|mmu, base, _len| {
-            let mut mmu = mmu.lock();
+            let mmu = mmu.lock();
 
-            let mut stream = create_memory_stream_mut(&mut *mmu, base, false);
+            let mut stream = mmu.create_stream_mut(base, false);
 
             // Seek to invalid address
             stream.seek(Whence::Set(VirtualAddress::from_usize(0x10000000)));
@@ -1562,9 +1544,9 @@ mod tests {
     #[test]
     fn test_write_buffer_keep_functionality() {
         test_scene(|mmu, base, _len| {
-            let mut mmu = mmu.lock();
+            let mmu = mmu.lock();
 
-            let mut stream = create_memory_stream_mut(&mut *mmu, base, true);
+            let mut stream = mmu.create_stream_mut(base, true);
 
             // Write data in multiple chunks
             let slice1 = stream.write_slice::<i32>(2).unwrap();
@@ -1634,7 +1616,7 @@ mod tests {
         // Write to mmu1 memory via mmu2 (cross-MMU write)
         let mmu1_ref = mmu1.lock();
         let mut mmu2_guard = mmu2.lock();
-        let mut stream = create_cross_memory_stream_mut(&mut *mmu2_guard, &*mmu1_ref, base1, false);
+        let mut stream = mmu2_guard.create_cross_stream_mut(&*mmu1_ref, base1, false);
 
         *stream.write::<i32>().unwrap() = 42;
 
@@ -1648,10 +1630,10 @@ mod tests {
     #[test]
     fn test_consecutive_writes() {
         test_scene(|mmu, base, _len| {
-            let mut mmu = mmu.lock();
+            let mmu = mmu.lock();
 
             {
-                let mut stream = create_memory_stream_mut(&mut *mmu, base, false);
+                let mut stream = mmu.create_stream_mut(base, false);
 
                 // Write consecutive values
                 for i in 0..100 {
@@ -1670,9 +1652,9 @@ mod tests {
     #[test]
     fn test_mixed_write_operations() {
         test_scene(|mmu, base, _len| {
-            let mut mmu = mmu.lock();
+            let mmu = mmu.lock();
 
-            let mut stream = create_memory_stream_mut(&mut *mmu, base, false);
+            let mut stream = mmu.create_stream_mut(base, false);
 
             // Mix different write operations
             *stream.write::<i32>().unwrap() = 1;
