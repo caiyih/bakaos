@@ -1089,14 +1089,9 @@ mod tests {
                 // Since the buffer overlaps, this may fail, which is expected
                 let result2 = stream.read_slice::<i32>(2);
 
-                if result2.is_err() {
-                    // If a Borrowed error occurs, this is the expected behavior
-                    assert!(matches!(result2, Err(MMUError::Borrowed)));
-                } else {
-                    // If no error occurs, validate the data correctness
-                    let slice = result2.unwrap();
-                    assert_eq!(slice.len(), 2);
-                }
+                // If no error occurs, validate the data correctness
+                let slice = result2.unwrap();
+                assert_eq!(slice.len(), 2);
             }
         });
     }
@@ -1161,8 +1156,8 @@ mod tests {
 
             let data_size = len / 4;
             let mut test_data = alloc::vec![0i32; data_size];
-            for i in 0..data_size {
-                test_data[i] = i as i32;
+            for (i, val) in test_data.iter_mut().enumerate() {
+                *val = i as i32;
             }
 
             mmu.write_bytes(base, unsafe {
@@ -1177,8 +1172,8 @@ mod tests {
 
             let slice = stream.read_slice::<i32>(data_size).unwrap();
             assert_eq!(slice.len(), data_size);
-            for i in 0..data_size {
-                assert_eq!(slice[i], i as i32);
+            for (i, val) in slice.iter().enumerate() {
+                assert_eq!(*val, i as i32);
             }
         });
     }
@@ -1215,8 +1210,8 @@ mod tests {
 
             let _test_data: [i32; 100] = {
                 let mut data = [0i32; 100];
-                for i in 0..100 {
-                    data[i] = i as i32;
+                for (i, val) in data.iter_mut().enumerate() {
+                    *val = i as i32;
                 }
                 data
             };
@@ -1235,7 +1230,7 @@ mod tests {
 
             for i in 0..100 {
                 let val = *stream.read::<i32>().unwrap();
-                assert_eq!(val, i as i32);
+                assert_eq!(val, i);
             }
         });
     }
