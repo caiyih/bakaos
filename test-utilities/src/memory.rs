@@ -305,18 +305,17 @@ impl IMMU for TestMMU {
     }
 
     fn map_buffer_internal(&self, vaddr: VirtualAddress, len: usize) -> Result<&'_ [u8], MMUError> {
-        let mem = MappedMemory::alloc(vaddr, len);
+        let mem = MappedMemory::alloc(vaddr, len, false);
         let mut mapped = self.mapped.lock();
 
-        if mapped.iter().any(|m| m.1.range().intersects(&mem.range())) {
+        if mapped.iter().any(|m| m.1.range().intersects(mem.range())) {
             return Err(MMUError::Borrowed);
         }
 
         let slice = mem.slice_mut();
 
-        mapped.insert(vaddr, mem);
-
         self.read_bytes(vaddr, slice)?;
+        mapped.insert(vaddr, mem);
 
         Ok(slice)
     }
@@ -327,19 +326,19 @@ impl IMMU for TestMMU {
         len: usize,
         _force_mut: bool,
     ) -> Result<&'_ mut [u8], MMUError> {
-        let mem = MappedMemory::alloc(vaddr, len);
+        let mem = MappedMemory::alloc(vaddr, len, true);
         let mut mapped = self.mapped.lock();
 
-        if mapped.iter().any(|m| m.1.range().intersects(&mem.range())) {
+        if mapped.iter().any(|m| m.1.range().intersects(mem.range())) {
             return Err(MMUError::Borrowed);
         }
 
         let slice = mem.slice_mut();
 
-        mapped.insert(vaddr, mem);
-
         // TODO: Check if the permission matches force_mut
         self.read_bytes(vaddr, slice)?;
+
+        mapped.insert(vaddr, mem);
 
         Ok(slice)
     }
@@ -348,11 +347,44 @@ impl IMMU for TestMMU {
         let mut locked = self.mapped.lock();
 
         if let Some(mapped) = locked.remove(&vaddr) {
-            // Sync the mapped memory to the physical memory
-            let slice = mapped.slice_mut();
+            // FIXME: ensuring RW rule for buffer mapping
+            if mapped.mutable {
+                // Sync the mapped memory to the physical memory
+                let slice = mapped.slice_mut();
 
-            let _ = self.write_bytes(vaddr, slice);
+                let _ = self.write_bytes(vaddr, slice);
+            }
         }
+    }
+
+    fn map_cross_internal<'a>(
+        &'a mut self,
+        source: &'a dyn IMMU,
+        vaddr: VirtualAddress,
+        len: usize,
+    ) -> Result<&'a [u8], MMUError> {
+        let source = source.downcast_ref::<TestMMU>().unwrap();
+
+        #[allow(deprecated)]
+        source.map_buffer_internal(vaddr, len)
+    }
+
+    fn map_cross_mut_internal<'a>(
+        &'a mut self,
+        source: &'a dyn IMMU,
+        vaddr: VirtualAddress,
+        len: usize,
+    ) -> Result<&'a mut [u8], MMUError> {
+        let source = source.downcast_ref::<TestMMU>().unwrap();
+
+        #[allow(deprecated)]
+        source.map_buffer_mut_internal(vaddr, len, false)
+    }
+
+    fn unmap_cross(&mut self, source: &dyn IMMU, vaddr: VirtualAddress) {
+        let source = source.downcast_ref::<TestMMU>().unwrap();
+
+        source.unmap_buffer(vaddr);
     }
 }
 
@@ -415,15 +447,21 @@ struct MappedMemory {
     vaddr: VirtualAddress,
     ptr: *mut u8,
     layout: Layout,
+    mutable: bool,
 }
 
 impl MappedMemory {
-    fn alloc(vaddr: VirtualAddress, len: usize) -> Self {
+    fn alloc(vaddr: VirtualAddress, len: usize, mutable: bool) -> Self {
         let layout = Layout::from_size_align(len, constants::PAGE_SIZE).unwrap();
 
         let ptr = unsafe { std::alloc::alloc(layout) };
 
-        Self { vaddr, ptr, layout }
+        Self {
+            vaddr,
+            ptr,
+            layout,
+            mutable,
+        }
     }
 
     fn range(&self) -> VirtualAddressRange {

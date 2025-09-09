@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 bitflags = "2.9"
 hermit-sync = "0.1.6"
+utilities = { path = "../utilities", default-features = false }
 constants = { path = "../constants", default-features = false }
 address = { path = "../address", default-features = false }
 abstractions = { path = "../abstractions", default-features = false }

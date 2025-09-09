@@ -43,7 +43,7 @@ impl ITestFrameAllocator for TestFrameAllocator {
         for mem in self.records.values() {
             let target_range = mem.paddr_range();
 
-            if target_range.intersects(&range) {
+            if target_range.intersects(range) {
                 return true;
             }
         }

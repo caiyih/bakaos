@@ -1,14 +1,16 @@
-use core::marker::PhantomData;
+use core::{marker::PhantomData, ops::Deref};
 
 use crate::IArchPageTableEntry;
 use abstractions::IUsizeAlias;
 use address::{
     IAddressBase, IAlignableAddress, IConvertablePhysicalAddress, PhysicalAddress, VirtualAddress,
+    VirtualAddressRange,
 };
-use alloc::{sync::Arc, vec, vec::Vec};
+use alloc::{collections::btree_set::BTreeSet, sync::Arc, vec, vec::Vec};
 use allocation_abstractions::{FrameDesc, IFrameAllocator};
 use hermit_sync::SpinMutex;
 use mmu_abstractions::{GenericMappingFlags, MMUError, PageSize, PagingError, PagingResult, IMMU};
+use utilities::InvokeOnDrop;
 
 pub trait IPageTableArchAttribute {
     const LEVELS: usize;
@@ -33,6 +35,80 @@ unsafe impl<A: IPageTableArchAttribute, P: IArchPageTableEntry> Sync for PageTab
 struct PageTableAllocation {
     frames: Vec<FrameDesc>,
     allocator: Arc<SpinMutex<dyn IFrameAllocator>>,
+    cross_mappings: SpinMutex<CrossMappingAllocator>,
+}
+
+struct CrossMappingAllocator {
+    base: VirtualAddress,
+    windows: BTreeSet<CrossMappingWindow>,
+}
+
+impl CrossMappingAllocator {
+    pub fn new(base: VirtualAddress) -> Self {
+        Self {
+            base,
+            windows: BTreeSet::new(),
+        }
+    }
+
+    pub fn alloc(&mut self, size: usize, mutable: bool) -> VirtualAddress {
+        let vaddr = self
+            .windows
+            .last()
+            .map(|window| window.vaddr + window.size)
+            .unwrap_or(self.base);
+
+        let window = CrossMappingWindow {
+            vaddr,
+            size,
+            mutable,
+        };
+
+        self.windows.insert(window);
+
+        vaddr
+    }
+
+    pub fn remove(&mut self, vaddr: VirtualAddress) -> Option<CrossMappingWindow> {
+        let mut target = None;
+        for w in self.windows.iter() {
+            if w.vaddr_range().contains(vaddr) {
+                target = Some(w.clone());
+                break;
+            }
+        }
+
+        if let Some(target) = target.as_ref() {
+            self.windows.remove(target);
+        }
+
+        target
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct CrossMappingWindow {
+    vaddr: VirtualAddress,
+    size: usize,
+    mutable: bool,
+}
+
+impl CrossMappingWindow {
+    pub fn vaddr_range(&self) -> VirtualAddressRange {
+        VirtualAddressRange::from_start_len(self.vaddr, self.size)
+    }
+}
+
+impl PartialOrd for CrossMappingWindow {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for CrossMappingWindow {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        self.vaddr.cmp(&other.vaddr)
+    }
 }
 
 impl Drop for PageTableAllocation {
@@ -43,7 +119,9 @@ impl Drop for PageTableAllocation {
     }
 }
 
-impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> IMMU for PageTableNative<Arch, PTE> {
+impl<Arch: IPageTableArchAttribute + 'static, PTE: IArchPageTableEntry + 'static> IMMU
+    for PageTableNative<Arch, PTE>
+{
     fn map_single(
         &mut self,
         vaddr: VirtualAddress,
@@ -270,9 +348,157 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> IMMU for PageTable
     }
 
     fn unmap_buffer(&self, _vaddr: VirtualAddress) {}
+
+    fn map_cross_internal<'a>(
+        &'a mut self,
+        source: &'a dyn IMMU,
+        vaddr: VirtualAddress,
+        len: usize,
+    ) -> Result<&'a [u8], MMUError> {
+        const PERMISSION: GenericMappingFlags =
+            GenericMappingFlags::Readable.union(GenericMappingFlags::Kernel);
+
+        let mut cross = self
+            .allocation
+            .as_ref()
+            .ok_or(MMUError::CanNotModify)?
+            .cross_mappings
+            .lock();
+
+        let window = cross.alloc(len, false); // placeholder
+        let window = InvokeOnDrop::transform(window, |w| {
+            cross.remove(w);
+        });
+
+        let mut slice_offset = None;
+
+        let end = vaddr + len;
+        let mut checking = vaddr;
+
+        let mut phys = Vec::new();
+
+        loop {
+            let (phy, permission, sz) = source.query_virtual(checking).map_err(|e| e.into())?;
+
+            ensure_permission(vaddr, permission, false)?;
+            phys.push((phy, sz));
+
+            let page_offset = vaddr.as_usize() % sz.as_usize();
+            if slice_offset.is_none() {
+                slice_offset = Some(page_offset);
+            }
+
+            let sz = sz.as_usize();
+
+            // align to page size
+            checking -= page_offset;
+
+            if checking + sz >= end {
+                let vaddr = *window.deref();
+                window.cancel(); // prevent drop
+
+                drop(cross);
+
+                let mut offset = 0;
+                for (phy, sz) in phys {
+                    self.map_single(vaddr + offset, phy, sz, PERMISSION)
+                        .unwrap();
+                    offset += sz.as_usize();
+                }
+
+                return Ok(unsafe {
+                    core::slice::from_raw_parts(
+                        vaddr.as_ptr::<u8>().add(slice_offset.unwrap()),
+                        len,
+                    )
+                });
+            }
+
+            checking += sz;
+        }
+    }
+
+    fn map_cross_mut_internal<'a>(
+        &'a mut self,
+        source: &'a dyn IMMU,
+        vaddr: VirtualAddress,
+        len: usize,
+    ) -> Result<&'a mut [u8], MMUError> {
+        const PERMISSION: GenericMappingFlags = GenericMappingFlags::Readable
+            .union(GenericMappingFlags::Writable)
+            .union(GenericMappingFlags::Kernel);
+
+        let mut cross = self
+            .allocation
+            .as_ref()
+            .ok_or(MMUError::CanNotModify)?
+            .cross_mappings
+            .lock();
+
+        let window = cross.alloc(len, true); // placeholder
+        let window = InvokeOnDrop::transform(window, |w| {
+            cross.remove(w);
+        });
+
+        let mut slice_offset = None;
+
+        let end = vaddr + len;
+        let mut checking = vaddr;
+
+        let mut phys = Vec::new();
+
+        loop {
+            let (phy, permission, sz) = source.query_virtual(checking).map_err(|e| e.into())?;
+
+            ensure_permission(vaddr, permission, true)?;
+            phys.push((phy, sz));
+
+            let page_offset = vaddr.as_usize() % sz.as_usize();
+            if slice_offset.is_none() {
+                slice_offset = Some(page_offset);
+            }
+
+            let sz = sz.as_usize();
+
+            // align to page size
+            checking -= page_offset;
+
+            if checking + sz >= end {
+                let vaddr = *window.deref();
+                window.cancel(); // prevent drop
+
+                drop(cross);
+
+                let mut offset = 0;
+                for (phy, sz) in phys {
+                    self.map_single(vaddr + offset, phy, sz, PERMISSION)
+                        .unwrap();
+                    offset += sz.as_usize();
+                }
+
+                return Ok(unsafe {
+                    core::slice::from_raw_parts_mut(vaddr.as_mut_ptr::<u8>().add(page_offset), len)
+                });
+            }
+
+            checking += sz;
+        }
+    }
+
+    fn unmap_cross(&mut self, _source: &dyn IMMU, vaddr: VirtualAddress) {
+        let mut cross = self.allocation.as_ref().unwrap().cross_mappings.lock();
+
+        if let Some(window) = cross.remove(vaddr) {
+            drop(cross);
+
+            self.unmap_single(window.vaddr).ok();
+        }
+    }
 }
 
-impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTableNative<Arch, PTE> {
+impl<Arch: IPageTableArchAttribute + 'static, PTE: IArchPageTableEntry + 'static>
+    PageTableNative<Arch, PTE>
+{
     fn inspect_permission(
         &self,
         vaddr: VirtualAddress,
@@ -407,6 +633,9 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTableNative<Ar
                 allocation: Some(PageTableAllocation {
                     frames: Vec::new(),
                     allocator,
+                    cross_mappings: SpinMutex::new(CrossMappingAllocator::new(
+                        VirtualAddress::null(), // FIXME
+                    )),
                 }),
                 _marker: PhantomData,
             },
@@ -421,6 +650,9 @@ impl<Arch: IPageTableArchAttribute, PTE: IArchPageTableEntry> PageTableNative<Ar
         pt.allocation = Some(PageTableAllocation {
             frames: vec![frame],
             allocator,
+            cross_mappings: SpinMutex::new(CrossMappingAllocator::new(
+                VirtualAddress::null(), // FIXME
+            )),
         });
 
         pt

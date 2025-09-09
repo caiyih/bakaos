@@ -11,8 +11,8 @@ doctest = false
 
 [dependencies]
 bitflags = "2.9"
+downcast-rs = { version = "2.0", default-features = false, features = ["sync"] }
 address = { path = "../address", default-features = false }
-# downcast-rs = "2.0.1"
 
 [features]
 default = ["no_std"]

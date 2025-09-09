@@ -1,0 +1,1992 @@
+//! # Stream Library
+//!
+//! This library provides memory stream abstractions for efficient memory access through MMU (Memory Management Unit) interfaces.
+//! It offers both read-only and read-write streaming capabilities with automatic buffer management and cross-MMU support.
+//!
+//! ## Features
+//!
+//! - **Memory Streaming**: Efficient streaming read/write operations on virtual memory
+//! - **Buffer Management**: Automatic mapping and unmapping of memory buffers with optional buffer keeping
+//! - **Cross-MMU Support**: Ability to read from one MMU context and write to another
+//! - **Type Safety**: Generic read/write operations with proper alignment checking
+//! - **Unsized Data Support**: Reading variable-length data with custom termination conditions
+//!
+//! ## Basic Usage
+//!
+//! ### Reading from Memory
+//!
+//! ```rust,ignore
+//! use stream::{IMMUStreamExt, MemoryStream};
+//! use address::VirtualAddress;
+//!
+//! // Create a read-only memory stream
+//! let stream = mmu.create_stream(VirtualAddress::from_usize(0x1000), false);
+//!
+//! // Read a single value
+//! let value: &i32 = stream.read()?;
+//!
+//! // Read a slice of values
+//! let slice: &[i32] = stream.read_slice(10)?;
+//! ```
+//!
+//! ### Writing to Memory
+//!
+//! ```rust,ignore
+//! use stream::{IMMUStreamExt, MemoryStreamMut};
+//! use address::VirtualAddress;
+//!
+//! // Create a read-write memory stream
+//! let mut stream = mmu.create_stream_mut(VirtualAddress::from_usize(0x1000), false);
+//!
+//! // Write a single value
+//! *stream.write::<i32>()? = 42;
+//!
+//! // Write a slice of values
+//! let slice = stream.write_slice::<i32>(10)?;
+//! slice[0] = 1;
+//! slice[1] = 2;
+//! ```
+//!
+//! ### Cross-MMU Operations
+//!
+//! ```rust,ignore
+//! // Read from src_mmu and write to dest_mmu
+//! let stream = dest_mmu.create_cross_stream(&src_mmu, cursor, false);
+//! ```
+//!
+//! ## Buffer Management
+//!
+//! The library supports two buffer management modes:
+//!
+//! - **Immediate Unmapping** (`keep_buffer = false`): Buffers are unmapped when the cursor moves outside the current page
+//! - **Deferred Unmapping** (`keep_buffer = true`): Buffers are kept until the stream is dropped or explicitly synced
+
+#![cfg_attr(not(feature = "std"), no_std)]
+
+#[cfg(feature = "std")]
+extern crate std;
+
+extern crate alloc;
+
+use core::{cell::UnsafeCell, mem::MaybeUninit, ptr::NonNull};
+
+use abstractions::operations::IUsizeAlias;
+use address::{VirtualAddress, VirtualAddressRange};
+use alloc::vec::Vec;
+
+use mmu_abstractions::{GenericMappingFlags, MMUError, PageSize, IMMU};
+
+/// Extension trait for MMU interfaces to create memory streams.
+///
+/// This trait extends the `IMMU` interface with convenient methods for creating
+/// memory streams for reading and writing operations. It provides both single-MMU
+/// and cross-MMU streaming capabilities.
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// use stream::IMMUStreamExt;
+/// use address::VirtualAddress;
+///
+/// // Create a read-only stream
+/// let stream = mmu.create_stream(VirtualAddress::from_usize(0x1000), false);
+///
+/// // Create a read-write stream
+/// let mut_stream = mmu.create_stream_mut(VirtualAddress::from_usize(0x1000), true);
+/// ```
+pub trait IMMUStreamExt: IMMU {
+    /// Creates a read-only memory stream.
+    ///
+    /// # Arguments
+    ///
+    /// * `cursor` - The initial virtual address to start reading from
+    /// * `keep_buffer` - Whether to keep mapped buffers until stream is dropped
+    ///
+    /// # Returns
+    ///
+    /// A new `MemoryStream` instance for reading operations
+    fn create_stream<'a>(&'a self, cursor: VirtualAddress, keep_buffer: bool) -> MemoryStream<'a>;
+
+    /// Creates a cross-MMU read-only memory stream.
+    ///
+    /// This allows reading from one MMU context (`src`) while using another MMU
+    /// context (`self`) for mapping operations. Useful for copying data between
+    /// different address spaces.
+    ///
+    /// # Arguments
+    ///
+    /// * `src` - The source MMU to read from
+    /// * `cursor` - The initial virtual address in the source MMU
+    /// * `keep_buffer` - Whether to keep mapped buffers until stream is dropped
+    ///
+    /// # Returns
+    ///
+    /// A new `MemoryStream` instance for cross-MMU reading operations
+    fn create_cross_stream<'a>(
+        &'a mut self,
+        src: &'a dyn IMMU,
+        cursor: VirtualAddress,
+        keep_buffer: bool,
+    ) -> MemoryStream<'a>;
+
+    /// Creates a read-write memory stream.
+    ///
+    /// # Arguments
+    ///
+    /// * `cursor` - The initial virtual address to start from
+    /// * `keep_buffer` - Whether to keep mapped buffers until stream is dropped
+    ///
+    /// # Returns
+    ///
+    /// A new `MemoryStreamMut` instance for reading and writing operations
+    fn create_stream_mut<'a>(
+        &'a self,
+        cursor: VirtualAddress,
+        keep_buffer: bool,
+    ) -> MemoryStreamMut<'a>;
+
+    /// Creates a cross-MMU read-write memory stream.
+    ///
+    /// This allows reading from one MMU context (`src`) and writing to another MMU
+    /// context (`self`). Useful for memory copying and transformation operations
+    /// between different address spaces.
+    ///
+    /// # Arguments
+    ///
+    /// * `src` - The source MMU to read from
+    /// * `cursor` - The initial virtual address in the source MMU
+    /// * `keep_buffer` - Whether to keep mapped buffers until stream is dropped
+    ///
+    /// # Returns
+    ///
+    /// A new `MemoryStreamMut` instance for cross-MMU operations
+    fn create_cross_stream_mut<'a>(
+        &'a mut self,
+        src: &'a dyn IMMU,
+        cursor: VirtualAddress,
+        keep_buffer: bool,
+    ) -> MemoryStreamMut<'a>;
+}
+
+impl IMMUStreamExt for dyn IMMU {
+    fn create_stream<'a>(&'a self, cursor: VirtualAddress, keep_buffer: bool) -> MemoryStream<'a> {
+        MemoryStream::new(self, cursor, keep_buffer)
+    }
+
+    fn create_cross_stream<'a>(
+        &'a mut self,
+        src: &'a dyn IMMU,
+        cursor: VirtualAddress,
+        keep_buffer: bool,
+    ) -> MemoryStream<'a> {
+        MemoryStream::new_cross(self, src, cursor, keep_buffer)
+    }
+    fn create_stream_mut<'a>(
+        &'a self,
+        cursor: VirtualAddress,
+        keep_buffer: bool,
+    ) -> MemoryStreamMut<'a> {
+        MemoryStreamMut::new(self, cursor, keep_buffer)
+    }
+
+    fn create_cross_stream_mut<'a>(
+        &'a mut self,
+        src: &'a dyn IMMU,
+        cursor: VirtualAddress,
+        keep_buffer: bool,
+    ) -> MemoryStreamMut<'a> {
+        MemoryStreamMut::new_cross(self, src, cursor, keep_buffer)
+    }
+}
+
+/// Specifies the position for seek operations in memory streams.
+///
+/// This enum is used with the `seek` method to control how the stream cursor
+/// is positioned. It provides both absolute and relative positioning capabilities.
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// use stream::Whence;
+/// use address::VirtualAddress;
+///
+/// // Seek to absolute address
+/// stream.seek(Whence::Set(VirtualAddress::from_usize(0x2000)));
+///
+/// // Seek forward by 100 bytes
+/// stream.seek(Whence::Offset(100));
+///
+/// // Seek backward by 50 bytes
+/// stream.seek(Whence::Offset(-50));
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Whence {
+    /// Set the cursor to an absolute virtual address.
+    ///
+    /// The cursor will be positioned exactly at the specified address,
+    /// regardless of its current position.
+    Set(VirtualAddress),
+
+    /// Move the cursor by a relative offset from its current position.
+    ///
+    /// Positive values move the cursor forward, negative values move it backward.
+    /// The offset is specified in bytes.
+    Offset(isize),
+}
+
+/// Represents the access permissions for memory operations.
+///
+/// This enum is used internally to track and validate memory access permissions
+/// when mapping pages. It ensures that read/write operations are performed only
+/// on appropriately mapped memory regions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum MemoryAccess {
+    /// No access permissions
+    None = 0,
+    /// Read-only access
+    Read = 1,
+    /// Read and write access
+    Write = 2,
+}
+
+/// Result of checking whether a memory window can be reused or needs remapping.
+///
+/// This enum is returned by internal window checking logic to determine
+/// the most efficient way to handle memory access requests.
+enum WindowCheckResult {
+    /// The current window can be reused for the requested operation
+    Reuse,
+    /// The window needs to be remapped with the specified parameters
+    /// (access_level, base_address, size, has_overlaps)
+    Remap(MemoryAccess, VirtualAddress, PageSize, bool),
+}
+
+/// Manages the current memory window and cursor position for a stream.
+///
+/// This structure tracks the stream's current position and any mapped
+/// memory window. It provides methods for cursor manipulation and
+/// window management.
+struct MemoryWindow {
+    /// Current cursor position in virtual memory
+    cursor: VirtualAddress,
+    /// Currently mapped memory window, if any
+    window: Option<MappedWindow>,
+}
+
+impl MemoryWindow {
+    /// Advances the cursor by the specified number of bytes.
+    ///
+    /// This is a convenience method that combines seeking with an offset
+    /// and returning the new cursor position.
+    ///
+    /// # Arguments
+    ///
+    /// * `len` - Number of bytes to skip forward
+    ///
+    /// # Returns
+    ///
+    /// The new cursor position after skipping
+    pub fn skip(&mut self, len: usize) -> VirtualAddress {
+        self.seek(Whence::Offset(len as isize))
+    }
+
+    /// Moves the cursor to a new position based on the given seek operation.
+    ///
+    /// # Arguments
+    ///
+    /// * `whence` - The seek operation to perform
+    ///
+    /// # Returns
+    ///
+    /// The new cursor position after seeking
+    pub fn seek(&mut self, whence: Whence) -> VirtualAddress {
+        let target = match whence {
+            Whence::Set(offset) => offset,
+            Whence::Offset(off) => VirtualAddress::from_usize(
+                (self.cursor.as_usize() as isize).wrapping_add(off) as usize,
+            ),
+        };
+
+        self.cursor = target;
+
+        target
+    }
+}
+
+/// Represents a currently mapped memory window.
+///
+/// This structure contains the details of a mapped memory region,
+/// including its base address, mapped pointer, size, and access permissions.
+/// It's used internally to track active memory mappings.
+struct MappedWindow {
+    /// Base virtual address of the mapped window
+    base: VirtualAddress,
+    /// Pointer to the mapped memory region
+    ptr: NonNull<u8>,
+    /// Length of the mapped region in bytes
+    len: usize,
+    /// Access permissions for this mapped region
+    access: MemoryAccess,
+}
+
+/// Represents different MMU composition modes for memory streams.
+///
+/// This enum handles both single-MMU operations and cross-MMU operations
+/// where data is read from one MMU context and potentially written to another.
+enum MmuComposition<'a> {
+    /// Single MMU operation - both source and destination use the same MMU
+    Single(&'a dyn IMMU),
+    /// Cross-MMU operation - separate MMUs for mapping and source operations
+    Cross {
+        /// The MMU used for mapping operations (destination)
+        mmu: UnsafeCell<&'a mut dyn IMMU>,
+        /// The MMU used as the source for read operations
+        src: &'a dyn IMMU,
+    },
+}
+
+macro_rules! impl_stream {
+    ($type:tt, $(#[$attr:meta])*) => {
+        $(#[$attr])*
+        ///
+        /// # Type Parameters
+        ///
+        /// The actual type (`MemoryStream` or `MemoryStreamMut`) determines the
+        /// available operations:
+        /// - `MemoryStream`: Read-only operations
+        /// - `MemoryStreamMut`: Read and write operations
+        ///
+        /// # Buffer Management
+        ///
+        /// The stream supports two buffer management modes:
+        /// - **Immediate**: Buffers are unmapped when cursor moves outside current page
+        /// - **Deferred**: Buffers are kept until stream drop or explicit sync
+        ///
+        /// # Examples
+        ///
+        /// ```rust,ignore
+        /// // Create a stream and read data
+        /// let mut stream = mmu.create_stream(base_addr, false);
+        /// let value: &i32 = stream.read()?;
+        /// let slice: &[i32] = stream.read_slice(10)?;
+        ///
+        /// // Skip ahead and read more
+        /// stream.skip(100);
+        /// let another_value: &u64 = stream.read()?;
+        /// ```
+        pub struct $type<'a> {
+            /// The MMU composition (single or cross-MMU)
+            mmu: MmuComposition<'a>,
+            /// Internal memory window management
+            inner: UnsafeCell<MemoryWindow>,
+            /// Optional buffer tracking for deferred unmapping
+            buffer_keep: Option<Vec<VirtualAddress>>,
+        }
+
+        impl<'a> $type<'a> {
+            /// Create a new memory stream reader.
+            ///
+            /// # Arguments
+            ///
+            /// * `mmu` - The MMU to use.
+            /// * `cursor` - The initial cursor.
+            /// * `keep_buffer` - Whether to keep the mapped buffer. if false, the mapped buffer
+            ///   will be unmap when the cursor moves outside current page. if true, the mapped buffer
+            ///   will be unmap when the stream is dropped.
+            pub fn new(mmu: &'a dyn IMMU, cursor: VirtualAddress, keep_buffer: bool) -> Self {
+                Self {
+                    mmu: MmuComposition::Single(mmu),
+                    inner: UnsafeCell::new(MemoryWindow {
+                        cursor,
+                        window: None,
+                    }),
+                    buffer_keep: if keep_buffer { Some(Vec::new()) } else { None },
+                }
+            }
+
+            /// Create a new memory stream reader with cross MMU.
+            ///
+            /// # Arguments
+            ///
+            /// * `mmu` - The MMU to use.
+            /// * `cross` - The cross MMU to use.
+            /// * `cursor` - The initial cursor.
+            /// * `keep_buffer` - Whether to keep the mapped buffer. if false, the mapped buffer
+            ///   will be unmap when the cursor moves outside current page. if true, the mapped buffer
+            ///   will be unmap when the stream is dropped.
+            pub fn new_cross(
+                mmu: &'a mut dyn IMMU,
+                src: &'a dyn IMMU,
+                cursor: VirtualAddress,
+                keep_buffer: bool,
+            ) -> Self {
+                let mmu = MmuComposition::Cross {
+                    mmu: UnsafeCell::new(mmu),
+                    src,
+                };
+
+                Self {
+                    mmu,
+                    inner: UnsafeCell::new(MemoryWindow {
+                        cursor,
+                        window: None,
+                    }),
+                    buffer_keep: if keep_buffer { Some(Vec::new()) } else { None },
+                }
+            }
+        }
+
+        impl $type<'_> {
+            #[inline]
+            fn source(&self) -> &dyn IMMU {
+                match self.mmu {
+                    MmuComposition::Single(mmu) => mmu,
+                    MmuComposition::Cross { src, .. } => src,
+                }
+            }
+
+            #[inline]
+            fn mmu_map_buffer(
+                &self,
+                cursor: VirtualAddress,
+                len: usize,
+            ) -> Result<&[u8], MMUError> {
+                match &self.mmu {
+                    #[allow(deprecated)]
+                    MmuComposition::Single(mmu) => mmu.map_buffer_internal(cursor, len),
+                    MmuComposition::Cross { mmu, ref src } => {
+                        let mmu = unsafe { mmu.get().as_mut().unwrap() };
+                        mmu.map_cross_internal(*src, cursor, len)
+                    }
+                }
+            }
+
+            #[inline]
+            #[allow(clippy::mut_from_ref)]
+            fn mmu_map_buffer_mut(
+                &self,
+                cursor: VirtualAddress,
+                len: usize,
+            ) -> Result<&mut [u8], MMUError> {
+                match &self.mmu {
+                    #[allow(deprecated)]
+                    MmuComposition::Single(mmu) => mmu.map_buffer_mut_internal(cursor, len, false),
+                    MmuComposition::Cross { mmu, ref src } => {
+                        let mmu = unsafe { mmu.get().as_mut().unwrap() };
+                        mmu.map_cross_mut_internal(*src, cursor, len)
+                    }
+                }
+            }
+
+            #[inline(always)]
+            fn inner(&self) -> &MemoryWindow {
+                unsafe { self.inner.get().as_ref().unwrap() }
+            }
+
+            #[inline(always)]
+            #[allow(clippy::mut_from_ref)]
+            fn inner_mut(&self) -> &mut MemoryWindow {
+                unsafe { self.inner.get().as_mut().unwrap() }
+            }
+
+            /// Skip `len` bytes in the stream.
+            ///
+            /// # Arguments
+            ///
+            /// * `len` - The number of bytes to skip.
+            #[inline(always)]
+            pub fn skip(&self, len: usize) -> VirtualAddress {
+                self.inner_mut().skip(len)
+            }
+
+            /// Seek to the given offset.
+            ///
+            /// # Arguments
+            ///
+            /// * `whence` - The offset to seek to.
+            #[inline(always)]
+            pub fn seek(&mut self, whence: Whence) -> VirtualAddress {
+                self.inner_mut().seek(whence)
+            }
+
+            /// Get the current cursor
+            #[inline(always)]
+            pub fn cursor(&self) -> VirtualAddress {
+                self.inner().cursor
+            }
+
+            /// Sync mapped buffers, will unmap all existing buffers
+            ///
+            /// # Remarks
+            ///
+            /// If you accessed the memory without this MemoryStream,
+            /// Call this method to sync states.
+            pub fn sync(&mut self) {
+                if let Some(buffer_keep) = core::mem::take(&mut self.buffer_keep) {
+                    for vaddr in buffer_keep.iter() {
+                        self.unmap(*vaddr);
+                    }
+                }
+
+                // There's no side effect if we unmap a not existing buffer
+                // So we can just call it
+                self.unmap_current();
+            }
+
+            #[inline]
+            fn unmap(&self, vaddr: VirtualAddress) {
+                match self.mmu {
+                    MmuComposition::Single(mmu) => mmu.unmap_buffer(vaddr),
+                    MmuComposition::Cross { ref mmu, src } => {
+                        let mmu = unsafe { mmu.get().as_mut().unwrap() };
+                        mmu.unmap_cross(src, vaddr);
+                    }
+                }
+            }
+
+            #[inline]
+            fn unmap_current(&self) {
+                if let Some(window) = self.inner_mut().window.take() {
+                    self.unmap(window.base);
+                }
+            }
+
+            #[inline]
+            fn check_full_range(
+                &self,
+                start: VirtualAddress,
+                len: usize,
+                required: MemoryAccess,
+            ) -> Result<WindowCheckResult, MMUError> {
+                let mut access = MemoryAccess::Write;
+
+                if len == 0 {
+                    // TODO: should we still check permission for empty range?
+                    return Ok(WindowCheckResult::Reuse);
+                }
+
+                let mut overlaps = false;
+
+                if let Some(window) = self.inner().window.as_ref() {
+                    let window_range = VirtualAddressRange::from_start_len(window.base, window.len);
+                    let range = VirtualAddressRange::from_start_len(start, len);
+
+                    // contains
+                    if window_range.contains_range(range) {
+                        return ensure_access(start, window.access, required)
+                            .map(|_| WindowCheckResult::Reuse);
+                    }
+
+                    if window_range.intersects(range) {
+                        overlaps = true;
+                    }
+                }
+
+                let end = start + len;
+                let mut cur = start;
+
+                let mut base = None;
+                let mut total_size = PageSize::from(0);
+
+                while cur < end {
+                    let (_pa, flags, size) =
+                        self.source().query_virtual(cur).map_err(|e| e.into())?;
+
+                    access = access.min(flags_to_access(flags));
+
+                    ensure_access(cur, access, required)?;
+
+                    let sz = size.as_usize();
+
+                    if base.is_none() {
+                        base = Some(VirtualAddress::from_usize(cur.as_usize() / sz * sz));
+                    }
+
+                    total_size = PageSize::from(total_size.as_usize() + sz);
+
+                    let cur_u = cur.as_usize();
+                    let off_in_page = cur_u % sz;
+                    let step = core::cmp::min(sz - off_in_page, end.as_usize() - cur_u);
+
+                    cur += step;
+                }
+
+                Ok(WindowCheckResult::Remap(
+                    access,
+                    base.unwrap(),
+                    total_size,
+                    overlaps,
+                ))
+            }
+        }
+
+        // Read view
+        impl $type<'_> {
+            /// Read a slice of `T` from the stream.
+            ///
+            /// # Arguments
+            ///
+            /// * `len` - The number of `T` to read.
+            /// * `move_cursor` - Whether to move the cursor after reading.
+            #[inline]
+            fn inspect_slice_internal<T>(
+                &mut self,
+                len: usize,
+                access: MemoryAccess,
+                move_cursor: bool,
+            ) -> Result<(NonNull<T>, usize), MMUError> {
+                let bytes = len.checked_mul(size_of::<T>()).unwrap();
+                let cursor = self.cursor();
+
+                if (cursor.as_usize() % align_of::<T>()) != 0 {
+                    return Err(MMUError::MisalignedAddress);
+                }
+
+                let slice = match self.check_full_range(cursor, bytes, access)? {
+                    WindowCheckResult::Reuse if len == 0 => (NonNull::dangling(), 0),
+                    WindowCheckResult::Reuse => {
+                        let window = self.inner().window.as_ref().unwrap();
+
+                        let offset = cursor.as_usize() - window.base.as_usize();
+                        let ptr = unsafe { window.ptr.add(offset).cast() };
+
+                        (ptr, len)
+                    }
+                    WindowCheckResult::Remap(access, base, size, overlaps) => {
+                        match (overlaps, self.buffer_keep.is_some()) {
+                            (true, true) => return Err(MMUError::Borrowed),
+                            (true, false) => self.unmap_current(),
+                            _ => (),
+                        }
+
+                        let size = size.as_usize();
+
+                        // I don't know if we should use the checking functions's access permission.
+                        // This allows we map the buffer with write permission if we are using read on a mut stream,
+                        // prevent remap as much as possible.
+                        // But this prevents the compiler from inlining and dead code elimination.
+                        // I'll keep this for now, as remap is general of low frequency.
+                        #[allow(deprecated)]
+                        let s = match access {
+                            MemoryAccess::Read => self.mmu_map_buffer(base, size)?,
+                            MemoryAccess::Write => self.mmu_map_buffer_mut(base, size)?,
+                            _ => unreachable!(),
+                        };
+                        let ptr = s.as_ptr() as *mut u8;
+
+                        if let Some(buffer_keep) = &mut self.buffer_keep {
+                            buffer_keep.push(cursor);
+                        } else {
+                            self.unmap_current();
+                        }
+
+                        let ptr = NonNull::new(ptr).unwrap();
+
+                        self.inner_mut().window = Some(MappedWindow {
+                            base,
+                            ptr,
+                            len: size,
+                            access,
+                        });
+
+                        // The mapped buffer may be the whole page,
+                        // so we need to calculate the offset.
+                        let idx = (self.cursor().as_usize() - base.as_usize())
+                            / core::mem::size_of::<T>();
+
+                        (unsafe { ptr.cast().add(idx) }, len)
+                    }
+                };
+
+                if move_cursor {
+                    self.inner_mut().cursor += bytes;
+                }
+
+                Ok(slice)
+            }
+
+            #[inline]
+            fn read_slice_internal<T>(
+                &mut self,
+                len: usize,
+                move_cursor: bool,
+            ) -> Result<&[T], MMUError> {
+                let (ptr, len) =
+                    self.inspect_slice_internal(len, MemoryAccess::Read, move_cursor)?;
+                Ok(unsafe { core::slice::from_raw_parts(ptr.as_ptr(), len) })
+            }
+
+            /// Read a slice of `T` from the stream, and move the cursor.
+            ///
+            /// # Arguments
+            ///
+            /// * `len` - The number of `T` to read.
+            ///
+            /// # Returns
+            ///
+            /// The full slice of `T` read from the stream.
+            pub fn read_slice<T>(&mut self, len: usize) -> Result<&[T], MMUError> {
+                self.read_slice_internal(len, true)
+            }
+
+            /// Read a slice of `T` from the stream, without touching the cursor.
+            ///
+            /// # Arguments
+            ///
+            /// * `len` - The number of `T` to read.
+            ///
+            /// # Returns
+            ///
+            /// The full slice of `T` read from the stream.
+            pub fn pread_slice<T>(&mut self, len: usize) -> Result<&[T], MMUError> {
+                self.read_slice_internal(len, false)
+            }
+
+            /// Read a `T` from the stream and move the cursor.
+            ///
+            /// # Returns
+            ///
+            /// The reference to `T` read from the stream.
+            ///
+            /// # Remarks
+            ///
+            /// Note that the returned references may not be continuously if you call this method in a row.
+            #[inline]
+            pub fn read<T>(&mut self) -> Result<&T, MMUError> {
+                let r = self.read_slice_internal::<T>(1, true)?;
+                Ok(unsafe { r.get_unchecked(0) })
+            }
+
+            /// Read a `T` from the stream without touching the cursor.
+            ///
+            /// # Returns
+            ///
+            /// The reference to `T` read from the stream.
+            ///
+            /// # Remarks
+            ///
+            /// Note that the returned reference may not be continuously if you call this method in a row.
+            #[inline]
+            pub fn pread<T>(&mut self) -> Result<&T, MMUError> {
+                let r = self.read_slice_internal::<T>(1, false)?;
+                Ok(unsafe { r.get_unchecked(0) })
+            }
+
+            /// Read a variable-length sequence of T from the stream.
+            ///
+            /// # Arguments
+            ///
+            /// * `callback` - The callback function to determine whether to continue reading.
+            /// * `move_cursor` - Whether to move the cursor after reading.
+            ///
+            /// # Returns
+            ///
+            /// The full slice of `T` read from the stream.
+            #[inline]
+            fn read_unsized_internal<T>(
+                &mut self,
+                mut callback: impl FnMut(&T, usize) -> bool,
+                move_cursor: bool,
+            ) -> Result<&[T], MMUError> {
+                let cursor = self.cursor();
+                let size = core::mem::size_of::<T>();
+
+                if cursor.as_usize() % core::mem::align_of::<T>() != 0 {
+                    return Err(MMUError::MisalignedAddress);
+                }
+
+                assert!(size > 0);
+
+                let mut len = 0;
+
+                let mut pending_len = 0usize;
+
+                let mut tmp = MaybeUninit::uninit();
+                let pending =
+                    unsafe { core::slice::from_raw_parts_mut(tmp.as_mut_ptr() as *mut u8, size) };
+
+                self.source()
+                    .inspect_framed_internal(cursor, usize::MAX, &mut |bytes, _| {
+                        let mut i = 0;
+
+                        while i < bytes.len() {
+                            let need = size - pending_len;
+                            let take = core::cmp::min(need, bytes.len() - i);
+
+                            pending[pending_len..pending_len + take]
+                                .copy_from_slice(&bytes[i..i + take]);
+
+                            pending_len += take;
+                            i += take;
+
+                            if pending_len == size {
+                                if !callback(unsafe { tmp.assume_init_ref() }, len) {
+                                    return false; // stop scan
+                                }
+
+                                len += 1;
+                                pending_len = 0;
+                            }
+                        }
+
+                        true
+                    })?;
+
+                let total_bytes = len * size;
+
+                // FIXME: checks if there's overlap with existing window
+
+                #[allow(deprecated)]
+                let slice_bytes = {
+                    let slice = self.mmu_map_buffer(cursor, total_bytes)?;
+
+                    // the mapped slice's lifetime is bound to the page table
+                    // Rust compiler thinks we can't mutate the slice as there's a immutable page table reference
+                    // This is idiot, same lifetime doesn't mean we are accessing the same value.
+                    unsafe { core::slice::from_raw_parts(slice.as_ptr(), slice.len()) }
+                };
+
+                if let Some(buffer_keep) = &mut self.buffer_keep {
+                    buffer_keep.push(cursor);
+                } else {
+                    self.unmap_current();
+                }
+
+                // prevent mapping leaks
+                self.inner_mut().window = Some(MappedWindow {
+                    base: cursor,
+                    ptr: NonNull::new(slice_bytes.as_ptr() as *mut u8).unwrap(),
+                    len: slice_bytes.len(),
+                    access: MemoryAccess::Read,
+                });
+
+                debug_assert!(slice_bytes.as_ptr() as usize % core::mem::align_of::<T>() == 0);
+
+                let slice =
+                    unsafe { core::slice::from_raw_parts(slice_bytes.as_ptr() as *const T, len) };
+
+                if move_cursor {
+                    self.inner_mut().cursor += total_bytes;
+                }
+
+                Ok(slice)
+            }
+
+            /// Read a variable-length sequence of T from the stream and move the cursor.
+            ///
+            /// # Arguments
+            ///
+            /// * `callback` - The callback function to determine whether to continue reading.
+            ///
+            /// # Returns
+            ///
+            /// The full slice of `T` read from the stream.
+            pub fn read_unsized_slice<T>(
+                &mut self,
+                callback: impl FnMut(&T, usize) -> bool,
+            ) -> Result<&[T], MMUError> {
+                self.read_unsized_internal(callback, true)
+            }
+
+            /// Read a variable-length sequence of T from the stream without touching the cursor.
+            ///
+            /// # Arguments
+            ///
+            /// * `callback` - The callback function to determine whether to continue reading.
+            ///
+            /// # Returns
+            ///
+            /// The full slice of `T` read from the stream.
+            pub fn pread_unsized_slice<T>(
+                &mut self,
+                callback: impl FnMut(&T, usize) -> bool,
+            ) -> Result<&[T], MMUError> {
+                self.read_unsized_internal(callback, false)
+            }
+        }
+
+        impl Drop for $type<'_> {
+            fn drop(&mut self) {
+                self.sync();
+            }
+        }
+    };
+}
+
+impl_stream!(MemoryStream,
+    /// A read-only memory stream for efficient sequential memory access.
+    ///
+    /// `MemoryStream` provides read-only access to virtual memory through an MMU interface.
+    /// It supports both single-MMU and cross-MMU operations, automatic buffer management,
+    /// and type-safe memory access with proper alignment checking.
+);
+
+impl_stream!(MemoryStreamMut,
+    /// A read-write memory stream for efficient sequential memory access and modification.
+    ///
+    /// `MemoryStreamMut` extends `MemoryStream` with write capabilities, allowing both
+    /// reading from and writing to virtual memory. It maintains all the features of
+    /// `MemoryStream` while adding type-safe write operations.
+); // TODO: require mutable MMU to enforce RW rules
+
+impl<'a> MemoryStreamMut<'a> {
+    /// Internal method for writing slices with cursor movement control.
+    ///
+    /// # Arguments
+    ///
+    /// * `len` - The number of elements to write
+    /// * `move_cursor` - Whether to move the cursor after writing
+    ///
+    /// # Returns
+    ///
+    /// A mutable slice for writing data
+    #[inline]
+    fn write_slice_internal<T>(
+        &mut self,
+        len: usize,
+        move_cursor: bool,
+    ) -> Result<&mut [T], MMUError> {
+        let (mut ptr, len) = self.inspect_slice_internal(len, MemoryAccess::Write, move_cursor)?;
+        Ok(unsafe { core::slice::from_raw_parts_mut(ptr.as_mut(), len) })
+    }
+
+    /// Write a slice of `T` to the stream and move the cursor.
+    ///
+    /// # Arguments
+    ///
+    /// * `len` - The number of `T` to write.
+    ///
+    /// # Returns
+    ///
+    /// The mutable slice of `T` written to the stream.
+    pub fn write_slice<T>(&mut self, len: usize) -> Result<&mut [T], MMUError> {
+        self.write_slice_internal(len, true)
+    }
+
+    /// Write a slice of `T` to the stream without touching the cursor.
+    ///
+    /// # Arguments
+    ///
+    /// * `len` - The number of `T` to write.
+    ///
+    /// # Returns
+    ///
+    /// The mutable slice of `T` written to the stream.
+    pub fn pwrite_slice<T>(&mut self, len: usize) -> Result<&mut [T], MMUError> {
+        self.write_slice_internal(len, false)
+    }
+
+    /// Write a `T` to the stream and move the cursor.
+    ///
+    /// # Returns
+    ///
+    /// The mutable reference of `T` written to the stream.
+    #[inline]
+    pub fn write<T>(&mut self) -> Result<&mut T, MMUError> {
+        let r = self.write_slice_internal::<T>(1, true)?;
+        Ok(unsafe { r.get_unchecked_mut(0) })
+    }
+
+    /// Write a `T` to the stream without touching the cursor.
+    ///
+    /// # Returns
+    ///
+    /// The mutable reference of `T` written to the stream.
+    #[inline]
+    pub fn pwrite<T>(&mut self) -> Result<&mut T, MMUError> {
+        let r = self.write_slice_internal::<T>(1, false)?;
+        Ok(unsafe { r.get_unchecked_mut(0) })
+    }
+}
+
+/// Converts generic mapping flags to internal memory access representation.
+///
+/// This function translates MMU mapping flags into the internal `MemoryAccess`
+/// enum used for permission checking and buffer management.
+///
+/// # Arguments
+///
+/// * `flags` - The generic mapping flags from the MMU
+///
+/// # Returns
+///
+/// The corresponding `MemoryAccess` level
+#[inline(always)]
+const fn flags_to_access(flags: GenericMappingFlags) -> MemoryAccess {
+    let mut access = MemoryAccess::None;
+
+    if flags.contains(GenericMappingFlags::Readable) {
+        if flags.contains(GenericMappingFlags::Writable) {
+            access = MemoryAccess::Write;
+        } else {
+            access = MemoryAccess::Read;
+        }
+    }
+
+    access
+}
+
+/// Validates that the existing access level is sufficient for the required operation.
+///
+/// This function checks whether a memory region with existing access permissions
+/// can satisfy a requested access level. It returns an appropriate error if
+/// the permissions are insufficient.
+///
+/// # Arguments
+///
+/// * `vaddr` - The virtual address being accessed (for error reporting)
+/// * `existing` - The current access level available
+/// * `required` - The access level required for the operation
+///
+/// # Returns
+///
+/// `Ok(())` if access is sufficient, or an appropriate `MMUError` if not
+#[inline(always)]
+fn ensure_access(
+    vaddr: VirtualAddress,
+    existing: MemoryAccess,
+    required: MemoryAccess,
+) -> Result<(), MMUError> {
+    if required <= existing {
+        return Ok(());
+    }
+
+    if required == MemoryAccess::Write {
+        return Err(MMUError::PageNotWritable { vaddr });
+    }
+
+    if required == MemoryAccess::Read {
+        return Err(MMUError::PageNotReadable { vaddr });
+    }
+
+    unreachable!();
+}
+
+#[cfg(test)]
+mod tests {
+    use alloc::sync::Arc;
+    use allocation_abstractions::IFrameAllocator;
+    use core::mem::size_of;
+    use hermit_sync::SpinMutex;
+    use mmu_abstractions::{GenericMappingFlags, MMUError, PageSize};
+    use test_utilities::allocation::contiguous::TestFrameAllocator;
+    use utilities::InvokeOnDrop;
+
+    use super::*;
+
+    type Alloc = Arc<SpinMutex<dyn IFrameAllocator>>;
+    type Mmu = Arc<SpinMutex<dyn IMMU>>;
+
+    fn create_alloc_mmu() -> (Alloc, Mmu) {
+        TestFrameAllocator::new_with_mmu(1024 * 1024 * 1024) // 1 GB
+    }
+
+    // Helper: create a test memory scene with read/write mapping
+    fn test_scene(action: impl FnOnce(Arc<SpinMutex<dyn IMMU>>, VirtualAddress, usize)) {
+        let (alloc, mmu) = create_alloc_mmu();
+
+        let frames = alloc.lock().alloc_contiguous(10).unwrap();
+        let frames = InvokeOnDrop::transform(frames, |f| alloc.lock().dealloc_range(f));
+
+        let len = frames.end.as_usize() - frames.start.as_usize();
+
+        let page_size = len / 10;
+        let base = VirtualAddress::from_usize(0x10000);
+
+        for i in 0..10 {
+            mmu.lock()
+                .map_single(
+                    base + i * page_size,
+                    frames.start + i * page_size,
+                    PageSize::from(page_size),
+                    GenericMappingFlags::User
+                        | GenericMappingFlags::Readable
+                        | GenericMappingFlags::Writable,
+                )
+                .unwrap();
+        }
+
+        action(mmu, base, len)
+    }
+
+    // Helper: create a test memory scene with readonly mapping
+    fn test_scene_readonly(action: impl FnOnce(Arc<SpinMutex<dyn IMMU>>, VirtualAddress, usize)) {
+        let (alloc, mmu) = create_alloc_mmu();
+
+        let frames = alloc.lock().alloc_contiguous(10).unwrap();
+        let frames = InvokeOnDrop::transform(frames, |f| alloc.lock().dealloc_range(f));
+
+        let len = frames.end.as_usize() - frames.start.as_usize();
+
+        let page_size = len / 10;
+        let base = VirtualAddress::from_usize(0x10000);
+        for i in 0..10 {
+            mmu.lock()
+                .map_single(
+                    base + i * page_size,
+                    frames.start + i * page_size,
+                    PageSize::from(page_size),
+                    GenericMappingFlags::User | GenericMappingFlags::Readable,
+                )
+                .unwrap();
+        }
+
+        action(mmu, base, len)
+    }
+
+    #[test]
+    fn test_stream_creation() {
+        // Test stream creation and cursor initialization
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let stream = mmu.create_stream(base, false);
+            assert_eq!(stream.cursor(), base);
+
+            let stream_with_keep = mmu.create_stream(base, true);
+            assert_eq!(stream_with_keep.cursor(), base);
+        });
+    }
+
+    #[test]
+    fn test_cursor_operations() {
+        // Test skip and seek operations for the stream cursor
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let mut stream = mmu.create_stream(base, false);
+            assert_eq!(stream.cursor(), base);
+
+            let new_cursor = stream.skip(8);
+            assert_eq!(new_cursor, base + 8);
+            assert_eq!(stream.cursor(), base + 8);
+
+            let seek_cursor = stream.seek(Whence::Set(base + 16));
+            assert_eq!(seek_cursor, base + 16);
+            assert_eq!(stream.cursor(), base + 16);
+
+            let seek_cursor = stream.seek(Whence::Offset(-4));
+            assert_eq!(seek_cursor, base + 12);
+            assert_eq!(stream.cursor(), base + 12);
+
+            let seek_cursor = stream.seek(Whence::Offset(8));
+            assert_eq!(seek_cursor, base + 20);
+            assert_eq!(stream.cursor(), base + 20);
+        });
+    }
+
+    #[test]
+    fn test_basic_read() {
+        // Test basic read and pread for single value and slice
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            mmu.export::<i32>(base, 42).unwrap();
+
+            let mut stream = mmu.create_stream(base, false);
+
+            assert_eq!(stream.cursor(), base);
+
+            assert_eq!(*stream.pread::<i32>().unwrap(), 42);
+            assert_eq!(stream.cursor(), base);
+
+            assert_eq!(*stream.read::<i32>().unwrap(), 42);
+            assert_eq!(stream.cursor(), base + 4);
+
+            let next_val = *stream.pread::<i32>().unwrap();
+            let next_val_moved = *stream.read::<i32>().unwrap();
+
+            assert_eq!(next_val, next_val_moved);
+
+            stream.sync(); // Prevent overwriting the mapping
+
+            mmu.export::<[i32; 4]>(base, [42, 24, -42, -24]).unwrap();
+            assert_eq!(mmu.import::<[i32; 4]>(base).unwrap(), [42, 24, -42, -24]);
+
+            stream.seek(Whence::Set(base));
+            let result = stream.pread_slice::<i32>(4).unwrap();
+
+            assert_eq!(result, [42, 24, -42, -24]);
+
+            assert_eq!(stream.read_slice::<i32>(4).unwrap(), [42, 24, -42, -24]);
+        });
+    }
+
+    #[test]
+    fn test_read_different_types() {
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            // Arrange
+            mmu.export::<u8>(base, 0xAB).unwrap();
+            mmu.export::<u16>(base + 4, 0x1234).unwrap();
+            mmu.export::<u32>(base + 8, 0x12345678).unwrap();
+            mmu.export::<u64>(base + 16, 0x123456789ABCDEF0).unwrap();
+
+            let mut stream = mmu.create_stream(base, false);
+
+            assert_eq!(*stream.read::<u8>().unwrap(), 0xAB);
+
+            stream.seek(Whence::Set(base + 4));
+            assert_eq!(*stream.read::<u16>().unwrap(), 0x1234);
+
+            stream.seek(Whence::Set(base + 8));
+            assert_eq!(*stream.read::<u32>().unwrap(), 0x12345678);
+
+            stream.seek(Whence::Set(base + 16));
+            assert_eq!(*stream.read::<u64>().unwrap(), 0x123456789ABCDEF0);
+        });
+    }
+
+    #[test]
+    fn test_read_slice_various_sizes() {
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            // Arrange
+            let test_data: [i32; 8] = [1, 2, 3, 4, 5, 6, 7, 8];
+            mmu.export::<[i32; 8]>(base, test_data).unwrap();
+
+            let mut stream = mmu.create_stream(base, false);
+
+            assert_eq!(stream.read_slice::<i32>(1).unwrap(), [1]);
+
+            assert_eq!(stream.read_slice::<i32>(2).unwrap(), [2, 3]);
+            assert_eq!(stream.read_slice::<i32>(3).unwrap(), [4, 5, 6]);
+            assert_eq!(stream.read_slice::<i32>(2).unwrap(), [7, 8]);
+        });
+    }
+
+    #[test]
+    fn test_read_unsized() {
+        // Test reading unsized data (null-terminated and terminator-based)
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let test_string = b"Hello\0World\0Test\0";
+            mmu.write_bytes(base, test_string).unwrap();
+
+            let mut stream = mmu.create_stream(base, false);
+
+            let strings = stream
+                .read_unsized_slice::<u8>(|&byte, _| byte != 0)
+                .unwrap();
+            assert_eq!(strings, b"Hello");
+
+            stream.skip(1); // Skip the null terminator
+
+            let strings = stream
+                .read_unsized_slice::<u8>(|&byte, _| byte != 0)
+                .unwrap();
+            assert_eq!(strings, b"World");
+
+            stream.skip(1);
+
+            let strings = stream
+                .read_unsized_slice::<u8>(|&byte, _| byte != 0)
+                .unwrap();
+            assert_eq!(strings, b"Test");
+        });
+    }
+
+    #[test]
+    fn test_read_unsized_with_limit() {
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            // Arrange
+            let test_data: [i32; 5] = [1, 2, 3, 4, 5];
+            mmu.export::<[i32; 5]>(base, test_data).unwrap();
+
+            let mut stream = mmu.create_stream(base, false);
+
+            let mut count = 0;
+            let result = stream
+                .read_unsized_slice::<i32>(|&_val, _| {
+                    count += 1;
+                    count <= 3 // Read the first 3 elements
+                })
+                .unwrap();
+
+            assert_eq!(result, [1, 2, 3]);
+            assert_eq!(count, 4);
+        });
+    }
+
+    #[test]
+    fn test_cross_mmu_basic() {
+        let (alloc1, mmu1) = create_alloc_mmu();
+        let (alloc2, mmu2) = create_alloc_mmu();
+
+        let frames1 = alloc1.lock().alloc_contiguous(5).unwrap();
+        let frames1 = InvokeOnDrop::transform(frames1, |f| alloc1.lock().dealloc_range(f));
+        let frames2 = alloc2.lock().alloc_contiguous(5).unwrap();
+        let frames2 = InvokeOnDrop::transform(frames2, |f| alloc2.lock().dealloc_range(f));
+
+        let len1 = frames1.end.as_usize() - frames1.start.as_usize();
+        let len2 = frames2.end.as_usize() - frames2.start.as_usize();
+
+        let page_size1 = len1 / 5;
+        let page_size2 = len2 / 5;
+        let base1 = VirtualAddress::from_usize(0x10000);
+        let base2 = VirtualAddress::from_usize(0x20000);
+
+        for i in 0..5 {
+            mmu1.lock()
+                .map_single(
+                    base1 + i * page_size1,
+                    frames1.start + i * page_size1,
+                    PageSize::from(page_size1),
+                    GenericMappingFlags::User
+                        | GenericMappingFlags::Readable
+                        | GenericMappingFlags::Writable,
+                )
+                .unwrap();
+        }
+
+        for i in 0..5 {
+            mmu2.lock()
+                .map_single(
+                    base2 + i * page_size2,
+                    frames2.start + i * page_size2,
+                    PageSize::from(page_size2),
+                    GenericMappingFlags::User
+                        | GenericMappingFlags::Readable
+                        | GenericMappingFlags::Writable,
+                )
+                .unwrap();
+        }
+
+        mmu1.lock().export::<i32>(base1, 42).unwrap();
+
+        let mmu1_ref = mmu1.lock();
+        let mut mmu2_guard = mmu2.lock();
+        let mut stream = mmu2_guard.create_cross_stream(&*mmu1_ref, base1, false);
+
+        assert_eq!(*stream.read::<i32>().unwrap(), 42);
+    }
+
+    #[test]
+    fn test_misaligned_address() {
+        // Test reading from a misaligned address
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let mut stream = mmu.create_stream(base + 1, false);
+
+            let result = stream.read::<i32>();
+            assert!(matches!(result, Err(MMUError::MisalignedAddress)));
+        });
+    }
+
+    #[test]
+    fn test_read_only_memory() {
+        test_scene_readonly(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let result = mmu.export::<i32>(base, 42);
+            assert!(result.is_err()); // Should fail due to read-only mapping
+
+            let mut stream = mmu.create_stream(base, false);
+
+            let _val = stream.read::<i32>().unwrap();
+        });
+    }
+
+    #[test]
+    fn test_invalid_address() {
+        // Test reading from an invalid address
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let mut stream = mmu.create_stream(base, false);
+            stream.seek(Whence::Set(VirtualAddress::from_usize(0x10000000)));
+
+            let result = stream.read::<i32>();
+            assert!(matches!(result, Err(MMUError::InvalidAddress)));
+        });
+    }
+
+    #[test]
+    fn test_buffer_keep_functionality() {
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            // Arrange
+            let test_data: [i32; 4] = [1, 2, 3, 4];
+            mmu.export::<[i32; 4]>(base, test_data).unwrap();
+
+            let mut stream = mmu.create_stream(base, true);
+
+            let slice1 = stream.read_slice::<i32>(2).unwrap();
+            assert_eq!(slice1, [1, 2]);
+
+            stream.seek(Whence::Set(base + 8));
+            let slice2 = stream.read_slice::<i32>(2).unwrap();
+            assert_eq!(slice2, [3, 4]);
+        });
+    }
+
+    #[test]
+    fn test_buffer_keep_vs_no_keep() {
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let test_data: [i32; 4] = [1, 2, 3, 4];
+            mmu.export::<[i32; 4]>(base, test_data).unwrap();
+
+            // test with keep_buffer = false
+            {
+                let mut stream = mmu.create_stream(base, false);
+                let _slice1 = stream.read_slice::<i32>(2).unwrap();
+
+                stream.seek(Whence::Set(base + 8));
+                let _slice2 = stream.read_slice::<i32>(2).unwrap();
+            }
+
+            // test with keep_buffer = true
+            {
+                let mut stream = mmu.create_stream(base, true);
+                let _slice1 = stream.read_slice::<i32>(2).unwrap();
+
+                // Move to a different position, the buffer should be preserved
+                stream.seek(Whence::Set(base + 8));
+                // Since the buffer overlaps, this may fail, which is expected
+                let result2 = stream.read_slice::<i32>(2);
+
+                // If no error occurs, validate the data correctness
+                let slice = result2.unwrap();
+                assert_eq!(slice.len(), 2);
+            }
+        });
+    }
+
+    #[test]
+    fn test_window_reuse() {
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let test_data: [i32; 4] = [1, 2, 3, 4];
+            mmu.export::<[i32; 4]>(base, test_data).unwrap();
+
+            let mut stream = mmu.create_stream(base, false);
+
+            let slice1 = stream.pread_slice::<i32>(2).unwrap();
+            assert_eq!(slice1, [1, 2]);
+
+            let slice2 = stream.pread_slice::<i32>(2).unwrap();
+            assert_eq!(slice2, [1, 2]);
+
+            stream.seek(Whence::Offset(4));
+            let slice3 = stream.pread_slice::<i32>(2).unwrap();
+            assert_eq!(slice3, [2, 3]);
+        });
+    }
+
+    #[test]
+    fn test_window_remap() {
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let test_data: [i32; 8] = [1, 2, 3, 4, 5, 6, 7, 8];
+            mmu.export::<[i32; 8]>(base, test_data).unwrap();
+
+            let mut stream = mmu.create_stream(base, false);
+
+            let slice1 = stream.read_slice::<i32>(4).unwrap();
+            assert_eq!(slice1, [1, 2, 3, 4]);
+
+            stream.seek(Whence::Set(base + 16));
+            let slice2 = stream.read_slice::<i32>(4).unwrap();
+            assert_eq!(slice2, [5, 6, 7, 8]);
+        });
+    }
+
+    #[test]
+    fn test_empty_read() {
+        // Test reading zero elements returns empty slice
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+            let mut stream = mmu.create_stream(base, false);
+
+            let slice = stream.read_slice::<i32>(0).unwrap();
+            assert_eq!(slice.len(), 0);
+        });
+    }
+
+    #[test]
+    fn test_large_read() {
+        test_scene(|mmu, base, len| {
+            let mmu = mmu.lock();
+
+            let data_size = len / 4;
+            let mut test_data = alloc::vec![0i32; data_size];
+            for (i, val) in test_data.iter_mut().enumerate() {
+                *val = i as i32;
+            }
+
+            mmu.write_bytes(base, unsafe {
+                core::slice::from_raw_parts(
+                    test_data.as_ptr() as *const u8,
+                    test_data.len() * size_of::<i32>(),
+                )
+            })
+            .unwrap();
+
+            let mut stream = mmu.create_stream(base, false);
+
+            let slice = stream.read_slice::<i32>(data_size).unwrap();
+            assert_eq!(slice.len(), data_size);
+            for (i, val) in slice.iter().enumerate() {
+                assert_eq!(*val, i as i32);
+            }
+        });
+    }
+
+    #[test]
+    fn test_seek_boundaries() {
+        test_scene(|mmu, base, len| {
+            let mmu = mmu.lock();
+            let mut stream = mmu.create_stream(base, false);
+
+            // test seek to the end
+            let end_addr = base + len;
+            stream.seek(Whence::Set(end_addr - 4));
+            assert_eq!(stream.cursor(), end_addr - 4);
+
+            // test reading the last element
+            let result = stream.read::<i32>();
+            assert!(result.is_ok());
+
+            let result = stream.read::<i32>();
+            assert!(result.is_err());
+
+            // try read invalid address
+            stream.seek(Whence::Set(end_addr));
+            let result = stream.read::<i32>();
+            assert!(matches!(result, Err(MMUError::InvalidAddress)));
+        });
+    }
+
+    #[test]
+    fn test_consecutive_reads() {
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let _test_data: [i32; 100] = {
+                let mut data = [0i32; 100];
+                for (i, val) in data.iter_mut().enumerate() {
+                    *val = i as i32;
+                }
+                data
+            };
+
+            for i in 0..100 {
+                mmu.export::<i32>(base + i * 4, i as i32).unwrap();
+            }
+
+            // Assert that the data is correctly written
+            for i in 0..10 {
+                let val = mmu.import::<i32>(base + i * 4).unwrap();
+                assert_eq!(val, i as i32);
+            }
+
+            let mut stream = mmu.create_stream(base, false);
+
+            for i in 0..100 {
+                let val = *stream.read::<i32>().unwrap();
+                assert_eq!(val, i);
+            }
+        });
+    }
+
+    #[test]
+    fn test_mixed_read_operations() {
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let test_data: [i32; 10] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+            mmu.export::<[i32; 10]>(base, test_data).unwrap();
+
+            let mut stream = mmu.create_stream(base, false);
+
+            assert_eq!(*stream.read::<i32>().unwrap(), 1);
+            assert_eq!(stream.read_slice::<i32>(3).unwrap(), [2, 3, 4]);
+            assert_eq!(*stream.read::<i32>().unwrap(), 5);
+            assert_eq!(stream.read_slice::<i32>(2).unwrap(), [6, 7]);
+            assert_eq!(*stream.read::<i32>().unwrap(), 8);
+            assert_eq!(stream.read_slice::<i32>(2).unwrap(), [9, 10]);
+        });
+    }
+
+    // MemoryStreamMut Write Tests
+
+    #[test]
+    fn test_memory_stream_mut_creation() {
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let stream = mmu.create_stream_mut(base, false);
+            assert_eq!(stream.cursor(), base);
+            drop(stream);
+
+            let stream_with_keep = mmu.create_stream_mut(base, true);
+            assert_eq!(stream_with_keep.cursor(), base);
+        });
+    }
+
+    #[test]
+    fn test_basic_write() {
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let mut stream = mmu.create_stream_mut(base, false);
+
+            // Test write single value
+            *stream.write::<i32>().unwrap() = 42;
+            assert_eq!(stream.cursor(), base + 4);
+
+            // Reset cursor and test pwrite (doesn't move cursor)
+            stream.seek(Whence::Set(base));
+            *stream.pwrite::<i32>().unwrap() = 24;
+            assert_eq!(stream.cursor(), base);
+
+            // Verify immediate read works
+            let read_val = *stream.read::<i32>().unwrap();
+            assert_eq!(read_val, 24);
+
+            // Write another value and read it
+            *stream.write::<i32>().unwrap() = 99;
+            stream.seek(Whence::Set(base + 4));
+            let read_val2 = *stream.read::<i32>().unwrap();
+            assert_eq!(read_val2, 99);
+        });
+    }
+
+    #[test]
+    fn test_write_slice() {
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let mut stream = mmu.create_stream_mut(base, false);
+
+            // Test write slice
+            let slice = stream.write_slice::<i32>(4).unwrap();
+            slice[0] = 1;
+            slice[1] = 2;
+            slice[2] = 3;
+            slice[3] = 4;
+
+            assert_eq!(stream.cursor(), base + 16);
+
+            // Test pwrite slice (doesn't move cursor)
+            stream.seek(Whence::Set(base + 16));
+            let slice2 = stream.pwrite_slice::<i32>(2).unwrap();
+            slice2[0] = 5;
+            slice2[1] = 6;
+            assert_eq!(stream.cursor(), base + 16);
+
+            // Verify the written values by reading them back
+            stream.seek(Whence::Set(base));
+            let read_slice = stream.read_slice::<i32>(4).unwrap();
+            assert_eq!(read_slice, [1, 2, 3, 4]);
+
+            stream.seek(Whence::Set(base + 16));
+            let read_slice2 = stream.read_slice::<i32>(2).unwrap();
+            assert_eq!(read_slice2, [5, 6]);
+        });
+    }
+
+    #[test]
+    fn test_write_different_types() {
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let mut stream = mmu.create_stream_mut(base, false);
+
+            // Write different types
+            *stream.write::<u8>().unwrap() = 0xAB;
+
+            stream.seek(Whence::Set(base + 4));
+            *stream.write::<u16>().unwrap() = 0x1234;
+
+            stream.seek(Whence::Set(base + 8));
+            *stream.write::<u32>().unwrap() = 0x12345678;
+
+            stream.seek(Whence::Set(base + 16));
+            *stream.write::<u64>().unwrap() = 0x123456789ABCDEF0;
+
+            // Verify the written values by reading them back
+            stream.seek(Whence::Set(base));
+            assert_eq!(*stream.read::<u8>().unwrap(), 0xAB);
+
+            stream.seek(Whence::Set(base + 4));
+            assert_eq!(*stream.read::<u16>().unwrap(), 0x1234);
+
+            stream.seek(Whence::Set(base + 8));
+            assert_eq!(*stream.read::<u32>().unwrap(), 0x12345678);
+
+            stream.seek(Whence::Set(base + 16));
+            assert_eq!(*stream.read::<u64>().unwrap(), 0x123456789ABCDEF0);
+        });
+    }
+    #[test]
+    fn test_write_and_read_mixed() {
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let mut stream = mmu.create_stream_mut(base, false);
+
+            // Write some data
+            let write_slice = stream.write_slice::<i32>(4).unwrap();
+            write_slice[0] = 10;
+            write_slice[1] = 20;
+            write_slice[2] = 30;
+            write_slice[3] = 40;
+
+            // Read back the data using the same stream (should work since MemoryStreamMut supports read)
+            stream.seek(Whence::Set(base));
+            let read_slice = stream.read_slice::<i32>(4).unwrap();
+            assert_eq!(read_slice, [10, 20, 30, 40]);
+
+            // Test individual read/write operations
+            stream.seek(Whence::Set(base));
+            assert_eq!(*stream.read::<i32>().unwrap(), 10);
+            *stream.write::<i32>().unwrap() = 100;
+
+            stream.seek(Whence::Set(base + 4));
+            assert_eq!(*stream.read::<i32>().unwrap(), 100);
+        });
+    }
+
+    #[test]
+    fn test_write_large_data() {
+        test_scene(|mmu, base, len| {
+            let mmu = mmu.lock();
+
+            let data_size = (len / 4).min(1000); // Limit to reasonable size
+            let mut stream = mmu.create_stream_mut(base, false);
+
+            // Write large amount of data
+            let slice = stream.write_slice::<i32>(data_size).unwrap();
+            for (i, val) in slice.iter_mut().enumerate() {
+                *val = i as i32;
+            }
+
+            // Verify the data by reading it back
+            stream.seek(Whence::Set(base));
+            let read_slice = stream.read_slice::<i32>(data_size).unwrap();
+            for (i, val) in read_slice.iter().enumerate() {
+                assert_eq!(*val, i as i32);
+            }
+        });
+    }
+
+    #[test]
+    fn test_write_empty_slice() {
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let mut stream = mmu.create_stream_mut(base, false);
+
+            // Write empty slice should succeed
+            let slice = stream.write_slice::<i32>(0).unwrap();
+            assert_eq!(slice.len(), 0);
+            assert_eq!(stream.cursor(), base); // Cursor shouldn't move
+
+            // pwrite empty slice should also succeed
+            let slice2 = stream.pwrite_slice::<i32>(0).unwrap();
+            assert_eq!(slice2.len(), 0);
+            assert_eq!(stream.cursor(), base);
+        });
+    }
+
+    #[test]
+    fn test_write_misaligned_address() {
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let mut stream = mmu.create_stream_mut(base + 1, false);
+
+            // Writing to misaligned address should fail
+            let result = stream.write::<i32>();
+            assert!(matches!(result, Err(MMUError::MisalignedAddress)));
+
+            let result = stream.write_slice::<i32>(1);
+            assert!(matches!(result, Err(MMUError::MisalignedAddress)));
+        });
+    }
+
+    #[test]
+    fn test_write_readonly_memory() {
+        test_scene_readonly(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let mut stream = mmu.create_stream_mut(base, false);
+
+            // Writing to read-only memory should fail
+            let result = stream.write::<i32>();
+            assert!(matches!(result, Err(MMUError::PageNotWritable { .. })));
+
+            let result = stream.write_slice::<i32>(1);
+            assert!(matches!(result, Err(MMUError::PageNotWritable { .. })));
+        });
+    }
+
+    #[test]
+    fn test_write_invalid_address() {
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let mut stream = mmu.create_stream_mut(base, false);
+
+            // Seek to invalid address
+            stream.seek(Whence::Set(VirtualAddress::from_usize(0x10000000)));
+
+            let result = stream.write::<i32>();
+            assert!(matches!(result, Err(MMUError::InvalidAddress)));
+        });
+    }
+
+    #[test]
+    fn test_write_buffer_keep_functionality() {
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let mut stream = mmu.create_stream_mut(base, true);
+
+            // Write data in multiple chunks
+            let slice1 = stream.write_slice::<i32>(2).unwrap();
+            slice1[0] = 1;
+            slice1[1] = 2;
+
+            stream.seek(Whence::Set(base + 8));
+            let slice2 = stream.write_slice::<i32>(2).unwrap();
+            slice2[0] = 3;
+            slice2[1] = 4;
+
+            // Verify data by reading back
+            stream.seek(Whence::Set(base));
+            let read_slice1 = stream.read_slice::<i32>(2).unwrap();
+            assert_eq!(read_slice1, [1, 2]);
+
+            stream.seek(Whence::Set(base + 8));
+            let read_slice2 = stream.read_slice::<i32>(2).unwrap();
+            assert_eq!(read_slice2, [3, 4]);
+        });
+    }
+
+    #[test]
+    fn test_cross_mmu_write() {
+        let (alloc1, mmu1) = create_alloc_mmu();
+        let (alloc2, mmu2) = create_alloc_mmu();
+
+        let frames1 = alloc1.lock().alloc_contiguous(5).unwrap();
+        let frames1 = InvokeOnDrop::transform(frames1, |f| alloc1.lock().dealloc_range(f));
+        let frames2 = alloc2.lock().alloc_contiguous(5).unwrap();
+        let frames2 = InvokeOnDrop::transform(frames2, |f| alloc2.lock().dealloc_range(f));
+
+        let len1 = frames1.end.as_usize() - frames1.start.as_usize();
+        let len2 = frames2.end.as_usize() - frames2.start.as_usize();
+
+        let page_size1 = len1 / 5;
+        let page_size2 = len2 / 5;
+        let base1 = VirtualAddress::from_usize(0x10000);
+        let base2 = VirtualAddress::from_usize(0x20000);
+
+        for i in 0..5 {
+            mmu1.lock()
+                .map_single(
+                    base1 + i * page_size1,
+                    frames1.start + i * page_size1,
+                    PageSize::from(page_size1),
+                    GenericMappingFlags::User
+                        | GenericMappingFlags::Readable
+                        | GenericMappingFlags::Writable,
+                )
+                .unwrap();
+        }
+
+        for i in 0..5 {
+            mmu2.lock()
+                .map_single(
+                    base2 + i * page_size2,
+                    frames2.start + i * page_size2,
+                    PageSize::from(page_size2),
+                    GenericMappingFlags::User
+                        | GenericMappingFlags::Readable
+                        | GenericMappingFlags::Writable,
+                )
+                .unwrap();
+        }
+
+        // Write to mmu1 memory via mmu2 (cross-MMU write)
+        let mmu1_ref = mmu1.lock();
+        let mut mmu2_guard = mmu2.lock();
+        let mut stream = mmu2_guard.create_cross_stream_mut(&*mmu1_ref, base1, false);
+
+        *stream.write::<i32>().unwrap() = 42;
+
+        // Verify the write
+        stream.sync();
+        drop(stream);
+        drop(mmu2_guard);
+        assert_eq!(mmu1_ref.import::<i32>(base1).unwrap(), 42);
+    }
+
+    #[test]
+    fn test_consecutive_writes() {
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            {
+                let mut stream = mmu.create_stream_mut(base, false);
+
+                // Write consecutive values
+                for i in 0..100 {
+                    *stream.write::<i32>().unwrap() = i;
+                }
+            }
+
+            // Verify the written data after dropping the stream
+            for i in 0..100 {
+                let val = mmu.import::<i32>(base + i * 4).unwrap();
+                assert_eq!(val, i as i32);
+            }
+        });
+    }
+
+    #[test]
+    fn test_mixed_write_operations() {
+        test_scene(|mmu, base, _len| {
+            let mmu = mmu.lock();
+
+            let mut stream = mmu.create_stream_mut(base, false);
+
+            // Mix different write operations
+            *stream.write::<i32>().unwrap() = 1;
+
+            let slice = stream.write_slice::<i32>(3).unwrap();
+            slice[0] = 2;
+            slice[1] = 3;
+            slice[2] = 4;
+
+            *stream.write::<i32>().unwrap() = 5;
+
+            let slice2 = stream.write_slice::<i32>(2).unwrap();
+            slice2[0] = 6;
+            slice2[1] = 7;
+
+            *stream.write::<i32>().unwrap() = 8;
+
+            let slice3 = stream.write_slice::<i32>(2).unwrap();
+            slice3[0] = 9;
+            slice3[1] = 10;
+
+            // Verify all the data
+            stream.seek(Whence::Set(base));
+            let result = stream.read_slice::<i32>(10).unwrap();
+            assert_eq!(result, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+        });
+    }
+}
