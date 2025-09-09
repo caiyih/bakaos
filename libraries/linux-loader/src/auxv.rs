@@ -1,7 +1,21 @@
+//! Auxiliary Vector related types
+
 use core::ops::{Deref, DerefMut};
 
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 
+/// Represents a key value pair collection of auxiliary vector entries.
+/// It provides methods for inserting and retrieving auxiliary vector entries.
+/// 
+/// # Examples
+///
+/// ```
+/// let mut aux = AuxVec::new();
+/// aux.insert(AuxVecKey::AT_ENTRY, 0x1000);
+/// aux.insert(AuxVecKey::AT_NULL, 0);
+/// assert_eq!(aux.get(&AuxVecKey::AT_ENTRY), Some(&0x1000));
+/// assert_eq!(aux.get(&AuxVecKey::AT_NULL), Some(&0));
+/// ```
 #[derive(Debug, Default, Clone)]
 pub struct AuxVec {
     map: BTreeMap<AuxVecKey, usize>,
@@ -82,6 +96,21 @@ impl DerefMut for AuxVec {
     }
 }
 
+/// Represents an auxiliary vector entry key.
+///
+/// The `AuxVecKey` enum defines the keys used in the auxiliary vector,
+/// which is a collection of key-value pairs passed to a new process by the kernel.
+///
+/// # Examples
+///
+/// ```
+/// let key = AuxVecKey::AT_ENTRY;
+/// assert_eq!(key as usize, 9);
+/// ```
+///
+/// # See Also
+///
+/// - [getauxval](https://man7.org/linux/man-pages/man3/getauxval.3.html)
 #[repr(usize)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[allow(non_camel_case_types)]
@@ -156,6 +185,7 @@ impl AuxVecEntry {
     }
 }
 
+/// Some common auxiliary vector values set by the kernel.
 #[derive(Debug, Default, Clone)]
 pub struct AuxVecValues<'a> {
     pub random: Option<[u8; 16]>,
