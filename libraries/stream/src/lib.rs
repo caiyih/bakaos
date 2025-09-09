@@ -166,13 +166,13 @@ macro_rules! impl_stream {
             ///   will be unmap when the stream is dropped.
             pub fn new_cross(
                 mmu: &'a mut dyn IMMU,
-                cross: &'a dyn IMMU,
+                src: &'a dyn IMMU,
                 cursor: VirtualAddress,
                 keep_buffer: bool,
             ) -> Self {
                 let mmu = MmuComposition::Cross {
                     mmu: UnsafeCell::new(mmu),
-                    src: cross,
+                    src,
                 };
 
                 Self {
