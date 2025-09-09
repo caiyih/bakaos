@@ -333,6 +333,7 @@ macro_rules! impl_stream {
                 }
 
                 let slice = match self.check_full_range(cursor, bytes, MemoryAccess::Read)? {
+                    WindowCheckResult::Reuse if len == 0 => &[],
                     WindowCheckResult::Reuse => {
                         let window = self.inner().window.as_ref().unwrap();
 
@@ -348,16 +349,11 @@ macro_rules! impl_stream {
                             _ => (),
                         }
 
-                        #[allow(deprecated)]
-                        let s = self.mmu_map_buffer(base, size.as_usize())?;
-                        let t_ptr = s.as_ptr() as *const T;
+                        let size = size.as_usize();
 
-                        self.inner_mut().window = Some(MappedWindow {
-                            base: self.inner().cursor,
-                            ptr: NonNull::new(s.as_ptr() as *mut u8).unwrap(),
-                            len: s.len(),
-                            access,
-                        });
+                        #[allow(deprecated)]
+                        let s = self.mmu_map_buffer(base, size)?;
+                        let t_ptr = s.as_ptr() as *const T;
 
                         if let Some(buffer_keep) = &mut self.buffer_keep {
                             buffer_keep.push(cursor);
@@ -365,7 +361,19 @@ macro_rules! impl_stream {
                             self.unmap_current();
                         }
 
-                        unsafe { core::slice::from_raw_parts(t_ptr, len) }
+                        self.inner_mut().window = Some(MappedWindow {
+                            base,
+                            ptr: NonNull::new(t_ptr as *mut u8).unwrap(),
+                            len: size,
+                            access,
+                        });
+
+                        // The mapped buffer may be the whole page,
+                        // so we need to calculate the offset.
+                        let idx = (self.cursor().as_usize() - base.as_usize())
+                            / core::mem::size_of::<T>();
+
+                        unsafe { core::slice::from_raw_parts(t_ptr.add(idx), len) }
                     }
                 };
 
