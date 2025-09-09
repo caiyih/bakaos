@@ -314,9 +314,8 @@ impl IMMU for TestMMU {
 
         let slice = mem.slice_mut();
 
-        mapped.insert(vaddr, mem);
-
         self.read_bytes(vaddr, slice)?;
+        mapped.insert(vaddr, mem);
 
         Ok(slice)
     }
@@ -336,10 +335,10 @@ impl IMMU for TestMMU {
 
         let slice = mem.slice_mut();
 
-        mapped.insert(vaddr, mem);
-
         // TODO: Check if the permission matches force_mut
         self.read_bytes(vaddr, slice)?;
+
+        mapped.insert(vaddr, mem);
 
         Ok(slice)
     }
