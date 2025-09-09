@@ -2,7 +2,7 @@ use abstractions::IUsizeAlias;
 use address::VirtualAddress;
 use constants::ErrNo;
 use linux_loader::auxv::AuxVecValues;
-use linux_loader::{ILoadExecutable, LinuxLoader, ProcessContext};
+use linux_loader::{IExecSource, LinuxLoader, ProcessContext};
 use platform_specific::ITaskContext;
 use platform_specific::TaskTrapContext;
 use task_abstractions::status::TaskStatus;
@@ -30,7 +30,7 @@ impl SyscallContext {
     /// the loader (FIXME). Auxv values are also supplied as defaults (TODO: populate machine info).
     ///
     /// Parameters:
-    /// - `executable`: an object implementing `ILoadExecutable` that provides the raw executable bytes.
+    /// - `executable`: an object implementing `IExecSource` that provides the raw executable bytes.
     /// - `pathname`: the path string used for loader semantics and /proc visibility.
     /// - `argv`: program arguments (currently not forwarded to the loader).
     /// - `envp`: environment variables (currently not forwarded to the loader).
@@ -52,7 +52,7 @@ impl SyscallContext {
     #[expect(unused)]
     fn sys_execve_internal(
         &self,
-        executable: impl ILoadExecutable,
+        executable: impl IExecSource,
         pathname: &str,
         argv: &[&str],
         envp: &[&str],
