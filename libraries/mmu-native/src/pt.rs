@@ -384,7 +384,7 @@ impl<Arch: IPageTableArchAttribute + 'static, PTE: IArchPageTableEntry + 'static
         let mut phys = Vec::new();
 
         loop {
-            let (phy, permission, sz) = source.query_virtual(vaddr).map_err(|e| e.into())?;
+            let (phy, permission, sz) = source.query_virtual(checking).map_err(|e| e.into())?;
 
             ensure_permission(vaddr, permission, false)?;
             phys.push((phy, sz));
@@ -413,7 +413,10 @@ impl<Arch: IPageTableArchAttribute + 'static, PTE: IArchPageTableEntry + 'static
                 }
 
                 return Ok(unsafe {
-                    core::slice::from_raw_parts(vaddr.as_ptr::<u8>().add(page_offset), len)
+                    core::slice::from_raw_parts(
+                        vaddr.as_ptr::<u8>().add(slice_offset.unwrap()),
+                        len,
+                    )
                 });
             }
 
