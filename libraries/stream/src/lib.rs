@@ -259,8 +259,10 @@ macro_rules! impl_stream {
                         unsafe { core::slice::from_raw_parts(ptr, len) }
                     }
                     WindowCheckResult::Remap(access, base, size, overlaps) => {
-                        if overlaps {
-                            self.unmap_current();
+                        match (overlaps, self.buffer_keep.is_some()) {
+                            (true, true) => return Err(MMUError::Borrowed),
+                            (true, false) => self.unmap_current(),
+                            _ => (),
                         }
 
                         #[allow(deprecated)]
