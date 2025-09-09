@@ -185,6 +185,23 @@ macro_rules! impl_stream {
                 }
             }
 
+            #[inline]
+            #[allow(clippy::mut_from_ref)]
+            fn mmu_map_buffer_mut(
+                &self,
+                cursor: VirtualAddress,
+                len: usize,
+            ) -> Result<&mut [u8], MMUError> {
+                match &self.mmu {
+                    #[allow(deprecated)]
+                    MmuComposition::Single(mmu) => mmu.map_buffer_mut_internal(cursor, len, false),
+                    MmuComposition::Cross { mmu, ref src } => {
+                        let mmu = unsafe { mmu.get().as_mut().unwrap() };
+                        mmu.map_cross_mut_internal(*src, cursor, len)
+                    }
+                }
+            }
+
             #[inline(always)]
             fn inner(&self) -> &MemoryWindow {
                 unsafe { self.inner.get().as_ref().unwrap() }
@@ -231,19 +248,32 @@ macro_rules! impl_stream {
             pub fn sync(&mut self) {
                 if let Some(mut buffer_keep) = core::mem::take(&mut self.buffer_keep) {
                     while let Some(cursor) = buffer_keep.pop() {
-                        self.source().unmap_buffer(cursor);
+                        self.unmap(cursor);
                     }
                 } else {
                     self.unmap_current();
                 }
             }
 
-            fn unmap_current(&self) {
-                if let Some(window) = self.inner_mut().window.take() {
-                    self.source().unmap_buffer(window.base);
+            #[inline]
+            fn unmap(&self, vaddr: VirtualAddress) {
+                match self.mmu {
+                    MmuComposition::Single(mmu) => mmu.unmap_buffer(vaddr),
+                    MmuComposition::Cross { ref mmu, src } => {
+                        let mmu = unsafe { mmu.get().as_mut().unwrap() };
+                        mmu.unmap_cross(src, vaddr);
+                    }
                 }
             }
 
+            #[inline]
+            fn unmap_current(&self) {
+                if let Some(window) = self.inner_mut().window.take() {
+                    self.unmap(window.base);
+                }
+            }
+
+            #[inline]
             fn check_full_range(
                 &self,
                 start: VirtualAddress,
@@ -354,7 +384,11 @@ macro_rules! impl_stream {
                         let size = size.as_usize();
 
                         #[allow(deprecated)]
-                        let s = self.mmu_map_buffer(base, size)?;
+                        let s = match access {
+                            MemoryAccess::Read => self.mmu_map_buffer(base, size)?,
+                            MemoryAccess::Write => self.mmu_map_buffer_mut(base, size)?,
+                            _ => unreachable!(),
+                        };
                         let ptr = s.as_ptr() as *mut u8;
 
                         if let Some(buffer_keep) = &mut self.buffer_keep {
@@ -831,10 +865,10 @@ mod tests {
 
             assert_eq!(next_val, next_val_moved);
 
+            stream.sync(); // Prevent overwriting the mapping
+
             mmu.export::<[i32; 4]>(base, [42, 24, -42, -24]).unwrap();
             assert_eq!(mmu.import::<[i32; 4]>(base).unwrap(), [42, 24, -42, -24]);
-
-            stream.sync(); // We've accessed the memory without this MemoryStream
 
             stream.seek(Whence::Set(base));
             let result = stream.pread_slice::<i32>(4).unwrap();
