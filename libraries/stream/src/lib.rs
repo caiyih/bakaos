@@ -88,12 +88,6 @@ struct MappedWindow {
     access: MemoryAccess,
 }
 
-pub struct MemoryStream<'a> {
-    mmu: MmuComposition<'a>,
-    inner: UnsafeCell<MemoryWindow>,
-    buffer_keep: Option<Vec<VirtualAddress>>,
-}
-
 enum MmuComposition<'a> {
     Single(&'a dyn IMMU),
     Cross {
@@ -104,6 +98,12 @@ enum MmuComposition<'a> {
 
 macro_rules! impl_stream {
     ($type:tt) => {
+        pub struct $type<'a> {
+            mmu: MmuComposition<'a>,
+            inner: UnsafeCell<MemoryWindow>,
+            buffer_keep: Option<Vec<VirtualAddress>>,
+        }
+
         impl<'a> $type<'a> {
             /// Create a new memory stream reader.
             ///
