@@ -362,6 +362,8 @@ macro_rules! impl_stream {
 
                 let total_bytes = len * size;
 
+                // FIXME: checks if there's overlap with existing window
+
                 #[allow(deprecated)]
                 let slice_bytes = self.mmu.map_buffer_internal(cursor, total_bytes)?;
 
@@ -370,6 +372,14 @@ macro_rules! impl_stream {
                 } else {
                     self.unmap_current();
                 }
+
+                // prevent mapping leaks
+                self.inner_mut().window = Some(MappedWindow {
+                    base: cursor,
+                    ptr: NonNull::new(slice_bytes.as_ptr() as *mut u8).unwrap(),
+                    len: slice_bytes.len(),
+                    access: MemoryAccess::Read,
+                });
 
                 if (slice_bytes.as_ptr() as usize) % core::mem::align_of::<T>() != 0 {
                     return Err(MMUError::MisalignedAddress);
