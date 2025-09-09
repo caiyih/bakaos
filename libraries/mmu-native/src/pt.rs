@@ -399,7 +399,7 @@ impl<Arch: IPageTableArchAttribute + 'static, PTE: IArchPageTableEntry + 'static
             // align to page size
             checking -= page_offset;
 
-            if checking + sz > end {
+            if checking + sz >= end {
                 let vaddr = *window.deref();
                 window.cancel(); // prevent drop
 
@@ -453,7 +453,7 @@ impl<Arch: IPageTableArchAttribute + 'static, PTE: IArchPageTableEntry + 'static
         loop {
             let (phy, permission, sz) = source.query_virtual(vaddr).map_err(|e| e.into())?;
 
-            ensure_permission(vaddr, permission, false)?;
+            ensure_permission(vaddr, permission, true)?;
             phys.push((phy, sz));
 
             let page_offset = vaddr.as_usize() % sz.as_usize();
@@ -466,7 +466,7 @@ impl<Arch: IPageTableArchAttribute + 'static, PTE: IArchPageTableEntry + 'static
             // align to page size
             checking -= page_offset;
 
-            if checking + sz > end {
+            if checking + sz >= end {
                 let vaddr = *window.deref();
                 window.cancel(); // prevent drop
 
