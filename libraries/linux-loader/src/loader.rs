@@ -380,21 +380,36 @@ impl<'a> LinuxLoader<'a> {
     }
 }
 
+/// The error type for the `LinuxLoader`'s `load` methods.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LoadError {
+    /// The given file can not be parsed as an executable.
     NotExecutable,
+    /// The executable is not compatible with the current operating system.
     OsMismatch,
+    /// The executable is not compatible with the current architecture.
     ArchMismatch,
+    /// The kernel ran out of memory.
     InsufficientMemory,
+    /// Error occurred while reading the executable.
     UnableToReadExecutable,
+    /// Memory management units failed to load the executable.
     FailedToLoad,
+    /// The executable is incomplete.
     IncompleteExecutable,
+    /// The executable is too large.
     TooLarge,
+    /// The executable requires an interpreter, but it can not be found.
     CanNotFindInterpreter,
+    /// The shebang string is invalid.
     InvalidShebangString,
+    /// The executable is not a valid ELF executable.
     NotElf,
+    /// The executable is not a valid shebang executable.
     NotShebang,
+    /// The required argument count is exceeded.
     ArgumentCountExceeded,
+    /// The required environment variable count is exceeded.
     EnvironmentCountExceeded,
 }
 
