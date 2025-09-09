@@ -320,7 +320,8 @@ macro_rules! impl_stream {
             ///
             /// * `len` - The number of `T` to read.
             /// * `move_cursor` - Whether to move the cursor after reading.
-            pub fn read_slice<T>(
+            #[inline]
+            fn read_slice_internal<T>(
                 &mut self,
                 len: usize,
                 move_cursor: bool,
@@ -384,18 +385,59 @@ macro_rules! impl_stream {
                 Ok(slice)
             }
 
-            /// Read a `T` from the stream.
+            /// Read a slice of `T` from the stream, and move the cursor.
             ///
             /// # Arguments
             ///
-            /// * `move_cursor` - Whether to move the cursor after reading.
+            /// * `len` - The number of `T` to read.
+            ///
+            /// # Returns
+            ///
+            /// The full slice of `T` read from the stream.
+            pub fn read_slice<T>(&mut self, len: usize) -> Result<&[T], MMUError> {
+                self.read_slice_internal(len, true)
+            }
+
+            /// Read a slice of `T` from the stream, without touching the cursor.
+            ///
+            /// # Arguments
+            ///
+            /// * `len` - The number of `T` to read.
+            ///
+            /// # Returns
+            ///
+            /// The full slice of `T` read from the stream.
+            pub fn pread_slice<T>(&mut self, len: usize) -> Result<&[T], MMUError> {
+                self.read_slice_internal(len, false)
+            }
+
+            /// Read a `T` from the stream and move the cursor.
+            ///
+            /// # Returns
+            ///
+            /// The reference to `T` read from the stream.
             ///
             /// # Remarks
             ///
             /// Note that the returned references may not be continuously if you call this method in a row.
             #[inline]
-            pub fn read<T>(&mut self, move_cursor: bool) -> Result<&T, MMUError> {
-                let r = self.read_slice::<T>(1, move_cursor)?;
+            pub fn read<T>(&mut self) -> Result<&T, MMUError> {
+                let r = self.read_slice_internal::<T>(1, true)?;
+                Ok(unsafe { r.get_unchecked(0) })
+            }
+
+            /// Read a `T` from the stream without touching the cursor.
+            ///
+            /// # Returns
+            ///
+            /// The reference to `T` read from the stream.
+            ///
+            /// # Remarks
+            ///
+            /// Note that the returned reference may not be continuously if you call this method in a row.
+            #[inline]
+            pub fn pread<T>(&mut self) -> Result<&T, MMUError> {
+                let r = self.read_slice_internal::<T>(1, false)?;
                 Ok(unsafe { r.get_unchecked(0) })
             }
 
@@ -409,7 +451,8 @@ macro_rules! impl_stream {
             /// # Returns
             ///
             /// The full slice of `T` read from the stream.
-            pub fn read_unsized<T>(
+            #[inline]
+            fn read_unsized_internal<T>(
                 &mut self,
                 mut callback: impl FnMut(&T, usize) -> bool,
                 move_cursor: bool,
@@ -496,6 +539,38 @@ macro_rules! impl_stream {
                 }
 
                 Ok(slice)
+            }
+
+            /// Read a unsized type from the stream.
+            ///
+            /// # Arguments
+            ///
+            /// * `callback` - The callback function to determine whether to continue reading.
+            ///
+            /// # Returns
+            ///
+            /// The full slice of `T` read from the stream.
+            pub fn read_unsized_slice<T>(
+                &mut self,
+                callback: impl FnMut(&T, usize) -> bool,
+            ) -> Result<&[T], MMUError> {
+                self.read_unsized_internal(callback, true)
+            }
+
+            /// Read a unsized type from the stream without touching the cursor.
+            ///
+            /// # Arguments
+            ///
+            /// * `callback` - The callback function to determine whether to continue reading.
+            ///
+            /// # Returns
+            ///
+            /// The full slice of `T` read from the stream.
+            pub fn pread_unsized_slice<T>(
+                &mut self,
+                callback: impl FnMut(&T, usize) -> bool,
+            ) -> Result<&[T], MMUError> {
+                self.read_unsized_internal(callback, false)
             }
         }
 
