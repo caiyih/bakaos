@@ -289,7 +289,7 @@ impl<'a> LinuxLoader<'a> {
 
             // Ensure that start address of copied PLATFORM is aligned to 8 bytes
             loader.seek(Whence::Offset(-(len as isize)));
-            loader.ensure_alignment::<usize>();
+            loader.ensure_alignment::<u64>(); // 8 bytes alignment
             loader.seek(Whence::Offset(len as isize));
 
             loader.push(0u8); // ensure null termination
