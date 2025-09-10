@@ -258,7 +258,7 @@ impl<'a> LinuxLoader<'a> {
         let mut envps = Vec::new(); // envp pointers
 
         // Step1: Copy envp strings vector to the stack
-        for env in self.ctx.envp.iter().rev() {
+        for env in self.ctx.envp.iter() {
             loader.push(0u8); // NULL-terminated
             loader.push_array(env.as_bytes());
             envps.push(loader.cursor());
@@ -267,7 +267,7 @@ impl<'a> LinuxLoader<'a> {
         let mut argvs = Vec::new(); // argv pointers
 
         // Step2: Copy args strings vector to the stack
-        for arg in self.ctx.argv.iter().rev() {
+        for arg in self.ctx.argv.iter() {
             loader.push(0u8); // NULL-terminated
             loader.push_array(arg.as_bytes());
             argvs.push(loader.cursor());
