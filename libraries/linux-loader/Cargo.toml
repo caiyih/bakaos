@@ -21,6 +21,9 @@ xmas-elf = "0.10"
 log = "0.4.27"
 hermit-sync = "0.1.6"
 
+[dev-dependencies]
+test-utilities = { path = "../../test-utilities", default-features = false }
+
 [features]
 default = ["no_std"]
 std = []
