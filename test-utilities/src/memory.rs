@@ -313,6 +313,12 @@ impl IMMU for TestMMU {
         let mut mapped = self.mapped.lock();
 
         if let Some((_, mapped)) = mapped.iter().find(|m| m.1.range().intersects(mem.range())) {
+            let expected_range = VirtualAddressRange::from_start_len(vaddr, len);
+
+            if !mapped.range().contains_range(expected_range) {
+                return Err(MMUError::Borrowed);
+            }
+
             let offset = vaddr.diff(mapped.range().start()) as usize;
 
             mapped.add_ref();
@@ -337,7 +343,9 @@ impl IMMU for TestMMU {
         let mut mapped = self.mapped.lock();
 
         if let Some((_, mapped)) = mapped.iter().find(|m| m.1.range().intersects(mem.range())) {
-            if !mapped.mutable {
+            let expected_range = VirtualAddressRange::from_start_len(vaddr, len);
+
+            if !mapped.mutable || !mapped.range().contains_range(expected_range) {
                 // FIXME: is this correct?
                 return Err(MMUError::Borrowed);
             }
