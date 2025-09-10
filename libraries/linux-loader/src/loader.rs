@@ -307,12 +307,7 @@ impl<'a> LinuxLoader<'a> {
         let auxv = self.ctx.auxv.collect();
 
         // Push other auxv entries
-        // TODO: can we use loader.push_array(auxv) here?
-        // Investigate the AuxVecEntry's layout
-        for aux in auxv.iter().rev() {
-            loader.push(aux.value);
-            loader.push(aux.key);
-        }
+        loader.push_array(&auxv);
 
         // Ensure that the last entry is AT_NULL
         debug_assert_eq!(auxv.iter().last().unwrap().key, AuxVecKey::AT_NULL);
