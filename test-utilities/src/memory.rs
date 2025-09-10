@@ -1,7 +1,11 @@
-use std::{alloc::Layout, collections::BTreeMap, sync::Arc};
+use std::{
+    alloc::Layout,
+    collections::BTreeMap,
+    sync::{atomic::AtomicUsize, Arc},
+};
 
 use abstractions::IUsizeAlias;
-use address::{IAlignableAddress, PhysicalAddress, VirtualAddress, VirtualAddressRange};
+use address::{IAddress, IAlignableAddress, PhysicalAddress, VirtualAddress, VirtualAddressRange};
 use hermit_sync::SpinMutex;
 use mmu_abstractions::{GenericMappingFlags, MMUError, PageSize, PagingError, PagingResult, IMMU};
 
@@ -308,8 +312,17 @@ impl IMMU for TestMMU {
         let mem = MappedMemory::alloc(vaddr, len, false);
         let mut mapped = self.mapped.lock();
 
-        if mapped.iter().any(|m| m.1.range().intersects(mem.range())) {
-            return Err(MMUError::Borrowed);
+        if let Some((_, mapped)) = mapped.iter().find(|m| m.1.range().intersects(mem.range())) {
+            let expected_range = VirtualAddressRange::from_start_len(vaddr, len);
+
+            if !mapped.range().contains_range(expected_range) {
+                return Err(MMUError::Borrowed);
+            }
+
+            let offset = vaddr.diff(mapped.range().start()) as usize;
+
+            mapped.add_ref();
+            return Ok(unsafe { core::slice::from_raw_parts(mapped.ptr.add(offset), len) });
         }
 
         let slice = mem.slice_mut();
@@ -329,8 +342,18 @@ impl IMMU for TestMMU {
         let mem = MappedMemory::alloc(vaddr, len, true);
         let mut mapped = self.mapped.lock();
 
-        if mapped.iter().any(|m| m.1.range().intersects(mem.range())) {
-            return Err(MMUError::Borrowed);
+        if let Some((_, mapped)) = mapped.iter().find(|m| m.1.range().intersects(mem.range())) {
+            let expected_range = VirtualAddressRange::from_start_len(vaddr, len);
+
+            if !mapped.mutable || !mapped.range().contains_range(expected_range) {
+                // FIXME: is this correct?
+                return Err(MMUError::Borrowed);
+            }
+
+            let offset = vaddr.diff(mapped.range().start()) as usize;
+            mapped.add_ref();
+
+            return Ok(unsafe { core::slice::from_raw_parts_mut(mapped.ptr.add(offset), len) });
         }
 
         let slice = mem.slice_mut();
@@ -346,13 +369,17 @@ impl IMMU for TestMMU {
     fn unmap_buffer(&self, vaddr: VirtualAddress) {
         let mut locked = self.mapped.lock();
 
-        if let Some(mapped) = locked.remove(&vaddr) {
-            // FIXME: ensuring RW rule for buffer mapping
-            if mapped.mutable {
-                // Sync the mapped memory to the physical memory
-                let slice = mapped.slice_mut();
+        if let Some((_, mapped)) = locked.iter().find(|(_, m)| m.range().contains(vaddr)) {
+            if mapped.release() {
+                let key = mapped.vaddr;
+                let mapped = locked.remove(&key).unwrap();
 
-                let _ = self.write_bytes(vaddr, slice);
+                if mapped.mutable {
+                    // Sync the mapped memory to the physical memory
+                    let slice = mapped.slice_mut();
+
+                    let _ = self.write_bytes(mapped.vaddr, slice);
+                }
             }
         }
     }
@@ -448,6 +475,7 @@ struct MappedMemory {
     ptr: *mut u8,
     layout: Layout,
     mutable: bool,
+    rc: AtomicUsize,
 }
 
 impl MappedMemory {
@@ -461,6 +489,7 @@ impl MappedMemory {
             ptr,
             layout,
             mutable,
+            rc: AtomicUsize::new(1),
         }
     }
 
@@ -470,6 +499,14 @@ impl MappedMemory {
 
     fn slice_mut(&self) -> &'static mut [u8] {
         unsafe { std::slice::from_raw_parts_mut(self.ptr, self.layout.size()) }
+    }
+
+    fn add_ref(&self) {
+        self.rc.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    fn release(&self) -> bool {
+        self.rc.fetch_sub(1, std::sync::atomic::Ordering::Relaxed) == 1
     }
 }
 

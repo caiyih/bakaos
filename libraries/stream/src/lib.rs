@@ -286,6 +286,7 @@ impl MemoryWindow {
     /// # Returns
     ///
     /// The new cursor position after skipping
+    #[inline]
     pub fn skip(&mut self, len: usize) -> VirtualAddress {
         self.seek(Whence::Offset(len as isize))
     }
@@ -299,6 +300,7 @@ impl MemoryWindow {
     /// # Returns
     ///
     /// The new cursor position after seeking
+    #[inline]
     pub fn seek(&mut self, whence: Whence) -> VirtualAddress {
         let target = match whence {
             Whence::Set(offset) => offset,
