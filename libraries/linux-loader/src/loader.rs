@@ -652,9 +652,7 @@ mod tests {
         let envp_pointers = stream
             .read_unsized_slice::<VirtualAddress>(|ptr, _| !ptr.is_null())
             .unwrap()
-            .iter()
-            .copied()
-            .collect::<Vec<_>>();
+            .to_vec();
 
         assert!(
             stream.read::<VirtualAddress>().unwrap().is_null(),
