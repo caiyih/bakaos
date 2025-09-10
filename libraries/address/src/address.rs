@@ -23,24 +23,29 @@ pub trait IToPageNum<T>: IAddress
 where
     T: IPageNum,
 {
+    #[inline]
     fn to_floor_page_num(self) -> T {
         T::from_usize(self.as_usize() / constants::PAGE_SIZE)
     }
 
+    #[inline]
     fn to_ceil_page_num(self) -> T {
         T::from_usize(self.as_usize().div_ceil(constants::PAGE_SIZE))
     }
 }
 
 pub trait IAlignableAddress: IAddressBase {
+    #[inline]
     fn is_aligned(self, align: usize) -> bool {
         self.as_usize().is_multiple_of(align)
     }
 
+    #[inline]
     fn is_page_aligned(self) -> bool {
         self.is_aligned(constants::PAGE_SIZE)
     }
 
+    #[inline]
     fn align_up(self, align: usize) -> Self {
         debug_assert!(align.is_power_of_two());
 
@@ -49,6 +54,7 @@ pub trait IAlignableAddress: IAddressBase {
         Self::from_usize(aligned)
     }
 
+    #[inline]
     fn align_down(self, align: usize) -> Self {
         debug_assert!(align.is_power_of_two());
 
@@ -57,10 +63,12 @@ pub trait IAlignableAddress: IAddressBase {
         Self::from_usize(aligned)
     }
 
+    #[inline]
     fn page_down(self) -> Self {
         self.align_down(constants::PAGE_SIZE)
     }
 
+    #[inline]
     fn page_up(self) -> Self {
         self.align_up(constants::PAGE_SIZE)
     }
@@ -70,62 +78,77 @@ pub trait IAlignableAddress: IAddressBase {
 pub trait IAddress:
     [const] IAddressBase + IAlignableAddress + IArithOps + IBitwiseOps + Display
 {
+    #[inline]
     fn add_n<T>(self, n: usize) -> Self {
         self.add_by(size_of::<T>() * n)
     }
 
+    #[inline]
     fn add<T>(self) -> Self {
         self.add_by(size_of::<T>())
     }
 
+    #[inline]
     fn minus_n<T>(self, n: usize) -> Self {
         self.minus_by(size_of::<T>() * n)
     }
 
+    #[inline]
     fn minus<T>(self) -> Self {
         self.minus_by(size_of::<T>())
     }
 
+    #[inline]
     fn minus_by(self, offset: usize) -> Self {
         Self::from_usize(self.as_usize() - offset)
     }
 
+    #[inline]
     fn add_by(self, offset: usize) -> Self {
         Self::from_usize(self.as_usize() + offset)
     }
 
+    #[inline]
     fn off_by(self, offset: isize) -> Self {
         Self::from_usize((self.as_usize() as isize + offset) as usize)
     }
 
+    #[inline]
     fn in_page_offset(self) -> usize {
         self.as_usize() % constants::PAGE_SIZE
     }
 
+    #[inline]
     fn diff(self, other: Self) -> isize {
         (self.as_usize() as i64 - other.as_usize() as i64) as isize
     }
 
+    #[inline]
     fn step_back_n<T>(&mut self, n: usize) {
         self.step_back_by(size_of::<T>() * n);
     }
 
+    #[inline]
     fn step_back<T>(&mut self) {
         self.step_back_by(size_of::<T>());
     }
 
+    #[inline]
     fn step_back_by(&mut self, offset: usize) {
         *self = self.minus_by(offset);
     }
 
+    #[inline]
     fn step_n<T>(&mut self, n: usize) {
         self.step_by(size_of::<T>() * n);
     }
 
+    #[inline]
     fn step<T>(&mut self) {
         self.step_by(size_of::<T>());
     }
 
+    #[inline]
     fn step_by(&mut self, offset: usize) {
         *self = self.add_by(offset);
     }
