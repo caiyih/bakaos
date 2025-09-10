@@ -361,9 +361,10 @@ impl IMMU for TestMMU {
     fn unmap_buffer(&self, vaddr: VirtualAddress) {
         let mut locked = self.mapped.lock();
 
-        if let Some(mapped) = locked.get(&vaddr) {
+        if let Some((_, mapped)) = locked.iter().find(|(_, m)| m.range().contains(vaddr)) {
             if mapped.release() {
-                let mapped = locked.remove(&vaddr).unwrap();
+                let key = mapped.vaddr;
+                let mapped = locked.remove(&key).unwrap();
 
                 if mapped.mutable {
                     // Sync the mapped memory to the physical memory
