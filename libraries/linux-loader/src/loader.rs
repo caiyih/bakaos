@@ -1,6 +1,6 @@
 use crate::{auxv::*, ProcessContext};
 use abstractions::IUsizeAlias;
-use address::{IAlignableAddress, VirtualAddress};
+use address::{IAddressBase, IAlignableAddress, VirtualAddress};
 use alloc::{fmt::Debug, string::String, sync::Arc, vec::Vec};
 use allocation_abstractions::IFrameAllocator;
 use core::ops::{Deref, DerefMut};
@@ -260,9 +260,7 @@ impl<'a> LinuxLoader<'a> {
         // Step1: Copy envp strings vector to the stack
         for env in self.ctx.envp.iter().rev() {
             loader.push(0u8); // NULL-terminated
-            for byte in env.bytes().rev() {
-                loader.push(byte);
-            }
+            loader.push_array(env.as_bytes());
             envps.push(loader.cursor());
         }
 
@@ -271,9 +269,7 @@ impl<'a> LinuxLoader<'a> {
         // Step2: Copy args strings vector to the stack
         for arg in self.ctx.argv.iter().rev() {
             loader.push(0u8); // NULL-terminated
-            for byte in arg.bytes().rev() {
-                loader.push(byte);
-            }
+            loader.push_array(arg.as_bytes());
             argvs.push(loader.cursor());
         }
 
@@ -299,10 +295,7 @@ impl<'a> LinuxLoader<'a> {
             }
 
             loader.push(0); // ensure null termination
-
-            for byte in platform.bytes().rev() {
-                loader.push(byte);
-            }
+            loader.push_array(platform.as_bytes());
 
             self.ctx
                 .auxv
@@ -315,6 +308,8 @@ impl<'a> LinuxLoader<'a> {
         let auxv = self.ctx.auxv.collect();
 
         // Push other auxv entries
+        // TODO: can we use loader.push_array(auxv) here?
+        // Investigate the AuxVecEntry's layout
         for aux in auxv.iter() {
             loader.push(aux.value);
             loader.push(aux.key);
@@ -325,25 +320,15 @@ impl<'a> LinuxLoader<'a> {
 
         // Step5: setup envp vector
 
-        // push NULL for envp
-        loader.push(0usize);
-
-        // push envp, envps is already in reverse order
-        for env in envps.iter() {
-            loader.push(*env);
-        }
-
+        loader.push(VirtualAddress::null());
+        loader.push_array(&envps);
         let envp_base = loader.cursor();
 
         // Step6: setup argv vector
 
         // push NULL for args
-        loader.push(0usize);
-
-        // push args, argvs is already in reverse order
-        for arg in argvs.iter() {
-            loader.push(*arg);
-        }
+        loader.push(VirtualAddress::null());
+        loader.push_array(&argvs);
 
         let argv_base = loader.cursor();
 
@@ -374,8 +359,25 @@ impl StackLoader<'_> {
 
         debug_assert!(stack_top.as_usize() % core::mem::align_of::<T>() == 0);
 
-        // TODO: Use pwrite_slice to copy array
         *self.pwrite().unwrap() = value;
+    }
+
+    /// Pushes a slice onto the guest stack.
+    ///
+    /// Decrements `stack_top` by the size of `T` and writes `value` into
+    /// the loader's memory space at the resulting address using the MMU.
+    ///
+    /// The slice is copied into the loader's memory space.
+    #[inline]
+    pub fn push_array<T: Copy>(&mut self, array: &[T]) {
+        let stack_top = self.seek(Whence::Offset(
+            -((core::mem::size_of::<T>() * array.len()) as isize),
+        ));
+
+        debug_assert!(stack_top.as_usize() % core::mem::align_of::<T>() == 0);
+        self.pwrite_slice(array.len())
+            .unwrap()
+            .copy_from_slice(array);
     }
 
     /// Align the stack top to the given alignment.
