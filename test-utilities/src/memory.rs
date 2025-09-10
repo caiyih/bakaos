@@ -378,7 +378,7 @@ impl IMMU for TestMMU {
                     // Sync the mapped memory to the physical memory
                     let slice = mapped.slice_mut();
 
-                    let _ = self.write_bytes(vaddr, slice);
+                    let _ = self.write_bytes(mapped.vaddr, slice);
                 }
             }
         }
