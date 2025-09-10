@@ -275,7 +275,7 @@ impl<'a> LinuxLoader<'a> {
 
         // Step3: Copy auxv values to stack, such as AT_RANDOM, AT_PLATFORM
         if let Some(random) = auxv_values.random {
-            let stack_top = loader.align_to(8);
+            let stack_top = loader.ensure_alignment::<usize>();
             debug_assert!(stack_top.as_usize().is_multiple_of(8));
 
             loader.push(random);
@@ -288,13 +288,11 @@ impl<'a> LinuxLoader<'a> {
             let len = platform.len() + 1; // null terminated
 
             // Ensure that start address of copied PLATFORM is aligned to 8 bytes
-            {
-                loader.seek(Whence::Offset(-(len as isize)));
-                loader.align_to(8);
-                loader.seek(Whence::Offset(len as isize));
-            }
+            loader.seek(Whence::Offset(-(len as isize)));
+            loader.ensure_alignment::<usize>();
+            loader.seek(Whence::Offset(len as isize));
 
-            loader.push(0); // ensure null termination
+            loader.push(0u8); // ensure null termination
             loader.push_array(platform.as_bytes());
 
             self.ctx
@@ -303,6 +301,7 @@ impl<'a> LinuxLoader<'a> {
         }
 
         // Step4: setup aux vector
+        loader.ensure_alignment::<VirtualAddress>();
 
         // Collects the auxv entries in a specific order
         let auxv = self.ctx.auxv.collect();
@@ -383,13 +382,9 @@ impl StackLoader<'_> {
     }
 
     /// Align the stack top to the given alignment.
-    ///
-    /// # Arguments
-    ///
-    /// - `alignment`: The alignment to align to.
     #[inline]
-    pub fn align_to(&mut self, alignment: usize) -> VirtualAddress {
-        let cursor = self.cursor().align_down(alignment);
+    pub fn ensure_alignment<T>(&mut self) -> VirtualAddress {
+        let cursor = self.cursor().align_down(core::mem::align_of::<T>());
         self.seek(Whence::Set(cursor))
     }
 }
