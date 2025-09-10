@@ -1,13 +1,14 @@
+use crate::{auxv::*, ProcessContext};
 use abstractions::IUsizeAlias;
 use address::{IAlignableAddress, VirtualAddress};
 use alloc::{fmt::Debug, string::String, sync::Arc, vec::Vec};
 use allocation_abstractions::IFrameAllocator;
+use core::ops::{Deref, DerefMut};
 use filesystem_abstractions::{DirectoryTreeNode, IInode};
 use hermit_sync::SpinMutex;
 use memory_space::MemorySpace;
 use mmu_abstractions::IMMU;
-
-use crate::{auxv::*, ProcessContext};
+use stream::{IMMUStreamExt, MemoryStreamMut, Whence};
 
 // A data structure to build a memory space that is used to create a new process
 pub struct LinuxLoader<'a> {
@@ -247,60 +248,65 @@ impl<'a> LinuxLoader<'a> {
         self.ctx.merge(ctx, false)?;
         self.ctx.auxv.insert(AuxVecKey::AT_NULL, 0);
 
-        let mut stack_top = self.stack_top;
+        // FIXME: This may be a cross stream
+        // Consider accept stream as parameter
+        let mmu = self.memory_space.mmu().lock();
+        let stream = mmu.create_stream_mut(self.stack_top, false);
+
+        let mut loader = StackLoader(stream);
 
         let mut envps = Vec::new(); // envp pointers
 
         // Step1: Copy envp strings vector to the stack
         for env in self.ctx.envp.iter().rev() {
-            self.push(0u8, &mut stack_top); // NULL-terminated
+            loader.push(0u8); // NULL-terminated
             for byte in env.bytes().rev() {
-                self.push(byte, &mut stack_top);
+                loader.push(byte);
             }
-            envps.push(stack_top);
+            envps.push(loader.cursor());
         }
 
         let mut argvs = Vec::new(); // argv pointers
 
         // Step2: Copy args strings vector to the stack
         for arg in self.ctx.argv.iter().rev() {
-            self.push(0u8, &mut stack_top); // NULL-terminated
+            loader.push(0u8); // NULL-terminated
             for byte in arg.bytes().rev() {
-                self.push(byte, &mut stack_top);
+                loader.push(byte);
             }
-            argvs.push(stack_top);
+            argvs.push(loader.cursor());
         }
-
-        // align stack top down to 8 bytes
-        stack_top = stack_top.align_down(8);
-        debug_assert!(stack_top.as_usize().is_multiple_of(8));
 
         // Step3: Copy auxv values to stack, such as AT_RANDOM, AT_PLATFORM
         if let Some(random) = auxv_values.random {
-            self.push(random, &mut stack_top);
+            let stack_top = loader.align_to(8);
+            debug_assert!(stack_top.as_usize().is_multiple_of(8));
+
+            loader.push(random);
             self.ctx
                 .auxv
-                .insert(AuxVecKey::AT_RANDOM, stack_top.as_usize());
+                .insert(AuxVecKey::AT_RANDOM, loader.cursor().as_usize());
         }
 
         if let Some(platform) = auxv_values.platform {
             let len = platform.len() + 1; // null terminated
 
             // Ensure that start address of copied PLATFORM is aligned to 8 bytes
-            stack_top -= len;
-            stack_top = stack_top.align_down(8);
-            debug_assert!(stack_top.as_usize().is_multiple_of(8));
-            stack_top += len;
+            {
+                loader.seek(Whence::Offset(-(len as isize)));
+                loader.align_to(8);
+                loader.seek(Whence::Offset(len as isize));
+            }
 
-            self.push(0, &mut stack_top); // ensure null termination
+            loader.push(0); // ensure null termination
 
             for byte in platform.bytes().rev() {
-                self.push(byte, &mut stack_top);
+                loader.push(byte);
             }
 
             self.ctx
                 .auxv
-                .insert(AuxVecKey::AT_PLATFORM, stack_top.as_usize());
+                .insert(AuxVecKey::AT_PLATFORM, loader.cursor().as_usize());
         }
 
         // Step4: setup aux vector
@@ -310,8 +316,8 @@ impl<'a> LinuxLoader<'a> {
 
         // Push other auxv entries
         for aux in auxv.iter() {
-            self.push(aux.value, &mut stack_top);
-            self.push(aux.key, &mut stack_top);
+            loader.push(aux.value);
+            loader.push(aux.key);
         }
 
         // Ensure that the last entry is AT_NULL
@@ -320,63 +326,81 @@ impl<'a> LinuxLoader<'a> {
         // Step5: setup envp vector
 
         // push NULL for envp
-        self.push(0usize, &mut stack_top);
+        loader.push(0usize);
 
         // push envp, envps is already in reverse order
         for env in envps.iter() {
-            self.push(*env, &mut stack_top);
+            loader.push(*env);
         }
 
-        let envp_base = stack_top;
+        let envp_base = loader.cursor();
 
         // Step6: setup argv vector
 
         // push NULL for args
-        self.push(0usize, &mut stack_top);
+        loader.push(0usize);
 
         // push args, argvs is already in reverse order
         for arg in argvs.iter() {
-            self.push(*arg, &mut stack_top);
+            loader.push(*arg);
         }
 
-        let argv_base = stack_top;
+        let argv_base = loader.cursor();
 
         // Step7: setup argc
 
         // push argc
         let argc = self.ctx.argv.len();
-        self.push(argc, &mut stack_top);
+        loader.push(argc);
 
-        self.stack_top = stack_top;
+        self.stack_top = loader.cursor();
         self.argv_base = argv_base;
         self.envp_base = envp_base;
 
         Ok(())
     }
+}
 
+struct StackLoader<'a>(MemoryStreamMut<'a>);
+
+impl StackLoader<'_> {
     /// Pushes a value onto the guest stack.
     ///
-    /// Decrements `stack_top` by the size of `T`, aligns it down to `T`'s alignment, and writes `value` into
-    /// the loader's memory space at the resulting address using the MMU. The provided `stack_top` is updated
-    /// in place to the new top-of-stack address.
+    /// Decrements `stack_top` by the size of `T` and writes `value` into
+    /// the loader's memory space at the resulting address using the MMU.
+    #[inline]
+    pub fn push<T: Copy>(&mut self, value: T) {
+        let stack_top = self.seek(Whence::Offset(-(core::mem::size_of::<T>() as isize)));
+
+        debug_assert!(stack_top.as_usize() % core::mem::align_of::<T>() == 0);
+
+        // TODO: Use pwrite_slice to copy array
+        *self.pwrite().unwrap() = value;
+    }
+
+    /// Align the stack top to the given alignment.
     ///
-    /// # Examples
+    /// # Arguments
     ///
-    /// ```
-    /// // Prepare a loader and stack_top, then push a 64-bit value:
-    /// // let mut loader = /* LinuxLoader with initialized memory_space and mmu */;
-    /// // let mut stack_top = loader.stack_top;
-    /// // loader.push(0u64, &mut stack_top);
-    /// ```
-    fn push<T: Copy>(&self, value: T, stack_top: &mut VirtualAddress) {
-        // let kernel_pt = page_table::get_kernel_page_table();
+    /// - `alignment`: The alignment to align to.
+    #[inline]
+    pub fn align_to(&mut self, alignment: usize) -> VirtualAddress {
+        let cursor = self.cursor().align_down(alignment);
+        self.seek(Whence::Set(cursor))
+    }
+}
 
-        *stack_top -= core::mem::size_of::<T>();
-        *stack_top = stack_top.align_down(core::mem::align_of::<T>());
+impl<'a> Deref for StackLoader<'a> {
+    type Target = MemoryStreamMut<'a>;
 
-        let pt = self.memory_space.mmu().lock();
+    fn deref(&self) -> &MemoryStreamMut<'a> {
+        &self.0
+    }
+}
 
-        pt.export(*stack_top, value).unwrap();
+impl<'a> DerefMut for StackLoader<'a> {
+    fn deref_mut(&mut self) -> &mut MemoryStreamMut<'a> {
+        &mut self.0
     }
 }
 
