@@ -357,7 +357,9 @@ impl StackLoader<'_> {
     pub fn push<T: Copy>(&mut self, value: T) {
         let stack_top = self.seek(Whence::Offset(-(core::mem::size_of::<T>() as isize)));
 
-        debug_assert!(stack_top.as_usize() % core::mem::align_of::<T>() == 0);
+        debug_assert!(stack_top
+            .as_usize()
+            .is_multiple_of(core::mem::align_of::<T>()));
 
         *self.pwrite().unwrap() = value;
     }
@@ -370,11 +372,11 @@ impl StackLoader<'_> {
     /// The slice is copied into the loader's memory space.
     #[inline]
     pub fn push_array<T: Copy>(&mut self, array: &[T]) {
-        let stack_top = self.seek(Whence::Offset(
-            -((core::mem::size_of::<T>() * array.len()) as isize),
-        ));
+        let stack_top = self.seek(Whence::Offset(-(core::mem::size_of_val(array) as isize)));
 
-        debug_assert!(stack_top.as_usize() % core::mem::align_of::<T>() == 0);
+        debug_assert!(stack_top
+            .as_usize()
+            .is_multiple_of(core::mem::align_of::<T>()));
         self.pwrite_slice(array.len())
             .unwrap()
             .copy_from_slice(array);
