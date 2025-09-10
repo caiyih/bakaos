@@ -309,7 +309,7 @@ impl<'a> LinuxLoader<'a> {
         // Push other auxv entries
         // TODO: can we use loader.push_array(auxv) here?
         // Investigate the AuxVecEntry's layout
-        for aux in auxv.iter() {
+        for aux in auxv.iter().rev() {
             loader.push(aux.value);
             loader.push(aux.key);
         }
