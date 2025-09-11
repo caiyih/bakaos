@@ -2,7 +2,7 @@ use abstractions::IUsizeAlias;
 use address::VirtualAddress;
 use constants::ErrNo;
 use linux_loader::auxv::AuxVecValues;
-use linux_loader::{IExecSource, LinuxLoader, ProcessContext};
+use linux_loader::{IExecSource, LinuxLoader, ProcessContext, RawMemorySpace};
 use platform_specific::ITaskContext;
 use platform_specific::TaskTrapContext;
 use task_abstractions::status::TaskStatus;
@@ -70,14 +70,16 @@ impl SyscallContext {
 
         // TODO: resolve machine's information and pass it to auxv
 
+        let memory_space: RawMemorySpace = (mmu, alloc); // FIXME: should be the new process's
+
         let loader = LinuxLoader::from_raw(
             &executable,
             pathname,
             process_ctx,
-            AuxVecValues::default(), // FIXME
+            AuxVecValues::default(), // TODO: populate machine info
             self.kernel.fs().lock().clone(),
-            mmu,
-            alloc,
+            &memory_space,
+            None, // FIXME: should be the calling thread's
         )
         .map_err(|_| ErrNo::ExecFormatError)?;
 

@@ -4,12 +4,9 @@ use alloc::{
     vec,
     vec::Vec,
 };
-use allocation_abstractions::IFrameAllocator;
 use filesystem_abstractions::DirectoryTreeNode;
-use hermit_sync::SpinMutex;
-use mmu_abstractions::IMMU;
 
-use crate::{auxv::AuxVecKey, IExecSource, LinuxLoader, LoadError, ProcessContext};
+use crate::{auxv::AuxVecKey, IExecSource, LinuxLoader, LoadError, ProcessContext, RawMemorySpace};
 
 const SHEBANG_MAX_LEN: usize = 127;
 
@@ -36,8 +33,7 @@ impl<'a> LinuxLoader<'a> {
         data: &impl IExecSource,
         path: &str,
         fs: Arc<DirectoryTreeNode>,
-        mmu: &Arc<SpinMutex<dyn IMMU>>,
-        alloc: &Arc<SpinMutex<dyn IFrameAllocator>>,
+        memory_space: &RawMemorySpace,
     ) -> Result<Self, LoadError> {
         let mut ctx = ProcessContext::default();
 
@@ -50,7 +46,7 @@ impl<'a> LinuxLoader<'a> {
 
         Self::push_ctx(&mut ctx, file, &arg, path)?;
 
-        Self::load_shebang_script(ctx, file, fs, mmu, alloc)
+        Self::load_shebang_script(ctx, file, fs, memory_space)
     }
 
     /// Returns true if the given byte represents end-of-line or string termination.
@@ -155,14 +151,13 @@ impl<'a> LinuxLoader<'a> {
         ctx: ProcessContext<'a>,
         file: &str,
         fs: Arc<DirectoryTreeNode>,
-        mmu: &Arc<SpinMutex<dyn IMMU>>,
-        alloc: &Arc<SpinMutex<dyn IFrameAllocator>>,
+        memory_space: &RawMemorySpace,
     ) -> Result<Self, LoadError> {
         let interpreter = fs
             .open(file, None)
             .map_err(|_| LoadError::CanNotFindInterpreter)?;
 
-        Self::from_elf(&interpreter, file, ctx, mmu, alloc)
+        Self::from_elf(&interpreter, file, ctx, memory_space)
     }
 }
 
