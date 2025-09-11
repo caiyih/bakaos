@@ -13,7 +13,7 @@ use alloc::sync::Arc;
 use allocation::FrameAllocator;
 use hermit_sync::SpinMutex;
 use kernel_abstractions::IKernel;
-use linux_loader::{LinuxLoader, ProcessContext};
+use linux_loader::{LinuxLoader, ProcessContext, RawMemorySpace};
 use linux_syscalls::{ISyscallResult, SyscallContext};
 use linux_task::LinuxProcess;
 use linux_task_abstractions::ILinuxTask;
@@ -112,7 +112,9 @@ fn create_task(kernel: &Kernel) -> Arc<dyn ILinuxTask> {
 
     let ctx = ProcessContext::new();
 
-    let loader = LinuxLoader::from_elf(&ELF, "", ctx, &mmu, &kernel.allocator()).unwrap();
+    let memory_space: RawMemorySpace = (mmu, kernel.allocator());
+
+    let loader = LinuxLoader::from_elf(&ELF, "", ctx, &memory_space).unwrap();
 
     let task = LinuxProcess::new(loader, 0);
     {
