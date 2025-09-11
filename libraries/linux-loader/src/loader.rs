@@ -1,8 +1,7 @@
-use crate::{auxv::*, ProcessContext};
+use crate::{auxv::*, ProcessContext, RawMemorySpace};
 use abstractions::IUsizeAlias;
 use address::{IAddressBase, IAlignableAddress, VirtualAddress};
 use alloc::{fmt::Debug, string::String, sync::Arc, vec::Vec};
-use allocation_abstractions::IFrameAllocator;
 use core::ops::{Deref, DerefMut};
 use filesystem_abstractions::{DirectoryTreeNode, IInode};
 use hermit_sync::SpinMutex;
@@ -204,8 +203,7 @@ impl<'a> LinuxLoader<'a> {
         ctx: ProcessContext<'a>,
         auxv_values: AuxVecValues<'a>,
         fs: Arc<DirectoryTreeNode>,
-        mmu: Arc<SpinMutex<dyn IMMU>>,
-        alloc: Arc<SpinMutex<dyn IFrameAllocator>>,
+        memory_space: &RawMemorySpace,
         cross_mmu: Option<&Arc<SpinMutex<dyn IMMU>>>,
     ) -> Result<Self, LoadError> {
         fn init<'a>(
@@ -219,21 +217,23 @@ impl<'a> LinuxLoader<'a> {
             Ok(loader)
         }
 
-        match Self::from_shebang(data, path, fs, &mmu, &alloc) {
+        // Try loading as shebang first
+        match Self::from_shebang(data, path, fs.clone(), memory_space) {
             Ok(shebang) => return init(shebang, &ctx, &auxv_values, cross_mmu),
             Err(e) if e.is_format_determined() => return Err(e),
-            _ => (),
-        };
-
-        match LinuxLoader::from_elf(data, path, ProcessContext::default(), &mmu, &alloc) {
-            Ok(elf) => return init(elf, &ctx, &auxv_values, cross_mmu),
-            Err(e) if e.is_format_determined() => return Err(e),
-            _ => (),
+            Err(_) => (), // Continue to try ELF
         }
 
-        Err(LoadError::NotExecutable)
+        // If shebang didn't work, try ELF
+        match Self::from_elf(data, path, ProcessContext::default(), memory_space) {
+            Ok(elf) => init(elf, &ctx, &auxv_values, cross_mmu),
+            Err(e) if e.is_format_determined() => Err(e),
+            Err(_) => Err(LoadError::NotExecutable),
+        }
     }
+}
 
+impl<'a> LinuxLoader<'a> {
     /// Initialize the initial user stack layout (strings, pointers, auxv, and argc) for the loader's memory space.
     ///
     /// This writes environment strings (envp) and program arguments (argv) into guest memory, places auxiliary

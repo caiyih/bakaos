@@ -4,7 +4,6 @@ use address::{
     VirtualPageNumRange,
 };
 use alloc::{string::String, sync::Arc, vec::Vec};
-use allocation_abstractions::IFrameAllocator;
 use hermit_sync::SpinMutex;
 use log::trace;
 use memory_space::{AreaType, MapType, MappingArea, MemorySpace, MemorySpaceAttribute};
@@ -12,7 +11,7 @@ use mmu_abstractions::{GenericMappingFlags, IMMU};
 use utilities::InvokeOnDrop;
 use xmas_elf::{program::ProgramHeader, ElfFile};
 
-use crate::{auxv::AuxVecKey, IExecSource, LinuxLoader, LoadError, ProcessContext};
+use crate::{auxv::AuxVecKey, IExecSource, LinuxLoader, LoadError, ProcessContext, RawMemorySpace};
 
 impl<'a> LinuxLoader<'a> {
     /// Load an ELF executable into a newly created MemorySpace and return a configured LinuxLoader.
@@ -53,10 +52,11 @@ impl<'a> LinuxLoader<'a> {
         elf_data: &impl IExecSource,
         path: &str,
         mut ctx: ProcessContext<'a>,
-        mmu: &Arc<SpinMutex<dyn IMMU>>,
-        alloc: &Arc<SpinMutex<dyn IFrameAllocator>>,
+        memory_space: &RawMemorySpace,
     ) -> Result<Self, LoadError> {
+        let (mmu, alloc) = memory_space;
         let mut memory_space = MemorySpace::new(mmu.clone(), alloc.clone());
+
         let mut attr = MemorySpaceAttribute::default();
 
         // see https://github.com/caiyih/bakaos/issues/26

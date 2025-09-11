@@ -11,5 +11,14 @@ mod loader;
 mod process;
 mod shebang;
 
+use alloc::sync::Arc;
+use allocation_abstractions::IFrameAllocator;
+use hermit_sync::SpinMutex;
 pub use loader::*;
+use mmu_abstractions::IMMU;
 pub use process::*;
+
+pub type RawMemorySpace = (
+    Arc<SpinMutex<dyn IMMU>>,
+    Arc<SpinMutex<dyn IFrameAllocator>>,
+);
