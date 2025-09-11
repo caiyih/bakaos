@@ -206,25 +206,27 @@ impl<'a> LinuxLoader<'a> {
         fs: Arc<DirectoryTreeNode>,
         mmu: Arc<SpinMutex<dyn IMMU>>,
         alloc: Arc<SpinMutex<dyn IFrameAllocator>>,
+        cross_mmu: Option<&Arc<SpinMutex<dyn IMMU>>>,
     ) -> Result<Self, LoadError> {
         fn init<'a>(
             mut loader: LinuxLoader<'a>,
             ctx: &ProcessContext<'a>,
             auxv_values: &AuxVecValues<'a>,
+            cross_mmu: Option<&Arc<SpinMutex<dyn IMMU>>>,
         ) -> Result<LinuxLoader<'a>, LoadError> {
-            loader.init_stack(ctx, auxv_values)?;
+            loader.init_stack(cross_mmu, ctx, auxv_values)?;
 
             Ok(loader)
         }
 
         match Self::from_shebang(data, path, fs, &mmu, &alloc) {
-            Ok(shebang) => return init(shebang, &ctx, &auxv_values),
+            Ok(shebang) => return init(shebang, &ctx, &auxv_values, cross_mmu),
             Err(e) if e.is_format_determined() => return Err(e),
             _ => (),
         };
 
         match LinuxLoader::from_elf(data, path, ProcessContext::default(), &mmu, &alloc) {
-            Ok(elf) => return init(elf, &ctx, &auxv_values),
+            Ok(elf) => return init(elf, &ctx, &auxv_values, cross_mmu),
             Err(e) if e.is_format_determined() => return Err(e),
             _ => (),
         }
@@ -242,16 +244,25 @@ impl<'a> LinuxLoader<'a> {
     /// Returns `Err(LoadError)` if merging the context or any memory writes required to build the stack fail.
     pub fn init_stack(
         &mut self,
+        cross_mmu: Option<&Arc<SpinMutex<dyn IMMU>>>,
         ctx: &ProcessContext<'a>,
         auxv_values: &AuxVecValues<'a>,
     ) -> Result<(), LoadError> {
         self.ctx.merge(ctx, false)?;
         self.ctx.auxv.insert(AuxVecKey::AT_NULL, 0);
 
-        // FIXME: This may be a cross stream
-        // Consider accept stream as parameter
-        let mmu = self.memory_space.mmu().lock();
-        let stream = mmu.create_stream_mut(self.stack_top, false);
+        let guest_mmu = self.memory_space.mmu(); // the mmu for the new process
+        let target_mmu = cross_mmu.unwrap_or(guest_mmu); // the active mmu when executing this function
+
+        let mut _target_mmu = target_mmu.lock();
+        let _guest_mmu;
+        let stream = match Arc::ptr_eq(target_mmu, guest_mmu) {
+            true => _target_mmu.create_stream_mut(self.stack_top, false),
+            false => {
+                _guest_mmu = guest_mmu.lock();
+                _target_mmu.create_cross_stream_mut(&*_guest_mmu, self.stack_top, false)
+            }
+        };
 
         let mut loader = StackLoader(stream);
 
@@ -522,7 +533,7 @@ mod tests {
                 platform: Some("test_platform"),
             };
 
-            loader.init_stack(&ctx, &auxv_values).unwrap();
+            loader.init_stack(None, &ctx, &auxv_values).unwrap();
 
             // Stack top should be aligned to 8
             assert_eq!(
@@ -552,7 +563,7 @@ mod tests {
             let ctx = ProcessContext::new();
             let auxv_values = AuxVecValues::default();
 
-            loader.init_stack(&ctx, &auxv_values).unwrap();
+            loader.init_stack(None, &ctx, &auxv_values).unwrap();
 
             let mmu = loader.memory_space.mmu().lock();
             let mut stream = mmu.create_stream(loader.stack_top, false);
@@ -621,7 +632,7 @@ mod tests {
                 platform: Some("x86_64"),
             };
 
-            loader.init_stack(&ctx, &auxv_values).unwrap();
+            loader.init_stack(None, &ctx, &auxv_values).unwrap();
 
             verify_stack_layout(&loader, &ctx, &auxv_values);
         });
