@@ -70,14 +70,14 @@ impl<'a> LinuxLoader<'a> {
         }
 
         if let Some(platform) = auxv_values.platform {
-            let len = platform.len() + 1; // null terminated
+            // Total to be pushed: bytes + trailing NUL
+            let total = platform.len() + 1;
+            // Align the START address of the string (after both pushes) to 8 bytes.
+            let aligned_start = (loader.cursor() - total).align_down(8);
+            // Position so that after pushing NUL then bytes, cursor ends at `aligned_start`.
+            loader.seek(Whence::Set(aligned_start + total));
 
-            // Ensure that start address of copied PLATFORM is aligned to 8 bytes
-            loader.seek(Whence::Offset(-(len as isize)));
-            loader.ensure_alignment::<u64>(); // 8 bytes alignment
-            loader.seek(Whence::Offset(len as isize));
-
-            loader.push(0u8); // ensure null termination
+            loader.push(0u8); // NUL terminator
             loader.push_array(platform.as_bytes());
 
             self.ctx
