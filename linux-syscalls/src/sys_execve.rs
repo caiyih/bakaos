@@ -74,10 +74,11 @@ impl SyscallContext {
             &executable,
             pathname,
             process_ctx,
-            AuxVecValues::default(), // FIXME
+            AuxVecValues::default(), // TODO: populate machine info
             self.kernel.fs().lock().clone(),
-            mmu,
+            mmu, // FIXME: should be the new process's
             alloc,
+            None, // FIXME: should be the calling thread's
         )
         .map_err(|_| ErrNo::ExecFormatError)?;
 
