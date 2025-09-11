@@ -10,6 +10,7 @@ mod elf;
 mod loader;
 mod process;
 mod shebang;
+mod stack;
 
 use alloc::sync::Arc;
 use allocation_abstractions::IFrameAllocator;
