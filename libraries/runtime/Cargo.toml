@@ -6,4 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-runtime-macros = { path = "../runtime-macros" }
+runtime-macros = { path = "../runtime-macros", optional = true }
+
+[features]
+default = ["binary_crate"]
+binary_crate = ["boot"]
+boot = ["runtime-macros"]
