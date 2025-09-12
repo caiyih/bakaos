@@ -1,3 +1,5 @@
+#![feature(coverage_attribute)]
+
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use proc_macro_crate::{crate_name, FoundCrate};
@@ -7,6 +9,7 @@ use syn::{parse_macro_input, Error, ItemFn};
 /// Attribute macro #[rust_main]
 /// Generates a function named `main` that calls the user's original `main` function.
 /// Allowing the same entry for both baremetal and std executables.
+#[coverage(off)]
 #[proc_macro_attribute]
 pub fn rust_main(_attr: TokenStream, item: TokenStream) -> TokenStream {
     // parse the annotated item as a function
