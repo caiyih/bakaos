@@ -4,6 +4,8 @@ members = [
     "linux-syscalls",
     "test-utilities",
     "source-generation",
+    "libraries/runtime",
+    "libraries/runtime-macros",
     "libraries/utilities",
     "libraries/timing",
     "libraries/address",
