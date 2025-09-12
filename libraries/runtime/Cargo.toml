@@ -11,6 +11,11 @@ runtime-macros = { path = "../runtime-macros", optional = true }
 [features]
 default = []
 
+# Whether the Rust's standard library is available.
+# If enabled, the std crate is used.
+# if disabled, the core crate, alloc and some custom implementations are used to simulate the std crate
+std = []
+
 # This feature should only be used by rust binary crates.
 # for example, the kernel crate.
 binary_crate = ["boot"]
