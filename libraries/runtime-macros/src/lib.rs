@@ -1,4 +1,6 @@
 use proc_macro::TokenStream;
+use proc_macro2::Span;
+use proc_macro_crate::{crate_name, FoundCrate};
 use quote::{format_ident, quote};
 use syn::{parse_macro_input, Error, ItemFn};
 
@@ -66,6 +68,16 @@ pub fn rust_main(_attr: TokenStream, item: TokenStream) -> TokenStream {
         .into();
     }
 
+    // Resolve the `runtime` crate path (handles dependency renames).
+    let runtime_path: syn::Path = match crate_name("runtime") {
+        Ok(FoundCrate::Itself) => syn::parse_quote!(crate),
+        Ok(FoundCrate::Name(name)) => {
+            let ident = syn::Ident::new(&name, Span::call_site());
+            syn::parse_quote!(#ident)
+        }
+        Err(_) => syn::parse_quote!(runtime), // fallback
+    };
+
     // Compose generated tokens:
     // 1) the renamed function with original body
     // 2) generated real main that calls runtime::rust_load_main
@@ -81,9 +93,8 @@ pub fn rust_main(_attr: TokenStream, item: TokenStream) -> TokenStream {
         #[deprecated(note = concat!("Use `", stringify!(#impl_ident), "` instead"))]  
         #[inline(always)] // try to inline this function to `rust_main_entry`
         fn main() #output {
-            // The runtime crate is expected to provide this function:
-            // We call it and pass the user's main implementation.
-            runtime::rust_load_main(#impl_ident)
+            // Delegate to runtime and return its value.
+            #runtime_path::rust_load_main(#impl_ident)
         }
 
         #[doc(hidden)]
