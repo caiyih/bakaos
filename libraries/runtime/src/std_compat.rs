@@ -12,15 +12,7 @@ pub use ::core::convert;
 pub use ::core::default;
 pub use ::core::future;
 pub use ::core::hint;
-#[allow(deprecated, deprecated_in_future)]
-pub use ::core::i32;
-#[allow(deprecated, deprecated_in_future)]
-pub use ::core::i64;
-#[allow(deprecated, deprecated_in_future)]
-pub use ::core::i8;
 pub use ::core::intrinsics;
-#[allow(deprecated, deprecated_in_future)]
-pub use ::core::isize;
 pub use ::core::iter;
 pub use ::core::marker;
 pub use ::core::mem;
@@ -28,22 +20,10 @@ pub use ::core::ops;
 pub use ::core::option;
 pub use ::core::pin;
 pub use ::core::ptr;
+pub use ::core::result;
 pub use ::core::*;
 
-pub use ::core::result;
-#[allow(deprecated, deprecated_in_future)]
-pub use ::core::u128;
-#[allow(deprecated, deprecated_in_future)]
-pub use ::core::u16;
-#[allow(deprecated, deprecated_in_future)]
-pub use ::core::u32;
-#[allow(deprecated, deprecated_in_future)]
-pub use ::core::u64;
-#[allow(deprecated, deprecated_in_future)]
-pub use ::core::u8;
-#[allow(deprecated, deprecated_in_future)]
-pub use ::core::usize;
-
+pub use ::alloc_crate::alloc;
 pub use ::alloc_crate::borrow;
 pub use ::alloc_crate::boxed;
 pub use ::alloc_crate::fmt;

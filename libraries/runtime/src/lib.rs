@@ -14,7 +14,6 @@ mod hosted;
 extern crate alloc as alloc_crate;
 
 #[cfg(not(feature = "std"))]
-#[allow(clippy::legacy_numeric_constants)]
 mod std_compat;
 
 #[cfg(not(feature = "std"))]
