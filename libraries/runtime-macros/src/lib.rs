@@ -90,7 +90,7 @@ pub fn rust_main(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
         #[doc(hidden)]
         #[doc = "Generated entry point for rust standalone executable"]
-        #[deprecated(note = concat!("Use `", stringify!(#impl_ident), "` instead"))]  
+        #[deprecated = concat!("Use `", stringify!(#impl_ident), "` instead")]
         #[inline(always)] // try to inline this function to `rust_main_entry`
         fn main() #output {
             // Delegate to runtime and return its value.
