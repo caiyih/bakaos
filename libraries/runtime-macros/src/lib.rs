@@ -83,7 +83,7 @@ pub fn rust_main(_attr: TokenStream, item: TokenStream) -> TokenStream {
         fn main() #output {
             // The runtime crate is expected to provide this function:
             // We call it and pass the user's main implementation.
-            runtime::rust_load_main(#impl_ident);
+            runtime::rust_load_main(#impl_ident)
         }
 
         #[doc(hidden)]
