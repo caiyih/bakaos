@@ -78,7 +78,7 @@ pub fn rust_main(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
         #[doc(hidden)]
         #[doc = "Generated entry point for rust standalone executable"]
-        #[deprecated = concat!("Use `", stringify!(#impl_ident), "` instead")]
+        #[deprecated(note = concat!("Use `", stringify!(#impl_ident), "` instead"))]  
         #[inline(always)] // try to inline this function to `rust_main_entry`
         fn main() #output {
             // The runtime crate is expected to provide this function:
