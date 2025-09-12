@@ -52,4 +52,5 @@ pub use ::alloc_crate::rc;
 pub use ::alloc_crate::slice;
 pub use ::alloc_crate::str;
 pub use ::alloc_crate::string;
+pub use ::alloc_crate::sync;
 pub use ::alloc_crate::vec;
