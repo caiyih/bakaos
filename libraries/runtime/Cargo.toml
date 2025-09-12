@@ -9,6 +9,9 @@ edition = "2021"
 runtime-macros = { path = "../runtime-macros", optional = true }
 
 [features]
-default = ["binary_crate"]
+default = []
+
+# This feature should only be used by rust binary crates.
+# for example, the kernel crate.
 binary_crate = ["boot"]
 boot = ["runtime-macros"]
