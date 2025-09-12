@@ -1,5 +1,5 @@
 mod baremetal;
-mod std;
+mod hosted;
 
 pub use runtime_macros::rust_main;
 
