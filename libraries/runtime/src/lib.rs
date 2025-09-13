@@ -30,4 +30,4 @@ mod entry;
 #[cfg(feature = "boot")]
 pub use entry::*;
 
-pub use hermit_sync::*;
+pub use hermit_sync;
