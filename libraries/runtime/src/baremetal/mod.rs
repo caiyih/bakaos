@@ -1,13 +1,13 @@
 pub mod arch;
 pub mod cpu;
 
-#[cfg(all(feature = "binary_crate"))]
+#[cfg(feature = "binary_crate")]
 mod panic;
 
 #[cfg(not(runtime_std))]
 pub mod serial;
 
-#[cfg(all(feature = "boot"))]
+#[cfg(feature = "boot")]
 pub(crate) mod bss;
 
 #[cfg(feature = "boot")]
