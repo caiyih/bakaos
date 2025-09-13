@@ -1,20 +1,23 @@
 use core::ptr::NonNull;
 
-use crate::baremetal::{
-    arch::riscv64::registers::gr::{get_tp, set_tp},
-    cpu::{alloc_cpu_id, alloc_cpu_local_storage, cls::CpuLocalStorage},
-};
+use crate::baremetal::{arch::riscv64::registers::gr::get_tp, cpu::cls::CpuLocalStorage};
 
+#[cfg(feature = "boot")]
 pub(super) fn init() {
+    use crate::baremetal::{
+        arch::riscv64::registers::gr::set_tp,
+        cpu::{alloc_cpu_id, alloc_cpu_local_storage},
+    };
+
+    fn store_tls_base(cls: NonNull<CpuLocalStorage>) {
+        unsafe { set_tp(cls.as_ptr() as usize) };
+    }
+
     let hartid = alloc_cpu_id();
 
     let cls = alloc_cpu_local_storage(hartid);
 
     store_tls_base(cls);
-}
-
-fn store_tls_base(cls: NonNull<CpuLocalStorage>) {
-    unsafe { set_tp(cls.as_ptr() as usize) };
 }
 
 /// Gets the CPU-local storage pointer from the global pointer register.
