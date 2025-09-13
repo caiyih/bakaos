@@ -1,7 +1,7 @@
 use core::ptr::NonNull;
 
 use crate::baremetal::{
-    arch::riscv64::registers::gr::{get_gp, set_gp},
+    arch::riscv64::registers::gr::{get_tp, set_tp},
     cpu::{alloc_cpu_id, alloc_cpu_local_storage, cls::CpuLocalStorage},
 };
 
@@ -14,17 +14,17 @@ pub(super) fn init() {
 }
 
 fn store_tls_base(cls: NonNull<CpuLocalStorage>) {
-    unsafe { set_gp(cls.as_ptr() as usize) };
+    unsafe { set_tp(cls.as_ptr() as usize) };
 }
 
 /// Gets the CPU-local storage pointer from the global pointer register.
 ///
 /// # Safety
-/// This function assumes that the GP register has been properly initialized
+/// This function assumes that the TP register has been properly initialized
 /// with a valid CpuLocalStorage pointer via `init()`.
 #[inline]
 pub(crate) fn get_cls_ptr() -> NonNull<CpuLocalStorage> {
-    let ptr = get_gp() as *mut CpuLocalStorage;
+    let ptr = get_tp() as *mut CpuLocalStorage;
 
     debug_assert!(!ptr.is_null(), "CPU local storage pointer is null");
 
