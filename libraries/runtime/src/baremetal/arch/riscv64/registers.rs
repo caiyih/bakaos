@@ -9,6 +9,7 @@ pub mod gr {
 
         ($name:tt) => {
             paste::paste! {
+                #[doc = concat!("Get the value of the `", stringify!($name), "` register.")]
                 #[inline(always)]
                 pub fn [<get_ $name>]() -> usize {
                     let val;
@@ -18,6 +19,12 @@ pub mod gr {
                     val
                 }
 
+                #[doc = concat!("Set the value of the `", stringify!($name), "` register.")]
+                #[doc = ""]
+                #[doc = "# Safety"]
+                #[doc = ""]
+                #[doc = "Modifying general-purpose registers can break calling conventions, corrupt stack frames, or violate other system invariants."]
+                #[doc = "The caller must ensure that modifying this register is safe in the current context."]
                 #[inline(always)]
                 pub unsafe fn [<set_ $name>](val: usize) {
                     ::core::arch::asm!(concat!("mv ", stringify!($name), ", {}"), in(reg) val);
