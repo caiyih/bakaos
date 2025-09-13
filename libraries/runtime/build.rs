@@ -12,7 +12,7 @@ pub fn main() {
 }
 
 fn feature_env(feature: &str) -> String {
-    format!("CARGO_FEATURE_{}", feature.to_uppercase())
+    format!("CARGO_FEATURE_{}", feature.to_uppercase()).replace('-', "_")
 }
 
 fn test_env() -> String {
