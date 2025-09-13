@@ -6,7 +6,7 @@ use core::{
     sync::atomic::AtomicU32,
 };
 
-use crate::baremetal::{arch::alloc_frame, cpu::cls::CpuLocalStorage};
+use crate::baremetal::{alloc_frame, cpu::cls::CpuLocalStorage};
 
 pub(crate) fn alloc_cpu_id() -> u32 {
     static NEXT_ID: AtomicU32 = AtomicU32::new(0);
