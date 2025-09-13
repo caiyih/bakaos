@@ -24,6 +24,5 @@ extern "C" fn rust_boot_main() -> ! {
 
     unsafe { rust_main_entry() }; // transfer control to the kernel
 
-    // TODO: use shutdown
-    loop {}
+    unsafe { super::system::system_shutdown(false) }
 }
