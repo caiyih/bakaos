@@ -1,13 +1,13 @@
 pub fn main() {
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:cargo:rerun-if-env-changed={}", feature_env("std"));
-    println!("cargo:cargo:rerun-if-env-changed={}", test_env());
+    println!("cargo:rerun-if-env-changed={}", feature_env("std"));
+    println!("cargo:rerun-if-env-changed={}", test_env());
 
     // see https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html#cargorustc-check-cfg-for-buildrsbuild-script
-    println!("cargo::rustc-check-cfg=cfg(runtime_std)");
+    println!("cargo:rustc-check-cfg=cfg(runtime_std)");
 
     if check_env(&test_env()) || check_env(&feature_env("std")) {
-        println!("cargo::rustc-cfg=runtime_std");
+        println!("cargo:rustc-cfg=runtime_std");
     }
 }
 
