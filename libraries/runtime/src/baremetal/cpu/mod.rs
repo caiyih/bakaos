@@ -11,7 +11,10 @@ mod boot_required {
         sync::atomic::AtomicU32,
     };
 
-    use crate::baremetal::{alloc_frame, cpu::cls::CpuLocalStorage};
+    use crate::{
+        baremetal::{alloc_frame, cpu::cls::CpuLocalStorage},
+        symbol_addr,
+    };
 
     pub(crate) fn alloc_cpu_id() -> u32 {
         static NEXT_ID: AtomicU32 = AtomicU32::new(0);
@@ -25,14 +28,9 @@ mod boot_required {
             .cpu_id as usize
     }
 
-    unsafe extern "C" {
-        fn __scls();
-        fn __ecls();
-    }
-
     pub(crate) fn alloc_cpu_local_storage(cpuid: u32) -> NonNull<CpuLocalStorage> {
-        let template_start = NonNull::new(__scls as *mut u8).unwrap();
-        let template_end = NonNull::new(__ecls as *mut u8).unwrap();
+        let template_start = NonNull::new(symbol_addr!(__scls) as *mut u8).unwrap();
+        let template_end = NonNull::new(symbol_addr!(__ecls) as *mut u8).unwrap();
 
         let cls_len = template_end.as_ptr() as usize - template_start.as_ptr() as usize;
 

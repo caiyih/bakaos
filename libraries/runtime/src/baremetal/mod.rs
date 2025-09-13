@@ -18,6 +18,8 @@ mod boot_required {
     use core::{alloc::Layout, ptr::NonNull};
     use hermit_sync::SpinMutex;
 
+    use crate::symbol_addr;
+
     static MEMORY_START: SpinMutex<usize> = SpinMutex::new(0);
 
     /// Do some arch-independent initialization of the memory region.
@@ -26,11 +28,7 @@ mod boot_required {
     ///
     /// This function must be called only once, before any memory allocation is performed.
     pub(crate) unsafe fn init() {
-        extern "C" {
-            fn __ekernel();
-        }
-
-        *MEMORY_START.lock() = __ekernel as usize;
+        *MEMORY_START.lock() = symbol_addr!(__ekernel) as usize;
     }
 
     /// Returns the start address of the memory region.

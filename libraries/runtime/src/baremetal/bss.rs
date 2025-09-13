@@ -1,15 +1,11 @@
+use crate::symbol_addr;
 use core::ptr::NonNull;
 
 pub(crate) fn clear_bss() {
-    unsafe extern "C" {
-        fn __sbss();
-        fn __ebss();
-    }
-
     unsafe {
         clear_bss_range(
-            NonNull::new(__sbss as usize as *mut u8).unwrap(),
-            NonNull::new(__ebss as usize as *mut u8).unwrap(),
+            NonNull::new(symbol_addr!(__sbss) as *mut u8).unwrap(),
+            NonNull::new(symbol_addr!(__ebss) as *mut u8).unwrap(),
         )
     }
 }
