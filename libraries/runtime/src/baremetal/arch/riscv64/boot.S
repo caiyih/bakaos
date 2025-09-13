@@ -20,7 +20,7 @@ _start:
     // continue at the high address
     la t0, _start_high
     li t1, VIRT_ADDR_OFFSET
-    or t0, t0, t1
+    add t0, t0, t1
 
     // tail
     jr t0
@@ -31,7 +31,7 @@ _start_high:
 
     la sp, __stack_top
     li t0, VIRT_ADDR_OFFSET
-    or sp, t0, sp
+    add sp, t0, sp
 
     j rust_boot_main
 
