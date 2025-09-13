@@ -1,3 +1,5 @@
+pub use ::utilities::*; // reexport `utilities`` crate
+
 #[macro_export]
 macro_rules! symbol_addr {
     ($sym:ident) => {{

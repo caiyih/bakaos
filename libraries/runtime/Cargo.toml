@@ -9,6 +9,7 @@ edition = "2021"
 paste = "1.0.15"
 hermit-sync = "0.1.6"
 runtime-macros = { path = "../runtime-macros", optional = true }
+utilities = { path = "../utilities" }
 
 [target.'cfg(target_arch = "riscv64")'.dependencies]
 riscv = "0.12"
