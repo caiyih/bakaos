@@ -17,7 +17,16 @@ fn store_tls_base(cls: NonNull<CpuLocalStorage>) {
     unsafe { set_gp(cls.as_ptr() as usize) };
 }
 
+/// Gets the CPU-local storage pointer from the global pointer register.
+///
+/// # Safety
+/// This function assumes that the GP register has been properly initialized
+/// with a valid CpuLocalStorage pointer via `init()`.
 #[inline]
 pub(crate) fn get_cls_ptr() -> NonNull<CpuLocalStorage> {
-    unsafe { NonNull::new_unchecked(get_gp() as *mut CpuLocalStorage) }
+    let ptr = get_gp() as *mut CpuLocalStorage;
+
+    debug_assert!(!ptr.is_null(), "CPU local storage pointer is null");
+
+    unsafe { NonNull::new_unchecked(ptr) }
 }

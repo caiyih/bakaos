@@ -47,7 +47,11 @@ pub struct CpuLocalVal<T> {
     val: UnsafeCell<T>,
 }
 
+// SAFETY: CpuLocalVal is Send because each CPU has its own isolated instance
+// of the value, preventing data races between CPUs.
 unsafe impl<T> Send for CpuLocalVal<T> {}
+// SAFETY: CpuLocalVal is Sync because get_ptr() ensures each CPU accesses
+// only its own local copy through get_cpu_local_base().
 unsafe impl<T> Sync for CpuLocalVal<T> {}
 
 impl<T> CpuLocalVal<T> {
@@ -59,14 +63,32 @@ impl<T> CpuLocalVal<T> {
 
     #[inline(always)]
     pub fn get_ptr(&self) -> *mut T {
-        unsafe { get_cpu_local_base(self.val.get().cast()).cast::<T>() }
+        let ptr = unsafe { get_cpu_local_base(self.val.get().cast()).cast::<T>() };
+
+        debug_assert!(!ptr.is_null(), "CPU local storage pointer is null");
+
+        ptr
     }
 
+    /// Get a reference to the CPU-local value.
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe because it dereferences a raw pointer and assumes
+    /// that the pointer is valid and points to a location within the CPU local
+    /// storage region.
     #[inline(always)]
     pub fn get(&self) -> &T {
         unsafe { self.get_ptr().as_ref().unwrap() }
     }
 
+    /// Get a mutable reference to the CPU-local value.
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe because it dereferences a raw pointer and assumes
+    /// that the pointer is valid and points to a location within the CPU local
+    /// storage region.
     #[inline(always)]
     pub unsafe fn get_mut(&mut self) -> &mut T {
         self.get_ptr().as_mut().unwrap()
