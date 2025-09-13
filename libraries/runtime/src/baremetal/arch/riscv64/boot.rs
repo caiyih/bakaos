@@ -9,7 +9,7 @@ fn boot_init() {
 
     // TODO: init memory allocator
 
-    crate::baremetal::init();
+    unsafe { crate::baremetal::init() };
 
     super::cpu::init();
 }

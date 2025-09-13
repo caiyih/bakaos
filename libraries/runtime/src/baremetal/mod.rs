@@ -16,7 +16,12 @@ pub(crate) mod bss;
 
 static MEMORY_START: SpinMutex<usize> = SpinMutex::new(0);
 
-pub fn init() {
+/// Do some arch-independent initialization of the memory region.
+/// 
+/// # Safety
+/// 
+/// This function must be called only once, before any memory allocation is performed.
+pub(crate) unsafe fn init() {
     extern "C" {
         fn __ekernel();
     }
