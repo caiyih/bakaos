@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+hermit-sync = "0.1.6"
 runtime-macros = { path = "../runtime-macros", optional = true }
 
 [features]
