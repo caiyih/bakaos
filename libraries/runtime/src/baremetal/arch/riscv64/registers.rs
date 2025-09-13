@@ -14,7 +14,11 @@ pub mod gr {
                 pub fn [<get_ $name>]() -> usize {
                     let val;
                     unsafe {
-                        ::core::arch::asm!(concat!("mv {}, ", stringify!($name)), out(reg) val);
+                        ::core::arch::asm!(
+                            concat!("mv {}, ", stringify!($name)),
+                            out(reg) val,
+                            options(nomem)
+                        );
                     }
                     val
                 }
@@ -27,7 +31,11 @@ pub mod gr {
                 #[doc = "The caller must ensure that modifying this register is safe in the current context."]
                 #[inline(always)]
                 pub unsafe fn [<set_ $name>](val: usize) {
-                    ::core::arch::asm!(concat!("mv ", stringify!($name), ", {}"), in(reg) val);
+                    ::core::arch::asm!(
+                        concat!("mv ", stringify!($name), ", {}"),
+                        in(reg) val,
+                        options(nomem, nostack),
+                    );
                 }
             }
         };
