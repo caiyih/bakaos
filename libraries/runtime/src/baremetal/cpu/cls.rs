@@ -8,6 +8,7 @@ unsafe extern "C" {
     fn __scls();
 }
 
+#[cfg(feature = "boot")]
 #[link_section = ".cls"]
 pub(crate) static mut CPU0: CpuLocalStorage = CpuLocalStorage {
     cpu_id: 0,
