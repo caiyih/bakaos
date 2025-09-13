@@ -6,9 +6,11 @@ pub(crate) struct CpuLocalStorage {
     pub cpu_id: u32,
 }
 
+unsafe impl Sync for CpuLocalStorage {}
+
 #[cfg(feature = "boot")]
 #[link_section = ".cls"]
-pub(crate) static mut CPU0: CpuLocalStorage = CpuLocalStorage {
+pub(crate) static CPU0: CpuLocalStorage = CpuLocalStorage {
     cpu_id: 0,
     local_base: core::ptr::null_mut(),
 };
