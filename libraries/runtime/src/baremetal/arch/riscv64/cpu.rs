@@ -20,11 +20,12 @@ pub(super) fn init() {
     store_tls_base(cls);
 }
 
-/// Gets the CPU-local storage pointer from the global pointer register.
+/// Gets the CPU-local storage pointer from the thread pointer (TP) register
 ///
 /// # Safety
-/// This function assumes that the TP register has been properly initialized
-/// with a valid CpuLocalStorage pointer via `init()`.
+///
+/// This function assumes the TP register has been initialized with a valid
+/// `CpuLocalStorage` pointer via `init()`.
 #[inline]
 pub(crate) fn get_cls_ptr() -> NonNull<CpuLocalStorage> {
     let ptr = get_tp() as *mut CpuLocalStorage;
