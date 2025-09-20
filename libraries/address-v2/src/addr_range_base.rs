@@ -5,8 +5,8 @@ macro_rules! impl_range {
         #[repr(C)]
         #[derive(Clone, Copy, Eq)]
         pub struct $range_type {
-            start: $addr_type,
-            end: $addr_type,
+            start: $addr_type<'static>,
+            end: $addr_type<'static>,
         }
 
         impl ::core::fmt::Debug for $range_type {
@@ -32,7 +32,7 @@ macro_rules! impl_range {
             /// assert_eq!(range.len(), 0x1000);
             /// ```
             #[inline(always)]
-            pub const fn new(start: $addr_type, end: $addr_type) -> Self {
+            pub const fn new(start: $addr_type<'static>, end: $addr_type<'static>) -> Self {
                 // Use deref to access the inner usize value
                 debug_assert!(*start <= *end, "Range start must be <= end");
                 Self { start, end }
@@ -51,7 +51,7 @@ macro_rules! impl_range {
             /// assert_eq!(range.len(), 0x1000);
             /// ```
             #[inline(always)]
-            pub const unsafe fn new_unchecked(start: $addr_type, end: $addr_type) -> Self {
+            pub const unsafe fn new_unchecked(start: $addr_type<'static>, end: $addr_type<'static>) -> Self {
                 Self { start, end }
             }
 
@@ -65,19 +65,19 @@ macro_rules! impl_range {
             /// assert_eq!(range.end(), PhysAddr::new(0x2000));
             /// ```
             #[inline(always)]
-            pub const fn from_start_len(start: $addr_type, len: usize) -> Self {
+            pub const fn from_start_len(start: $addr_type<'static>, len: usize) -> Self {
                 Self::new(start, $addr_type::new(*start + len))
             }
 
             /// Returns the start address of the range.
             #[inline(always)]
-            pub const fn start(&self) -> $addr_type {
+            pub const fn start(&self) -> $addr_type<'static> {
                 self.start
             }
 
             /// Returns the end address of the range (exclusive).
             #[inline(always)]
-            pub const fn end(&self) -> $addr_type {
+            pub const fn end(&self) -> $addr_type<'static> {
                 self.end
             }
 
@@ -272,8 +272,8 @@ macro_rules! impl_range {
 
         /// Iterator over addresses in a range
         pub struct RangeIterator {
-            current: $addr_type,
-            end: $addr_type,
+            current: $addr_type<'static>,
+            end: $addr_type<'static>,
             step: usize,
         }
 
@@ -311,7 +311,7 @@ macro_rules! impl_range {
 
         impl ::core::iter::Iterator for RangeIterator
         {
-            type Item = $addr_type;
+            type Item = $addr_type<'static>;
 
             fn next(&mut self) -> Option<Self::Item> {
                 let new_current = *self.current + self.step;

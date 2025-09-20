@@ -4,24 +4,33 @@ macro_rules! impl_addr {
         $(#[$doc])*
         #[repr(transparent)]
         #[derive(Clone, Copy, Eq, PartialOrd, Ord)]
-        pub struct $type(usize);
+        pub struct $type<'a> {
+            _0: usize,
+            _marker: ::core::marker::PhantomData<&'a ()>,
+        }
 
-        impl $type {
+        impl $type<'static> {
             /// Returns the null address.
             #[allow(non_upper_case_globals)]
-            pub const null: Self = Self(0);
+            pub const null: Self = Self::new(0);
 
             /// Checks if the address is null (0).
             #[inline(always)]
             pub const fn is_null(self) -> bool {
                 self == Self::null
             }
+
             /// Creates a new address from the given `usize` value.
             #[inline(always)]
             pub const fn new(value: usize) -> Self {
-                Self(value)
+                Self {
+                    _0: value,
+                    _marker: ::core::marker::PhantomData,
+                }
             }
+        }
 
+        impl $type<'static> {
             /// Aligns the address down to the given alignment.
             ///
             /// # Examples
@@ -32,7 +41,7 @@ macro_rules! impl_addr {
             /// assert_eq!(*aligned, 0x1000);
             /// ```
             #[inline(always)]
-            pub const fn align_down(self, align: usize) -> Self {
+            pub const fn align_down(mut self, align: usize) -> Self {
                 debug_assert!(align != 0);
 
                 // Usually the given align is a constant value
@@ -40,10 +49,12 @@ macro_rules! impl_addr {
                 // Same for other alignment related functions
 
                 if align.is_power_of_two() {
-                    Self(self.0 & !(align - 1))
+                    *self &= !(align - 1)
                 } else {
-                    Self(self.0 - (self.0 % align))
+                    *self -= (*self % align)
                 }
+
+                self
             }
 
             /// Aligns the address up to the given alignment.
@@ -56,14 +67,16 @@ macro_rules! impl_addr {
             /// assert_eq!(*aligned, 0x2000);
             /// ```
             #[inline(always)]
-            pub const fn align_up(self, align: usize) -> Self {
+            pub const fn align_up(mut self, align: usize) -> Self {
                 debug_assert!(align != 0);
 
                 if align.is_power_of_two() {
-                    Self((self.0 + align - 1) & !(align - 1))
+                    *self = (*self + align - 1) & !(align - 1)
                 } else {
-                    Self(self.0.next_multiple_of(align))
+                    *self = (*self).next_multiple_of(align)
                 }
+
+                self
             }
 
             /// Checks if the address is aligned to the given alignment.
@@ -80,12 +93,14 @@ macro_rules! impl_addr {
                 debug_assert!(align != 0);
 
                 if align.is_power_of_two() {
-                    (self.0 & (align - 1)) == 0
+                    (*self & (align - 1)) == 0
                 } else {
-                    self.0.is_multiple_of(align)
+                    (*self).is_multiple_of(align)
                 }
             }
+        }
 
+        impl $type<'_> {
             /// Returns the offset from the given alignment.
             ///
             /// # Examples
@@ -99,294 +114,308 @@ macro_rules! impl_addr {
                 debug_assert!(align != 0);
 
                 if align.is_power_of_two() {
-                    self.0 & (align - 1)
+                    *self & (align - 1)
                 } else {
-                    self.0 % align
+                    *self % align
                 }
             }
         }
 
-        impl const ::core::default::Default for $type {
+        impl const ::core::default::Default for $type<'static> {
             #[inline(always)]
             fn default() -> Self {
                 Self::null
             }
         }
 
-        impl const ::core::cmp::PartialEq<usize> for $type {
+        impl const ::core::cmp::PartialEq<usize> for $type<'_> {
             #[inline(always)]
             fn eq(&self, other: &usize) -> bool {
-                &self.0 == other
+                **self == *other
             }
         }
 
-        impl const ::core::cmp::PartialEq<$type> for $type {
+        impl const ::core::cmp::PartialEq<$type<'_>> for $type<'_> {
             #[inline(always)]
             fn eq(&self, other: &$type) -> bool {
-                self.0 == other.0
+                **self == **other
             }
         }
 
-        impl const ::core::convert::From<usize> for $type {
+        impl const ::core::convert::From<usize> for $type<'static> {
             #[inline(always)]
             fn from(value: usize) -> Self {
-                Self(value)
+                Self::new(value)
             }
         }
 
-        impl const ::core::convert::From<$type> for usize {
+        impl const ::core::convert::From<$type<'_>> for usize {
             #[inline(always)]
             fn from(value: $type) -> Self {
-                value.0
+                value._0
             }
         }
 
-        impl const ::core::ops::Deref for $type {
+        impl const ::core::ops::Deref for $type<'_> {
             type Target = usize;
 
             #[inline(always)]
             fn deref(&self) -> &Self::Target {
-                &self.0
+                &self._0
             }
         }
 
-        impl const ::core::ops::DerefMut for $type {
+        impl const ::core::ops::DerefMut for $type<'_> {
             #[inline(always)]
             fn deref_mut(&mut self) -> &mut Self::Target {
-                &mut self.0
+                &mut self._0
             }
         }
 
-        impl ::core::fmt::Display for $type {
+        impl ::core::fmt::Display for $type<'_> {
             fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-                write!(f, concat!(stringify!($type), "({:#x})"), self.0)
+                write!(f, concat!(stringify!($type), "({:#x})"), **self)
             }
         }
 
-        impl ::core::fmt::Debug for $type {
+        impl ::core::fmt::Debug for $type<'_> {
             fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-                write!(f, concat!(stringify!($type), "({:#x})"), self.0)
+                write!(f, concat!(stringify!($type), "({:#x})"), **self)
             }
         }
 
-        impl const ::core::ops::Add<usize> for $type {
+        impl const ::core::ops::Add<usize> for $type<'static> {
             type Output = Self;
 
             #[inline(always)]
-            fn add(self, rhs: usize) -> Self::Output {
-                Self(self.0 + rhs)
+            fn add(mut self, rhs: usize) -> Self::Output {
+                *self += rhs;
+                self
             }
         }
 
-        impl const ::core::ops::Add<isize> for $type {
+        impl const ::core::ops::Add<isize> for $type<'static> {
             type Output = Self;
 
             #[inline(always)]
-            fn add(self, rhs: isize) -> Self::Output {
-                Self((self.0 as isize + rhs) as usize)
+            fn add(mut self, rhs: isize) -> Self::Output {
+                *self = (*self as isize + rhs) as usize;
+                self
             }
         }
 
-        impl const ::core::ops::Sub<usize> for $type {
+        impl const ::core::ops::Sub<usize> for $type<'static> {
             type Output = Self;
 
             #[inline(always)]
-            fn sub(self, rhs: usize) -> Self::Output {
-                Self(self.0 - rhs)
+            fn sub(mut self, rhs: usize) -> Self::Output {
+                *self -= rhs;
+                self
             }
         }
 
-        impl const ::core::ops::Sub<isize> for $type {
+        impl const ::core::ops::Sub<isize> for $type<'static> {
             type Output = Self;
 
             #[inline(always)]
-            fn sub(self, rhs: isize) -> Self::Output {
-                Self((self.0 as isize - rhs) as usize)
+            fn sub(mut self, rhs: isize) -> Self::Output {
+                *self = (*self as isize - rhs) as usize;
+                self
             }
         }
 
-        impl const ::core::ops::Add<$type> for $type {
+        impl const ::core::ops::Add<$type<'static>> for $type<'static> {
             type Output = Self;
 
             #[inline(always)]
-            fn add(self, rhs: $type) -> Self::Output {
-                Self(self.0 + rhs.0)
+            fn add(mut self, rhs: $type) -> Self::Output {
+                *self += *rhs;
+                self
             }
         }
 
-        impl const ::core::ops::Sub<$type> for $type {
+        impl const ::core::ops::Sub<$type<'static>> for $type<'static> {
             type Output = isize;
 
             #[inline(always)]
             fn sub(self, rhs: $type) -> Self::Output {
-                self.0 as isize - rhs.0 as isize
+                *self as isize - *rhs as isize
             }
         }
 
-        impl ::core::ops::AddAssign<usize> for $type {
+        impl ::core::ops::AddAssign<usize> for $type<'static> {
             #[inline(always)]
             fn add_assign(&mut self, rhs: usize) {
-                self.0 += rhs;
+                **self += rhs;
             }
         }
 
-        impl ::core::ops::AddAssign<isize> for $type {
+        impl ::core::ops::AddAssign<isize> for $type<'static> {
             #[inline(always)]
             fn add_assign(&mut self, rhs: isize) {
-                self.0 = (self.0 as isize + rhs) as usize;
+                **self = (**self as isize + rhs) as usize;
             }
         }
 
-        impl ::core::ops::SubAssign<usize> for $type {
+        impl ::core::ops::SubAssign<usize> for $type<'static> {
             #[inline(always)]
             fn sub_assign(&mut self, rhs: usize) {
-                self.0 -= rhs;
+                **self -= rhs;
             }
         }
 
-        impl ::core::ops::SubAssign<isize> for $type {
+        impl ::core::ops::SubAssign<isize> for $type<'static> {
             #[inline(always)]
             fn sub_assign(&mut self, rhs: isize) {
-                self.0 = (self.0 as isize - rhs) as usize;
+                **self = (**self as isize - rhs) as usize;
             }
         }
 
         // Bitwise operations
-        impl ::core::ops::BitAnd<usize> for $type {
+        impl ::core::ops::BitAnd<usize> for $type<'static> {
             type Output = Self;
 
             #[inline(always)]
-            fn bitand(self, rhs: usize) -> Self::Output {
-                Self(self.0 & rhs)
+            fn bitand(mut self, rhs: usize) -> Self::Output {
+                *self &= rhs;
+                self
             }
         }
 
-        impl ::core::ops::BitAnd<$type> for $type {
+        impl ::core::ops::BitAnd<$type<'static>> for $type<'static> {
             type Output = Self;
 
             #[inline(always)]
-            fn bitand(self, rhs: $type) -> Self::Output {
-                Self(self.0 & rhs.0)
+            fn bitand(mut self, rhs: $type) -> Self::Output {
+                *self &= *rhs;
+                self
             }
         }
 
-        impl ::core::ops::BitOr<usize> for $type {
+        impl ::core::ops::BitOr<usize> for $type<'static> {
             type Output = Self;
 
             #[inline(always)]
-            fn bitor(self, rhs: usize) -> Self::Output {
-                Self(self.0 | rhs)
+            fn bitor(mut self, rhs: usize) -> Self::Output {
+                *self |= rhs;
+                self
             }
         }
 
-        impl ::core::ops::BitOr<$type> for $type {
+        impl ::core::ops::BitOr<$type<'static>> for $type<'static> {
             type Output = Self;
 
             #[inline(always)]
-            fn bitor(self, rhs: $type) -> Self::Output {
-                Self(self.0 | rhs.0)
+            fn bitor(mut self, rhs: $type) -> Self::Output {
+                *self |= *rhs;
+                self
             }
         }
 
-        impl ::core::ops::BitXor<usize> for $type {
+        impl ::core::ops::BitXor<usize> for $type<'static> {
             type Output = Self;
 
             #[inline(always)]
-            fn bitxor(self, rhs: usize) -> Self::Output {
-                Self(self.0 ^ rhs)
+            fn bitxor(mut self, rhs: usize) -> Self::Output {
+                *self ^= rhs;
+                self
             }
         }
 
-        impl ::core::ops::BitXor<$type> for $type {
+        impl ::core::ops::BitXor<$type<'static>> for $type<'static> {
             type Output = Self;
 
             #[inline(always)]
-            fn bitxor(self, rhs: $type) -> Self::Output {
-                Self(self.0 ^ rhs.0)
+            fn bitxor(mut self, rhs: $type) -> Self::Output {
+                *self ^= *rhs;
+                self
             }
         }
 
-        impl ::core::ops::Not for $type {
+        impl ::core::ops::Not for $type<'static> {
             type Output = Self;
 
             #[inline(always)]
-            fn not(self) -> Self::Output {
-                Self(!self.0)
+            fn not(mut self) -> Self::Output {
+                *self = !*self;
+                self
             }
         }
 
-        impl ::core::ops::Shl<usize> for $type {
+        impl ::core::ops::Shl<usize> for $type<'static> {
             type Output = Self;
 
             #[inline(always)]
-            fn shl(self, rhs: usize) -> Self::Output {
-                Self(self.0 << rhs)
+            fn shl(mut self, rhs: usize) -> Self::Output {
+                *self <<= rhs;
+                self
             }
         }
 
-        impl ::core::ops::Shr<usize> for $type {
+        impl ::core::ops::Shr<usize> for $type<'static> {
             type Output = Self;
 
             #[inline(always)]
-            fn shr(self, rhs: usize) -> Self::Output {
-                Self(self.0 >> rhs)
+            fn shr(mut self, rhs: usize) -> Self::Output {
+                *self >>= rhs;
+                self
             }
         }
 
         // Bitwise assignment operations
-        impl ::core::ops::BitAndAssign<usize> for $type {
+        impl ::core::ops::BitAndAssign<usize> for $type<'static> {
             #[inline(always)]
             fn bitand_assign(&mut self, rhs: usize) {
-                self.0 &= rhs;
+                **self &= rhs;
             }
         }
 
-        impl ::core::ops::BitAndAssign<$type> for $type {
+        impl ::core::ops::BitAndAssign<$type<'static>> for $type<'static> {
             #[inline(always)]
             fn bitand_assign(&mut self, rhs: $type) {
-                self.0 &= rhs.0;
+                *self &= *rhs;
             }
         }
 
-        impl ::core::ops::BitOrAssign<usize> for $type {
+        impl ::core::ops::BitOrAssign<usize> for $type<'static> {
             #[inline(always)]
             fn bitor_assign(&mut self, rhs: usize) {
-                self.0 |= rhs;
+                **self |= rhs;
             }
         }
 
-        impl ::core::ops::BitOrAssign<$type> for $type {
+        impl ::core::ops::BitOrAssign<$type<'static>> for $type<'static> {
             #[inline(always)]
             fn bitor_assign(&mut self, rhs: $type) {
-                self.0 |= rhs.0;
+                *self |= *rhs;
             }
         }
 
-        impl ::core::ops::BitXorAssign<usize> for $type {
+        impl ::core::ops::BitXorAssign<usize> for $type<'static> {
             #[inline(always)]
             fn bitxor_assign(&mut self, rhs: usize) {
-                self.0 ^= rhs;
+                **self ^= rhs;
             }
         }
 
-        impl ::core::ops::BitXorAssign<$type> for $type {
+        impl ::core::ops::BitXorAssign<$type<'static>> for $type<'static> {
             #[inline(always)]
             fn bitxor_assign(&mut self, rhs: $type) {
-                self.0 ^= rhs.0;
+                *self ^= *rhs;
             }
         }
 
-        impl ::core::ops::ShlAssign<usize> for $type {
+        impl ::core::ops::ShlAssign<usize> for $type<'static> {
             #[inline(always)]
             fn shl_assign(&mut self, rhs: usize) {
-                self.0 <<= rhs;
+                **self <<= rhs;
             }
         }
 
-        impl ::core::ops::ShrAssign<usize> for $type {
+        impl ::core::ops::ShrAssign<usize> for $type<'static> {
             #[inline(always)]
             fn shr_assign(&mut self, rhs: usize) {
-                self.0 >>= rhs;
+                **self >>= rhs;
             }
         }
 
@@ -402,7 +431,7 @@ macro_rules! impl_addr {
                 const DEFAULT: $type = <$type as ::core::default::Default>::default();
                 const USIZE: usize = usize::from(ADDR1);
 
-                assert_eq!(ADDR1.0, 0x1234);
+                assert_eq!(*ADDR1, 0x1234);
                 assert_eq!(ADDR1, ADDR2);
                 assert_eq!(USIZE, 0x1234);
                 assert_eq!(NULL, DEFAULT);
@@ -424,11 +453,11 @@ macro_rules! impl_addr {
                 const SUB_ISIZE: $type = ADDR2 - 0x100isize;
                 const SUB_ADDR_DIFF: isize = ADDR2 - ADDR1;
 
-                assert_eq!(ADD_USIZE.0, 0x1334);
-                assert_eq!(ADD_ISIZE.0, 0x1334);
-                assert_eq!(ADD_ADDR.0, 0x68ac);
-                assert_eq!(SUB_USIZE.0, 0x5578);
-                assert_eq!(SUB_ISIZE.0, 0x5578);
+                assert_eq!(*ADD_USIZE, 0x1334);
+                assert_eq!(*ADD_ISIZE, 0x1334);
+                assert_eq!(*ADD_ADDR, 0x68ac);
+                assert_eq!(*SUB_USIZE, 0x5578);
+                assert_eq!(*SUB_ISIZE, 0x5578);
                 assert_eq!(SUB_ADDR_DIFF, 0x4444);
             }
 
@@ -496,7 +525,7 @@ macro_rules! impl_addr {
                 assert_eq!(usize_val, 0x1000);
 
                 let addr_from_usize = $type::from(0x3000usize);
-                assert_eq!(addr_from_usize.0, 0x3000);
+                assert_eq!(*addr_from_usize, 0x3000);
 
                 // Test deref
                 assert_eq!(*addr1, 0x1000);
@@ -517,22 +546,22 @@ macro_rules! impl_addr {
             fn test_edge_cases() {
                 // Test maximum value
                 let max_addr = $type::new(usize::MAX);
-                assert_eq!(max_addr.0, usize::MAX);
+                assert_eq!(*max_addr, usize::MAX);
 
                 // Test null address
                 let null_addr = $type::null;
                 assert!(null_addr.is_null());
-                assert_eq!(null_addr.0, 0);
+                assert_eq!(*null_addr, 0);
 
                 // Test very large addresses
                 let large_addr = $type::new(0xFFFF_FFFF_FFFF_0000);
-                assert_eq!(large_addr.0, 0xFFFF_FFFF_FFFF_0000);
+                assert_eq!(*large_addr, 0xFFFF_FFFF_FFFF_0000);
 
                 // Test negative arithmetic that could underflow
                 let small_addr = $type::new(0x100);
                 let result = small_addr + (-0x200isize);
                 // This should wrap around in usize arithmetic
-                assert_eq!(result.0 as isize, (0x100isize - 0x200isize) as usize as isize);
+                assert_eq!(*result as isize, (0x100isize - 0x200isize) as usize as isize);
 
                 // Test zero arithmetic
                 let zero_addr = $type::new(0);
@@ -593,12 +622,12 @@ macro_rules! impl_addr {
 
                 // Test mutable dereference
                 *addr = 0x2000;
-                assert_eq!(addr.0, 0x2000);
+                assert_eq!(*addr, 0x2000);
                 assert_eq!(*addr, 0x2000);
 
                 // Test that we can modify through deref_mut
                 *addr += 0x1000;
-                assert_eq!(addr.0, 0x3000);
+                assert_eq!(*addr, 0x3000);
             }
 
             #[test]
@@ -720,15 +749,15 @@ macro_rules! impl_addr {
                 const ADDR2: $type = $type::new(0b10101010);
 
                 // Test const bitwise operations
-                const AND_RESULT: $type = $type::new(ADDR1.0 & ADDR2.0);
-                const OR_RESULT: $type = $type::new(ADDR1.0 | ADDR2.0);
-                const XOR_RESULT: $type = $type::new(ADDR1.0 ^ ADDR2.0);
-                const NOT_RESULT: $type = $type::new(!ADDR1.0);
+                const AND_RESULT: $type = $type::new(*ADDR1 & *ADDR2);
+                const OR_RESULT: $type = $type::new(*ADDR1 | *ADDR2);
+                const XOR_RESULT: $type = $type::new(*ADDR1 ^ *ADDR2);
+                const NOT_RESULT: $type = $type::new(!*ADDR1);
 
-                assert_eq!(AND_RESULT.0, 0b10100000);
-                assert_eq!(OR_RESULT.0, 0b11111010);
-                assert_eq!(XOR_RESULT.0, 0b01011010);
-                assert_eq!(NOT_RESULT.0, !0b11110000usize);
+                assert_eq!(*AND_RESULT, 0b10100000);
+                assert_eq!(*OR_RESULT, 0b11111010);
+                assert_eq!(*XOR_RESULT, 0b01011010);
+                assert_eq!(*NOT_RESULT, !0b11110000usize);
 
                 // Test const alignment operations
                 const UNALIGNED: $type = $type::new(0x1234);
@@ -737,8 +766,8 @@ macro_rules! impl_addr {
                 const IS_ALIGNED: bool = ALIGNED_DOWN.is_aligned(0x1000);
                 const OFFSET: usize = UNALIGNED.offset_from_alignment(0x1000);
 
-                assert_eq!(ALIGNED_DOWN.0, 0x1000);
-                assert_eq!(ALIGNED_UP.0, 0x2000);
+                assert_eq!(*ALIGNED_DOWN, 0x1000);
+                assert_eq!(*ALIGNED_UP, 0x2000);
                 assert!(IS_ALIGNED);
                 assert_eq!(OFFSET, 0x234);
             }

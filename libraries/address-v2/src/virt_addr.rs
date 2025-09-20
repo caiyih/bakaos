@@ -4,7 +4,7 @@ impl_addr!(VirtAddr,
     /// Represents a virtual address.
 );
 
-impl VirtAddr {
+impl VirtAddr<'_> {
     /// Returns the address as a raw pointer of type `*const T`.
     ///
     /// # Safety
@@ -16,8 +16,8 @@ impl VirtAddr {
     /// A valid address not only requires to be non-null, but also must point to
     /// a properly mapped memory region in the **current** address space.
     #[inline(always)]
-    pub unsafe fn as_ptr<T>(self) -> *const T {
-        self.0 as *const T
+    pub unsafe fn as_ptr<T: Sized>(self) -> *const T {
+        *self as *const T
     }
 
     /// Returns the address as a raw pointer of type `*mut T`.
@@ -31,34 +31,81 @@ impl VirtAddr {
     /// A valid address not only requires to be non-null, but also must point to
     /// a properly mapped memory region in the **current** address space.
     #[inline(always)]
-    pub unsafe fn as_mut_ptr<T>(self) -> *mut T {
-        self.0 as *mut T
+    pub unsafe fn as_mut_ptr<T: Sized>(self) -> *mut T {
+        *self as *mut T
     }
 }
 
-impl<T> From<*const T> for VirtAddr {
+impl<T: ?Sized> From<*const T> for VirtAddr<'static> {
     #[inline(always)]
     fn from(ptr: *const T) -> Self {
         VirtAddr::new(ptr as *const () as usize)
     }
 }
 
-impl<T: ?Sized> From<&T> for VirtAddr
+impl<T: ?Sized> From<*mut T> for VirtAddr<'static> {
+    #[inline(always)]
+    fn from(ptr: *mut T) -> Self {
+        VirtAddr::new(ptr as *mut () as usize)
+    }
+}
+
+impl<'a, T: ?Sized> From<&'a T> for VirtAddr<'a>
 where
     T: Deref,
 {
     #[inline(always)]
-    default fn from(value: &T) -> Self {
+    default fn from(value: &'a T) -> Self {
         let inner = Deref::deref(value);
 
         inner.into()
     }
 }
 
-impl<T: ?Sized> From<&T> for VirtAddr {
+impl<'a, T: ?Sized> From<&'a T> for VirtAddr<'a> {
     #[inline(always)]
-    default fn from(value: &T) -> Self {
+    default fn from(value: &'a T) -> Self {
         VirtAddr::new(value as *const T as *const () as usize)
+    }
+}
+
+// There's no implementation for PhysAddr, as physical addresses are always static.
+impl<'a> VirtAddr<'a> {
+    /// Create a new address with the same lifetime as the given address.
+    ///
+    /// # Examples
+    /// ```
+    /// # use address_v2::VirtAddr;
+    /// let val: i32 = 42;
+    /// let vaddr1 = VirtAddr::from(&val); // local lifetime
+    /// let vaddr2 = vaddr1.same_lifetime(0x1234); // same local lifetime
+    ///
+    /// let vaddr3 = VirtAddr::null; // static lifetime
+    /// let vaddr4 = vaddr3.same_lifetime(0x5678); // static lifetime
+    /// ```
+    #[inline(always)]
+    pub const fn same_lifetime(&'a self, addr: usize) -> VirtAddr<'a> {
+        VirtAddr {
+            _0: addr,
+            _marker: self._marker,
+        }
+    }
+
+    /// Promotes the address to a static lifetime.
+    ///
+    /// # Examples
+    /// ```
+    /// # use address_v2::VirtAddr;
+    /// let val: i32 = 42;
+    /// let vaddr = VirtAddr::from(&val); // local lifetime
+    /// let static_vaddr = unsafe { vaddr.promote_to_static() }; // static lifetime
+    /// ```
+    /// # Safety
+    /// The lifetime is explicitly limited, so promoting it to `'static` is unsafe.
+    /// The caller must ensure that the address remains valid for the `'static` lifetime.
+    #[inline(always)]
+    pub const unsafe fn promote_to_static(self) -> VirtAddr<'static> {
+        VirtAddr::null.same_lifetime(*self)
     }
 }
 
@@ -347,5 +394,47 @@ mod virt_addr_tests {
         let addr: VirtAddr = boxed.as_ref().into();
 
         assert_eq!(*addr, boxed.deref().as_ptr() as usize);
+    }
+
+    #[test]
+    fn test_same_lifetime() {
+        fn foo<'a>(lhs: VirtAddr<'a>, rhs: VirtAddr<'a>) {
+            use core::hint::black_box;
+
+            black_box((lhs, rhs));
+        }
+
+        let val = 42;
+
+        let null = VirtAddr::from(&val);
+        let addr = null.same_lifetime(0x10000);
+
+        foo(null, addr);
+    }
+
+    #[test]
+    fn test_promote_to_static() {
+        fn take_static(addr: VirtAddr<'static>) {
+            use core::hint::black_box;
+
+            black_box(addr);
+        }
+
+        let addr = {
+            let val = 24;
+            unsafe { VirtAddr::from(&val).promote_to_static() }
+        };
+
+        assert!(!addr.is_null());
+
+        let val = 42;
+
+        let local = VirtAddr::from(&val);
+        let static_addr = unsafe { local.promote_to_static() };
+
+        take_static(static_addr);
+
+        assert_eq!(*local, *static_addr);
+        assert_eq!(local, static_addr); // TODO: Not sure if we should allow this
     }
 }

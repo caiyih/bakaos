@@ -4,7 +4,7 @@ macro_rules! impl_page {
         #[repr(C)]
         #[derive(Clone, Copy, Eq)]
         pub struct $page_type {
-            addr: $addr_type,
+            addr: $addr_type<'static>,
             size: usize, // TODO: should we use a enum for common sizes?
         }
 
@@ -50,7 +50,7 @@ macro_rules! impl_page {
             /// assert!(unaligned.is_none());
             /// ```
             #[inline(always)]
-            pub const fn new_4k(addr: $addr_type) -> Option<Self> {
+            pub const fn new_4k(addr: $addr_type<'static>) -> Option<Self> {
                 Self::new_custom(addr, Self::SIZE_4K)
             }
 
@@ -75,7 +75,7 @@ macro_rules! impl_page {
             /// assert!(unaligned.is_none());
             /// ```
             #[inline(always)]
-            pub const fn new_2m(addr: $addr_type) -> Option<Self> {
+            pub const fn new_2m(addr: $addr_type<'static>) -> Option<Self> {
                 Self::new_custom(addr, Self::SIZE_2M)
 
             }
@@ -101,7 +101,7 @@ macro_rules! impl_page {
             /// assert!(unaligned.is_none());
             /// ```
             #[inline(always)]
-            pub const fn new_1g(addr: $addr_type) -> Option<Self> {
+            pub const fn new_1g(addr: $addr_type<'static>) -> Option<Self> {
                 Self::new_custom(addr, Self::SIZE_1G)
 
             }
@@ -135,7 +135,7 @@ macro_rules! impl_page {
             /// assert!(zero_size.is_none());
             /// ```
             #[inline(always)]
-            pub const fn new_custom(addr: $addr_type, size: usize) -> Option<Self> {
+            pub const fn new_custom(addr: $addr_type<'static>, size: usize) -> Option<Self> {
                 if size != 0 && addr.is_aligned(size) {
                     Some(Self { addr, size })
                 } else {
@@ -164,7 +164,7 @@ macro_rules! impl_page {
             /// assert_eq!(page.size(), 0x5678);
             /// ```
             #[inline(always)]
-            pub const fn new_custom_unchecked(addr: $addr_type, size: usize) -> Self {
+            pub const fn new_custom_unchecked(addr: $addr_type<'static>, size: usize) -> Self {
                 Self { addr, size }
             }
         }
@@ -182,7 +182,7 @@ macro_rules! impl_page {
             /// assert_eq!(page.addr(), PhysAddr::new(0x1000));
             /// ```
             #[inline(always)]
-            pub const fn addr(&self) -> $addr_type {
+            pub const fn addr(&self) -> $addr_type<'static> {
                 self.addr
             }
 
