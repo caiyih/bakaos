@@ -16,7 +16,7 @@ use crate::memory::TestMMU;
 pub struct TestKernel {
     pub serial: Option<Arc<dyn IKernelSerial>>,
     pub fs: Option<Arc<SpinMutex<Arc<DirectoryTreeNode>>>>,
-    pub allocator: Option<Arc<SpinMutex<dyn IFrameAllocator>>>,
+    pub alloc: Option<Arc<SpinMutex<dyn IFrameAllocator>>>,
 }
 
 unsafe impl Send for TestKernel {}
@@ -33,7 +33,7 @@ impl TestKernel {
         Self {
             serial: None,
             fs: None,
-            allocator: None,
+            alloc: Some(alloc::create_global_frame_alloc()),
         }
     }
 
@@ -47,8 +47,8 @@ impl TestKernel {
         self
     }
 
-    pub fn with_allocator(mut self, alloc: Option<Arc<SpinMutex<dyn IFrameAllocator>>>) -> Self {
-        self.allocator = alloc;
+    pub fn with_alloc(mut self, alloc: Option<Arc<SpinMutex<dyn IFrameAllocator>>>) -> Self {
+        self.alloc = alloc;
         self
     }
 
@@ -67,7 +67,7 @@ impl IKernel for TestKernel {
     }
 
     fn global_frame_alloc(&self) -> Arc<SpinMutex<dyn IFrameAllocator>> {
-        self.allocator.as_ref().unwrap().clone()
+        self.alloc.as_ref().unwrap().clone()
     }
 
     fn activate_mmu(&self, _pt: &dyn IMMU) {}
@@ -76,7 +76,14 @@ impl IKernel for TestKernel {
         &self,
         alloc: Option<Arc<SpinMutex<dyn IFrameAllocator>>>,
     ) -> Arc<SpinMutex<dyn IMMU>> {
-        TestMMU::new(alloc.expect("Corresponding allocator must be provided"))
+        TestMMU::new(
+            alloc.unwrap_or(
+                self.alloc
+                    .as_ref()
+                    .expect("Corresponding allocator must be provided")
+                    .clone(),
+            ),
+        )
     }
 
     fn time(&self) -> TimeSpec {
@@ -130,5 +137,36 @@ impl IKernelSerial for TestSerial {
 
     fn recv(&self) -> Option<u8> {
         self.input.lock().pop_front()
+    }
+}
+
+#[cfg(not(target_os = "none"))]
+pub(super) mod alloc {
+    use super::*;
+
+    pub fn create_global_frame_alloc() -> Arc<SpinMutex<dyn IFrameAllocator>> {
+        crate::allocation::segment::TestFrameAllocator::new()
+    }
+}
+
+#[cfg(target_os = "none")]
+pub(super) mod alloc {
+    use super::*;
+
+    fn create_global_frame_alloc() -> Arc<SpinMutex<dyn IFrameAllocator>> {
+        #[linkage = "weak"]
+        static _ALLOC: Option<Arc<SpinMutex<dyn IFrameAllocator + Send + Sync>>> = None;
+
+        unsafe extern "Rust" {
+            #[link_name = "__global_frame_alloc"]
+            static GLOBAL_ALLOC: Option<Arc<SpinMutex<dyn IFrameAllocator + Send + Sync>>>;
+        }
+
+        unsafe {
+            GLOBAL_ALLOC
+                .as_ref()
+                .expect("Global allocator must be provided")
+                .clone()
+        }
     }
 }

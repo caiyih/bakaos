@@ -1061,7 +1061,7 @@ mod tests {
     use core::mem::size_of;
     use hermit_sync::SpinMutex;
     use mmu_abstractions::{GenericMappingFlags, MMUError, PageSize};
-    use test_utilities::allocation::contiguous::TestFrameAllocator;
+    use test_utilities::allocation::segment::TestFrameAllocator;
     use utilities::InvokeOnDrop;
 
     use super::*;
@@ -1070,7 +1070,7 @@ mod tests {
     type Mmu = Arc<SpinMutex<dyn IMMU>>;
 
     fn create_alloc_mmu() -> (Alloc, Mmu) {
-        TestFrameAllocator::new_with_mmu(1024 * 1024 * 1024) // 1 GB
+        TestFrameAllocator::new_with_mmu() // 1 GB
     }
 
     // Helper: create a test memory scene with read/write mapping

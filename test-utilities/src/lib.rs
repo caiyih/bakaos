@@ -1,3 +1,5 @@
+#![feature(linkage)]
+
 pub mod allocation;
 pub mod fs;
 pub mod kernel;

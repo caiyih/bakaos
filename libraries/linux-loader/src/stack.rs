@@ -183,14 +183,14 @@ mod tests {
     use memory_space::{MappingArea, MemorySpace};
     use mmu_abstractions::{GenericMappingFlags, PageSize};
     use stream::{MemoryStream, Whence};
-    use test_utilities::allocation::contiguous::TestFrameAllocator;
+    use test_utilities::allocation::segment::TestFrameAllocator;
 
     use crate::auxv::AuxVecKey;
 
     use super::*;
 
     fn test_scene(ctx: ProcessContext<'_>, action: impl FnOnce(LinuxLoader<'_>)) {
-        let (alloc, mmu) = TestFrameAllocator::new_with_mmu(1024 * 1024 * 1024);
+        let (alloc, mmu) = TestFrameAllocator::new_with_mmu();
 
         let mut memory_space = MemorySpace::new(mmu, alloc);
 

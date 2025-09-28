@@ -63,7 +63,7 @@ mod tests {
     use memory_space::MemorySpace;
     use mmu_abstractions::{GenericMappingFlags, PageSize, IMMU};
     use test_utilities::{
-        allocation::contiguous::TestFrameAllocator, kernel::TestKernel, task::TestProcess,
+        allocation::segment::TestFrameAllocator, kernel::TestKernel, task::TestProcess,
     };
     use threading::block_on;
     use utilities::InvokeOnDrop;
@@ -111,13 +111,9 @@ mod tests {
     );
 
     fn setup_kernel_with_memory() -> KernelSetup {
-        const MEMORY_RANGE: usize = 1024 * 1024 * 1024; // 1 GB
+        let (alloc, mmu) = TestFrameAllocator::new_with_mmu();
 
-        let (alloc, mmu) = TestFrameAllocator::new_with_mmu(MEMORY_RANGE);
-
-        let kernel = TestKernel::new()
-            .with_allocator(Some(alloc.clone()))
-            .build();
+        let kernel = TestKernel::new().build();
 
         (kernel, alloc, mmu)
     }
